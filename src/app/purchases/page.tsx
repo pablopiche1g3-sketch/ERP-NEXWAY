@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -21,7 +20,9 @@ import {
   Calendar,
   ClipboardList,
   Plus,
-  Trash2
+  Trash2,
+  Wallet,
+  Landmark
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,8 @@ interface PurchaseItem {
   quantity: number;
 }
 
+type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Credito';
+
 export default function PurchasesPage() {
   const db = useFirestore();
   const { toast } = useToast();
@@ -53,7 +56,7 @@ export default function PurchasesPage() {
   const [pedidoId, setPedidoId] = useState('');
   const [generationCode, setGenerationCode] = useState('');
   const [docType, setDocType] = useState<'FACTURA' | 'CCF'>('FACTURA');
-  const [paymentTerms, setPaymentTerms] = useState<'Contado' | 'Credito'>('Contado');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [creditDays, setCreditDays] = useState('0');
   const [enteredBy, setEnteredBy] = useState('');
   const [warehouse, setWarehouse] = useState('Bodega Central');
@@ -130,8 +133,8 @@ export default function PurchasesPage() {
         pedidoId,
         generationCode,
         docType,
-        paymentTerms,
-        creditDays: parseInt(creditDays),
+        paymentMethod,
+        creditDays: paymentMethod === 'Credito' ? parseInt(creditDays) : 0,
         enteredBy,
         warehouse,
         items: purchaseItems,
@@ -159,6 +162,8 @@ export default function PurchasesPage() {
       setPurchaseItems([]);
       setGenerationCode('');
       setEnteredBy('');
+      setPaymentMethod('Efectivo');
+      setCreditDays('0');
       // Generar nuevo ID para la siguiente
       setPedidoId(`ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`);
 
@@ -248,7 +253,7 @@ export default function PurchasesPage() {
                 <span className="text-[10px] font-mono opacity-60">{pedidoId}</span>
               </div>
             </CardHeader>
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="p-6 space-y-4 text-slate-900">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-slate-400">Encargado de Ingreso</Label>
                 <div className="relative">
@@ -257,7 +262,7 @@ export default function PurchasesPage() {
                     placeholder="Nombre completo..." 
                     value={enteredBy}
                     onChange={e => setEnteredBy(e.target.value)}
-                    className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                    className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs text-slate-900"
                   />
                 </div>
               </div>
@@ -266,7 +271,7 @@ export default function PurchasesPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Tipo Documento</Label>
                   <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100 text-slate-900">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -278,7 +283,7 @@ export default function PurchasesPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Bodega Destino</Label>
                   <Select value={warehouse} onValueChange={setWarehouse}>
-                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100 text-slate-900">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -298,39 +303,55 @@ export default function PurchasesPage() {
                     placeholder="GEN-123456..." 
                     value={generationCode}
                     onChange={e => setGenerationCode(e.target.value)}
-                    className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                    className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono text-slate-900"
                   />
                 </div>
               </div>
 
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                 <div className="flex justify-between items-center">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Forma de Pago</Label>
+                 <Label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Forma de Pago</Label>
+                 <div className="grid grid-cols-1 gap-2">
                     <div className="flex gap-2">
-                       <Button 
-                        variant={paymentTerms === 'Contado' ? 'default' : 'outline'} 
+                      <Button 
+                        variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} 
                         size="sm" 
-                        onClick={() => setPaymentTerms('Contado')}
-                        className="h-7 text-[9px] font-bold rounded-lg"
-                       >Contado</Button>
-                       <Button 
-                        variant={paymentTerms === 'Credito' ? 'default' : 'outline'} 
+                        onClick={() => setPaymentMethod('Efectivo')}
+                        className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Efectivo' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
+                      >
+                        <Wallet size={12} className="mr-1.5" />
+                        Efectivo
+                      </Button>
+                      <Button 
+                        variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} 
                         size="sm" 
-                        onClick={() => setPaymentTerms('Credito')}
-                        className="h-7 text-[9px] font-bold rounded-lg"
-                       >Crédito</Button>
+                        onClick={() => setPaymentMethod('Transferencia')}
+                        className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Transferencia' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
+                      >
+                        <Landmark size={12} className="mr-1.5" />
+                        Transf.
+                      </Button>
+                      <Button 
+                        variant={paymentMethod === 'Credito' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setPaymentMethod('Credito')}
+                        className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Credito' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
+                      >
+                        <CreditCard size={12} className="mr-1.5" />
+                        Crédito
+                      </Button>
                     </div>
                  </div>
-                 {paymentTerms === 'Credito' && (
-                   <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                      <Label className="text-[10px] font-bold text-blue-600">Días de Crédito</Label>
+                 {paymentMethod === 'Credito' && (
+                   <div className="space-y-2 animate-in fade-in slide-in-from-top-2 pt-2 border-t border-slate-200">
+                      <Label className="text-[10px] font-bold text-blue-600 uppercase">Plazo de Crédito</Label>
                       <div className="flex items-center gap-2">
                         <Calendar size={14} className="text-slate-400" />
                         <Input 
                           type="number" 
                           value={creditDays} 
                           onChange={e => setCreditDays(e.target.value)} 
-                          className="h-8 bg-white"
+                          className="h-8 bg-white text-slate-900 font-bold"
+                          placeholder="0"
                         />
                         <span className="text-[10px] font-bold text-slate-400 uppercase">Días</span>
                       </div>
@@ -348,16 +369,16 @@ export default function PurchasesPage() {
                   placeholder="SKU..." 
                   value={skuSearch}
                   onChange={e => setSkuSearch(e.target.value.toUpperCase())}
-                  className="h-12 bg-slate-50 border-slate-100 font-bold text-lg"
+                  className="h-12 bg-slate-50 border-slate-100 font-bold text-lg text-slate-900"
                 />
                 <Input 
                   type="number" 
                   value={manualQty}
                   onChange={e => setManualQty(parseInt(e.target.value) || 1)}
-                  className="w-20 h-12 bg-slate-50 border-slate-100 font-bold text-lg text-center"
+                  className="w-20 h-12 bg-slate-50 border-slate-100 font-bold text-lg text-center text-slate-900"
                 />
               </div>
-              <Button onClick={handleAddItem} className="w-full h-12 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold">
+              <Button onClick={handleAddItem} className="w-full h-12 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-white shadow-lg">
                 <Plus size={18} className="mr-2" />
                 Añadir a la Lista
               </Button>
@@ -367,7 +388,7 @@ export default function PurchasesPage() {
                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".json" />
                <Button 
                 variant="outline" 
-                className="w-full h-12 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:bg-slate-50"
+                className="w-full h-12 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:bg-slate-50 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
                >
                  <FileJson size={18} className="mr-2" />
@@ -383,7 +404,7 @@ export default function PurchasesPage() {
             <CardHeader className="bg-slate-50 border-b border-slate-100 px-6 py-4">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-sm font-bold text-slate-900">Items del Pedido</CardTitle>
-                <Badge variant="secondary" className="font-mono text-[10px]">{purchaseItems.length} ítems</Badge>
+                <Badge variant="secondary" className="font-mono text-[10px] bg-slate-100 text-slate-600">{purchaseItems.length} ítems</Badge>
               </div>
             </CardHeader>
             <ScrollArea className="flex-1">
@@ -427,7 +448,7 @@ export default function PurchasesPage() {
           <div className="grid grid-cols-2 gap-4">
             <Button 
               variant="outline" 
-              className="h-16 rounded-2xl border-2 border-slate-200 font-black text-slate-500 text-lg hover:bg-white hover:border-blue-600 hover:text-blue-600 transition-all"
+              className="h-16 rounded-2xl border-2 border-slate-200 font-black text-slate-500 text-lg hover:bg-white hover:border-blue-600 hover:text-blue-600 transition-all bg-white"
               disabled={loading || purchaseItems.length === 0}
               onClick={() => savePurchase('PENDIENTE')}
             >
@@ -435,7 +456,7 @@ export default function PurchasesPage() {
               Guardar como Pendiente
             </Button>
             <Button 
-              className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-xl shadow-emerald-500/20 transition-all group"
+              className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-xl shadow-emerald-500/20 transition-all group border-none"
               disabled={loading || purchaseItems.length === 0}
               onClick={() => savePurchase('CERRADA')}
             >
