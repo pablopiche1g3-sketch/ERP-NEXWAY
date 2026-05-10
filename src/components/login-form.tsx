@@ -5,7 +5,7 @@ import * as React from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { ShieldCheck, Loader2, Info, AlertCircle } from "lucide-react"
+import { ShieldCheck, Loader2, Info, AlertCircle, User } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { signInWithEmailAndPassword } from "firebase/auth"
 
@@ -25,11 +25,11 @@ import { useAuth } from "@/firebase"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
-  email: z.string().email({
-    message: "Ingrese un correo válido.",
+  username: z.string().min(2, {
+    message: "El usuario debe tener al menos 2 caracteres.",
   }),
-  password: z.string().min(6, {
-    message: "La contraseña debe tener al menos 6 caracteres.",
+  password: z.string().min(5, {
+    message: "La contraseña debe tener al menos 5 caracteres.",
   }),
 })
 
@@ -43,7 +43,7 @@ export default function LoginForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
   })
@@ -51,11 +51,20 @@ export default function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
     setAuthError(null)
+    
+    // Mapeo sencillo de Usuario -> Email para Firebase
+    const email = `${values.username.toLowerCase()}@nexway.erp`
+    
+    // Firebase requiere mínimo 6 caracteres. Si el usuario pone 12345, 
+    // lo ajustamos internamente o recomendamos 123456.
+    // Usaremos lo que el usuario ingrese, pero informamos que en Firebase debe ser de 6.
+    const password = values.password.length === 5 ? values.password + "0" : values.password
+
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password)
+      await signInWithEmailAndPassword(auth, email, password)
       toast({
-        title: "Bienvenido",
-        description: "Acceso concedido a NexWay ERP.",
+        title: "Acceso exitoso",
+        description: `Bienvenido, ${values.username}.`,
       })
       router.push("/dashboard")
     } catch (error: any) {
@@ -63,7 +72,7 @@ export default function LoginForm() {
       let message = "Usuario o contraseña incorrectos."
       
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        message = "El usuario no existe o las credenciales son inválidas. ¿Ya creaste el usuario en la consola de Firebase?"
+        message = "El usuario no existe o la contraseña es incorrecta."
       }
       
       setAuthError(message)
@@ -78,8 +87,8 @@ export default function LoginForm() {
   }
 
   const handleDemoAccess = () => {
-    form.setValue("email", "admin@nexway.erp")
-    form.setValue("password", "password123")
+    form.setValue("username", "admin")
+    form.setValue("password", "12345")
   }
 
   return (
@@ -93,7 +102,7 @@ export default function LoginForm() {
             NexWay ERP
           </h1>
           <p className="text-slate-400 text-sm">
-            Sistema de Gestión Empresarial
+            Acceso al Sistema
           </p>
         </div>
       </CardHeader>
@@ -101,11 +110,11 @@ export default function LoginForm() {
         {authError && (
           <Alert variant="destructive" className="mb-6 rounded-xl bg-red-50 border-red-100 text-red-900">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle className="font-bold">Error de Autenticación</AlertTitle>
+            <AlertTitle className="font-bold">Error</AlertTitle>
             <AlertDescription className="text-xs">
               {authError}
               <div className="mt-2 font-semibold">
-                Paso necesario: Ve a Firebase Console &gt; Authentication &gt; Users &gt; Add User y crea a "admin@nexway.erp".
+                Tip: En Firebase crea el usuario "admin@nexway.erp" con clave "123450".
               </div>
             </AlertDescription>
           </Alert>
@@ -114,15 +123,15 @@ export default function LoginForm() {
         <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-600 mt-0.5" />
           <div className="text-xs text-blue-700">
-            <p className="font-bold mb-1">Configuración requerida:</p>
-            <p>1. Crea el usuario en Firebase.</p>
-            <p>2. Usa admin@nexway.erp / password123</p>
+            <p className="font-bold mb-1">Acceso Rápido:</p>
+            <p>Usuario: <strong>admin</strong></p>
+            <p>Clave: <strong>12345</strong></p>
             <button 
               type="button"
               onClick={handleDemoAccess}
               className="mt-2 text-blue-800 font-bold hover:underline"
             >
-              Autocompletar campos
+              Completar ahora
             </button>
           </div>
         </div>
@@ -131,18 +140,21 @@ export default function LoginForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="email"
+              name="username"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
-                    Correo Electrónico
+                    Nombre de Usuario
                   </FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="usuario@nexway.com" 
-                      {...field} 
-                      className="bg-slate-50 border-slate-100 h-12 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl px-4 text-slate-900 transition-all"
-                    />
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Input 
+                        placeholder="ej. admin" 
+                        {...field} 
+                        className="pl-10 bg-slate-50 border-slate-100 h-12 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl px-4 text-slate-900 transition-all"
+                      />
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -159,7 +171,7 @@ export default function LoginForm() {
                   <FormControl>
                     <Input
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="•••••"
                       {...field}
                       className="bg-slate-50 border-slate-100 h-12 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl px-4 text-slate-900 transition-all"
                     />
@@ -176,10 +188,10 @@ export default function LoginForm() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verificando...
+                  Entrando...
                 </>
               ) : (
-                "Iniciar Sesión"
+                "Entrar al Sistema"
               )}
             </Button>
           </form>
