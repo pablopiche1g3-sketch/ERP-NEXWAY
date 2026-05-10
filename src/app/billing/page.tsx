@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   Plus, 
@@ -27,7 +27,9 @@ import {
   ArrowUpCircle,
   Coins,
   Banknote,
-  Users
+  Users,
+  History,
+  CheckCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,6 +64,7 @@ export default function BillingPage() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [mounted, setMounted] = useState(false);
   
   const [docType, setDocType] = useState<'CF' | 'CCF'>('CF');
   const [customerName, setCustomerName] = useState('');
@@ -78,6 +81,10 @@ export default function BillingPage() {
     b100: '', b50: '', b20: '', b10: '', b5: '', b1: '',
     c1: '', c025: '', c010: '', c005: '', c001: ''
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Estabilizar queries
   const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
@@ -225,6 +232,8 @@ export default function BillingPage() {
   };
 
   const accountingStats = useMemo(() => {
+    if (!mounted) return { total: 0, efectivoSales: 0, tarjeta: 0, transferencia: 0, cheque: 0, totalExpenses: 0, salesTodayList: [], expensesTodayList: [] };
+
     const today = new Date().toISOString().split('T')[0];
     const salesToday = (salesAll || []).filter((s: any) => s.timestamp.startsWith(today));
     const expensesToday = (expensesAll || []).filter((e: any) => e.timestamp.startsWith(today));
@@ -248,7 +257,7 @@ export default function BillingPage() {
       salesTodayList: salesToday,
       expensesTodayList: expensesToday
     };
-  }, [salesAll, expensesAll]);
+  }, [salesAll, expensesAll, mounted]);
 
   const physicalStats = useMemo(() => {
     const val = (k: string) => parseFloat(denominations[k]?.toString() || '0');
@@ -316,14 +325,18 @@ export default function BillingPage() {
 
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="facturacion" className="space-y-6">
-          <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 h-auto">
+          <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 h-auto flex-wrap">
             <TabsTrigger value="facturacion" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <ShoppingCart size={16} className="mr-2" />
               Facturación
             </TabsTrigger>
+            <TabsTrigger value="historial" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
+              <History size={16} className="mr-2" />
+              Ventas del Día
+            </TabsTrigger>
             <TabsTrigger value="abono" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <UserCircle size={16} className="mr-2" />
-              Abono de Clientes
+              Abono
             </TabsTrigger>
             <TabsTrigger value="cuadre" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <Calculator size={16} className="mr-2" />
@@ -588,6 +601,86 @@ export default function BillingPage() {
                 })}
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="historial" className="space-y-4 outline-none">
+            <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+              <CardHeader className="bg-slate-50 border-b border-slate-100 p-6 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-bold flex items-center gap-2 text-slate-900">
+                    <History className="text-blue-600" />
+                    Ventas Realizadas Hoy
+                  </CardTitle>
+                  <CardDescription>Registro de todas las transacciones generadas en la fecha actual</CardDescription>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Consolidado</p>
+                  <p className="text-2xl font-black text-blue-600">${accountingStats.total.toFixed(2)}</p>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[600px]">
+                  <Table>
+                    <TableHeader className="bg-slate-50/50 sticky top-0 z-10 backdrop-blur-sm">
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase px-6">Hora</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Tipo Doc</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Cliente / Receptor</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Método Pago</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase">Monto Total</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {accountingStats.salesTodayList.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-20 text-slate-400 italic text-xs">
+                            No se han realizado ventas el día de hoy.
+                          </TableCell>
+                        </TableRow>
+                      ) : accountingStats.salesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((sale: any) => (
+                        <TableRow key={sale.id} className="hover:bg-slate-50/50 transition-colors">
+                          <TableCell className="px-6">
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              {new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`text-[9px] font-black ${sale.docType === 'CCF' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                              {sale.docType || 'CF'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-bold text-slate-900 text-xs">{sale.customer}</span>
+                              {sale.items && <span className="text-[10px] text-slate-400 italic">{sale.items.length} productos</span>}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {sale.paymentMethod === 'Efectivo' && <Wallet size={12} className="text-emerald-500" />}
+                              {sale.paymentMethod === 'Tarjeta' && <CardIcon size={12} className="text-blue-500" />}
+                              {sale.paymentMethod === 'Transferencia' && <Landmark size={12} className="text-purple-500" />}
+                              {sale.paymentMethod === 'Cheque' && <BookOpen size={12} className="text-orange-500" />}
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-600">{sale.paymentMethod || 'Efectivo'}</span>
+                                {sale.paymentReference && <span className="text-[9px] text-blue-500 font-bold">Ref: {sale.paymentReference}</span>}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-black text-slate-900 text-sm">
+                            ${(sale.total || 0).toFixed(2)}
+                          </TableCell>
+                          <TableCell>
+                            <CheckCircle size={14} className="text-emerald-500" />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="abono" className="focus-visible:outline-none">
@@ -870,46 +963,6 @@ export default function BillingPage() {
                     </Card>
                   ))}
                 </div>
-
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden border border-slate-100">
-                  <CardHeader className="p-6 border-b border-slate-50">
-                    <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900">
-                      <ArrowUpCircle className="text-emerald-500" />
-                      Ventas Consolidadas (Historial del Día)
-                    </CardTitle>
-                  </CardHeader>
-                  <ScrollArea className="h-[400px]">
-                    <Table>
-                      <TableHeader className="bg-slate-50/50">
-                        <TableRow>
-                          <TableHead className="text-[10px] font-bold uppercase">Hora</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase">Cliente</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase">Método / Ref</TableHead>
-                          <TableHead className="text-right text-[10px] font-bold uppercase">Monto</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {accountingStats.salesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((sale: any) => (
-                          <TableRow key={sale.id} className="hover:bg-slate-50 transition-colors">
-                            <TableCell>
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                {new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </TableCell>
-                            <TableCell className="font-bold text-slate-900 text-xs">{sale.customer}</TableCell>
-                            <TableCell>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-slate-600">{sale.paymentMethod || 'Efectivo'}</span>
-                                {sale.paymentReference && <span className="text-[9px] text-blue-500 font-bold">Ref: {sale.paymentReference}</span>}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right font-black text-slate-900">${(sale.total || 0).toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </Card>
               </div>
             </div>
           </TabsContent>
