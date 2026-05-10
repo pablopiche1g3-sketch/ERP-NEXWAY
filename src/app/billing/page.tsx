@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -53,19 +54,14 @@ export default function BillingPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Estado para el cliente, documento y método de pago
   const [docType, setDocType] = useState<'CF' | 'CCF'>('CF');
   const [customerName, setCustomerName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [paymentReference, setPaymentReference] = useState('');
 
-  // Inventario real
   const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
-  
-  // Ventas para el cuadre
   const { data: salesToday } = useCollection<any>(collection(db, 'sales'));
 
-  // Lógica de Búsqueda de Productos
   const filteredProducts = useMemo(() => {
     if (!inventory) return [];
     return inventory.filter(p => 
@@ -110,7 +106,6 @@ export default function BillingPage() {
   const handleFinalizeSale = async () => {
     if (cart.length === 0) return;
 
-    // Validar referencias de pago según el método
     if (paymentMethod === 'Tarjeta' && paymentReference.length < 4) {
       toast({ variant: "destructive", title: "Referencia Requerida", description: "Ingrese los últimos 4 dígitos de la tarjeta." });
       return;
@@ -138,7 +133,6 @@ export default function BillingPage() {
         customer: customerName || (docType === 'CF' ? 'Consumidor Final (Venta Bolsón)' : 'Cliente Genérico CCF')
       });
 
-      // Actualizar stock
       for (const item of cart) {
         const product = inventory.find(p => p.id === item.id);
         if (product) {
@@ -171,11 +165,11 @@ export default function BillingPage() {
       const amount = s.total || 0;
       acc.total += amount;
       
-      const method = (s.paymentMethod || 'Efectivo').toLowerCase();
-      if (method === 'efectivo') acc.efectivo += amount;
-      else if (method === 'tarjeta') acc.tarjeta += amount;
-      else if (method === 'transferencia') acc.transferencia += amount;
-      else if (method === 'cheque') acc.cheque += amount;
+      const method = (s.paymentMethod || 'Efectivo');
+      if (method === 'Efectivo') acc.efectivo += amount;
+      else if (method === 'Tarjeta') acc.tarjeta += amount;
+      else if (method === 'Transferencia') acc.transferencia += amount;
+      else if (method === 'Cheque') acc.cheque += amount;
       
       return acc;
     }, { total: 0, efectivo: 0, tarjeta: 0, transferencia: 0, cheque: 0 });
@@ -215,7 +209,6 @@ export default function BillingPage() {
           </TabsList>
 
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 focus-visible:outline-none">
-            {/* PANEL IZQUIERDO: DETALLE DE VENTA */}
             <div className="lg:col-span-4 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
                 <CardHeader className="bg-slate-900 text-white p-5">
@@ -275,7 +268,6 @@ export default function BillingPage() {
                     </Table>
                   </div>
 
-                  {/* Selector de Pago en la Factura */}
                   <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-4">
                     <div>
                       <Label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Forma de Pago</Label>
@@ -301,24 +293,22 @@ export default function BillingPage() {
                       </div>
                     </div>
 
-                    {/* Campos condicionales según el método de pago */}
                     {paymentMethod !== 'Efectivo' && (
                       <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
                         <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1">
                           {paymentMethod === 'Tarjeta' && <><Hash size={10} /> Últimos 4 Dígitos</>}
-                          {paymentMethod === 'Transferencia' && <><UserCheck size={10} /> Nombre de quien transfiere</>}
-                          {paymentMethod === 'Cheque' && <><Hash size={10} /> Número de Cheque / Código</>}
+                          {paymentMethod === 'Transferencia' && <><UserCheck size={10} /> Nombre Transferencia</>}
+                          {paymentMethod === 'Cheque' && <><Hash size={10} /> Número de Cheque</>}
                         </Label>
                         <Input 
                           placeholder={
                             paymentMethod === 'Tarjeta' ? "0000" : 
-                            paymentMethod === 'Transferencia' ? "Nombre completo..." : 
-                            "Número de cheque..."
+                            paymentMethod === 'Transferencia' ? "Nombre..." : 
+                            "No. Cheque..."
                           }
                           value={paymentReference}
                           onChange={(e) => setPaymentReference(e.target.value)}
                           className="h-10 bg-white border-blue-100 rounded-xl focus:ring-blue-500/20 text-xs font-bold"
-                          maxLength={paymentMethod === 'Tarjeta' ? 4 : 50}
                         />
                       </div>
                     )}
@@ -336,10 +326,7 @@ export default function BillingPage() {
               </Button>
             </div>
 
-            {/* PANEL DERECHO: BÚSQUEDA Y CUADRÍCULA */}
             <div className="lg:col-span-8 space-y-4">
-              
-              {/* AREA DE CLIENTE */}
               <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
                 <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Receptor</span>
@@ -374,7 +361,6 @@ export default function BillingPage() {
                 </CardContent>
               </Card>
 
-              {/* BUSCADOR DE PRODUCTOS */}
               <div className="flex justify-end">
                 <div className="relative w-full md:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -387,7 +373,6 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {/* CUADRÍCULA DE PRODUCTOS */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filteredProducts.map((product) => {
                   const isOutOfStock = product.quantity <= 0;
@@ -432,52 +417,41 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          {/* CONTENIDO: ABONO DE CLIENTES */}
           <TabsContent value="abono" className="focus-visible:outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
               <CardHeader className="bg-slate-50 border-b border-slate-100 p-8">
                 <CardTitle className="text-xl font-bold flex items-center gap-2 text-slate-900">
                   <UserCircle className="text-blue-600" />
-                  Registro de Abonos a Cuentas por Cobrar
+                  Registro de Abonos
                 </CardTitle>
-                <CardDescription>Gestión de créditos y pagos de clientes recurrentes</CardDescription>
+                <CardDescription>Gestión de pagos de clientes recurrentes</CardDescription>
               </CardHeader>
               <CardContent className="p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400">Buscar Cliente</Label>
-                      <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <Input placeholder="Nombre del cliente o NRC..." className="pl-12 h-12 rounded-xl bg-slate-50 border-slate-200" />
-                      </div>
+                      <Input placeholder="Nombre o NRC..." className="h-12 rounded-xl bg-slate-50" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400">Monto del Abono ($)</Label>
-                      <Input type="number" step="0.01" className="h-14 text-2xl font-black rounded-xl bg-slate-50 border-slate-200" placeholder="0.00" />
+                      <Input type="number" step="0.01" className="h-14 text-2xl font-black rounded-xl bg-slate-50" placeholder="0.00" />
                     </div>
-                    <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-lg shadow-lg">
+                    <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-lg">
                       Registrar Pago
                     </Button>
                   </div>
-                  <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col items-center justify-center text-center space-y-4">
-                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm">
-                      <FileText className="text-slate-200" size={32} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900">Estado de Cuenta</h4>
-                      <p className="text-sm text-slate-500 max-w-[200px] mx-auto">Seleccione un cliente para ver su saldo actual y procesar abonos.</p>
-                    </div>
+                  <div className="bg-slate-50 rounded-3xl p-8 border border-dashed border-slate-200 flex flex-col items-center justify-center text-center space-y-4">
+                    <FileText className="text-slate-300" size={48} />
+                    <p className="text-sm text-slate-500">Seleccione un cliente para ver su saldo actual.</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* CONTENIDO: CUADRE DE CAJA */}
           <TabsContent value="cuadre" className="focus-visible:outline-none">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              {/* Resumen General */}
               <Card className="border-none shadow-sm rounded-3xl bg-blue-600 text-white md:col-span-2">
                 <CardContent className="p-8 space-y-2">
                   <p className="text-blue-100 text-xs font-bold uppercase tracking-wider">Total Ventas Brutas Hoy</p>
@@ -488,7 +462,6 @@ export default function BillingPage() {
                 </CardContent>
               </Card>
 
-              {/* Efectivo Esperado */}
               <Card className="border-none shadow-sm rounded-3xl bg-emerald-600 text-white">
                 <CardContent className="p-6 space-y-1">
                   <div className="flex items-center gap-2 mb-2">
@@ -499,7 +472,6 @@ export default function BillingPage() {
                 </CardContent>
               </Card>
 
-              {/* No Efectivo */}
               <Card className="border-none shadow-sm rounded-3xl bg-slate-900 text-white shadow-xl">
                 <CardContent className="p-6 space-y-1">
                   <div className="flex items-center gap-2 mb-2">
@@ -511,7 +483,6 @@ export default function BillingPage() {
               </Card>
             </div>
 
-            {/* Desglose por Método de Pago */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               {[
                 { label: 'Efectivo', value: todaySalesStats.efectivo, icon: <Wallet className="text-emerald-500" /> },
@@ -533,26 +504,18 @@ export default function BillingPage() {
               ))}
             </div>
 
-            {/* Listado de Transacciones */}
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden border border-slate-100">
-              <CardHeader className="p-8 border-b border-slate-50 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
-                    <DollarSign className="text-emerald-500" />
-                    Transacciones del Día
-                  </CardTitle>
-                  <CardDescription>Registro cronológico de ventas por método de pago</CardDescription>
-                </div>
-                <Button variant="outline" className="rounded-xl border-slate-200 font-bold text-xs h-10">
-                  Imprimir Reporte
-                </Button>
+              <CardHeader className="p-8 border-b border-slate-50">
+                <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
+                  <DollarSign className="text-emerald-500" />
+                  Transacciones del Día
+                </CardTitle>
               </CardHeader>
               <Table>
                 <TableHeader className="bg-slate-50">
                   <TableRow>
                     <TableHead className="text-[10px] font-bold uppercase">Hora</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase">Cliente</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase">Documento</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase">Método / Ref</TableHead>
                     <TableHead className="text-right text-[10px] font-bold uppercase">Monto</TableHead>
                   </TableRow>
@@ -567,34 +530,14 @@ export default function BillingPage() {
                       </TableCell>
                       <TableCell className="font-bold text-slate-900 text-xs">{sale.customer}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter bg-slate-50">
-                          {sale.docType || 'CF'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
                         <div className="flex flex-col">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
-                            {sale.paymentMethod === 'Tarjeta' && <CardIcon size={10} />}
-                            {sale.paymentMethod === 'Efectivo' && <Wallet size={10} />}
-                            {sale.paymentMethod === 'Transferencia' && <Landmark size={10} />}
-                            {sale.paymentMethod === 'Cheque' && <BookOpen size={10} />}
-                            {sale.paymentMethod || 'Efectivo'}
-                          </div>
-                          {sale.paymentReference && (
-                            <span className="text-[9px] text-blue-500 font-bold truncate max-w-[120px]">
-                              Ref: {sale.paymentReference}
-                            </span>
-                          )}
+                          <span className="text-[10px] font-bold text-slate-600">{sale.paymentMethod || 'Efectivo'}</span>
+                          {sale.paymentReference && <span className="text-[9px] text-blue-500 font-bold">Ref: {sale.paymentReference}</span>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-black text-slate-900">${(sale.total || 0).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
-                  {(!salesToday || salesToday.filter((s: any) => s.timestamp.startsWith(new Date().toISOString().split('T')[0])).length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-20 text-slate-400 italic">No se han registrado ventas hoy</TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </Card>
