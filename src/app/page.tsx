@@ -1,49 +1,19 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { 
   ShoppingCart, 
   Truck, 
   FileText, 
-  ClipboardList, 
   Users, 
   Package,
-  LogOut,
-  ArrowLeftRight,
-  Loader2
+  ArrowLeftRight
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useAuth, useUser } from '@/firebase';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 export default function Home() {
-  const auth = useAuth();
-  const { user, loading } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
-  }, [user, loading, router]);
-
-  const handleLogout = () => {
-    auth.signOut().then(() => {
-      router.push("/login");
-    }).catch(console.error);
-  };
-
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 p-8 md:p-12 lg:p-16">
       <div className="max-w-6xl mx-auto flex justify-between items-start mb-12">
@@ -51,14 +21,6 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-slate-900 font-headline mb-2">Panel Principal</h1>
           <p className="text-slate-500 text-lg">Bienvenido al centro de operaciones NexWay</p>
         </div>
-        <Button 
-          variant="ghost" 
-          onClick={handleLogout}
-          className="text-slate-400 hover:text-slate-600 font-medium flex items-center gap-2"
-        >
-          <LogOut size={18} />
-          <span>Cerrar Sesión</span>
-        </Button>
       </div>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
