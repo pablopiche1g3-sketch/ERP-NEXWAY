@@ -14,6 +14,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/firebase';
+import Link from 'next/link';
 
 export default function Home() {
   const auth = useAuth();
@@ -42,12 +43,14 @@ export default function Home() {
 
       {/* Main Grid Modules */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <ModuleCard 
-          icon={<ShoppingCart className="text-white" size={24} />}
-          iconBg="bg-blue-600"
-          title="Facturación"
-          description="Generar DTE y facturas"
-        />
+        <Link href="/billing">
+          <ModuleCard 
+            icon={<ShoppingCart className="text-white" size={24} />}
+            iconBg="bg-blue-600"
+            title="Facturación"
+            description="Generar DTE y facturas"
+          />
+        </Link>
         <ModuleCard 
           icon={<Truck className="text-white" size={24} />}
           iconBg="bg-emerald-600"
@@ -90,7 +93,7 @@ function ModuleCard({ icon, iconBg, title, description }: {
   description: string 
 }) {
   return (
-    <Card className="border-none shadow-sm rounded-3xl hover:shadow-md transition-all duration-300 cursor-pointer group bg-white">
+    <Card className="border-none shadow-sm rounded-3xl hover:shadow-md transition-all duration-300 cursor-pointer group bg-white h-full">
       <CardContent className="p-8">
         <div className={`w-14 h-14 ${iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-${iconBg.split('-')[1]}-500/20 group-hover:scale-105 transition-transform`}>
           {icon}
