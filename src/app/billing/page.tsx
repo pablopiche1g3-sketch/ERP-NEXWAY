@@ -11,9 +11,7 @@ import {
   Package,
   CreditCard,
   Loader2,
-  AlertCircle,
   UserCircle,
-  History,
   Calculator,
   DollarSign,
   TrendingUp,
@@ -47,9 +45,9 @@ export default function BillingPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Estado para el cliente
+  // Estado para el cliente y documento
   const [docType, setDocType] = useState<'CF' | 'CCF'>('CF');
-  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerName, setCustomerName] = useState('');
 
   // Inventario real
   const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
@@ -57,7 +55,7 @@ export default function BillingPage() {
   // Ventas para el cuadre
   const { data: salesToday } = useCollection<any>(collection(db, 'sales'));
 
-  // Lógica de Venta
+  // Lógica de Búsqueda de Productos
   const filteredProducts = useMemo(() => {
     if (!inventory) return [];
     return inventory.filter(p => 
@@ -110,9 +108,10 @@ export default function BillingPage() {
         timestamp: new Date().toISOString(),
         type: 'contado',
         docType: docType,
-        customer: customerSearch || 'Consumidor Final'
+        customer: customerName || (docType === 'CF' ? 'Consumidor Final (Venta Bolsón)' : 'Cliente Genérico CCF')
       });
 
+      // Actualizar stock
       for (const item of cart) {
         const product = inventory.find(p => p.id === item.id);
         if (product) {
@@ -125,7 +124,7 @@ export default function BillingPage() {
 
       toast({ title: "Venta Exitosa", description: "La factura ha sido procesada y el stock descargado." });
       setCart([]);
-      setCustomerSearch('');
+      setCustomerName('');
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la venta." });
@@ -176,19 +175,19 @@ export default function BillingPage() {
           </TabsList>
 
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 focus-visible:outline-none">
-            {/* PANEL IZQUIERDO: DETALLE DE VENTA */}
+            {/* PANEL IZQUIERDO: DETALLE DE VENTA (ESTILO RECIBO) */}
             <div className="lg:col-span-4 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
                 <CardHeader className="bg-slate-900 text-white p-5">
                   <div className="flex justify-between items-center mb-2">
-                    <CardTitle className="text-base font-bold">Detalle de Factura</CardTitle>
+                    <CardTitle className="text-base font-bold">Detalle de Venta</CardTitle>
                     <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400">
                       {docType === 'CF' ? 'CONSUMIDOR FINAL' : 'CRÉDITO FISCAL'}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-end">
                     <div>
-                      <p className="text-[9px] uppercase font-bold text-slate-500">Total a Pagar</p>
+                      <p className="text-[9px] uppercase font-bold text-slate-500">Total Facturado</p>
                       <p className="text-3xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
@@ -198,7 +197,7 @@ export default function BillingPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="max-h-[350px] overflow-y-auto">
+                  <div className="max-h-[400px] overflow-y-auto">
                     <Table>
                       <TableHeader className="bg-slate-50">
                         <TableRow>
@@ -213,20 +212,20 @@ export default function BillingPage() {
                         {cart.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={5} className="text-center py-12 text-slate-400 italic text-xs">
-                              Seleccione productos para facturar
+                              Haga clic en los productos para facturar
                             </TableCell>
                           </TableRow>
                         ) : cart.map((item) => (
-                          <TableRow key={item.id} className="hover:bg-slate-50">
+                          <TableRow key={item.id} className="hover:bg-slate-50 border-b border-slate-50">
                             <TableCell className="font-black text-blue-600 px-3">{item.quantity}</TableCell>
                             <TableCell>
                               <div className="flex flex-col">
-                                <span className="font-bold text-slate-900 text-xs leading-tight">{item.name}</span>
+                                <span className="font-bold text-slate-900 text-[11px] leading-tight">{item.name}</span>
                                 <span className="text-[9px] font-mono text-slate-400">{item.sku}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-right text-slate-500 text-xs">${item.price.toFixed(2)}</TableCell>
-                            <TableCell className="text-right font-bold text-slate-900 text-xs">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                            <TableCell className="text-right text-slate-500 text-[11px]">${item.price.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-bold text-slate-900 text-[11px]">${(item.price * item.quantity).toFixed(2)}</TableCell>
                             <TableCell className="px-2">
                               <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)} className="h-6 w-6 text-slate-300 hover:text-rose-500">
                                 <Trash2 size={12} />
@@ -246,19 +245,23 @@ export default function BillingPage() {
                 onClick={handleFinalizeSale}
               >
                 {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CreditCard className="mr-2" />}
-                Finalizar Venta
+                Cobrar y Descargar Stock
               </Button>
             </div>
 
-            {/* PANEL DERECHO: BUSQUEDA Y PRODUCTOS */}
+            {/* PANEL DERECHO: BUSQUEDA Y PRODUCTOS (CUADRÍCULA) */}
             <div className="lg:col-span-8 space-y-4">
-              {/* AREA DE CLIENTE */}
-              <Card className="border-none shadow-sm rounded-2xl bg-white">
-                <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
-                  <div className="w-full md:w-48">
-                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Tipo Documento</label>
+              
+              {/* AREA DE CLIENTE (CON SELECCIÓN DE DOCUMENTO) */}
+              <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+                <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Receptor</span>
+                </div>
+                <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-end">
+                  <div className="w-full md:w-48 space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-400">Tipo de Documento</Label>
                     <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                      <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                      <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100 focus:ring-blue-500/20">
                         <SelectValue placeholder="Tipo Doc" />
                       </SelectTrigger>
                       <SelectContent>
@@ -267,35 +270,37 @@ export default function BillingPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex-1 w-full">
-                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Cliente / NRC</label>
+                  <div className="flex-1 w-full space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-400">
+                      {docType === 'CF' ? 'Nombre Cliente (Bolsón)' : 'Razón Social / NRC'}
+                    </Label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <Input 
-                        placeholder={docType === 'CF' ? "Nombre del cliente..." : "Razón Social o NRC..."}
-                        value={customerSearch}
-                        onChange={(e) => setCustomerSearch(e.target.value)}
-                        className="pl-10 h-10 bg-slate-50 border-slate-100 rounded-xl"
+                        placeholder={docType === 'CF' ? "Venta a Consumidor Final..." : "Escriba razón social o NRC..."}
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        className="pl-10 h-10 bg-slate-50 border-slate-100 rounded-xl focus:ring-blue-500/20"
                       />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* BUSCADOR DE PRODUCTOS */}
+              {/* BUSCADOR DE PRODUCTOS (ESQUINA DERECHA) */}
               <div className="flex justify-end">
                 <div className="relative w-full md:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input 
-                    placeholder="Buscar SKU o nombre..." 
+                    placeholder="Filtrar por código o nombre..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-10 bg-white border-none shadow-sm rounded-xl text-sm"
+                    className="pl-10 h-10 bg-white border-none shadow-sm rounded-xl text-sm font-medium"
                   />
                 </div>
               </div>
 
-              {/* GRILLA DE PRODUCTOS (CUADROS PEQUEÑOS) */}
+              {/* CUADRÍCULA DE PRODUCTOS (CUADROS PEQUEÑOS) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filteredProducts.map((product) => {
                   const isOutOfStock = product.quantity <= 0;
@@ -303,20 +308,20 @@ export default function BillingPage() {
                     <div 
                       key={product.id}
                       onClick={() => !isOutOfStock && addToCart(product)}
-                      className={`relative bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 transition-all cursor-pointer group flex flex-col justify-between aspect-square ${isOutOfStock ? 'opacity-60 bg-slate-50' : ''}`}
+                      className={`relative bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between aspect-square ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
                     >
                       <div className="flex justify-between items-start">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isOutOfStock ? 'bg-rose-100 text-rose-500' : 'bg-blue-50 text-blue-500'}`}>
                           <Package size={16} />
                         </div>
-                        <Badge className={`text-[9px] font-bold ${isOutOfStock ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`} variant="outline">
+                        <Badge className={`text-[9px] font-black px-1.5 h-5 ${isOutOfStock ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`} variant="outline">
                           {product.quantity}
                         </Badge>
                       </div>
                       
-                      <div className="mt-2">
-                        <h3 className="text-xs font-bold text-slate-900 leading-tight line-clamp-2">{product.name}</h3>
-                        <p className="text-[9px] font-mono text-slate-400 mt-0.5">{product.sku}</p>
+                      <div className="mt-2 flex-1">
+                        <h3 className="text-[11px] font-bold text-slate-900 leading-tight line-clamp-2">{product.name}</h3>
+                        <p className="text-[9px] font-mono font-bold text-slate-400 mt-0.5">{product.sku}</p>
                       </div>
 
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
@@ -329,8 +334,8 @@ export default function BillingPage() {
                       </div>
                       
                       {isOutOfStock && (
-                        <div className="absolute inset-0 bg-white/40 flex items-center justify-center rounded-2xl backdrop-blur-[1px]">
-                          <span className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">AGOTADO</span>
+                        <div className="absolute inset-0 bg-white/10 flex items-center justify-center rounded-2xl backdrop-blur-[0.5px]">
+                          <span className="bg-rose-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg border border-rose-400">SIN STOCK</span>
                         </div>
                       )}
                     </div>
@@ -344,7 +349,7 @@ export default function BillingPage() {
           <TabsContent value="abono" className="focus-visible:outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
               <CardHeader className="bg-slate-50 border-b border-slate-100 p-8">
-                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <CardTitle className="text-xl font-bold flex items-center gap-2 text-slate-900">
                   <UserCircle className="text-blue-600" />
                   Registro de Abonos a Cuentas por Cobrar
                 </CardTitle>
@@ -354,27 +359,27 @@ export default function BillingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                   <div className="space-y-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase text-slate-400">Seleccionar Cliente</label>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">Buscar Cliente</Label>
                       <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <Input placeholder="Buscar por nombre o NRC..." className="pl-12 h-12 rounded-xl bg-slate-50 border-slate-200" />
+                        <Input placeholder="Nombre del cliente o NRC..." className="pl-12 h-12 rounded-xl bg-slate-50 border-slate-200" />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase text-slate-400">Monto del Abono ($)</label>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">Monto del Abono ($)</Label>
                       <Input type="number" step="0.01" className="h-14 text-2xl font-black rounded-xl bg-slate-50 border-slate-200" placeholder="0.00" />
                     </div>
-                    <Button className="w-full h-14 bg-blue-600 rounded-xl font-bold text-lg">
+                    <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-lg shadow-lg">
                       Registrar Pago
                     </Button>
                   </div>
                   <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col items-center justify-center text-center space-y-4">
                     <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm">
-                      <History className="text-slate-300" size={32} />
+                      <FileText className="text-slate-200" size={32} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900">Sin Cliente Seleccionado</h4>
-                      <p className="text-sm text-slate-500 max-w-[200px]">Busque un cliente para ver su saldo actual y procesar abonos.</p>
+                      <h4 className="font-bold text-slate-900">Estado de Cuenta</h4>
+                      <p className="text-sm text-slate-500 max-w-[200px] mx-auto">Seleccione un cliente para ver su saldo actual y procesar abonos.</p>
                     </div>
                   </div>
                 </div>
@@ -387,61 +392,65 @@ export default function BillingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <Card className="border-none shadow-sm rounded-3xl bg-blue-600 text-white">
                 <CardContent className="p-8 space-y-2">
-                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider">Ventas del Día (Contado)</p>
+                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider">Ventas del Día</p>
                   <p className="text-4xl font-black">${todaySalesTotal.toFixed(2)}</p>
                   <div className="flex items-center gap-1 text-[10px] font-bold text-blue-200">
-                    <TrendingUp size={12} /> +12.5% vs ayer
+                    <TrendingUp size={12} /> Actualizado al instante
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-none shadow-sm rounded-3xl bg-white">
+              <Card className="border-none shadow-sm rounded-3xl bg-white border border-slate-100">
                 <CardContent className="p-8 space-y-2">
                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Abonos Recibidos</p>
                   <p className="text-4xl font-black text-slate-900">$0.00</p>
-                  <div className="text-[10px] font-bold text-slate-300 italic">No se registran abonos hoy</div>
+                  <div className="text-[10px] font-bold text-slate-300 italic">No hay abonos hoy</div>
                 </CardContent>
               </Card>
-              <Card className="border-none shadow-sm rounded-3xl bg-slate-900 text-white">
+              <Card className="border-none shadow-sm rounded-3xl bg-slate-900 text-white shadow-xl">
                 <CardContent className="p-8 space-y-2">
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Total en Caja Esperado</p>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Efectivo Esperado</p>
                   <p className="text-4xl font-black text-emerald-400">${todaySalesTotal.toFixed(2)}</p>
-                  <Button variant="ghost" className="h-auto p-0 text-blue-400 text-[10px] font-bold uppercase hover:bg-transparent">Imprimir Reporte X</Button>
+                  <Button variant="ghost" className="h-auto p-0 text-blue-400 text-[10px] font-bold uppercase hover:bg-transparent">Imprimir Reporte de Cuadre</Button>
                 </CardContent>
               </Card>
             </div>
 
-            <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+            <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden border border-slate-100">
               <CardHeader className="p-8 border-b border-slate-50">
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
                   <DollarSign className="text-emerald-500" />
-                  Detalle de Transacciones (Hoy)
+                  Transacciones del Día
                 </CardTitle>
               </CardHeader>
               <Table>
                 <TableHeader className="bg-slate-50">
                   <TableRow>
                     <TableHead className="text-[10px] font-bold uppercase">Hora</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase">Transacción</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase">Tipo</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase">Cliente</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase">Documento</TableHead>
                     <TableHead className="text-right text-[10px] font-bold uppercase">Monto</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {salesToday?.filter((s: any) => s.timestamp.startsWith(new Date().toISOString().split('T')[0])).map((sale: any) => (
-                    <TableRow key={sale.id}>
-                      <TableCell className="text-xs text-slate-500">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                      <TableCell className="font-bold">Factura de Venta</TableCell>
-                      <TableCell>
-                        <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border border-blue-100">
-                          {sale.type || 'Contado'}
-                        </span>
+                  {salesToday?.filter((s: any) => s.timestamp.startsWith(new Date().toISOString().split('T')[0]))
+                    .sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp))
+                    .map((sale: any) => (
+                    <TableRow key={sale.id} className="hover:bg-slate-50">
+                      <TableCell className="text-xs text-slate-500 font-mono">
+                        {new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </TableCell>
-                      <TableCell className="text-right font-black text-slate-900">${sale.total.toFixed(2)}</TableCell>
+                      <TableCell className="font-bold text-slate-900 text-xs">{sale.customer}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter bg-slate-50">
+                          {sale.docType || 'CF'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-black text-slate-900">${(sale.total || 0).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                   {(!salesToday || salesToday.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic">No hay ventas registradas este día</TableCell>
+                      <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic">No se han registrado ventas hoy</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
