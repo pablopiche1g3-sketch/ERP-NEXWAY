@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Search, 
   Plus, 
@@ -70,9 +71,9 @@ export default function BillingPage() {
   const [isRegisteringExpense, setIsRegisteringExpense] = useState(false);
 
   const [baseCash, setBaseCash] = useState<string>('0');
-  const [denominations, setDenominations] = useState<Record<string, number>>({
-    b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0,
-    c1: 0, c025: 0, c010: 0, c005: 0, c001: 0
+  const [denominations, setDenominations] = useState<Record<string, string | number>>({
+    b100: '', b50: '', b20: '', b10: '', b5: '', b1: '',
+    c1: '', c025: '', c010: '', c005: '', c001: ''
   });
 
   const { data: inventory } = useCollection<any>(collection(db, 'inventory'));
@@ -198,13 +199,13 @@ export default function BillingPage() {
     }
   };
 
-  const todayStats = useMemo(() => {
+  // Optimización: Cálculos contables pesados solo cuando cambian ventas/gastos
+  const accountingStats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
-    
     const salesToday = (salesAll || []).filter((s: any) => s.timestamp.startsWith(today));
     const expensesToday = (expensesAll || []).filter((e: any) => e.timestamp.startsWith(today));
 
-    const salesStats = salesToday.reduce((acc: any, s: any) => {
+    const salesSummary = salesToday.reduce((acc: any, s: any) => {
       const amount = s.total || 0;
       acc.total += amount;
       const method = (s.paymentMethod || 'Efectivo');
@@ -217,30 +218,52 @@ export default function BillingPage() {
 
     const totalExpenses = expensesToday.reduce((acc: number, e: any) => acc + (e.amount || 0), 0);
     
-    const physicalCount = (denominations.b100 * 100) + (denominations.b50 * 50) + (denominations.b20 * 20) + 
-                          (denominations.b10 * 10) + (denominations.b5 * 5) + (denominations.b1 * 1) + 
-                          (denominations.c1 * 1) + (denominations.c025 * 0.25) + (denominations.c010 * 0.1) + 
-                          (denominations.c005 * 0.05) + (denominations.c001 * 0.01);
-
-    const baseAmountValue = parseFloat(baseCash) || 0;
-    const expectedCash = salesStats.efectivoSales - totalExpenses + baseAmountValue;
-    const difference = physicalCount - expectedCash;
-
     return {
-      ...salesStats,
+      ...salesSummary,
       totalExpenses,
-      baseAmountValue,
-      expectedCash,
-      physicalCount,
-      difference,
       salesTodayList: salesToday,
       expensesTodayList: expensesToday
     };
-  }, [salesAll, expensesAll, baseCash, denominations]);
+  }, [salesAll, expensesAll]);
+
+  // Optimización: Cálculo físico liviano para evitar "trabas" al teclear
+  const physicalStats = useMemo(() => {
+    const val = (k: string) => parseFloat(denominations[k]?.toString() || '0');
+    
+    const physicalCount = (val('b100') * 100) + (val('b50') * 50) + (val('b20') * 20) + 
+                          (val('b10') * 10) + (val('b5') * 5) + (val('b1') * 1) + 
+                          (val('c1') * 1) + (val('c025') * 0.25) + (val('c010') * 0.1) + 
+                          (val('c005') * 0.05) + (val('c001') * 0.01);
+
+    const baseAmountValue = parseFloat(baseCash) || 0;
+    const expectedCash = accountingStats.efectivoSales - accountingStats.totalExpenses + baseAmountValue;
+    const difference = physicalCount - expectedCash;
+
+    return {
+      baseAmountValue,
+      expectedCash,
+      physicalCount,
+      difference
+    };
+  }, [denominations, baseCash, accountingStats.efectivoSales, accountingStats.totalExpenses]);
 
   const updateDenomination = (key: string, val: string) => {
-    const n = parseInt(val) || 0;
-    setDenominations(prev => ({ ...prev, [key]: n }));
+    setDenominations(prev => ({ ...prev, [key]: val }));
+  };
+
+  const handleNextInput = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const form = (e.currentTarget as HTMLElement).closest('.conteo-grid');
+      if (form) {
+        const inputs = Array.from(form.querySelectorAll('input'));
+        const index = inputs.indexOf(e.currentTarget as HTMLInputElement);
+        if (index > -1 && inputs[index + 1]) {
+          (inputs[index + 1] as HTMLInputElement).focus();
+          (inputs[index + 1] as HTMLInputElement).select();
+        }
+      }
+    }
   };
 
   return (
@@ -525,12 +548,12 @@ export default function BillingPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-blue-100 text-xs font-bold uppercase tracking-wider">Total Ventas Brutas Hoy</p>
-                      <p className="text-5xl font-black">${todayStats.total.toFixed(2)}</p>
+                      <p className="text-5xl font-black">${accountingStats.total.toFixed(2)}</p>
                     </div>
                     <div className="bg-blue-500/30 p-4 rounded-2xl border border-blue-400/30">
                       <p className="text-blue-100 text-[10px] font-bold uppercase">Monto Base (Fondo)</p>
                       <div className="flex items-center gap-2">
-                        <span className="text-xl font-black">${todayStats.baseAmountValue.toFixed(2)}</span>
+                        <span className="text-xl font-black">${physicalStats.baseAmountValue.toFixed(2)}</span>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-blue-400/30">
@@ -554,9 +577,9 @@ export default function BillingPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-[10px] font-bold text-blue-200 border-t border-blue-400/30 pt-4">
-                    <div className="flex items-center gap-1"><Wallet size={12} /> Efec: ${todayStats.efectivoSales.toFixed(2)}</div>
-                    <div className="flex items-center gap-1"><CardIcon size={12} /> Tarj: ${todayStats.tarjeta.toFixed(2)}</div>
-                    <div className="flex items-center gap-1"><Landmark size={12} /> Trans: ${todayStats.transferencia.toFixed(2)}</div>
+                    <div className="flex items-center gap-1"><Wallet size={12} /> Efec: ${accountingStats.efectivoSales.toFixed(2)}</div>
+                    <div className="flex items-center gap-1"><CardIcon size={12} /> Tarj: ${accountingStats.tarjeta.toFixed(2)}</div>
+                    <div className="flex items-center gap-1"><Landmark size={12} /> Trans: ${accountingStats.transferencia.toFixed(2)}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -567,10 +590,10 @@ export default function BillingPage() {
                     <Wallet size={16} className="text-emerald-200" />
                     <p className="text-emerald-100 text-[10px] font-bold uppercase">Arqueo: Efectivo Esperado</p>
                   </div>
-                  <p className="text-3xl font-black">${todayStats.expectedCash.toFixed(2)}</p>
-                  <p className="text-[9px] text-emerald-100 font-medium">Incluye ventas, base y menos gastos.</p>
-                  <div className={`mt-2 p-2 rounded-xl text-center text-xs font-black ${todayStats.difference >= 0 ? 'bg-emerald-500/50' : 'bg-rose-500/50'}`}>
-                    Diferencia: ${todayStats.difference.toFixed(2)}
+                  <p className="text-3xl font-black">${physicalStats.expectedCash.toFixed(2)}</p>
+                  <p className="text-[9px] text-emerald-100 font-medium">Ventas + Base - Gastos.</p>
+                  <div className={`mt-2 p-2 rounded-xl text-center text-xs font-black ${physicalStats.difference >= 0 ? 'bg-emerald-500/50' : 'bg-rose-500/50'}`}>
+                    Diferencia: ${physicalStats.difference.toFixed(2)}
                   </div>
                 </CardContent>
               </Card>
@@ -581,8 +604,8 @@ export default function BillingPage() {
                     <MinusCircle size={16} className="text-rose-200" />
                     <p className="text-rose-100 text-[10px] font-bold uppercase">Total Gastos Internos</p>
                   </div>
-                  <p className="text-3xl font-black">${todayStats.totalExpenses.toFixed(2)}</p>
-                  <p className="text-[9px] text-rose-200 font-bold">{todayStats.expensesTodayList.length} registros hoy</p>
+                  <p className="text-3xl font-black">${accountingStats.totalExpenses.toFixed(2)}</p>
+                  <p className="text-[9px] text-rose-200 font-bold">{accountingStats.expensesTodayList.length} registros hoy</p>
                 </CardContent>
               </Card>
             </div>
@@ -592,11 +615,11 @@ export default function BillingPage() {
                 <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <Coins className="text-blue-600" size={18} />
-                    Conteo Físico de Efectivo
+                    Conteo Físico (Enter para bajar)
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 conteo-grid">
                     <div className="space-y-2">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Banknote size={10} /> Billetes</p>
                       {[100, 50, 20, 10, 5, 1].map(b => (
@@ -604,10 +627,12 @@ export default function BillingPage() {
                           <Label className="text-11px font-bold w-12 text-slate-600">${b}</Label>
                           <Input 
                             type="number" 
+                            inputMode="numeric"
                             className="h-8 text-xs bg-slate-50 rounded-lg text-center" 
-                            placeholder="0"
+                            placeholder=""
                             onFocus={e => e.target.select()}
-                            value={denominations[`b${b}`]}
+                            onKeyDown={handleNextInput}
+                            value={denominations[`b${b}`] || ''}
                             onChange={(e) => updateDenomination(`b${b}`, e.target.value)}
                           />
                         </div>
@@ -626,10 +651,12 @@ export default function BillingPage() {
                           <Label className="text-11px font-bold w-12 text-slate-600">${c.label}</Label>
                           <Input 
                             type="number" 
+                            inputMode="numeric"
                             className="h-8 text-xs bg-slate-50 rounded-lg text-center" 
-                            placeholder="0"
+                            placeholder=""
                             onFocus={e => e.target.select()}
-                            value={denominations[c.key]}
+                            onKeyDown={handleNextInput}
+                            value={denominations[c.key] || ''}
                             onChange={(e) => updateDenomination(c.key, e.target.value)}
                           />
                         </div>
@@ -639,7 +666,7 @@ export default function BillingPage() {
                   <div className="pt-4 border-t border-slate-100 bg-slate-900 -mx-4 -mb-4 p-4 text-white">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-bold uppercase text-slate-400">Total Conteo Físico</span>
-                      <span className="text-2xl font-black text-blue-400">${todayStats.physicalCount.toFixed(2)}</span>
+                      <span className="text-2xl font-black text-blue-400">${physicalStats.physicalCount.toFixed(2)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -717,13 +744,13 @@ export default function BillingPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {todayStats.expensesTodayList.length === 0 ? (
+                          {accountingStats.expensesTodayList.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={3} className="text-center py-8 text-slate-400 italic text-xs">
                                 No hay gastos hoy
                               </TableCell>
                             </TableRow>
-                          ) : todayStats.expensesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((exp: any) => (
+                          ) : accountingStats.expensesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((exp: any) => (
                             <TableRow key={exp.id} className="hover:bg-rose-50/30 transition-colors">
                               <TableCell className="text-xs text-slate-500 font-mono">
                                 {new Date(exp.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -742,10 +769,10 @@ export default function BillingPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {[
-                    { label: 'Efectivo (Ventas)', value: todayStats.efectivoSales, icon: <Wallet className="text-emerald-500" />, sub: 'En gaveta' },
-                    { label: 'Tarjeta', value: todayStats.tarjeta, icon: <CardIcon className="text-blue-500" />, sub: 'Banco' },
-                    { label: 'Transferencia', value: todayStats.transferencia, icon: <Landmark className="text-purple-500" />, sub: 'Banco' },
-                    { label: 'Cheque', value: todayStats.cheque, icon: <BookOpen className="text-orange-500" />, sub: 'En tránsito' }
+                    { label: 'Efectivo (Ventas)', value: accountingStats.efectivoSales, icon: <Wallet className="text-emerald-500" />, sub: 'En gaveta' },
+                    { label: 'Tarjeta', value: accountingStats.tarjeta, icon: <CardIcon className="text-blue-500" />, sub: 'Banco' },
+                    { label: 'Transferencia', value: accountingStats.transferencia, icon: <Landmark className="text-purple-500" />, sub: 'Banco' },
+                    { label: 'Cheque', value: accountingStats.cheque, icon: <BookOpen className="text-orange-500" />, sub: 'En tránsito' }
                   ].map((item) => (
                     <Card key={item.label} className="border-none shadow-sm rounded-2xl bg-white border border-slate-100">
                       <CardContent className="p-4 flex items-center gap-4">
@@ -780,7 +807,7 @@ export default function BillingPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {todayStats.salesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((sale: any) => (
+                        {accountingStats.salesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((sale: any) => (
                           <TableRow key={sale.id} className="hover:bg-slate-50 transition-colors">
                             <TableCell>
                               <span className="text-[10px] text-slate-400 font-mono">
