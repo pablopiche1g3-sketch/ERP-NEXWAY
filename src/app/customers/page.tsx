@@ -16,7 +16,8 @@ import {
   User, 
   Briefcase,
   UserCheck,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,6 +74,7 @@ export default function CustomersPage() {
 
     const customersRef = collection(db, 'customers');
 
+    // Operación no bloqueante
     addDoc(customersRef, customerData)
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -125,7 +127,7 @@ export default function CustomersPage() {
 
     toast({ 
       title: "Datos de Prueba Cargados", 
-      description: "Se han añadido 2 clientes de ejemplo (CF y CCF)." 
+      description: "Se han añadido clientes de ejemplo (CF y CCF)." 
     });
   };
 
@@ -336,7 +338,7 @@ export default function CustomersPage() {
                 </TableHeader>
                 <TableBody>
                   {loadingData ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-20">Cargando base de datos...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Cargando base de datos...</TableCell></TableRow>
                   ) : filteredCustomers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">
@@ -348,7 +350,7 @@ export default function CustomersPage() {
                       <TableCell className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-900 text-xs">{customer.name}</span>
-                          <span className="text-[10px] font-mono text-slate-400">{customer.nit || 'Sin NIT'}</span>
+                          <span className="text-[10px] font-mono text-slate-400">{customer.nit || 'Consumidor Final'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
