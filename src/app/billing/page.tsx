@@ -13,8 +13,6 @@ import {
   Loader2,
   UserCircle,
   Calculator,
-  DollarSign,
-  TrendingUp,
   User,
   FileText,
   Wallet,
@@ -38,8 +36,10 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -79,7 +79,7 @@ export default function BillingPage() {
     c1: 0, c025: 0, c010: 0, c005: 0, c001: 0
   });
 
-  const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
+  const { data: inventory } = useCollection<any>(collection(db, 'inventory'));
   const { data: salesAll } = useCollection<any>(collection(db, 'sales'));
   const { data: expensesAll } = useCollection<any>(collection(db, 'expenses'));
 
@@ -155,10 +155,10 @@ export default function BillingPage() {
       });
 
       for (const item of cart) {
-        const product = inventory.find(p => p.id === item.id);
+        const product = inventory.find((p: any) => p.id === item.id);
         if (product) {
           const productRef = doc(db, 'inventory', item.id);
-          await updateDoc(productRef, {
+          updateDoc(productRef, {
             quantity: Math.max(0, product.quantity - item.quantity)
           });
         }
@@ -221,7 +221,6 @@ export default function BillingPage() {
 
     const totalExpenses = expensesToday.reduce((acc: number, e: any) => acc + (e.amount || 0), 0);
     
-    // Cálculo de conteo físico
     const physicalCount = (denominations.b100 * 100) + (denominations.b50 * 50) + (denominations.b20 * 20) + 
                           (denominations.b10 * 10) + (denominations.b5 * 5) + (denominations.b1 * 1) + 
                           (denominations.c1 * 1) + (denominations.c025 * 0.25) + (denominations.c010 * 0.1) + 
@@ -447,7 +446,7 @@ export default function BillingPage() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
-                {filteredProducts.map((product) => {
+                {filteredProducts.map((product: any) => {
                   const isOutOfStock = product.quantity <= 0;
                   return (
                     <div 
