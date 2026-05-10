@@ -14,7 +14,8 @@ import {
   Loader2,
   Hash,
   User,
-  BadgeInfo
+  BadgeInfo,
+  Printer
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -94,13 +95,13 @@ export default function QuotationsPage() {
       toast({ variant: "destructive", title: "Cotización Vacía", description: "Debe agregar al menos un producto." });
       return;
     }
-    toast({ title: "Documento Generado", description: "La cotización ha sido procesada correctamente." });
-    // Aquí se podría integrar la lógica para guardar en Firestore o generar PDF
+    toast({ title: "PDF Generado", description: "La cotización está lista para imprimir." });
+    window.print();
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto flex items-center justify-between mb-6">
+    <div className="min-h-screen bg-slate-50 p-6 print:bg-white print:p-0">
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 print:hidden">
         <div className="flex items-center gap-4">
           <Link href="/">
             <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100">
@@ -116,19 +117,19 @@ export default function QuotationsPage() {
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Lado Izquierdo: Detalle y Totales */}
-        <div className="lg:col-span-4 space-y-4">
-          <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-900 text-white p-5">
+        <div className="lg:col-span-4 space-y-4 print:col-span-12">
+          <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white print:shadow-none print:border">
+            <CardHeader className="bg-slate-900 text-white p-5 print:bg-white print:text-black print:border-b">
               <div className="flex justify-between items-center mb-2">
                 <CardTitle className="text-base font-bold">Resumen de Cotización</CardTitle>
-                <Badge variant="outline" className="text-[10px] text-orange-400 border-orange-400 uppercase">
+                <Badge variant="outline" className="text-[10px] text-orange-400 border-orange-400 uppercase print:hidden">
                   Borrador
                 </Badge>
               </div>
               <div className="flex justify-between items-end">
                 <div>
                   <p className="text-[9px] uppercase font-bold text-slate-500">Monto Total</p>
-                  <p className="text-3xl font-black text-orange-400">${total.toFixed(2)}</p>
+                  <p className="text-3xl font-black text-orange-400 print:text-black">${total.toFixed(2)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold">{quoteItems.length} Productos</p>
@@ -136,14 +137,14 @@ export default function QuotationsPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[300px]">
+              <ScrollArea className="h-[300px] print:h-auto">
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
                       <TableHead className="w-[40px] text-[10px] font-bold px-3 text-center">CANT</TableHead>
                       <TableHead className="text-[10px] font-bold">PRODUCTO</TableHead>
                       <TableHead className="text-right text-[10px] font-bold">SUB</TableHead>
-                      <TableHead className="w-[30px]"></TableHead>
+                      <TableHead className="w-[30px] print:hidden"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -161,7 +162,7 @@ export default function QuotationsPage() {
                             value={item.quantity} 
                             onFocus={e => e.target.select()}
                             onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                            className="w-12 h-7 text-center font-black text-orange-600 p-0 text-xs bg-transparent border-none"
+                            className="w-12 h-7 text-center font-black text-orange-600 p-0 text-xs bg-transparent border-none print:text-black"
                           />
                         </TableCell>
                         <TableCell>
@@ -171,7 +172,7 @@ export default function QuotationsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-bold text-slate-900 text-[11px]">${(item.price * item.quantity).toFixed(2)}</TableCell>
-                        <TableCell className="px-2 text-center">
+                        <TableCell className="px-2 text-center print:hidden">
                           <Button variant="ghost" size="icon" onClick={() => removeFromQuote(item.id)} className="h-6 w-6 text-slate-300 hover:text-rose-500">
                             <Trash2 size={12} />
                           </Button>
@@ -185,32 +186,32 @@ export default function QuotationsPage() {
               <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2">
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Subtotal Gravado:</span>
-                  <span className="font-bold">${subtotal.toFixed(2)}</span>
+                  <span className="font-bold text-slate-900">${subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>IVA (13%):</span>
-                  <span className="font-bold">${iva.toFixed(2)}</span>
+                  <span className="font-bold text-slate-900">${iva.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-100">
                   <span>TOTAL FINAL:</span>
-                  <span className="text-orange-600">${total.toFixed(2)}</span>
+                  <span className="text-orange-600 print:text-black">${total.toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
           
           <Button 
-            className="w-full h-14 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg shadow-lg"
+            className="w-full h-14 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg shadow-lg print:hidden"
             disabled={quoteItems.length === 0}
             onClick={handleGenerateQuote}
           >
-            <Send className="mr-2" size={20} />
-            Generar Cotización DTE
+            <Printer className="mr-2" size={20} />
+            Imprimir Cotización (PDF)
           </Button>
         </div>
 
         {/* Lado Derecho: Receptor y Catálogo */}
-        <div className="lg:col-span-8 space-y-4">
+        <div className="lg:col-span-8 space-y-4 print:hidden">
           <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
             <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Datos del Receptor</span>
