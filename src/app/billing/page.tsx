@@ -31,7 +31,9 @@ import {
   History,
   CheckCircle,
   FileSearch,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  ArrowRightLeft
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,7 +58,7 @@ interface CartItem {
   quantity: number;
 }
 
-type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Cheque' | 'Credito';
+type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito';
 
 export default function BillingPage() {
   const db = useFirestore();
@@ -77,12 +79,6 @@ export default function BillingPage() {
   const [expenseAmount, setExpenseAmount] = useState<string | number>('');
   const [expenseCat, setExpenseCat] = useState('Otros');
   const [isRegisteringExpense, setIsRegisteringExpense] = useState(false);
-
-  const [baseCash, setBaseCash] = useState<string>('0');
-  const [denominations, setDenominations] = useState<Record<string, string | number>>({
-    b100: '', b50: '', b20: '', b10: '', b5: '', b1: '',
-    c1: '', c025: '', c010: '', c005: '', c001: ''
-  });
 
   useEffect(() => {
     setMounted(true);
@@ -114,7 +110,6 @@ export default function BillingPage() {
     );
   }, [customerSearch, customers]);
 
-  // Cuentas por Cobrar (Estado de Cuenta)
   const accountsReceivable = useMemo(() => {
     if (!salesAll) return [];
     const credits = salesAll.filter((s: any) => s.paymentMethod === 'Credito' && s.status !== 'CANCELADA');
@@ -130,14 +125,9 @@ export default function BillingPage() {
   }, [salesAll]);
 
   const addToCart = (product: any) => {
-    if (product.quantity <= 0) {
-      toast({ variant: "destructive", title: "Sin Existencias", description: "No hay stock disponible." });
-      return;
-    }
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.quantity) return prev;
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { id: product.id, name: product.name, sku: product.sku, price: product.price || 0, quantity: 1 }];
@@ -178,40 +168,21 @@ export default function BillingPage() {
     }
   };
 
-  const handleRegisterExpense = async () => {
-    if (!expenseDesc || !expenseAmount) return;
-    setIsRegisteringExpense(true);
-    try {
-      await addDoc(collection(db, 'expenses'), { description: expenseDesc, amount: parseFloat(expenseAmount.toString()) || 0, category: expenseCat, timestamp: new Date().toISOString() });
-      toast({ title: "Gasto Registrado", description: "Egreso aplicado al flujo de caja." });
-      setExpenseDesc(''); setExpenseAmount('');
-    } catch (error) { toast({ variant: "destructive", title: "Error", description: "No se pudo registrar." });
-    } finally { setIsRegisteringExpense(false); }
+  const selectRegisteredCustomer = (c: any) => {
+    setCustomerName(c.name);
+    setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF');
+    toast({ title: "Cliente Cargado", description: `${c.name} seleccionado.` });
   };
 
   const accountingStats = useMemo(() => {
-    if (!mounted) return { total: 0, efectivoSales: 0, tarjeta: 0, transferencia: 0, cheque: 0, totalExpenses: 0, salesTodayList: [], expensesTodayList: [] };
+    if (!mounted) return { efectivoSales: 0, totalExpenses: 0, salesTodayList: [] };
     const today = new Date().toISOString().split('T')[0];
     const salesToday = (salesAll || []).filter((s: any) => s.timestamp.startsWith(today));
     const expensesToday = (expensesAll || []).filter((e: any) => e.timestamp.startsWith(today));
-    const summary = salesToday.reduce((acc: any, s: any) => {
-      acc.total += s.total;
-      const method = s.paymentMethod || 'Efectivo';
-      if (method === 'Efectivo') acc.efectivoSales += s.total;
-      else if (method === 'Tarjeta') acc.tarjeta += s.total;
-      else if (method === 'Transferencia') acc.transferencia += s.total;
-      else if (method === 'Cheque') acc.cheque += s.total;
-      return acc;
-    }, { total: 0, efectivoSales: 0, tarjeta: 0, transferencia: 0, cheque: 0 });
-    return { ...summary, totalExpenses: expensesToday.reduce((acc: number, e: any) => acc + (e.amount || 0), 0), salesTodayList: salesToday, expensesTodayList: expensesToday };
+    const efectivo = salesToday.filter((s: any) => s.paymentMethod === 'Efectivo').reduce((acc: number, s: any) => acc + s.total, 0);
+    const egresos = expensesToday.reduce((acc: number, e: any) => acc + (e.amount || 0), 0);
+    return { efectivoSales: efectivo, totalExpenses: egresos, salesTodayList: salesToday };
   }, [salesAll, expensesAll, mounted]);
-
-  const physicalStats = useMemo(() => {
-    const val = (k: string) => parseFloat(denominations[k]?.toString() || '0');
-    const physicalCount = (val('b100') * 100) + (val('b50') * 50) + (val('b20') * 20) + (val('b10') * 10) + (val('b5') * 5) + (val('b1') * 1) + (val('c1') * 1) + (val('c025') * 0.25) + (val('c010') * 0.1) + (val('c005') * 0.05) + (val('c001') * 0.01);
-    const expected = accountingStats.efectivoSales - accountingStats.totalExpenses + (parseFloat(baseCash) || 0);
-    return { expected, physicalCount, difference: physicalCount - expected };
-  }, [denominations, baseCash, accountingStats]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -222,7 +193,7 @@ export default function BillingPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Módulo de Facturación</h1>
-            <p className="text-slate-500 text-sm">Operaciones de venta y control de caja</p>
+            <p className="text-slate-500 text-sm">Operaciones de venta y control de clientes</p>
           </div>
         </div>
       </div>
@@ -238,9 +209,6 @@ export default function BillingPage() {
             </TabsTrigger>
             <TabsTrigger value="cuentas" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <FileSearch size={16} className="mr-2" /> Estado de Cuenta
-            </TabsTrigger>
-            <TabsTrigger value="cuadre" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
-              <Calculator size={16} className="mr-2" /> Cuadre de Caja
             </TabsTrigger>
           </TabsList>
 
@@ -270,13 +238,28 @@ export default function BillingPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {cart.map((item) => (
+                        {cart.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center py-20 text-slate-400 italic text-xs">
+                              Escanee o seleccione productos
+                            </TableCell>
+                          </TableRow>
+                        ) : cart.map((item) => (
                           <TableRow key={item.id}>
                             <TableCell className="font-black text-blue-600">{item.quantity}</TableCell>
                             <TableCell>
                               <div className="flex flex-col">
                                 <span className="font-bold text-xs">{item.name}</span>
-                                <Input type="number" step="0.01" value={item.price} onChange={(e) => updateCartPrice(item.id, parseFloat(e.target.value) || 0)} className="h-6 w-20 text-[10px] bg-slate-50" />
+                                <div className="flex items-center gap-1 mt-1">
+                                  <span className="text-[9px] text-slate-400 uppercase font-bold">Precio:</span>
+                                  <Input 
+                                    type="number" 
+                                    step="0.01" 
+                                    value={item.price} 
+                                    onChange={(e) => updateCartPrice(item.id, parseFloat(e.target.value) || 0)} 
+                                    className="h-6 w-20 text-[10px] bg-slate-50 font-bold" 
+                                  />
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell className="text-right font-bold text-xs">${(item.price * item.quantity).toFixed(2)}</TableCell>
@@ -287,12 +270,19 @@ export default function BillingPage() {
                   </ScrollArea>
                   <div className="p-4 border-t bg-slate-50/50 space-y-4">
                     <Label className="text-[10px] font-bold uppercase text-slate-400">Forma de Pago</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {['Efectivo', 'Tarjeta', 'Transferencia', 'Credito'].map((method) => (
-                        <Button key={method} variant={paymentMethod === method ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod(method as any)} className="h-8 text-[9px] font-bold">
-                          {method}
-                        </Button>
-                      ))}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Efectivo')} className="h-9 text-[10px] font-bold rounded-xl">
+                        <Wallet size={14} className="mr-2" /> Efectivo
+                      </Button>
+                      <Button variant={paymentMethod === 'Tarjeta' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Tarjeta')} className="h-9 text-[10px] font-bold rounded-xl">
+                        <CardIcon size={14} className="mr-2" /> Tarjeta
+                      </Button>
+                      <Button variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Transferencia')} className="h-9 text-[10px] font-bold rounded-xl">
+                        <Landmark size={14} className="mr-2" /> Transf.
+                      </Button>
+                      <Button variant={paymentMethod === 'Credito' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Credito')} className="h-9 text-[10px] font-bold rounded-xl">
+                        <Clock size={14} className="mr-2" /> Crédito
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -304,22 +294,60 @@ export default function BillingPage() {
 
             <div className="lg:col-span-7 space-y-4">
               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                <div className="flex gap-4">
-                  <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                    <SelectTrigger className="w-48 h-10 rounded-xl bg-slate-50 border-slate-100"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="CF">Consumidor Final</SelectItem><SelectItem value="CCF">Crédito Fiscal</SelectItem></SelectContent>
-                  </Select>
-                  <Input placeholder="Nombre del receptor..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="flex-1 h-10 bg-slate-50 rounded-xl" />
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Receptor de Factura</Label>
+                    <div className="flex gap-2">
+                      <Input placeholder="Nombre del receptor..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10 bg-slate-50 rounded-xl" />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="h-10 rounded-xl px-3 border-slate-200">
+                            <Users size={16} className="mr-2 text-blue-600" /> <span className="text-xs font-bold">Clientes</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0" align="end">
+                          <div className="p-3 border-b">
+                            <Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-8 text-xs" />
+                          </div>
+                          <ScrollArea className="h-60">
+                            <div className="p-1">
+                              {filteredCustomers.map((c: any) => (
+                                <div key={c.id} onClick={() => selectRegisteredCustomer(c)} className="p-3 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors group">
+                                  <p className="text-[11px] font-bold text-slate-900 group-hover:text-blue-600">{c.name}</p>
+                                  <p className="text-[9px] text-slate-400">{c.category || c.type} • NIT: {c.nit || 'CF'}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <div className="w-full md:w-48 space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Tipo de Documento</Label>
+                    <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                      <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="CF">Consumidor Final</SelectItem><SelectItem value="CCF">Crédito Fiscal</SelectItem></SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </Card>
+
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Input placeholder="Buscar producto por SKU o Nombre..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 h-12 bg-white border-none shadow-sm rounded-2xl" />
+              </div>
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {filteredProducts.map((p: any) => (
-                  <div key={p.id} onClick={() => addToCart(p)} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-400 cursor-pointer transition-all">
-                    <p className="text-[10px] font-bold text-slate-400">{p.sku}</p>
-                    <h3 className="text-xs font-bold text-slate-900 leading-tight h-8 line-clamp-2">{p.name}</h3>
-                    <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                  <div key={p.id} onClick={() => addToCart(p)} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-400 cursor-pointer transition-all flex flex-col justify-between aspect-square">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">{p.sku}</p>
+                      <h3 className="text-xs font-bold text-slate-900 leading-tight line-clamp-2 h-8">{p.name}</h3>
+                    </div>
+                    <div className="mt-2 pt-2 border-t flex justify-between items-center">
                       <span className="text-sm font-black">${(p.price || 0).toFixed(2)}</span>
-                      <Badge variant="outline" className="text-[9px]">{p.quantity} un.</Badge>
+                      <Badge variant="outline" className={`text-[9px] ${p.quantity <= 0 ? 'text-rose-500 border-rose-100' : 'text-emerald-600 border-emerald-100'}`}>{p.quantity} un.</Badge>
                     </div>
                   </div>
                 ))}
@@ -327,29 +355,41 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="cuentas" className="space-y-4 outline-none">
+          <TabsContent value="historial" className="space-y-4 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
               <CardHeader className="bg-slate-900 text-white p-6">
-                <CardTitle className="flex items-center gap-2"><FileSearch /> Estado de Cuenta: Cuentas por Cobrar</CardTitle>
-                <CardDescription className="text-slate-400">Listado de créditos pendientes de clientes</CardDescription>
+                <CardTitle className="flex items-center gap-2"><History /> Registro de Ventas de Hoy</CardTitle>
+                <CardDescription className="text-slate-400">Ventas procesadas en la fecha actual</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="px-6">Cliente</TableHead>
-                      <TableHead>Facturas Pendientes</TableHead>
-                      <TableHead className="text-right">Saldo Deudor</TableHead>
-                      <TableHead className="w-20"></TableHead>
+                      <TableHead className="px-6">Hora</TableHead>
+                      <TableHead>Documento</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Pago</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {accountsReceivable.map((acc: any) => (
-                      <TableRow key={acc.name}>
-                        <TableCell className="px-6 font-bold">{acc.name}</TableCell>
-                        <TableCell>{acc.count} ventas al crédito</TableCell>
-                        <TableCell className="text-right font-black text-rose-600">${acc.total.toFixed(2)}</TableCell>
-                        <TableCell className="px-6"><Button variant="outline" size="sm" className="h-7 text-[10px] font-bold">Ver Detalle</Button></TableCell>
+                    {accountingStats.salesTodayList.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400 italic">No hay ventas registradas hoy.</TableCell></TableRow>
+                    ) : accountingStats.salesTodayList.map((sale: any) => (
+                      <TableRow key={sale.id}>
+                        <TableCell className="px-6 text-xs text-slate-500">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-[9px] font-black">{sale.docType}</Badge></TableCell>
+                        <TableCell className="font-bold text-xs">{sale.customer}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                             {sale.paymentMethod === 'Efectivo' && <Wallet size={12} className="text-emerald-500" />}
+                             {sale.paymentMethod === 'Tarjeta' && <CardIcon size={12} className="text-blue-500" />}
+                             {sale.paymentMethod === 'Transferencia' && <Landmark size={12} className="text-purple-500" />}
+                             {sale.paymentMethod === 'Credito' && <Clock size={12} className="text-amber-500" />}
+                             {sale.paymentMethod}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-black text-slate-900">${sale.total.toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -358,12 +398,35 @@ export default function BillingPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="historial" className="space-y-4">
-            {/* ... (Contenido de historial similar al anterior) ... */}
-          </TabsContent>
-
-          <TabsContent value="cuadre" className="space-y-6">
-            {/* ... (Contenido de cuadre similar al anterior) ... */}
+          <TabsContent value="cuentas" className="space-y-4 outline-none">
+            <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+              <CardHeader className="bg-slate-900 text-white p-6">
+                <CardTitle className="flex items-center gap-2"><FileSearch /> Estado de Cuenta: Cuentas por Cobrar</CardTitle>
+                <CardDescription className="text-slate-400">Créditos otorgados a clientes</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="px-6">Cliente</TableHead>
+                      <TableHead>Facturas Pendientes</TableHead>
+                      <TableHead className="text-right">Saldo Deudor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {accountsReceivable.length === 0 ? (
+                      <TableRow><TableCell colSpan={3} className="text-center py-20 text-slate-400 italic">No hay cuentas por cobrar pendientes.</TableCell></TableRow>
+                    ) : accountsReceivable.map((acc: any) => (
+                      <TableRow key={acc.name}>
+                        <TableCell className="px-6 font-bold">{acc.name}</TableCell>
+                        <TableCell>{acc.count} ventas al crédito</TableCell>
+                        <TableCell className="text-right font-black text-rose-600">${acc.total.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
