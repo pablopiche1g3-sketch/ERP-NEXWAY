@@ -8,23 +8,22 @@ import {
   Trash2, 
   ArrowLeft, 
   ShoppingCart,
-  Package,
-  CreditCard,
-  Loader2,
-  Wallet,
-  Landmark,
-  CreditCard as CardIcon,
-  Users,
   History,
   FileSearch,
   Clock,
   Ticket,
   CheckCircle2,
   Calculator,
-  User as UserIcon,
   Receipt,
-  DollarSign,
-  Briefcase
+  Wallet,
+  Landmark,
+  CreditCard as CardIcon,
+  Users,
+  Briefcase,
+  Coins,
+  ArrowDownCircle,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,6 +73,16 @@ export default function BillingPage() {
   const [paymentReference, setPaymentReference] = useState('');
   const [cashReceived, setCashReceived] = useState<string>('');
 
+  // Arqueo Denominations State
+  const [denominations, setDenominations] = useState({
+    b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0,
+    c25: 0, c10: 0, c5: 0, c01: 0
+  });
+
+  // Expense Modal State
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Otros' });
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -88,10 +97,12 @@ export default function BillingPage() {
   const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
   const salesQuery = useMemo(() => collection(db, 'sales'), [db]);
   const customersQuery = useMemo(() => collection(db, 'customers'), [db]);
+  const expensesQuery = useMemo(() => collection(db, 'expenses'), [db]);
 
   const { data: inventory } = useCollection<any>(inventoryQuery);
   const { data: salesAll } = useCollection<any>(salesQuery);
   const { data: customers } = useCollection<any>(customersQuery);
+  const { data: expensesAll } = useCollection<any>(expensesQuery);
 
   const filteredProducts = useMemo(() => {
     if (!inventory) return [];
@@ -184,10 +195,21 @@ export default function BillingPage() {
     }
   };
 
-  const selectRegisteredCustomer = (c: any) => {
-    setCustomerName(c.name);
-    setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF');
-    toast({ title: "Cliente Cargado", description: `${c.name} seleccionado.` });
+  const handleAddExpense = async () => {
+    if (!newExpense.description || !newExpense.amount) return;
+    try {
+      await addDoc(collection(db, 'expenses'), {
+        description: newExpense.description,
+        amount: parseFloat(newExpense.amount),
+        category: newExpense.category,
+        timestamp: new Date().toISOString()
+      });
+      toast({ title: "Gasto Registrado", description: "El egreso de caja ha sido guardado." });
+      setNewExpense({ description: '', amount: '', category: 'Otros' });
+      setIsExpenseModalOpen(false);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el gasto." });
+    }
   };
 
   const salesTodayList = useMemo(() => {
@@ -197,14 +219,7 @@ export default function BillingPage() {
   }, [salesAll, mounted]);
 
   const dailyClosingTotals = useMemo(() => {
-    const summary = {
-      Efectivo: 0,
-      Tarjeta: 0,
-      Transferencia: 0,
-      Cheque: 0,
-      Credito: 0,
-      total: 0
-    };
+    const summary = { Efectivo: 0, Tarjeta: 0, Transferencia: 0, Cheque: 0, Credito: 0, total: 0 };
     salesTodayList.forEach((s: any) => {
       if (s.paymentMethod in summary) {
         summary[s.paymentMethod as keyof typeof summary] += s.total;
@@ -213,6 +228,28 @@ export default function BillingPage() {
     });
     return summary;
   }, [salesTodayList]);
+
+  const expensesToday = useMemo(() => {
+    if (!mounted || !expensesAll) return [];
+    const today = new Date().toISOString().split('T')[0];
+    return expensesAll.filter((e: any) => e.timestamp.startsWith(today));
+  }, [expensesAll, mounted]);
+
+  const totalExpensesToday = useMemo(() => 
+    expensesToday.reduce((acc, exp) => acc + exp.amount, 0), [expensesToday]
+  );
+
+  const physicalCashTotal = useMemo(() => {
+    return (
+      (denominations.b100 * 100) + (denominations.b50 * 50) + (denominations.b20 * 20) + 
+      (denominations.b10 * 10) + (denominations.b5 * 5) + (denominations.b1 * 1) + 
+      (denominations.c25 * 0.25) + (denominations.c10 * 0.10) + (denominations.c5 * 0.05) + 
+      (denominations.c01 * 0.01)
+    );
+  }, [denominations]);
+
+  const expectedCashBalance = dailyClosingTotals.Efectivo - totalExpensesToday;
+  const cashDifference = physicalCashTotal - expectedCashBalance;
 
   const accountsReceivable = useMemo(() => {
     if (!salesAll) return [];
@@ -226,6 +263,11 @@ export default function BillingPage() {
     }, {});
     return Object.entries(grouped).map(([name, data]: [string, any]) => ({ name, ...data }));
   }, [salesAll]);
+
+  const selectRegisteredCustomer = (c: any) => {
+    setCustomerName(c.name);
+    setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF');
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -453,37 +495,161 @@ export default function BillingPage() {
           <TabsContent value="cierre" className="space-y-6 outline-none">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Efectivo</p>
-                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Efectivo.toFixed(2)}</p>
+                  <p className="text-[9px] font-black uppercase text-slate-400">Efectivo Venta</p>
+                  <p className="text-xl font-bold text-emerald-600">${dailyClosingTotals.Efectivo.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Gastos Caja</p>
+                  <p className="text-xl font-bold text-rose-600">${totalExpensesToday.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-slate-900 p-4 text-white">
+                  <p className="text-[9px] font-black uppercase opacity-60">Balance Caja</p>
+                  <p className="text-xl font-black">${expectedCashBalance.toFixed(2)}</p>
                </Card>
                <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
                   <p className="text-[9px] font-black uppercase text-slate-400">Tarjeta</p>
                   <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Tarjeta.toFixed(2)}</p>
                </Card>
                <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Transf.</p>
-                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Transferencia.toFixed(2)}</p>
-               </Card>
-               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Cheques</p>
-                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Cheque.toFixed(2)}</p>
-               </Card>
-               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
                   <p className="text-[9px] font-black uppercase text-slate-400">Créditos</p>
-                  <p className="text-xl font-bold text-rose-600">${dailyClosingTotals.Credito.toFixed(2)}</p>
+                  <p className="text-xl font-bold text-blue-600">${dailyClosingTotals.Credito.toFixed(2)}</p>
                </Card>
                <Card className="border-none shadow-sm rounded-2xl bg-blue-600 p-4 text-white">
-                  <p className="text-[9px] font-black uppercase opacity-60">Total Venta</p>
+                  <p className="text-[9px] font-black uppercase opacity-60">Total Venta Bruta</p>
                   <p className="text-xl font-black">${dailyClosingTotals.total.toFixed(2)}</p>
                </Card>
             </div>
-            <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex items-center gap-4">
-               <Briefcase className="text-blue-600" size={32} />
-               <div>
-                 <h3 className="font-bold text-blue-900">Arqueo Consolidado</h3>
-                 <p className="text-sm text-blue-700">Este resumen representa el total de ingresos registrados hoy por el sistema. Compare estos montos con su existencia física para el cierre de caja.</p>
-               </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Conteo de Denominaciones */}
+              <Card className="lg:col-span-5 border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Coins className="text-blue-600" size={18} />
+                    Conteo de Efectivo Físico
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black uppercase text-slate-400 border-b pb-1">Billetes</p>
+                      {[100, 50, 20, 10, 5, 1].map((v) => (
+                        <div key={v} className="flex items-center justify-between gap-4">
+                          <Label className="text-xs font-bold w-12">${v}.00</Label>
+                          <Input 
+                            type="number" 
+                            className="h-8 w-20 text-right bg-slate-50 font-bold" 
+                            placeholder="0"
+                            value={denominations[`b${v}` as keyof typeof denominations]}
+                            onFocus={e => e.target.select()}
+                            onChange={e => setDenominations({...denominations, [`b${v}`]: parseInt(e.target.value) || 0})}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black uppercase text-slate-400 border-b pb-1">Monedas</p>
+                      {[
+                        { label: '$0.25', key: 'c25' },
+                        { label: '$0.10', key: 'c10' },
+                        { label: '$0.05', key: 'c5' },
+                        { label: '$0.01', key: 'c01' }
+                      ].map((c) => (
+                        <div key={c.key} className="flex items-center justify-between gap-4">
+                          <Label className="text-xs font-bold w-12">{c.label}</Label>
+                          <Input 
+                            type="number" 
+                            className="h-8 w-20 text-right bg-slate-50 font-bold" 
+                            placeholder="0"
+                            value={denominations[c.key as keyof typeof denominations]}
+                            onFocus={e => e.target.select()}
+                            onChange={e => setDenominations({...denominations, [c.key]: parseInt(e.target.value) || 0})}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-6 pt-4 border-t bg-slate-50 -mx-6 px-6 pb-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-black uppercase text-slate-500 tracking-widest">Total Físico Contado</span>
+                      <span className="text-2xl font-black text-slate-900">${physicalCashTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Gastos de Caja */}
+              <Card className="lg:col-span-7 border-none shadow-sm rounded-3xl bg-white overflow-hidden flex flex-col">
+                <CardHeader className="bg-slate-50 border-b px-6 py-4">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <ArrowDownCircle className="text-rose-600" size={18} />
+                      Gastos de Caja (Salidas)
+                    </CardTitle>
+                    <Button size="sm" variant="outline" className="h-8 rounded-lg font-bold text-[10px]" onClick={() => setIsExpenseModalOpen(true)}>
+                      <Plus size={14} className="mr-1" /> Registrar Gasto
+                    </Button>
+                  </div>
+                </CardHeader>
+                <div className="flex-1">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px] font-bold uppercase px-6">Descripción</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase">Categoría</TableHead>
+                        <TableHead className="text-right text-[10px] font-bold uppercase pr-6">Monto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {expensesToday.length === 0 ? (
+                        <TableRow><TableCell colSpan={3} className="text-center py-20 text-slate-400 italic text-xs">No hay gastos hoy.</TableCell></TableRow>
+                      ) : expensesToday.map((exp: any) => (
+                        <TableRow key={exp.id}>
+                          <TableCell className="px-6 font-bold text-xs">{exp.description}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-[9px] uppercase">{exp.category}</Badge></TableCell>
+                          <TableCell className="text-right pr-6 font-black text-rose-600">-${exp.amount.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="p-6 bg-rose-50 border-t border-rose-100 mt-auto">
+                   <div className="flex justify-between items-center">
+                      <span className="text-xs font-black uppercase text-rose-600">Total Egresos Hoy</span>
+                      <span className="text-xl font-black text-rose-700">-${totalExpensesToday.toFixed(2)}</span>
+                   </div>
+                </div>
+              </Card>
             </div>
+
+            {/* Resultado Final de Arqueo */}
+            <Card className={`border-none shadow-xl rounded-3xl overflow-hidden ${cashDifference === 0 ? 'bg-emerald-600' : cashDifference > 0 ? 'bg-blue-600' : 'bg-rose-600'} text-white`}>
+               <CardContent className="p-8">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+                    <div className="space-y-1 text-center md:text-left">
+                      <p className="text-[10px] font-black uppercase opacity-60 tracking-widest">Resultado de Arqueo</p>
+                      <h2 className="text-3xl font-black">
+                        {cashDifference === 0 ? 'Caja Cuadrada' : cashDifference > 0 ? `Sobrante de $${cashDifference.toFixed(2)}` : `Faltante de $${Math.abs(cashDifference).toFixed(2)}`}
+                      </h2>
+                      <p className="text-sm opacity-80">
+                        {cashDifference === 0 
+                          ? 'El dinero físico coincide perfectamente con el sistema.' 
+                          : 'Existe una discrepancia entre lo esperado y lo contado.'}
+                      </p>
+                    </div>
+                    <div className="flex gap-4">
+                       <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/10 text-center">
+                          <p className="text-[9px] font-black uppercase opacity-60 mb-1">Efectivo Esperado</p>
+                          <p className="text-xl font-bold">${expectedCashBalance.toFixed(2)}</p>
+                       </div>
+                       <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm border border-white/20 text-center">
+                          <p className="text-[9px] font-black uppercase opacity-60 mb-1">Efectivo Físico</p>
+                          <p className="text-xl font-bold">${physicalCashTotal.toFixed(2)}</p>
+                       </div>
+                    </div>
+                  </div>
+               </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="cuentas" className="space-y-4 outline-none">
@@ -520,20 +686,13 @@ export default function BillingPage() {
             <DialogTitle className="flex items-center gap-2 text-xl font-black">
               <Receipt className="text-blue-600" /> Confirmar Venta
             </DialogTitle>
-            <DialogDescription>
-              Revise los detalles antes de imprimir el comprobante.
-            </DialogDescription>
+            <DialogDescription>Revise los detalles antes de imprimir el comprobante.</DialogDescription>
           </DialogHeader>
-          
           <div className="space-y-6 py-4">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-black uppercase text-slate-400">Cliente</span>
                 <span className="text-xs font-bold text-slate-900">{customerName || 'Consumidor Final'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase text-slate-400">Documento</span>
-                <Badge variant="outline" className="text-[9px] font-black">{docType === 'CF' ? 'Consumidor Final' : 'Crédito Fiscal'}</Badge>
               </div>
               <div className="flex justify-between items-center border-t pt-2 mt-2">
                 <span className="text-sm font-black text-slate-900">TOTAL A PAGAR</span>
@@ -566,23 +725,19 @@ export default function BillingPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">
-                  {paymentMethod === 'Tarjeta' ? 'Últimos 4 Dígitos' : 'Referencia de Operación'}
-                </Label>
+                <Label className="text-[10px] font-black uppercase text-slate-400">Referencia de Operación</Label>
                 <div className="relative">
                   <CardIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <Input 
-                    placeholder={paymentMethod === 'Tarjeta' ? "0000" : "Número de confirmación..."}
+                    placeholder="Últimos 4 dígitos o Cód. Transf..."
                     value={paymentReference}
                     onChange={e => setPaymentReference(e.target.value)}
                     className="h-12 pl-10 font-bold"
                   />
                 </div>
-                <p className="text-[9px] text-slate-400 italic">* Requerido para arqueo de caja posterior.</p>
               </div>
             )}
           </div>
-
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" onClick={() => setIsCheckoutOpen(false)} className="rounded-xl font-bold">Cancelar</Button>
             <Button 
@@ -591,7 +746,57 @@ export default function BillingPage() {
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl h-12 px-8 shadow-lg shadow-blue-500/20"
             >
               {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-              CONFIRMAR Y CERRAR VENTA
+              CONFIRMAR VENTA
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expense Modal */}
+      <Dialog open={isExpenseModalOpen} onOpenChange={setIsExpenseModalOpen}>
+        <DialogContent className="rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+               <ArrowDownCircle className="text-rose-600" /> Nuevo Gasto de Caja
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+               <Label className="text-[10px] font-bold uppercase text-slate-400">Descripción</Label>
+               <Input 
+                 placeholder="Ej. Gasolina entrega..." 
+                 value={newExpense.description} 
+                 onChange={e => setNewExpense({...newExpense, description: e.target.value})}
+               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-bold uppercase text-slate-400">Monto</Label>
+                 <Input 
+                   type="number" 
+                   placeholder="0.00" 
+                   value={newExpense.amount} 
+                   onChange={e => setNewExpense({...newExpense, amount: e.target.value})}
+                 />
+              </div>
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-bold uppercase text-slate-400">Categoría</Label>
+                 <Select value={newExpense.category} onValueChange={(v) => setNewExpense({...newExpense, category: v})}>
+                    <SelectTrigger className="h-10">
+                       <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                       {['Gasolina', 'Anticipo', 'Reintegro', 'Alimentación', 'Otros'].map(c => (
+                         <SelectItem key={c} value={c}>{c}</SelectItem>
+                       ))}
+                    </SelectContent>
+                 </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="w-full bg-slate-900 text-white font-bold h-12 rounded-xl" onClick={handleAddExpense}>
+               GUARDAR EGRESO
             </Button>
           </DialogFooter>
         </DialogContent>
