@@ -16,7 +16,8 @@ import {
   Hash,
   User,
   BadgeInfo,
-  Printer
+  Printer,
+  ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ import { collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface QuoteItem {
   id: string;
@@ -40,6 +41,7 @@ interface QuoteItem {
 
 export default function QuotationsPage() {
   const db = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
@@ -48,7 +50,9 @@ export default function QuotationsPage() {
   const [customerNit, setCustomerNit] = useState('');
   const [customerNrc, setCustomerNrc] = useState('');
 
-  const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
+  // Sincronización estable de inventario maestro
+  const inventoryRef = useMemo(() => collection(db, 'inventory'), [db]);
+  const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryRef);
 
   const filteredProducts = useMemo(() => {
     if (!inventory) return [];
@@ -74,6 +78,7 @@ export default function QuotationsPage() {
         quantity: 1 
       }];
     });
+    toast({ title: "Agregado", description: `${product.name} listo en cotización.` });
   };
 
   const removeFromQuote = (id: string) => {
@@ -96,7 +101,7 @@ export default function QuotationsPage() {
       toast({ variant: "destructive", title: "Cotización Vacía", description: "Debe agregar al menos un producto." });
       return;
     }
-    toast({ title: "PDF Generado", description: "La cotización está lista para imprimir." });
+    toast({ title: "Documento Preparado", description: "Imprimiendo cotización..." });
     window.print();
   };
 
@@ -104,46 +109,50 @@ export default function QuotationsPage() {
     <div className="min-h-screen bg-slate-50 p-6 print:bg-white print:p-0">
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 print:hidden">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
-            <Link href="/">
-              <ArrowLeft className="text-slate-600" size={20} />
-            </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full bg-white shadow-sm hover:bg-slate-100" 
+            onClick={() => router.push('/')}
+          >
+            <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Generador de Cotizaciones</h1>
-            <p className="text-slate-500 text-sm">Presupuestos rápidos para clientes y proyectos</p>
+            <h1 className="text-2xl font-bold text-slate-900 font-headline">Presupuestos y Cotizaciones</h1>
+            <p className="text-slate-500 text-sm">Generación de precios sin afectar inventario físico</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Panel Izquierdo: Resumen y Totales */}
         <div className="lg:col-span-4 space-y-4 print:col-span-12">
           <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white print:shadow-none print:border">
-            <CardHeader className="bg-slate-900 text-white p-5 print:bg-white print:text-black print:border-b">
+            <CardHeader className="bg-orange-600 text-white p-5 print:bg-white print:text-black print:border-b">
               <div className="flex justify-between items-center mb-2">
-                <CardTitle className="text-base font-bold">Resumen de Cotización</CardTitle>
-                <Badge variant="outline" className="text-[10px] text-orange-400 border-orange-400 uppercase print:hidden">
-                  Borrador
+                <CardTitle className="text-base font-bold">Resumen del Cliente</CardTitle>
+                <Badge variant="outline" className="text-[10px] text-orange-100 border-orange-400 uppercase print:hidden">
+                  Cotización No Válida como Factura
                 </Badge>
               </div>
               <div className="flex justify-between items-end">
                 <div>
-                  <p className="text-[9px] uppercase font-bold text-slate-500">Monto Total</p>
-                  <p className="text-3xl font-black text-orange-400 print:text-black">${total.toFixed(2)}</p>
+                  <p className="text-[9px] uppercase font-bold text-orange-200">Total Presupuestado</p>
+                  <p className="text-3xl font-black text-white print:text-black">${total.toFixed(2)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold">{quoteItems.length} Productos</p>
+                  <p className="text-lg font-bold">{quoteItems.length} Líneas</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[300px] print:h-auto">
+              <ScrollArea className="h-[350px] print:h-auto">
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
                       <TableHead className="w-[40px] text-[10px] font-bold px-3 text-center">CANT</TableHead>
-                      <TableHead className="text-[10px] font-bold">PRODUCTO</TableHead>
-                      <TableHead className="text-right text-[10px] font-bold">SUB</TableHead>
+                      <TableHead className="text-[10px] font-bold">DESCRIPCIÓN</TableHead>
+                      <TableHead className="text-right text-[10px] font-bold">SUBTOTAL</TableHead>
                       <TableHead className="w-[30px] print:hidden"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -151,7 +160,7 @@ export default function QuotationsPage() {
                     {quoteItems.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-12 text-slate-400 italic text-xs">
-                          Seleccione productos del catálogo
+                          Agregue códigos del catálogo maestro
                         </TableCell>
                       </TableRow>
                     ) : quoteItems.map((item) => (
@@ -162,13 +171,13 @@ export default function QuotationsPage() {
                             value={item.quantity} 
                             onFocus={e => e.target.select()}
                             onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                            className="w-12 h-7 text-center font-black text-orange-600 p-0 text-xs bg-transparent border-none print:text-black"
+                            className="w-12 h-7 text-center font-black text-orange-600 p-0 text-xs bg-transparent border-none print:text-black shadow-none focus-visible:ring-0"
                           />
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
                             <span className="font-bold text-slate-900 text-[11px] leading-tight">{item.name}</span>
-                            <span className="text-[9px] font-mono text-slate-400">${item.price.toFixed(2)} c/u</span>
+                            <span className="text-[9px] font-mono text-slate-400">{item.sku} • ${item.price.toFixed(2)} unit.</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-bold text-slate-900 text-[11px]">${(item.price * item.quantity).toFixed(2)}</TableCell>
@@ -193,7 +202,7 @@ export default function QuotationsPage() {
                   <span className="font-bold text-slate-900">${iva.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-100">
-                  <span>TOTAL FINAL:</span>
+                  <span>VALIDEZ: 15 DÍAS</span>
                   <span className="text-orange-600 print:text-black">${total.toFixed(2)}</span>
                 </div>
               </div>
@@ -201,27 +210,29 @@ export default function QuotationsPage() {
           </Card>
           
           <Button 
-            className="w-full h-14 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg shadow-lg print:hidden"
+            className="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-lg shadow-lg print:hidden"
             disabled={quoteItems.length === 0}
             onClick={handleGenerateQuote}
           >
             <Printer className="mr-2" size={20} />
-            Imprimir Cotización (PDF)
+            Imprimir Presupuesto
           </Button>
         </div>
 
+        {/* Panel Derecho: Catálogo Maestro */}
         <div className="lg:col-span-8 space-y-4 print:hidden">
           <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-            <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Datos del Receptor</span>
+            <div className="bg-slate-50 border-b border-slate-100 px-4 py-2 flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Solicitante</span>
+              <FileText size={14} className="text-slate-300" />
             </div>
             <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                  <User size={10} /> Nombre o Razón Social
+                  <User size={10} /> Nombre del Cliente
                 </Label>
                 <Input 
-                  placeholder="Ej. Juan Pérez..." 
+                  placeholder="Ej. Comercial Los Robles..." 
                   value={customerName}
                   onChange={e => setCustomerName(e.target.value)}
                   className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
@@ -229,7 +240,7 @@ export default function QuotationsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                  <Hash size={10} /> NIT o DUI
+                  <Hash size={10} /> NIT / DUI
                 </Label>
                 <Input 
                   placeholder="0000-000000-000-0" 
@@ -243,7 +254,7 @@ export default function QuotationsPage() {
                   <BadgeInfo size={10} /> NRC
                 </Label>
                 <Input 
-                  placeholder="Registro de Contribuyente" 
+                  placeholder="Registro Contribuyente" 
                   value={customerNrc}
                   onChange={e => setCustomerNrc(e.target.value)}
                   className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
@@ -252,12 +263,15 @@ export default function QuotationsPage() {
             </CardContent>
           </Card>
 
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-tight">Catálogo de Productos</h2>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-tight flex items-center gap-2">
+              <Package size={16} className="text-blue-500" />
+              Catálogo de Códigos Autorizados
+            </h2>
             <div className="relative w-full md:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <Input 
-                placeholder="Filtrar por código o nombre..." 
+                placeholder="Filtrar por SKU o nombre..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 h-10 bg-white border-none shadow-sm rounded-xl text-sm font-medium"
@@ -265,36 +279,40 @@ export default function QuotationsPage() {
             </div>
           </div>
 
-          <ScrollArea className="h-[400px]">
+          <ScrollArea className="h-[450px]">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {loadingInv ? (
                 <div className="col-span-full py-12 text-center text-slate-400 flex flex-col items-center gap-2">
-                  <Loader2 className="animate-spin" />
-                  Cargando inventario...
+                  <Loader2 className="animate-spin text-blue-500" />
+                  Sincronizando maestro...
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-slate-400">
+                   No se encontraron códigos con ese nombre.
                 </div>
               ) : filteredProducts.map((product: any) => (
                 <div 
                   key={product.id}
                   onClick={() => addToQuote(product)}
-                  className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between aspect-square"
+                  className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-orange-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between aspect-square"
                 >
                   <div className="flex justify-between items-start">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-orange-50 text-orange-500">
-                      <Package size={16} />
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50 text-blue-500 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
+                      <Hash size={16} />
                     </div>
-                    <Badge className="text-[9px] font-black px-1.5 h-5 bg-slate-100 text-slate-600 border-slate-200" variant="outline">
-                      Stock: {product.quantity}
+                    <Badge className="text-[8px] font-black px-1.5 h-4 bg-slate-50 text-slate-400 border-slate-200" variant="outline">
+                      SKU: {product.sku}
                     </Badge>
                   </div>
                   
                   <div className="mt-2 flex-1">
                     <h3 className="text-[11px] font-bold text-slate-900 leading-tight line-clamp-2">{product.name}</h3>
-                    <p className="text-[9px] font-mono font-bold text-slate-400 mt-0.5">{product.sku}</p>
+                    <p className="text-[9px] font-bold text-blue-500 mt-1 uppercase">Código Maestro</p>
                   </div>
 
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
                     <span className="text-sm font-black text-slate-900">${(product.price || 0).toFixed(2)}</span>
-                    <div className="w-6 h-6 bg-slate-900 text-white rounded-lg flex items-center justify-center group-hover:bg-orange-600 transition-colors">
+                    <div className="w-6 h-6 bg-slate-100 text-slate-400 rounded-lg flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-all">
                       <Plus size={12} />
                     </div>
                   </div>
