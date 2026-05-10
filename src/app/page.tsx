@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   ShoppingCart, 
   Truck, 
@@ -9,12 +9,34 @@ import {
   Users, 
   Package,
   ArrowLeftRight,
-  Building2
+  Building2,
+  ShieldCheck,
+  CalendarClock,
+  LayoutDashboard
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
+import { useFirestore, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 export default function Home() {
+  const db = useFirestore();
+  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
+  const { data: config } = useDoc<any>(configRef);
+
+  // Valores por defecto si no hay configuración
+  const modules = config || {
+    billing: true,
+    purchases: true,
+    suppliers: true,
+    quotations: true,
+    transfers: true,
+    customers: true,
+    inventory: true,
+    quedan: true,
+    management: true
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-8 md:p-12 lg:p-16">
       <div className="max-w-6xl mx-auto flex justify-between items-start mb-12">
@@ -25,62 +47,96 @@ export default function Home() {
       </div>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Link href="/billing">
-          <ModuleCard 
-            icon={<ShoppingCart className="text-white" size={24} />}
-            iconBg="bg-blue-600"
-            title="Facturación"
-            description="Generar DTE y facturas"
-          />
-        </Link>
-        <Link href="/purchases">
-          <ModuleCard 
-            icon={<Truck className="text-white" size={24} />}
-            iconBg="bg-emerald-600"
-            title="Registro de Compra"
-            description="Entrada de mercadería"
-          />
-        </Link>
-        <Link href="/suppliers">
-          <ModuleCard 
-            icon={<Building2 className="text-white" size={24} />}
-            iconBg="bg-emerald-800"
-            title="Proveedores"
-            description="Registro de suministrantes"
-          />
-        </Link>
-        <Link href="/quotations">
-          <ModuleCard 
-            icon={<FileText className="text-white" size={24} />}
-            iconBg="bg-orange-500"
-            title="Cotización"
-            description="Presupuestos para clientes"
-          />
-        </Link>
-        <Link href="/transfers">
-          <ModuleCard 
-            icon={<ArrowLeftRight className="text-white" size={24} />}
-            iconBg="bg-indigo-600"
-            title="Traslados"
-            description="Movimiento entre bodegas"
-          />
-        </Link>
-        <Link href="/customers">
-          <ModuleCard 
-            icon={<Users className="text-white" size={24} />}
-            iconBg="bg-sky-500"
-            title="Registro de Cliente"
-            description="Contribuyentes y CF"
-          />
-        </Link>
-        <Link href="/inventory">
-          <ModuleCard 
-            icon={<Package className="text-white" size={24} />}
-            iconBg="bg-rose-500"
-            title="Inventario"
-            description="Códigos autorizados y Stock"
-          />
-        </Link>
+        {modules.billing && (
+          <Link href="/billing">
+            <ModuleCard 
+              icon={<ShoppingCart className="text-white" size={24} />}
+              iconBg="bg-blue-600"
+              title="Facturación"
+              description="Ventas y Estado de Cuenta"
+            />
+          </Link>
+        )}
+        {modules.purchases && (
+          <Link href="/purchases">
+            <ModuleCard 
+              icon={<Truck className="text-white" size={24} />}
+              iconBg="bg-emerald-600"
+              title="Registro de Compra"
+              description="Entrada de mercadería"
+            />
+          </Link>
+        )}
+        {modules.suppliers && (
+          <Link href="/suppliers">
+            <ModuleCard 
+              icon={<Building2 className="text-white" size={24} />}
+              iconBg="bg-emerald-800"
+              title="Proveedores"
+              description="Registro de suministrantes"
+            />
+          </Link>
+        )}
+        {modules.quedan && (
+          <Link href="/quedan">
+            <ModuleCard 
+              icon={<CalendarClock className="text-white" size={24} />}
+              iconBg="bg-purple-600"
+              title="Gestión de Quedan"
+              description="Programación de pagos"
+            />
+          </Link>
+        )}
+        {modules.quotations && (
+          <Link href="/quotations">
+            <ModuleCard 
+              icon={<FileText className="text-white" size={24} />}
+              iconBg="bg-orange-500"
+              title="Cotización"
+              description="Presupuestos para clientes"
+            />
+          </Link>
+        )}
+        {modules.transfers && (
+          <Link href="/transfers">
+            <ModuleCard 
+              icon={<ArrowLeftRight className="text-white" size={24} />}
+              iconBg="bg-indigo-600"
+              title="Traslados"
+              description="Movimiento entre bodegas"
+            />
+          </Link>
+        )}
+        {modules.customers && (
+          <Link href="/customers">
+            <ModuleCard 
+              icon={<Users className="text-white" size={24} />}
+              iconBg="bg-sky-500"
+              title="Registro de Cliente"
+              description="Contribuyentes y CF"
+            />
+          </Link>
+        )}
+        {modules.inventory && (
+          <Link href="/inventory">
+            <ModuleCard 
+              icon={<Package className="text-white" size={24} />}
+              iconBg="bg-rose-500"
+              title="Inventario"
+              description="Códigos y Stock"
+            />
+          </Link>
+        )}
+        {modules.management && (
+          <Link href="/management">
+            <ModuleCard 
+              icon={<ShieldCheck className="text-white" size={24} />}
+              iconBg="bg-slate-900"
+              title="Gerencia"
+              description="Control de Permisos"
+            />
+          </Link>
+        )}
       </div>
     </div>
   );
