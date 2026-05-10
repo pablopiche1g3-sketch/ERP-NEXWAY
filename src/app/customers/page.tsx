@@ -15,8 +15,9 @@ import {
   Building2, 
   User, 
   Briefcase,
-  FileText,
-  UserCheck
+  UserCheck,
+  Database,
+  Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ export default function CustomersPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('cf'); // 'cf' = Consumidor Final, 'ccf' = Crédito Fiscal
+  const [activeTab, setActiveTab] = useState('cf');
 
   const [form, setForm] = useState({
     name: '',
@@ -51,10 +52,9 @@ export default function CustomersPage() {
 
   const { data: customers, loading: loadingData } = useCollection<any>(collection(db, 'customers'));
 
-  const handleCreateCustomer = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateCustomer = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     
-    // Validaciones mínimas según el tipo
     if (!form.name || (activeTab === 'ccf' && (!form.nit || !form.nrc))) {
       toast({ 
         variant: "destructive", 
@@ -73,7 +73,6 @@ export default function CustomersPage() {
 
     const customersRef = collection(db, 'customers');
 
-    // Operación no bloqueante para evitar que se quede "pensando"
     addDoc(customersRef, customerData)
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -86,7 +85,6 @@ export default function CustomersPage() {
 
     toast({ title: "Cliente Registrado", description: `${form.name} ha sido añadido.` });
     
-    // Limpiar formulario inmediatamente
     setForm({
       name: '',
       nit: '',
@@ -95,6 +93,41 @@ export default function CustomersPage() {
       email: '',
       phone: '',
       address: ''
+    });
+  };
+
+  const handleLoadDemo = () => {
+    const demo1 = {
+      name: 'Juan Pérez (Demo CF)',
+      type: 'Individual',
+      category: 'Consumidor Final',
+      email: 'juan@example.com',
+      phone: '7777-1234',
+      address: 'San Salvador, El Salvador',
+      createdAt: new Date().toISOString()
+    };
+
+    const demo2 = {
+      name: 'Distribuidora Salvadoreña S.A. (Demo CCF)',
+      type: 'Empresa',
+      category: 'Crédito Fiscal',
+      nit: '0614-010180-101-1',
+      nrc: '12345-6',
+      giro: 'Venta de repuestos automotrices',
+      email: 'contacto@distribuidora.sv',
+      phone: '2222-3333',
+      address: 'Zona Industrial, Soyapango',
+      createdAt: new Date().toISOString()
+    };
+
+    const customersRef = collection(db, 'customers');
+    
+    addDoc(customersRef, demo1);
+    addDoc(customersRef, demo2);
+
+    toast({ 
+      title: "Datos de Prueba Cargados", 
+      description: "Se han añadido 2 clientes de ejemplo (CF y CCF)." 
     });
   };
 
@@ -131,9 +164,17 @@ export default function CustomersPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-headline">Registro de Clientes</h1>
-            <p className="text-slate-500 text-sm">Gestión de carteras y datos fiscales</p>
+            <p className="text-slate-500 text-sm">Gestión de carteras y datos tributarios</p>
           </div>
         </div>
+        <Button 
+          variant="outline" 
+          onClick={handleLoadDemo}
+          className="rounded-xl border-dashed border-sky-300 text-sky-600 hover:bg-sky-50 font-bold gap-2"
+        >
+          <Sparkles size={16} />
+          Cargar Clientes de Prueba
+        </Button>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -147,7 +188,7 @@ export default function CustomersPage() {
               <CardDescription className="text-slate-400">Seleccione el tipo de contribuyente</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
-              <Tabs defaultValue="cf" onValueChange={setActiveTab} className="w-full">
+              <Tabs defaultValue="cf" value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid grid-cols-2 mb-6 bg-slate-100 rounded-xl p-1">
                   <TabsTrigger value="cf" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
                     <User size={14} className="mr-2" />
@@ -182,7 +223,7 @@ export default function CustomersPage() {
                         <div className="relative">
                           <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                           <Input 
-                            placeholder="0000-000000..." 
+                            placeholder="0000-000000-000-0" 
                             value={form.nit}
                             onChange={e => setForm({...form, nit: e.target.value})}
                             className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
@@ -221,7 +262,7 @@ export default function CustomersPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Correo (Opcional)</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Correo Electrónico</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                         <Input 
