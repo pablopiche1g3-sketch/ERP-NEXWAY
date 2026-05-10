@@ -27,7 +27,9 @@ import {
   ArrowUpCircle,
   AlertCircle,
   Coins,
-  Banknote
+  Banknote,
+  QrCode,
+  FileCode
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,6 +67,10 @@ export default function BillingPage() {
   const [customerName, setCustomerName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [paymentReference, setPaymentReference] = useState('');
+
+  // Nuevos campos DTE
+  const [dteNumber, setDteNumber] = useState('');
+  const [generationCode, setGenerationCode] = useState('');
 
   // Estados para Gastos Internos
   const [expenseDesc, setExpenseDesc] = useState('');
@@ -151,6 +157,8 @@ export default function BillingPage() {
         docType: docType,
         paymentMethod: paymentMethod,
         paymentReference: paymentReference,
+        dteNumber: dteNumber || `DTE-${Math.random().toString(36).substring(7).toUpperCase()}`,
+        generationCode: generationCode || `GEN-${Math.random().toString(36).substring(2).toUpperCase()}`,
         customer: customerName || (docType === 'CF' ? 'Consumidor Final (Venta Bolsón)' : 'Cliente Genérico CCF')
       });
 
@@ -169,6 +177,8 @@ export default function BillingPage() {
       setCustomerName('');
       setPaymentMethod('Efectivo');
       setPaymentReference('');
+      setDteNumber('');
+      setGenerationCode('');
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la venta." });
@@ -399,39 +409,71 @@ export default function BillingPage() {
             </div>
 
             <div className="lg:col-span-8 space-y-4">
-              <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-                <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Receptor</span>
-                </div>
-                <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-end">
-                  <div className="w-full md:w-48 space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">Tipo de Documento</Label>
-                    <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                      <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100 focus:ring-blue-500/20">
-                        <SelectValue placeholder="Tipo Doc" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CF">Consumidor Final</SelectItem>
-                        <SelectItem value="CCF">Crédito Fiscal</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+                  <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Receptor</span>
                   </div>
-                  <div className="flex-1 w-full space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">
-                      {docType === 'CF' ? 'Nombre Cliente (Bolsón)' : 'Razón Social / NRC'}
-                    </Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-end">
+                    <div className="w-full md:w-48 space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">Tipo de Documento</Label>
+                      <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                        <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100 focus:ring-blue-500/20">
+                          <SelectValue placeholder="Tipo Doc" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CF">Consumidor Final</SelectItem>
+                          <SelectItem value="CCF">Crédito Fiscal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1 w-full space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">
+                        {docType === 'CF' ? 'Nombre Cliente (Bolsón)' : 'Razón Social / NRC'}
+                      </Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <Input 
+                          placeholder={docType === 'CF' ? "Venta a Consumidor Final..." : "Escriba razón social o NRC..."}
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          className="pl-10 h-10 bg-slate-50 border-slate-100 rounded-xl focus:ring-blue-500/20"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+                  <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información DTE (Hacienda)</span>
+                  </div>
+                  <CardContent className="p-4 grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                        <QrCode size={10} /> No. DTE
+                      </Label>
                       <Input 
-                        placeholder={docType === 'CF' ? "Venta a Consumidor Final..." : "Escriba razón social o NRC..."}
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        className="pl-10 h-10 bg-slate-50 border-slate-100 rounded-xl focus:ring-blue-500/20"
+                        placeholder="Opcional..." 
+                        value={dteNumber}
+                        onChange={e => setDteNumber(e.target.value)}
+                        className="h-10 bg-slate-50 border-slate-100 rounded-xl text-[10px] font-bold"
                       />
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                        <FileCode size={10} /> Cód. Generación
+                      </Label>
+                      <Input 
+                        placeholder="Opcional..." 
+                        value={generationCode}
+                        onChange={e => setGenerationCode(e.target.value)}
+                        className="h-10 bg-slate-50 border-slate-100 rounded-xl text-[10px] font-bold"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
               <div className="flex justify-end">
                 <div className="relative w-full md:w-80">
@@ -591,7 +633,6 @@ export default function BillingPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              {/* Calculador de Denominaciones */}
               <Card className="md:col-span-4 border-none shadow-sm rounded-3xl bg-white overflow-hidden h-fit">
                 <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -647,7 +688,6 @@ export default function BillingPage() {
                 </CardContent>
               </Card>
 
-              {/* Registro de Gastos e Historial */}
               <div className="md:col-span-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
@@ -771,33 +811,40 @@ export default function BillingPage() {
                       Ventas Consolidadas (Historial del Día)
                     </CardTitle>
                   </CardHeader>
-                  <Table>
-                    <TableHeader className="bg-slate-50/50">
-                      <TableRow>
-                        <TableHead className="text-[10px] font-bold uppercase">Hora</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase">Cliente</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase">Método / Ref</TableHead>
-                        <TableHead className="text-right text-[10px] font-bold uppercase">Monto</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {todayStats.salesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((sale: any) => (
-                        <TableRow key={sale.id} className="hover:bg-slate-50 transition-colors">
-                          <TableCell className="text-xs text-slate-500 font-mono">
-                            {new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </TableCell>
-                          <TableCell className="font-bold text-slate-900 text-xs">{sale.customer}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="text-[10px] font-bold text-slate-600">{sale.paymentMethod || 'Efectivo'}</span>
-                              {sale.paymentReference && <span className="text-[9px] text-blue-500 font-bold">Ref: {sale.paymentReference}</span>}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-black text-slate-900">${(sale.total || 0).toFixed(2)}</TableCell>
+                  <ScrollArea className="h-[400px]">
+                    <Table>
+                      <TableHeader className="bg-slate-50/50">
+                        <TableRow>
+                          <TableHead className="text-[10px] font-bold uppercase">DTE / Hora</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase">Cliente</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase">Método / Ref</TableHead>
+                          <TableHead className="text-right text-[10px] font-bold uppercase">Monto</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {todayStats.salesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((sale: any) => (
+                          <TableRow key={sale.id} className="hover:bg-slate-50 transition-colors">
+                            <TableCell>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] font-black text-blue-600 leading-none">{sale.dteNumber || 'N/A'}</span>
+                                <span className="text-[8px] text-slate-400 font-mono">
+                                  {new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-bold text-slate-900 text-xs">{sale.customer}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-600">{sale.paymentMethod || 'Efectivo'}</span>
+                                {sale.paymentReference && <span className="text-[9px] text-blue-500 font-bold">Ref: {sale.paymentReference}</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-black text-slate-900">${(sale.total || 0).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
                 </Card>
               </div>
             </div>
