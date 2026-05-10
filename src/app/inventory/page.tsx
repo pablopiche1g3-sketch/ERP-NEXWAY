@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -28,10 +27,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function InventoryMasterPage() {
   const db = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,8 +40,7 @@ export default function InventoryMasterPage() {
   const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
-    category: 'General',
-    price: '' as string | number
+    category: 'General'
   });
 
   const [quickEntry, setQuickEntry] = useState({
@@ -51,8 +50,12 @@ export default function InventoryMasterPage() {
 
   const [warehouseName, setWarehouseName] = useState('');
 
-  const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
-  const { data: warehouses } = useCollection<any>(collection(db, 'warehouses'));
+  // Estabilizar consultas
+  const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
+  const warehousesQuery = useMemo(() => collection(db, 'warehouses'), [db]);
+
+  const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryQuery);
+  const { data: warehouses } = useCollection<any>(warehousesQuery);
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +65,7 @@ export default function InventoryMasterPage() {
     }
 
     setLoading(true);
-    const q = query(collection(db, 'inventory'), where("sku", "==", productForm.sku));
+    const q = query(inventoryQuery, where("sku", "==", productForm.sku));
     const snap = await getDocs(q);
     
     if (!snap.empty) {
@@ -75,18 +78,18 @@ export default function InventoryMasterPage() {
       sku: productForm.sku,
       name: productForm.name,
       category: productForm.category,
-      price: parseFloat(productForm.price.toString()) || 0,
+      price: 0, // Precio base en 0, se puede definir en otros módulos o editar luego
       quantity: 0,
       createdAt: new Date().toISOString()
     };
 
-    addDoc(collection(db, 'inventory'), data)
+    addDoc(inventoryQuery, data)
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'inventory', operation: 'create', requestResourceData: data }));
       });
 
     toast({ title: "Código Autorizado", description: "El producto ha sido registrado en el maestro." });
-    setProductForm({ sku: '', name: '', category: 'General', price: '' });
+    setProductForm({ sku: '', name: '', category: 'General' });
     setLoading(false);
   };
 
@@ -120,7 +123,7 @@ export default function InventoryMasterPage() {
   const handleCreateWarehouse = () => {
     if (!warehouseName) return;
     const data = { name: warehouseName };
-    addDoc(collection(db, 'warehouses'), data)
+    addDoc(warehousesQuery, data)
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'warehouses', operation: 'create', requestResourceData: data }));
       });
@@ -149,10 +152,13 @@ export default function InventoryMasterPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
-            <Link href="/">
-              <ArrowLeft className="text-slate-600" size={20} />
-            </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full bg-white shadow-sm hover:bg-slate-100" 
+            onClick={() => router.push('/')}
+          >
+            <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Centro Logístico</h1>
@@ -232,7 +238,7 @@ export default function InventoryMasterPage() {
                     <TableHeader className="bg-slate-50">
                       <TableRow>
                         <TableHead className="text-[10px] font-bold uppercase">SKU</TableHead>
-                        <TableHead className="text-[10px) font-bold uppercase">Producto</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase">Producto</TableHead>
                         <TableHead className="text-center text-[10px] font-bold uppercase">Stock Actual</TableHead>
                         <TableHead className="text-right text-[10px] font-bold uppercase">Precio Sug.</TableHead>
                       </TableRow>
@@ -290,16 +296,10 @@ export default function InventoryMasterPage() {
                       className="bg-slate-50 border-slate-200"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">Precio de Venta ($)</Label>
-                    <Input 
-                      type="number"
-                      step="0.01"
-                      value={productForm.price}
-                      onFocus={e => e.target.select()}
-                      onChange={e => setProductForm({...productForm, price: e.target.value})}
-                      className="bg-slate-50 border-slate-200"
-                    />
+                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 mb-2">
+                    <p className="text-[10px] text-blue-700 font-medium">
+                      El precio de venta no es requerido en el maestro. Se podrá definir en Facturación o Compras.
+                    </p>
                   </div>
                   <Button disabled={loading} className="w-full bg-blue-600 h-12 rounded-xl font-bold text-white shadow-lg">
                     {loading ? <Loader2 className="animate-spin" /> : 'Crear Código Maestro'}
@@ -404,7 +404,7 @@ export default function InventoryMasterPage() {
                   <Input 
                     placeholder="Ej. Bodega Principal" 
                     value={warehouseName}
-                    onChange={e => warehouseName === '' ? '' : setWarehouseName(e.target.value)}
+                    onChange={e => setWarehouseName(e.target.value)}
                     className="bg-slate-50 h-12 rounded-xl"
                   />
                 </div>
