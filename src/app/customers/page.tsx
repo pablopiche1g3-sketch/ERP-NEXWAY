@@ -32,10 +32,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function CustomersPage() {
   const db = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('cf');
@@ -50,7 +51,9 @@ export default function CustomersPage() {
     address: ''
   });
 
-  const { data: customers, loading: loadingData } = useCollection<any>(collection(db, 'customers'));
+  // Estabilizar la referencia de la colección para evitar bucles de carga
+  const customersCollectionRef = useMemo(() => collection(db, 'customers'), [db]);
+  const { data: customers, loading: loadingData } = useCollection<any>(customersCollectionRef);
 
   const handleCreateCustomer = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -71,9 +74,7 @@ export default function CustomersPage() {
       createdAt: new Date().toISOString()
     };
 
-    const customersRef = collection(db, 'customers');
-
-    addDoc(customersRef, customerData)
+    addDoc(customersCollectionRef, customerData)
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
           path: 'customers',
@@ -122,10 +123,13 @@ export default function CustomersPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
-            <Link href="/">
-              <ArrowLeft className="text-slate-600" size={20} />
-            </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full bg-white shadow-sm hover:bg-slate-100" 
+            onClick={() => router.push('/')}
+          >
+            <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Registro de Clientes</h1>
@@ -292,7 +296,7 @@ export default function CustomersPage() {
                 </TableHeader>
                 <TableBody>
                   {loadingData ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Cargando base de datos...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Sincronizando datos...</TableCell></TableRow>
                   ) : filteredCustomers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">

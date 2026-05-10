@@ -42,7 +42,7 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface CartItem {
   id: string;
@@ -56,6 +56,7 @@ type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Cheque';
 
 export default function BillingPage() {
   const db = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -78,10 +79,16 @@ export default function BillingPage() {
     c1: '', c025: '', c010: '', c005: '', c001: ''
   });
 
-  const { data: inventory } = useCollection<any>(collection(db, 'inventory'));
-  const { data: salesAll } = useCollection<any>(collection(db, 'sales'));
-  const { data: expensesAll } = useCollection<any>(collection(db, 'expenses'));
-  const { data: customers } = useCollection<any>(collection(db, 'customers'));
+  // Estabilizar queries
+  const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
+  const salesQuery = useMemo(() => collection(db, 'sales'), [db]);
+  const expensesQuery = useMemo(() => collection(db, 'expenses'), [db]);
+  const customersQuery = useMemo(() => collection(db, 'customers'), [db]);
+
+  const { data: inventory } = useCollection<any>(inventoryQuery);
+  const { data: salesAll } = useCollection<any>(salesQuery);
+  const { data: expensesAll } = useCollection<any>(expensesQuery);
+  const { data: customers } = useCollection<any>(customersQuery);
 
   const filteredProducts = useMemo(() => {
     if (!inventory) return [];
@@ -285,10 +292,13 @@ export default function BillingPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
-            <Link href="/">
-              <ArrowLeft className="text-slate-600" size={20} />
-            </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full bg-white shadow-sm hover:bg-slate-100" 
+            onClick={() => router.push('/')}
+          >
+            <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Módulo de Facturación</h1>
