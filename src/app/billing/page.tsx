@@ -27,7 +27,9 @@ import {
   MinusCircle,
   ArrowDownCircle,
   ArrowUpCircle,
-  AlertCircle
+  AlertCircle,
+  Coins,
+  Banknote
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,6 +71,13 @@ export default function BillingPage() {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseCat, setExpenseCat] = useState('Otros');
   const [isRegisteringExpense, setIsRegisteringExpense] = useState(false);
+
+  // Estados para Cuadre Avanzado
+  const [baseCash, setBaseCash] = useState<string>('0');
+  const [denominations, setDenominations] = useState({
+    b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0,
+    c1: 0, c025: 0, c010: 0, c005: 0, c001: 0
+  });
 
   const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
   const { data: salesAll } = useCollection<any>(collection(db, 'sales'));
@@ -212,15 +221,32 @@ export default function BillingPage() {
 
     const totalExpenses = expensesToday.reduce((acc: number, e: any) => acc + (e.amount || 0), 0);
     
+    // Cálculo de conteo físico
+    const physicalCount = (denominations.b100 * 100) + (denominations.b50 * 50) + (denominations.b20 * 20) + 
+                          (denominations.b10 * 10) + (denominations.b5 * 5) + (denominations.b1 * 1) + 
+                          (denominations.c1 * 1) + (denominations.c025 * 0.25) + (denominations.c010 * 0.1) + 
+                          (denominations.c005 * 0.05) + (denominations.c001 * 0.01);
+
+    const baseAmountValue = parseFloat(baseCash) || 0;
+    const expectedCash = salesStats.efectivoSales - totalExpenses + baseAmountValue;
+    const difference = physicalCount - expectedCash;
+
     return {
       ...salesStats,
       totalExpenses,
-      // El arqueo de caja solo descuenta los gastos del efectivo recibido físicamente
-      netCash: salesStats.efectivoSales - totalExpenses,
+      baseAmountValue,
+      expectedCash,
+      physicalCount,
+      difference,
       salesTodayList: salesToday,
       expensesTodayList: expensesToday
     };
-  }, [salesAll, expensesAll]);
+  }, [salesAll, expensesAll, baseCash, denominations]);
+
+  const updateDenomination = (key: keyof typeof denominations, val: string) => {
+    const n = parseInt(val) || 0;
+    setDenominations(prev => ({ ...prev, [key]: n }));
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -500,11 +526,41 @@ export default function BillingPage() {
           <TabsContent value="cuadre" className="focus-visible:outline-none space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="border-none shadow-sm rounded-3xl bg-blue-600 text-white md:col-span-2">
-                <CardContent className="p-8 space-y-2">
-                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider">Total Ventas Brutas Hoy</p>
-                  <p className="text-5xl font-black">${todayStats.total.toFixed(2)}</p>
-                  <div className="flex items-center gap-1 text-[10px] font-bold text-blue-200">
-                    <TrendingUp size={12} /> Desglose de ingresos del día
+                <CardContent className="p-8 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-blue-100 text-xs font-bold uppercase tracking-wider">Total Ventas Brutas Hoy</p>
+                      <p className="text-5xl font-black">${todayStats.total.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-blue-500/30 p-4 rounded-2xl border border-blue-400/30">
+                      <p className="text-blue-100 text-[10px] font-bold uppercase">Monto Base (Fondo)</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl font-black">${todayStats.baseAmountValue.toFixed(2)}</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-blue-400/30">
+                              <Plus size={14} />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-60">
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-bold uppercase">Ajustar Base de Caja</Label>
+                              <Input 
+                                type="number" 
+                                value={baseCash} 
+                                onChange={(e) => setBaseCash(e.target.value)} 
+                                className="h-8 font-bold"
+                              />
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-[10px] font-bold text-blue-200 border-t border-blue-400/30 pt-4">
+                    <div className="flex items-center gap-1"><Wallet size={12} /> Efec: ${todayStats.efectivoSales.toFixed(2)}</div>
+                    <div className="flex items-center gap-1"><CardIcon size={12} /> Tarj: ${todayStats.tarjeta.toFixed(2)}</div>
+                    <div className="flex items-center gap-1"><Landmark size={12} /> Trans: ${todayStats.transferencia.toFixed(2)}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -513,11 +569,13 @@ export default function BillingPage() {
                 <CardContent className="p-6 space-y-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Wallet size={16} className="text-emerald-200" />
-                    <p className="text-emerald-100 text-[10px] font-bold uppercase">Arqueo: Efectivo Real</p>
+                    <p className="text-emerald-100 text-[10px] font-bold uppercase">Arqueo: Efectivo Esperado</p>
                   </div>
-                  <p className="text-3xl font-black">${todayStats.netCash.toFixed(2)}</p>
-                  <p className="text-[9px] text-emerald-200 font-bold">Ventas Efec: ${todayStats.efectivoSales.toFixed(2)}</p>
-                  <p className="text-[9px] text-emerald-100 font-medium">Gastos: -${todayStats.totalExpenses.toFixed(2)}</p>
+                  <p className="text-3xl font-black">${todayStats.expectedCash.toFixed(2)}</p>
+                  <p className="text-[9px] text-emerald-100 font-medium">Incluye ventas, base y menos gastos.</p>
+                  <div className={`mt-2 p-2 rounded-xl text-center text-xs font-black ${todayStats.difference >= 0 ? 'bg-emerald-500/50' : 'bg-rose-500/50'}`}>
+                    Diferencia: ${todayStats.difference.toFixed(2)}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -533,109 +591,163 @@ export default function BillingPage() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="md:col-span-1">
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden h-full">
-                  <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <ArrowDownCircle className="text-rose-500" size={18} />
-                      Registrar Gasto (Efectivo)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400">Categoría</Label>
-                      <Select value={expenseCat} onValueChange={setExpenseCat}>
-                        <SelectTrigger className="h-10 rounded-xl bg-slate-50">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Gasolina">Gasolina</SelectItem>
-                          <SelectItem value="Anticipo">Anticipo</SelectItem>
-                          <SelectItem value="Reintegro">Reintegro</SelectItem>
-                          <SelectItem value="Alimentación">Alimentación</SelectItem>
-                          <SelectItem value="Otros">Otros</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400">Descripción / Concepto</Label>
-                      <Input 
-                        placeholder="Ej. Combustible camión 2"
-                        value={expenseDesc}
-                        onChange={(e) => setExpenseDesc(e.target.value)}
-                        className="h-10 rounded-xl bg-slate-50 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400">Monto ($)</Label>
-                      <Input 
-                        type="number"
-                        placeholder="0.00"
-                        value={expenseAmount}
-                        onChange={(e) => setExpenseAmount(e.target.value)}
-                        className="h-10 rounded-xl bg-slate-50 text-xl font-black"
-                      />
-                    </div>
-                    <Button 
-                      className="w-full bg-rose-600 hover:bg-rose-700 h-12 rounded-xl font-bold"
-                      onClick={handleRegisterExpense}
-                      disabled={isRegisteringExpense}
-                    >
-                      {isRegisteringExpense ? <Loader2 className="animate-spin" /> : 'Aplicar Egreso'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="md:col-span-3 space-y-6">
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden border border-slate-100">
-                  <CardHeader className="p-6 border-b border-slate-50 flex flex-row items-center justify-between">
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <Receipt className="text-blue-600" />
-                      Detalle de Gastos del Día
-                    </CardTitle>
-                    <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-100 uppercase text-[9px] font-black">
-                      Total Salidas: ${todayStats.totalExpenses.toFixed(2)}
-                    </Badge>
-                  </CardHeader>
-                  <Table>
-                    <TableHeader className="bg-slate-50/50">
-                      <TableRow>
-                        <TableHead className="text-[10px] font-bold">HORA</TableHead>
-                        <TableHead className="text-[10px] font-bold">CATEGORÍA</TableHead>
-                        <TableHead className="text-[10px] font-bold">DESCRIPCIÓN</TableHead>
-                        <TableHead className="text-right text-[10px] font-bold">MONTO</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {todayStats.expensesTodayList.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8 text-slate-400 italic text-xs">
-                            No hay gastos registrados hoy
-                          </TableCell>
-                        </TableRow>
-                      ) : todayStats.expensesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((exp: any) => (
-                        <TableRow key={exp.id} className="hover:bg-rose-50/30 transition-colors">
-                          <TableCell className="text-xs text-slate-500 font-mono">
-                            {new Date(exp.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="text-[9px] font-bold uppercase">{exp.category}</Badge>
-                          </TableCell>
-                          <TableCell className="text-xs font-medium text-slate-700">{exp.description}</TableCell>
-                          <TableCell className="text-right font-black text-rose-600">-${exp.amount.toFixed(2)}</TableCell>
-                        </TableRow>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              {/* Calculador de Denominaciones */}
+              <Card className="md:col-span-4 border-none shadow-sm rounded-3xl bg-white overflow-hidden h-fit">
+                <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Coins className="text-blue-600" size={18} />
+                    Conteo Físico de Efectivo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Banknote size={10} /> Billetes</p>
+                      {[100, 50, 20, 10, 5, 1].map(b => (
+                        <div key={b} className="flex items-center gap-2">
+                          <Label className="text-[11px] font-bold w-12 text-slate-600">${b}</Label>
+                          <Input 
+                            type="number" 
+                            className="h-8 text-xs bg-slate-50 rounded-lg text-center" 
+                            placeholder="0"
+                            value={denominations[`b${b}` as keyof typeof denominations]}
+                            onChange={(e) => updateDenomination(`b${b}` as any, e.target.value)}
+                          />
+                        </div>
                       ))}
-                    </TableBody>
-                  </Table>
-                </Card>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Coins size={10} /> Monedas</p>
+                      {[
+                        { label: '1.00', key: 'c1' },
+                        { label: '0.25', key: 'c025' },
+                        { label: '0.10', key: 'c010' },
+                        { label: '0.05', key: 'c005' },
+                        { label: '0.01', key: 'c001' }
+                      ].map(c => (
+                        <div key={c.key} className="flex items-center gap-2">
+                          <Label className="text-[11px] font-bold w-12 text-slate-600">${c.label}</Label>
+                          <Input 
+                            type="number" 
+                            className="h-8 text-xs bg-slate-50 rounded-lg text-center" 
+                            placeholder="0"
+                            value={denominations[c.key as keyof typeof denominations]}
+                            onChange={(e) => updateDenomination(c.key as any, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-slate-100 bg-slate-900 -mx-4 -mb-4 p-4 text-white">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold uppercase text-slate-400">Total Conteo Físico</span>
+                      <span className="text-2xl font-black text-blue-400">${todayStats.physicalCount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Registro de Gastos e Historial */}
+              <div className="md:col-span-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                    <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <ArrowDownCircle className="text-rose-500" size={18} />
+                        Registrar Gasto (Efectivo)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400">Categoría</Label>
+                        <Select value={expenseCat} onValueChange={setExpenseCat}>
+                          <SelectTrigger className="h-10 rounded-xl bg-slate-50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Gasolina">Gasolina</SelectItem>
+                            <SelectItem value="Anticipo">Anticipo</SelectItem>
+                            <SelectItem value="Reintegro">Reintegro</SelectItem>
+                            <SelectItem value="Alimentación">Alimentación</SelectItem>
+                            <SelectItem value="Otros">Otros</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400">Descripción / Concepto</Label>
+                        <Input 
+                          placeholder="Ej. Combustible camión 2"
+                          value={expenseDesc}
+                          onChange={(e) => setExpenseDesc(e.target.value)}
+                          className="h-10 rounded-xl bg-slate-50 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400">Monto ($)</Label>
+                        <Input 
+                          type="number"
+                          placeholder="0.00"
+                          value={expenseAmount}
+                          onChange={(e) => setExpenseAmount(e.target.value)}
+                          className="h-10 rounded-xl bg-slate-50 text-xl font-black"
+                        />
+                      </div>
+                      <Button 
+                        className="w-full bg-rose-600 hover:bg-rose-700 h-12 rounded-xl font-bold"
+                        onClick={handleRegisterExpense}
+                        disabled={isRegisteringExpense}
+                      >
+                        {isRegisteringExpense ? <Loader2 className="animate-spin" /> : 'Aplicar Egreso'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden border border-slate-100">
+                    <CardHeader className="p-6 border-b border-slate-50 flex flex-row items-center justify-between">
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        <Receipt className="text-blue-600" />
+                        Detalle de Gastos
+                      </CardTitle>
+                    </CardHeader>
+                    <ScrollArea className="h-[280px]">
+                      <Table>
+                        <TableHeader className="bg-slate-50/50">
+                          <TableRow>
+                            <TableHead className="text-[10px] font-bold">HORA</TableHead>
+                            <TableHead className="text-[10px] font-bold">CATEGORÍA</TableHead>
+                            <TableHead className="text-right text-[10px] font-bold">MONTO</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {todayStats.expensesTodayList.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center py-8 text-slate-400 italic text-xs">
+                                No hay gastos hoy
+                              </TableCell>
+                            </TableRow>
+                          ) : todayStats.expensesTodayList.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)).map((exp: any) => (
+                            <TableRow key={exp.id} className="hover:bg-rose-50/30 transition-colors">
+                              <TableCell className="text-xs text-slate-500 font-mono">
+                                {new Date(exp.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="text-[9px] font-bold uppercase">{exp.category}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-black text-rose-600">-${exp.amount.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </Card>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {[
-                    { label: 'Efectivo (Ventas)', value: todayStats.efectivoSales, icon: <Wallet className="text-emerald-500" />, sub: 'Suma al arqueo' },
-                    { label: 'Tarjeta', value: todayStats.tarjeta, icon: <CardIcon className="text-blue-500" />, sub: 'Dinero al Banco' },
-                    { label: 'Transferencia', value: todayStats.transferencia, icon: <Landmark className="text-purple-500" />, sub: 'Dinero al Banco' },
+                    { label: 'Efectivo (Ventas)', value: todayStats.efectivoSales, icon: <Wallet className="text-emerald-500" />, sub: 'En gaveta' },
+                    { label: 'Tarjeta', value: todayStats.tarjeta, icon: <CardIcon className="text-blue-500" />, sub: 'Banco' },
+                    { label: 'Transferencia', value: todayStats.transferencia, icon: <Landmark className="text-purple-500" />, sub: 'Banco' },
                     { label: 'Cheque', value: todayStats.cheque, icon: <BookOpen className="text-orange-500" />, sub: 'En tránsito' }
                   ].map((item) => (
                     <Card key={item.label} className="border-none shadow-sm rounded-2xl bg-white border border-slate-100">
