@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -58,7 +59,7 @@ export default function PurchasesPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [creditDays, setCreditDays] = useState<string | number>('');
   const [enteredBy, setEnteredBy] = useState('');
-  const [warehouse, setWarehouse] = useState('Bodega Central');
+  const [warehouse, setWarehouse] = useState('');
 
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [skuSearch, setSkuSearch] = useState('');
@@ -67,6 +68,7 @@ export default function PurchasesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: inventory } = useCollection<any>(collection(db, 'inventory'));
+  const { data: warehouses } = useCollection<any>(collection(db, 'warehouses'));
 
   useEffect(() => {
     const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -124,6 +126,10 @@ export default function PurchasesPage() {
     }
     if (!enteredBy) {
       toast({ variant: "destructive", title: "Encargado Requerido", description: "Por favor ingrese su nombre." });
+      return;
+    }
+    if (!warehouse) {
+      toast({ variant: "destructive", title: "Bodega Requerida", description: "Seleccione una bodega de destino." });
       return;
     }
 
@@ -279,12 +285,12 @@ export default function PurchasesPage() {
                   <Label className="text-[10px] font-black uppercase text-slate-400">Bodega Destino</Label>
                   <Select value={warehouse} onValueChange={setWarehouse}>
                     <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100 text-slate-900">
-                      <SelectValue />
+                      <SelectValue placeholder="Seleccione..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Bodega Central">Bodega Central</SelectItem>
-                      <SelectItem value="Zona Exhibición">Zona Exhibición</SelectItem>
-                      <SelectItem value="Sucursal Norte">Sucursal Norte</SelectItem>
+                      {warehouses?.map((wh: any) => (
+                        <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

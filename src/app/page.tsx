@@ -9,7 +9,8 @@ import {
   ClipboardList, 
   Users, 
   Package,
-  LogOut
+  LogOut,
+  ArrowLeftRight
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,12 +68,14 @@ export default function Home() {
             description="Presupuestos para clientes"
           />
         </Link>
-        <ModuleCard 
-          icon={<ClipboardList className="text-white" size={24} />}
-          iconBg="bg-purple-600"
-          title="Orden de Compra"
-          description="Gestión de pedidos"
-        />
+        <Link href="/transfers">
+          <ModuleCard 
+            icon={<ArrowLeftRight className="text-white" size={24} />}
+            iconBg="bg-indigo-600"
+            title="Traslados"
+            description="Movimiento entre bodegas"
+          />
+        </Link>
         <ModuleCard 
           icon={<Users className="text-white" size={24} />}
           iconBg="bg-sky-500"
