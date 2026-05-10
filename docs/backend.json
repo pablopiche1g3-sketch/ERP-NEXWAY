@@ -1,0 +1,42 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Store extra user details.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "manager", "employee"] },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "role"]
+    },
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "Products or materials in stock.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "quantity": { "type": "number" },
+        "price": { "type": "number" },
+        "category": { "type": "string" }
+      },
+      "required": ["name", "sku", "quantity"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "#/backend/entities/UserProfile",
+      "description": "User profile data."
+    },
+    "/inventory": {
+      "schema": "#/backend/entities/InventoryItem",
+      "description": "Global inventory list."
+    }
+  }
+}

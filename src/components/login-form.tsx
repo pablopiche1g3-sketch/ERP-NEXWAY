@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -5,6 +6,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { ShieldCheck, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { signInWithEmailAndPassword } from "firebase/auth"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -18,39 +21,49 @@ import {
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/firebase"
 
 const formSchema = z.object({
-  username: z.string().min(1, {
-    message: "El usuario es obligatorio.",
+  email: z.string().email({
+    message: "Ingrese un correo válido.",
   }),
-  password: z.string().min(1, {
-    message: "La contraseña es obligatoria.",
+  password: z.string().min(6, {
+    message: "La contraseña debe tener al menos 6 caracteres.",
   }),
 })
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = React.useState(false)
   const { toast } = useToast()
+  const router = useRouter()
+  const auth = useAuth()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   })
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsLoading(false)
-
-    console.log("Iniciando sesión con:", values)
-    
-    toast({
-      title: "Autenticación Iniciada",
-      description: "Accediendo a NexWay ERP de forma segura...",
-    })
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password)
+      toast({
+        title: "Bienvenido",
+        description: "Acceso concedido a NexWay ERP.",
+      })
+      router.push("/dashboard")
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error de autenticación",
+        description: "Usuario o contraseña incorrectos.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -73,15 +86,15 @@ export default function LoginForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="username"
+              name="email"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-[10px] font-bold text-slate-500 tracking-wider">
-                    USUARIO
+                    CORREO ELECTRÓNICO
                   </FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder="Ej. pablo.andres" 
+                      placeholder="usuario@nexway.com" 
                       {...field} 
                       className="bg-slate-50 border-slate-100 h-12 focus:ring-0 focus:border-blue-500 rounded-xl px-4 text-slate-900 placeholder:text-slate-300 transition-all"
                     />
