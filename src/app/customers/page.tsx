@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -15,14 +14,14 @@ import {
   BadgeInfo, 
   Building2, 
   User, 
-  Loader2,
-  Briefcase
+  Briefcase,
+  FileText,
+  UserCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
@@ -32,15 +31,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function CustomersPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('cf'); // 'cf' = Consumidor Final, 'ccf' = Crédito Fiscal
 
   const [form, setForm] = useState({
     name: '',
-    type: 'Individual' as 'Individual' | 'Empresa',
     nit: '',
     nrc: '',
     giro: '',
@@ -53,18 +53,27 @@ export default function CustomersPage() {
 
   const handleCreateCustomer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.nit || !form.email) {
-      toast({ variant: "destructive", title: "Faltan campos", description: "Nombre, NIT y Correo son obligatorios." });
+    
+    // Validaciones mínimas según el tipo
+    if (!form.name || (activeTab === 'ccf' && (!form.nit || !form.nrc))) {
+      toast({ 
+        variant: "destructive", 
+        title: "Faltan campos", 
+        description: activeTab === 'cf' ? "El nombre es obligatorio." : "Nombre, NIT y NRC son obligatorios para Crédito Fiscal." 
+      });
       return;
     }
 
     const customerData = {
       ...form,
+      type: activeTab === 'cf' ? 'Individual' : 'Empresa',
+      category: activeTab === 'cf' ? 'Consumidor Final' : 'Crédito Fiscal',
       createdAt: new Date().toISOString()
     };
 
     const customersRef = collection(db, 'customers');
 
+    // Operación no bloqueante para evitar que se quede "pensando"
     addDoc(customersRef, customerData)
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -76,9 +85,10 @@ export default function CustomersPage() {
       });
 
     toast({ title: "Cliente Registrado", description: `${form.name} ha sido añadido.` });
+    
+    // Limpiar formulario inmediatamente
     setForm({
       name: '',
-      type: 'Individual',
       nit: '',
       nrc: '',
       giro: '',
@@ -106,7 +116,7 @@ export default function CustomersPage() {
     if (!customers) return [];
     return customers.filter(c => 
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      c.nit.toLowerCase().includes(searchTerm.toLowerCase())
+      (c.nit && c.nit.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [searchTerm, customers]);
 
@@ -120,142 +130,147 @@ export default function CustomersPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Registro de Clientes</h1>
-            <p className="text-slate-500 text-sm">Gestión de contribuyentes y consumidores finales</p>
+            <h1 className="text-2xl font-bold text-slate-900 font-headline">Registro de Clientes</h1>
+            <p className="text-slate-500 text-sm">Gestión de carteras y datos fiscales</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-5 space-y-4">
           <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
             <CardHeader className="bg-slate-900 text-white p-6">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Plus size={20} className="text-sky-400" />
-                Nuevo Cliente
+                Alta de Cliente
               </CardTitle>
-              <CardDescription className="text-slate-400">Ingrese los datos tributarios y de contacto</CardDescription>
+              <CardDescription className="text-slate-400">Seleccione el tipo de contribuyente</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
-              <form onSubmit={handleCreateCustomer} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Tipo de Cliente</Label>
-                  <Select value={form.type} onValueChange={(v: any) => setForm({...form, type: v})}>
-                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Individual">Persona Natural (Individual)</SelectItem>
-                      <SelectItem value="Empresa">Persona Jurídica (Empresa)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <Tabs defaultValue="cf" onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid grid-cols-2 mb-6 bg-slate-100 rounded-xl p-1">
+                  <TabsTrigger value="cf" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                    <User size={14} className="mr-2" />
+                    Consumidor Final
+                  </TabsTrigger>
+                  <TabsTrigger value="ccf" className="rounded-lg data-[state=active]:bg-sky-600 data-[state=active]:text-white data-[state=active]:shadow-sm">
+                    <Building2 size={14} className="mr-2" />
+                    Crédito Fiscal
+                  </TabsTrigger>
+                </TabsList>
 
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">
-                    {form.type === 'Individual' ? 'Nombre Completo' : 'Razón Social'}
-                  </Label>
-                  <div className="relative">
-                    {form.type === 'Individual' ? <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} /> : <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />}
-                    <Input 
-                      placeholder={form.type === 'Individual' ? "Ej. Juan Pérez" : "Ej. Industrias NexWay S.A. de C.V."}
-                      value={form.name}
-                      onChange={e => setForm({...form, name: e.target.value})}
-                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={handleCreateCustomer} className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">NIT / DUI</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400">
+                      {activeTab === 'cf' ? 'Nombre Completo' : 'Nombre o Razón Social'}
+                    </Label>
                     <div className="relative">
-                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                      <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                       <Input 
-                        placeholder="0000-000000..." 
-                        value={form.nit}
-                        onChange={e => setForm({...form, nit: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">NRC (Registro)</Label>
-                    <div className="relative">
-                      <BadgeInfo className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                      <Input 
-                        placeholder="Opcional" 
-                        value={form.nrc}
-                        onChange={e => setForm({...form, nrc: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Giro / Actividad</Label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <Input 
-                      placeholder="Venta de repuestos, servicios..." 
-                      value={form.giro}
-                      onChange={e => setForm({...form, giro: e.target.value})}
-                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Correo Electrónico</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                      <Input 
-                        type="email"
-                        placeholder="cliente@correo.com" 
-                        value={form.email}
-                        onChange={e => setForm({...form, email: e.target.value})}
+                        placeholder={activeTab === 'cf' ? "Ej. Juan Pérez" : "Ej. Industrias El Salvador S.A."}
+                        value={form.name}
+                        onChange={e => setForm({...form, name: e.target.value})}
                         className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
                       />
                     </div>
                   </div>
+
+                  {activeTab === 'ccf' && (
+                    <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">NIT</Label>
+                        <div className="relative">
+                          <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                          <Input 
+                            placeholder="0000-000000..." 
+                            value={form.nit}
+                            onChange={e => setForm({...form, nit: e.target.value})}
+                            className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">NRC</Label>
+                        <div className="relative">
+                          <BadgeInfo className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                          <Input 
+                            placeholder="Registro..." 
+                            value={form.nrc}
+                            onChange={e => setForm({...form, nrc: e.target.value})}
+                            className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'ccf' && (
+                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Giro Comercial</Label>
+                      <div className="relative">
+                        <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <Input 
+                          placeholder="Venta de productos, servicios..." 
+                          value={form.giro}
+                          onChange={e => setForm({...form, giro: e.target.value})}
+                          className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Correo (Opcional)</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <Input 
+                          type="email"
+                          placeholder="correo@ejemplo.com" 
+                          value={form.email}
+                          onChange={e => setForm({...form, email: e.target.value})}
+                          className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Teléfono</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <Input 
+                          placeholder="2222-0000" 
+                          value={form.phone}
+                          onChange={e => setForm({...form, phone: e.target.value})}
+                          className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Teléfono</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Dirección</Label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                      <Input 
-                        placeholder="2222-0000" 
-                        value={form.phone}
-                        onChange={e => setForm({...form, phone: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                      <MapPin className="absolute left-3 top-3 text-slate-400" size={14} />
+                      <textarea 
+                        placeholder="Ubicación del cliente..."
+                        value={form.address}
+                        onChange={e => setForm({...form, address: e.target.value})}
+                        className="w-full min-h-[60px] pl-9 pt-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs focus:ring-2 focus:ring-sky-500/20 outline-none transition-all"
                       />
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Dirección Completa</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 text-slate-400" size={14} />
-                    <textarea 
-                      placeholder="Calle, ciudad, departamento..."
-                      value={form.address}
-                      onChange={e => setForm({...form, address: e.target.value})}
-                      className="w-full min-h-[80px] pl-9 pt-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs focus:ring-2 focus:ring-sky-500/20 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-700 rounded-xl font-bold text-white shadow-lg">
-                  Registrar Cliente
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-700 rounded-xl font-bold text-white shadow-lg shadow-sky-200">
+                    <Users size={18} className="mr-2" />
+                    Registrar en Cartera
+                  </Button>
+                </form>
+              </Tabs>
             </CardContent>
           </Card>
         </div>
 
-        <div className="lg:col-span-8 space-y-4">
+        <div className="lg:col-span-7 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <Input 
@@ -267,12 +282,12 @@ export default function CustomersPage() {
           </div>
 
           <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-            <ScrollArea className="h-[600px]">
+            <ScrollArea className="h-[550px]">
               <Table>
-                <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                <TableHeader className="bg-slate-50 sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase px-6">Cliente / Tipo</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Documentación</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase px-6">Receptor</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase">Tipo</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Contacto</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
@@ -283,7 +298,7 @@ export default function CustomersPage() {
                   ) : filteredCustomers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">
-                        No se encontraron clientes registrados.
+                        No hay clientes que coincidan con la búsqueda.
                       </TableCell>
                     </TableRow>
                   ) : filteredCustomers.map((customer: any) => (
@@ -291,30 +306,24 @@ export default function CustomersPage() {
                       <TableCell className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-900 text-xs">{customer.name}</span>
-                          <Badge variant="outline" className={`mt-1 text-[8px] font-black uppercase w-fit ${customer.type === 'Individual' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
-                            {customer.type}
-                          </Badge>
+                          <span className="text-[10px] font-mono text-slate-400">{customer.nit || 'Sin NIT'}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          {customer.category || customer.type}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] font-mono font-bold text-slate-600">NIT: {customer.nit}</span>
-                          {customer.nrc && <span className="text-[10px] font-mono text-slate-400">NRC: {customer.nrc}</span>}
-                          {customer.giro && <span className="text-[9px] text-slate-500 italic max-w-[150px] truncate">{customer.giro}</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                            <Mail size={12} className="text-slate-400" />
-                            {customer.email}
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                            <Phone size={10} className="text-slate-400" />
+                            {customer.phone || 'N/A'}
                           </div>
-                          {customer.phone && (
-                            <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                              <Phone size={12} className="text-slate-400" />
-                              {customer.phone}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                            <Mail size={10} className="text-slate-400" />
+                            {customer.email || 'N/A'}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
