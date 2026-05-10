@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -24,7 +23,8 @@ import {
   ArrowDownCircle,
   AlertTriangle,
   Loader2,
-  DollarSign
+  DollarSign,
+  Settings2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
