@@ -546,7 +546,12 @@ export default function BillingPage() {
                       <p className="text-[10px] font-black uppercase text-slate-400 border-b pb-1">Billetes</p>
                       {[100, 50, 20, 10, 5, 1].map((v) => (
                         <div key={v} className="flex items-center justify-between gap-4">
-                          <Label className="text-xs font-bold w-12">${v}.00</Label>
+                          <div className="flex flex-col">
+                            <Label className="text-xs font-bold w-12">${v}.00</Label>
+                            <span className="text-[9px] text-blue-600 font-bold">
+                              ${(denominations[`b${v}` as keyof typeof denominations] * v).toFixed(2)}
+                            </span>
+                          </div>
                           <Input 
                             type="number" 
                             className="h-8 w-20 text-right bg-slate-50 font-bold" 
@@ -561,13 +566,18 @@ export default function BillingPage() {
                     <div className="space-y-3">
                       <p className="text-[10px] font-black uppercase text-slate-400 border-b pb-1">Monedas</p>
                       {[
-                        { label: '$0.25', key: 'c25' },
-                        { label: '$0.10', key: 'c10' },
-                        { label: '$0.05', key: 'c5' },
-                        { label: '$0.01', key: 'c01' }
+                        { label: '$0.25', key: 'c25', val: 0.25 },
+                        { label: '$0.10', key: 'c10', val: 0.10 },
+                        { label: '$0.05', key: 'c5', val: 0.05 },
+                        { label: '$0.01', key: 'c01', val: 0.01 }
                       ].map((c) => (
                         <div key={c.key} className="flex items-center justify-between gap-4">
-                          <Label className="text-xs font-bold w-12">{c.label}</Label>
+                          <div className="flex flex-col">
+                            <Label className="text-xs font-bold w-12">{c.label}</Label>
+                            <span className="text-[9px] text-blue-600 font-bold">
+                              ${(denominations[c.key as keyof typeof denominations] * c.val).toFixed(2)}
+                            </span>
+                          </div>
                           <Input 
                             type="number" 
                             className="h-8 w-20 text-right bg-slate-50 font-bold" 
