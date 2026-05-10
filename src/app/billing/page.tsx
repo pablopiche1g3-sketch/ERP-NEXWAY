@@ -137,6 +137,13 @@ export default function BillingPage() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
+  const updateCartPrice = (id: string, newPrice: number) => {
+    if (newPrice < 0) return;
+    setCart(prev => prev.map(item => 
+      item.id === id ? { ...item, price: newPrice } : item
+    ));
+  };
+
   const totalCart = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   const handleFinalizeSale = async () => {
@@ -325,7 +332,7 @@ export default function BillingPage() {
           </TabsList>
 
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 focus-visible:outline-none">
-            <div className="lg:col-span-4 space-y-4">
+            <div className="lg:col-span-5 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
                 <CardHeader className="bg-slate-900 text-white p-5">
                   <div className="flex justify-between items-center mb-2">
@@ -346,12 +353,12 @@ export default function BillingPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="max-h-[300px] overflow-y-auto">
+                  <div className="max-h-[400px] overflow-y-auto">
                     <Table>
                       <TableHeader className="bg-slate-50">
                         <TableRow>
-                          <TableHead className="w-[40px] text-[10px] font-bold px-3">CANT</TableHead>
-                          <TableHead className="text-[10px] font-bold">PRODUCTO</TableHead>
+                          <TableHead className="w-[50px] text-[10px] font-bold px-3">CANT</TableHead>
+                          <TableHead className="text-[10px] font-bold">PRODUCTO / PRECIO</TableHead>
                           <TableHead className="text-right text-[10px] font-bold">TOTAL</TableHead>
                           <TableHead className="w-[30px]"></TableHead>
                         </TableRow>
@@ -367,12 +374,22 @@ export default function BillingPage() {
                           <TableRow key={item.id} className="hover:bg-slate-50 border-b border-slate-50">
                             <TableCell className="font-black text-blue-600 px-3">{item.quantity}</TableCell>
                             <TableCell>
-                              <div className="flex flex-col">
+                              <div className="flex flex-col gap-1">
                                 <span className="font-bold text-slate-900 text-[11px] leading-tight">{item.name}</span>
-                                <span className="text-[9px] font-mono text-slate-400">${item.price.toFixed(2)} unit.</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] font-bold text-slate-400">$</span>
+                                  <Input 
+                                    type="number"
+                                    step="0.01"
+                                    value={item.price}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => updateCartPrice(item.id, parseFloat(e.target.value) || 0)}
+                                    className="h-6 w-20 text-[11px] font-bold font-mono bg-slate-50 border-slate-200"
+                                  />
+                                </div>
                               </div>
                             </TableCell>
-                            <TableCell className="text-right font-bold text-slate-900 text-[11px]">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-black text-slate-900 text-[11px]">${(item.price * item.quantity).toFixed(2)}</TableCell>
                             <TableCell className="px-2">
                               <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)} className="h-6 w-6 text-slate-300 hover:text-rose-500">
                                 <Trash2 size={12} />
@@ -442,7 +459,7 @@ export default function BillingPage() {
               </Button>
             </div>
 
-            <div className="lg:col-span-8 space-y-4">
+            <div className="lg:col-span-7 space-y-4">
               <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
                 <div className="bg-slate-50 border-b border-slate-100 px-4 py-2 flex justify-between items-center">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Receptor</span>
