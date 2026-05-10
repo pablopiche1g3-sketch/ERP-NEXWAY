@@ -30,11 +30,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 export default function CustomersPage() {
   const db = useFirestore();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [form, setForm] = useState({
@@ -50,44 +51,56 @@ export default function CustomersPage() {
 
   const { data: customers, loading: loadingData } = useCollection<any>(collection(db, 'customers'));
 
-  const handleCreateCustomer = async (e: React.FormEvent) => {
+  const handleCreateCustomer = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.nit || !form.email) {
       toast({ variant: "destructive", title: "Faltan campos", description: "Nombre, NIT y Correo son obligatorios." });
       return;
     }
 
-    setLoading(true);
-    try {
-      await addDoc(collection(db, 'customers'), {
-        ...form,
-        createdAt: new Date().toISOString()
+    const customerData = {
+      ...form,
+      createdAt: new Date().toISOString()
+    };
+
+    const customersRef = collection(db, 'customers');
+
+    // Operación no bloqueante para evitar que se quede "pensando"
+    addDoc(customersRef, customerData)
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'customers',
+          operation: 'create',
+          requestResourceData: customerData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
       });
-      toast({ title: "Cliente Registrado", description: `${form.name} ha sido añadido a la base de datos.` });
-      setForm({
-        name: '',
-        type: 'Individual',
-        nit: '',
-        nrc: '',
-        giro: '',
-        email: '',
-        phone: '',
-        address: ''
-      });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar al cliente." });
-    } finally {
-      setLoading(false);
-    }
+
+    toast({ title: "Cliente Registrado", description: `${form.name} ha sido añadido.` });
+    setForm({
+      name: '',
+      type: 'Individual',
+      nit: '',
+      nrc: '',
+      giro: '',
+      email: '',
+      phone: '',
+      address: ''
+    });
   };
 
-  const handleDeleteCustomer = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'customers', id));
-      toast({ title: "Registro Eliminado", description: "El cliente ha sido removido." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el registro." });
-    }
+  const handleDeleteCustomer = (id: string) => {
+    const customerRef = doc(db, 'customers', id);
+    deleteDoc(customerRef)
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: customerRef.path,
+          operation: 'delete',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
+    
+    toast({ title: "Registro Eliminado", description: "El cliente ha sido removido." });
   };
 
   const filteredCustomers = useMemo(() => {
@@ -235,8 +248,8 @@ export default function CustomersPage() {
                   </div>
                 </div>
 
-                <Button disabled={loading} className="w-full h-12 bg-sky-600 hover:bg-sky-700 rounded-xl font-bold text-white shadow-lg">
-                  {loading ? <Loader2 className="animate-spin" /> : 'Registrar Cliente'}
+                <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-700 rounded-xl font-bold text-white shadow-lg">
+                  Registrar Cliente
                 </Button>
               </form>
             </CardContent>
