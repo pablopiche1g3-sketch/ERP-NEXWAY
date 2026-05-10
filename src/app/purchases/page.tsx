@@ -1,29 +1,27 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Truck, 
   ArrowLeft, 
   Search, 
   Save,
   AlertTriangle,
-  Upload,
   FileJson,
   Loader2,
   CheckCircle2,
-  XCircle,
-  QrCode,
   FileCode,
   User,
-  Warehouse,
   CreditCard,
   Calendar,
   ClipboardList,
   Plus,
   Trash2,
   Wallet,
-  Landmark
+  Landmark,
+  Building2,
+  Hash
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,12 +29,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, getDocs, updateDoc, doc, addDoc } from 'firebase/firestore';
+import { collection, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface PurchaseItem {
   id: string;
@@ -49,6 +48,7 @@ type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Credito';
 
 export default function PurchasesPage() {
   const db = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   
@@ -59,6 +59,10 @@ export default function PurchasesPage() {
   const [creditDays, setCreditDays] = useState<string | number>('');
   const [enteredBy, setEnteredBy] = useState('');
   const [warehouse, setWarehouse] = useState('');
+  
+  // Proveedor seleccionado
+  const [supplierName, setSupplierName] = useState('');
+  const [supplierSearch, setSupplierSearch] = useState('');
 
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [skuSearch, setSkuSearch] = useState('');
@@ -66,8 +70,21 @@ export default function PurchasesPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: inventory } = useCollection<any>(collection(db, 'inventory'));
-  const { data: warehouses } = useCollection<any>(collection(db, 'warehouses'));
+  const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
+  const warehousesQuery = useMemo(() => collection(db, 'warehouses'), [db]);
+  const suppliersQuery = useMemo(() => collection(db, 'suppliers'), [db]);
+
+  const { data: inventory } = useCollection<any>(inventoryQuery);
+  const { data: warehouses } = useCollection<any>(warehousesQuery);
+  const { data: suppliers } = useCollection<any>(suppliersQuery);
+
+  const filteredSuppliers = useMemo(() => {
+    if (!suppliers) return [];
+    return suppliers.filter(s => 
+      s.name.toLowerCase().includes(supplierSearch.toLowerCase()) ||
+      (s.nit && s.nit.toLowerCase().includes(supplierSearch.toLowerCase()))
+    );
+  }, [supplierSearch, suppliers]);
 
   useEffect(() => {
     const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -131,6 +148,10 @@ export default function PurchasesPage() {
       toast({ variant: "destructive", title: "Bodega Requerida", description: "Seleccione una bodega de destino." });
       return;
     }
+    if (!supplierName) {
+      toast({ variant: "destructive", title: "Proveedor Requerido", description: "Debe seleccionar un proveedor." });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -142,6 +163,7 @@ export default function PurchasesPage() {
         creditDays: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : 0,
         enteredBy,
         warehouse,
+        supplier: supplierName,
         items: purchaseItems,
         status,
         timestamp: new Date().toISOString()
@@ -153,7 +175,7 @@ export default function PurchasesPage() {
           const currentProduct = inventory?.find((p: any) => p.id === item.id);
           const currentQty = currentProduct?.quantity || 0;
           
-          await updateDoc(productRef, {
+          updateDoc(productRef, {
             quantity: currentQty + item.quantity
           });
         }
@@ -165,6 +187,7 @@ export default function PurchasesPage() {
       setPurchaseItems([]);
       setGenerationCode('');
       setEnteredBy('');
+      setSupplierName('');
       setPaymentMethod('Efectivo');
       setCreditDays('');
       const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -177,6 +200,11 @@ export default function PurchasesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const selectSupplier = (supplier: any) => {
+    setSupplierName(supplier.name);
+    toast({ title: "Proveedor Seleccionado", description: `${supplier.name} cargado correctamente.` });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,10 +250,8 @@ export default function PurchasesPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
-            <Link href="/">
-              <ArrowLeft className="text-slate-600" size={20} />
-            </Link>
+          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" onClick={() => router.push('/')}>
+            <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Registro de Compra Operativa</h1>
@@ -249,6 +275,54 @@ export default function PurchasesPage() {
             </CardHeader>
             <CardContent className="p-6 space-y-4 text-slate-900">
               <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase text-slate-400">Proveedor</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <Input 
+                      placeholder="Seleccione proveedor..." 
+                      value={supplierName}
+                      readOnly
+                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                    />
+                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-slate-200">
+                        <Search size={16} />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0" align="end">
+                      <div className="p-3 border-b border-slate-100">
+                        <Input 
+                          placeholder="Buscar proveedor..." 
+                          value={supplierSearch}
+                          onChange={e => setSupplierSearch(e.target.value)}
+                          className="h-8 text-xs bg-slate-50 border-none rounded-lg"
+                        />
+                      </div>
+                      <ScrollArea className="h-60">
+                        <div className="p-1">
+                          {filteredSuppliers.length === 0 ? (
+                            <div className="p-4 text-center text-slate-400 text-[10px] italic">No se encontraron proveedores</div>
+                          ) : filteredSuppliers.map((s: any) => (
+                            <div 
+                              key={s.id} 
+                              onClick={() => selectSupplier(s)}
+                              className="p-3 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors group"
+                            >
+                              <span className="text-[11px] font-bold text-slate-900 group-hover:text-emerald-600 block">{s.name}</span>
+                              <span className="text-[9px] text-slate-400 font-mono">NIT: {s.nit}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-slate-400">Encargado de Ingreso</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -256,7 +330,7 @@ export default function PurchasesPage() {
                     placeholder="Nombre completo..." 
                     value={enteredBy}
                     onChange={e => setEnteredBy(e.target.value)}
-                    className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs text-slate-900"
+                    className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
                   />
                 </div>
               </div>
@@ -265,7 +339,7 @@ export default function PurchasesPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Tipo Documento</Label>
                   <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100 text-slate-900">
+                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -277,7 +351,7 @@ export default function PurchasesPage() {
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Bodega Destino</Label>
                   <Select value={warehouse} onValueChange={setWarehouse}>
-                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100 text-slate-900">
+                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
                       <SelectValue placeholder="Seleccione..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -297,7 +371,7 @@ export default function PurchasesPage() {
                     placeholder="GEN-123456..." 
                     value={generationCode}
                     onChange={e => setGenerationCode(e.target.value)}
-                    className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono text-slate-900"
+                    className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
                   />
                 </div>
               </div>
@@ -345,7 +419,7 @@ export default function PurchasesPage() {
                           value={creditDays} 
                           onFocus={e => e.target.select()}
                           onChange={e => setCreditDays(e.target.value)} 
-                          className="h-8 bg-white text-slate-900 font-bold"
+                          className="h-8 bg-white font-bold"
                           placeholder="0"
                         />
                         <span className="text-[10px] font-bold text-slate-400 uppercase">Días</span>
@@ -364,14 +438,14 @@ export default function PurchasesPage() {
                   placeholder="SKU..." 
                   value={skuSearch}
                   onChange={e => setSkuSearch(e.target.value.toUpperCase())}
-                  className="h-12 bg-slate-50 border-slate-100 font-bold text-lg text-slate-900"
+                  className="h-12 bg-slate-50 border-slate-100 font-bold text-lg"
                 />
                 <Input 
                   type="number" 
                   value={manualQty}
                   onFocus={e => e.target.select()}
                   onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))}
-                  className="w-20 h-12 bg-slate-50 border-slate-100 font-bold text-lg text-center text-slate-900"
+                  className="w-20 h-12 bg-slate-50 border-slate-100 font-bold text-lg text-center"
                 />
               </div>
               <Button onClick={handleAddItem} className="w-full h-12 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-white shadow-lg">

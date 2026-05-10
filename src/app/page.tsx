@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -7,7 +8,8 @@ import {
   FileText, 
   Users, 
   Package,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Building2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
@@ -37,6 +39,14 @@ export default function Home() {
             iconBg="bg-emerald-600"
             title="Registro de Compra"
             description="Entrada de mercadería"
+          />
+        </Link>
+        <Link href="/suppliers">
+          <ModuleCard 
+            icon={<Building2 className="text-white" size={24} />}
+            iconBg="bg-emerald-800"
+            title="Proveedores"
+            description="Registro de suministrantes"
           />
         </Link>
         <Link href="/quotations">

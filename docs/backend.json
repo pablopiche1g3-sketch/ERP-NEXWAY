@@ -52,6 +52,21 @@
         "address": { "type": "string" }
       },
       "required": ["name", "type", "nit", "email"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Information about business suppliers.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "nit": { "type": "string" },
+        "nrc": { "type": "string" },
+        "giro": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "required": ["name", "nit", "nrc"]
     }
   },
   "auth": {
@@ -77,6 +92,10 @@
     "/customers": {
       "schema": "#/backend/entities/Customer",
       "description": "Customer database."
+    },
+    "/suppliers": {
+      "schema": "#/backend/entities/Supplier",
+      "description": "Supplier database."
     }
   }
 }
