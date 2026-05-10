@@ -4,7 +4,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Users, 
-  Plus, 
   ArrowLeft, 
   Search, 
   Trash2, 
@@ -17,8 +16,8 @@ import {
   User, 
   Briefcase,
   UserCheck,
-  Sparkles,
-  Loader2
+  Loader2,
+  Plus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,39 +96,6 @@ export default function CustomersPage() {
     });
   };
 
-  const handleLoadDemo = () => {
-    const demo1 = {
-      name: 'Juan Pérez (Demo CF)',
-      type: 'Individual',
-      category: 'Consumidor Final',
-      email: 'juan@example.com',
-      phone: '7777-1234',
-      address: 'San Salvador, El Salvador',
-      createdAt: new Date().toISOString()
-    };
-
-    const demo2 = {
-      name: 'Distribuidora Salvadoreña S.A. (Demo CCF)',
-      type: 'Empresa',
-      category: 'Crédito Fiscal',
-      nit: '0614-010180-101-1',
-      nrc: '12345-6',
-      giro: 'Venta de repuestos automotrices',
-      email: 'contacto@distribuidora.sv',
-      phone: '2222-3333',
-      address: 'Zona Industrial, Soyapango',
-      createdAt: new Date().toISOString()
-    };
-
-    addDoc(collection(db, 'customers'), demo1);
-    addDoc(collection(db, 'customers'), demo2);
-
-    toast({ 
-      title: "Datos de Prueba Cargados", 
-      description: "Se han añadido clientes de ejemplo (CF y CCF)." 
-    });
-  };
-
   const handleDeleteCustomer = (id: string) => {
     const customerRef = doc(db, 'customers', id);
     deleteDoc(customerRef)
@@ -166,14 +132,6 @@ export default function CustomersPage() {
             <p className="text-slate-500 text-sm">Gestión de carteras y datos tributarios</p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={handleLoadDemo}
-          className="rounded-xl border-dashed border-sky-300 text-sky-600 hover:bg-sky-50 font-bold gap-2"
-        >
-          <Sparkles size={16} />
-          Cargar Clientes de Prueba
-        </Button>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -338,7 +296,7 @@ export default function CustomersPage() {
                   ) : filteredCustomers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">
-                        No hay clientes que coincidan con la búsqueda.
+                        No hay clientes registrados en la cartera.
                       </TableCell>
                     </TableRow>
                   ) : filteredCustomers.map((customer: any) => (
