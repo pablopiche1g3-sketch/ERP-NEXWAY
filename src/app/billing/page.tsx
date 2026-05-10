@@ -70,7 +70,7 @@ export default function BillingPage() {
   const [isRegisteringExpense, setIsRegisteringExpense] = useState(false);
 
   const [baseCash, setBaseCash] = useState<string>('0');
-  const [denominations, setDenominations] = useState({
+  const [denominations, setDenominations] = useState<Record<string, number>>({
     b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0,
     c1: 0, c025: 0, c010: 0, c005: 0, c001: 0
   });
@@ -238,7 +238,7 @@ export default function BillingPage() {
     };
   }, [salesAll, expensesAll, baseCash, denominations]);
 
-  const updateDenomination = (key: keyof typeof denominations, val: string) => {
+  const updateDenomination = (key: string, val: string) => {
     const n = parseInt(val) || 0;
     setDenominations(prev => ({ ...prev, [key]: n }));
   };
@@ -607,8 +607,8 @@ export default function BillingPage() {
                             className="h-8 text-xs bg-slate-50 rounded-lg text-center" 
                             placeholder="0"
                             onFocus={e => e.target.select()}
-                            value={denominations[`b${b}` as keyof typeof denominations]}
-                            onChange={(e) => updateDenomination(`b${b}` as any, e.target.value)}
+                            value={denominations[`b${b}`]}
+                            onChange={(e) => updateDenomination(`b${b}`, e.target.value)}
                           />
                         </div>
                       ))}
@@ -629,8 +629,8 @@ export default function BillingPage() {
                             className="h-8 text-xs bg-slate-50 rounded-lg text-center" 
                             placeholder="0"
                             onFocus={e => e.target.select()}
-                            value={denominations[c.key as keyof typeof denominations]}
-                            onChange={(e) => updateDenomination(c.key as any, e.target.value)}
+                            value={denominations[c.key]}
+                            onChange={(e) => updateDenomination(c.key, e.target.value)}
                           />
                         </div>
                       ))}
