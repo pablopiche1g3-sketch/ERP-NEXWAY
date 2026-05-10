@@ -57,12 +57,14 @@ export default function Home() {
           title="Registro de Compra"
           description="Entrada de mercadería"
         />
-        <ModuleCard 
-          icon={<FileText className="text-white" size={24} />}
-          iconBg="bg-orange-500"
-          title="Cotización"
-          description="Presupuestos para clientes"
-        />
+        <Link href="/quotations">
+          <ModuleCard 
+            icon={<FileText className="text-white" size={24} />}
+            iconBg="bg-orange-500"
+            title="Cotización"
+            description="Presupuestos para clientes"
+          />
+        </Link>
         <ModuleCard 
           icon={<ClipboardList className="text-white" size={24} />}
           iconBg="bg-purple-600"
