@@ -65,7 +65,6 @@ export default function CustomersPage() {
 
     const customersRef = collection(db, 'customers');
 
-    // Operación no bloqueante para evitar que se quede "pensando"
     addDoc(customersRef, customerData)
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -115,11 +114,11 @@ export default function CustomersPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/" asChild>
-            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100">
+          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
+            <Link href="/">
               <ArrowLeft className="text-slate-600" size={20} />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Registro de Clientes</h1>
             <p className="text-slate-500 text-sm">Gestión de contribuyentes y consumidores finales</p>
