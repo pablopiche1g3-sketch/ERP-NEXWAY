@@ -51,12 +51,14 @@ export default function Home() {
             description="Generar DTE y facturas"
           />
         </Link>
-        <ModuleCard 
-          icon={<Truck className="text-white" size={24} />}
-          iconBg="bg-emerald-600"
-          title="Registro de Compra"
-          description="Entrada de mercadería"
-        />
+        <Link href="/purchases">
+          <ModuleCard 
+            icon={<Truck className="text-white" size={24} />}
+            iconBg="bg-emerald-600"
+            title="Registro de Compra"
+            description="Entrada de mercadería"
+          />
+        </Link>
         <Link href="/quotations">
           <ModuleCard 
             icon={<FileText className="text-white" size={24} />}

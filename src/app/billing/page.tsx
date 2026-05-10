@@ -9,48 +9,58 @@ import {
   ArrowLeft, 
   ShoppingCart,
   Package,
-  CreditCard
+  CreditCard,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useFirestore, useCollection } from '@/firebase';
+import { collection, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-
-// Mock data for products
-const MOCK_PRODUCTS = [
-  { id: '1', code: 'PROD-001', name: 'Aceite de Motor 10W40', price: 45.00, stock: 24 },
-  { id: '2', code: 'PROD-002', name: 'Filtro de Aire Universal', price: 12.50, stock: 50 },
-  { id: '3', code: 'PROD-003', name: 'Pastillas de Freno Delanteras', price: 35.00, stock: 12 },
-  { id: '4', code: 'PROD-004', name: 'Bujía de Iridio', price: 8.75, stock: 100 },
-  { id: '5', code: 'PROD-005', name: 'Líquido de Frenos 500ml', price: 9.90, stock: 30 },
-  { id: '6', code: 'PROD-006', name: 'Batería 12V 75Ah', price: 110.00, stock: 8 },
-];
 
 interface CartItem {
   id: string;
   name: string;
-  code: string;
+  sku: string;
   price: number;
   quantity: number;
 }
 
 export default function BillingPage() {
+  const db = useFirestore();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Obtener inventario real de Firestore
+  const { data: inventory, loading } = useCollection<any>(collection(db, 'inventory'));
 
   // Filter products based on search
   const filteredProducts = useMemo(() => {
-    return MOCK_PRODUCTS.filter(p => 
+    if (!inventory) return [];
+    return inventory.filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.code.toLowerCase().includes(searchTerm.toLowerCase())
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm]);
+  }, [searchTerm, inventory]);
 
-  const addToCart = (product: typeof MOCK_PRODUCTS[0]) => {
+  const addToCart = (product: any) => {
+    if (product.quantity <= 0) {
+      toast({ variant: "destructive", title: "Sin Stock", description: "No hay existencias disponibles para este producto." });
+      return;
+    }
+
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
+        if (existing.quantity >= product.quantity) {
+          toast({ variant: "destructive", title: "Límite alcanzado", description: "No puedes agregar más del stock disponible." });
+          return prev;
+        }
         return prev.map(item => 
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -58,7 +68,7 @@ export default function BillingPage() {
       return [...prev, { 
         id: product.id, 
         name: product.name, 
-        code: product.code, 
+        sku: product.sku, 
         price: product.price, 
         quantity: 1 
       }];
@@ -70,6 +80,39 @@ export default function BillingPage() {
   };
 
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+  const handleFinalizeSale = async () => {
+    if (cart.length === 0) return;
+    setIsProcessing(true);
+
+    try {
+      // 1. Registrar la venta
+      await addDoc(collection(db, 'sales'), {
+        items: cart,
+        total,
+        timestamp: new Date().toISOString()
+      });
+
+      // 2. Actualizar stock en el inventario (Descarga)
+      for (const item of cart) {
+        const product = inventory.find(p => p.id === item.id);
+        if (product) {
+          const productRef = doc(db, 'inventory', item.id);
+          await updateDoc(productRef, {
+            quantity: product.quantity - item.quantity
+          });
+        }
+      }
+
+      toast({ title: "Venta Exitosa", description: "La factura ha sido generada y el stock actualizado." });
+      setCart([]);
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Hubo un problema al procesar la venta." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -94,7 +137,7 @@ export default function BillingPage() {
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Side: Cart / Current Invoice */}
+        {/* Left Side: Cart */}
         <div className="lg:col-span-5 space-y-4">
           <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-900 text-white p-6">
@@ -143,7 +186,7 @@ export default function BillingPage() {
                           <TableCell>
                             <div className="flex flex-col">
                               <span className="font-medium text-slate-900">{item.name}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">{item.code}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">{item.sku}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-right text-slate-600">${item.price.toFixed(2)}</TableCell>
@@ -171,16 +214,16 @@ export default function BillingPage() {
           
           <Button 
             className="w-full h-16 rounded-3xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl shadow-lg shadow-blue-500/20"
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || isProcessing}
+            onClick={handleFinalizeSale}
           >
-            <CreditCard className="mr-2" />
+            {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CreditCard className="mr-2" />}
             Finalizar Facturación
           </Button>
         </div>
 
-        {/* Right Side: Product Search and Selection */}
+        {/* Right Side: Product Search */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Search Area */}
           <div className="flex justify-end">
             <div className="relative w-full md:w-80 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
@@ -193,13 +236,17 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* Product Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-fit">
-            {filteredProducts.map((product) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {loading ? (
+              <div className="col-span-full py-20 text-center text-slate-400">
+                <Loader2 className="animate-spin mx-auto mb-4" />
+                Cargando inventario...
+              </div>
+            ) : filteredProducts.map((product) => (
               <Card 
                 key={product.id}
                 onClick={() => addToCart(product)}
-                className="border-none shadow-sm rounded-3xl bg-white hover:shadow-md transition-all cursor-pointer group active:scale-[0.98]"
+                className={`border-none shadow-sm rounded-3xl bg-white hover:shadow-md transition-all cursor-pointer group active:scale-[0.98] ${product.quantity <= 0 ? 'opacity-60 grayscale' : ''}`}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
@@ -208,15 +255,17 @@ export default function BillingPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Código</p>
-                      <p className="text-xs font-mono font-bold text-slate-900">{product.code}</p>
+                      <p className="text-xs font-mono font-bold text-slate-900">{product.sku}</p>
                     </div>
                   </div>
                   <div className="space-y-1 mb-4">
                     <h3 className="font-bold text-slate-900 leading-tight">{product.name}</h3>
-                    <p className="text-xs text-slate-400">Stock disponible: {product.stock} un.</p>
+                    <p className={`text-xs ${product.quantity <= 5 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+                      Stock: {product.quantity} un.
+                    </p>
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                    <div className="text-2xl font-black text-slate-900">${product.price.toFixed(2)}</div>
+                    <div className="text-2xl font-black text-slate-900">${(product.price || 0).toFixed(2)}</div>
                     <div className="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center text-white shadow-lg group-hover:bg-blue-600 transition-colors">
                       <Plus size={18} />
                     </div>
@@ -224,9 +273,12 @@ export default function BillingPage() {
                 </CardContent>
               </Card>
             ))}
-            {filteredProducts.length === 0 && (
+            {!loading && filteredProducts.length === 0 && (
               <div className="col-span-full py-20 text-center">
-                <p className="text-slate-400">No se encontraron productos con ese criterio.</p>
+                <p className="text-slate-400">No se encontraron productos en el sistema.</p>
+                <Link href="/purchases">
+                  <Button variant="link" className="text-blue-600 font-bold">Registrar nueva compra</Button>
+                </Link>
               </div>
             )}
           </div>
