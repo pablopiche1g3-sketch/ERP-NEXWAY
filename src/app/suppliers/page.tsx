@@ -15,7 +15,9 @@ import {
   Building2, 
   Briefcase,
   Loader2,
-  Plus
+  Plus,
+  ShieldAlert,
+  ShieldCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +29,7 @@ import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { useRouter } from 'next/navigation';
@@ -44,7 +47,9 @@ export default function SuppliersPage() {
     giro: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    applyRetention: false,
+    applyPerception: false
   });
 
   const suppliersCollectionRef = useMemo(() => collection(db, 'suppliers'), [db]);
@@ -86,7 +91,9 @@ export default function SuppliersPage() {
       giro: '',
       email: '',
       phone: '',
-      address: ''
+      address: '',
+      applyRetention: false,
+      applyPerception: false
     });
   };
 
@@ -196,6 +203,30 @@ export default function SuppliersPage() {
                   </div>
                 </div>
 
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Configuración Tributaria (IVA)</Label>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-bold text-slate-700">Retención 1%</Label>
+                      <p className="text-[10px] text-slate-400">Activar si el proveedor es Agente de Retención</p>
+                    </div>
+                    <Switch 
+                      checked={form.applyRetention}
+                      onCheckedChange={(val) => setForm({...form, applyRetention: val})}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-bold text-slate-700">Percepción 1%</Label>
+                      <p className="text-[10px] text-slate-400">Activar si se le aplica percepción al comprar</p>
+                    </div>
+                    <Switch 
+                      checked={form.applyPerception}
+                      onCheckedChange={(val) => setForm({...form, applyPerception: val})}
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Correo Electrónico</Label>
@@ -263,7 +294,7 @@ export default function SuppliersPage() {
                 <TableHeader className="bg-slate-50 sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="text-[10px] font-black uppercase px-6">Proveedor</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Tax ID</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase">Tributos</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Contacto</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
@@ -281,6 +312,14 @@ export default function SuppliersPage() {
                     <TableRow key={supplier.id} className="hover:bg-slate-50/50">
                       <TableCell className="px-6 py-4">
                         <span className="font-bold text-slate-900 text-xs">{supplier.name}</span>
+                        <div className="flex gap-1 mt-1">
+                          {supplier.applyRetention && (
+                            <Badge variant="outline" className="text-[8px] bg-amber-50 text-amber-600 border-amber-200 px-1 font-black uppercase">Retención 1%</Badge>
+                          )}
+                          {supplier.applyPerception && (
+                            <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-600 border-blue-200 px-1 font-black uppercase">Percepción 1%</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
