@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Search, 
   Plus, 
@@ -26,7 +26,8 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Coins,
-  Banknote
+  Banknote,
+  Users
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,7 @@ export default function BillingPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -79,6 +81,7 @@ export default function BillingPage() {
   const { data: inventory } = useCollection<any>(collection(db, 'inventory'));
   const { data: salesAll } = useCollection<any>(collection(db, 'sales'));
   const { data: expensesAll } = useCollection<any>(collection(db, 'expenses'));
+  const { data: customers } = useCollection<any>(collection(db, 'customers'));
 
   const filteredProducts = useMemo(() => {
     if (!inventory) return [];
@@ -87,6 +90,14 @@ export default function BillingPage() {
       p.sku.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [searchTerm, inventory]);
+
+  const filteredCustomers = useMemo(() => {
+    if (!customers) return [];
+    return customers.filter(c => 
+      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      (c.nit && c.nit.toLowerCase().includes(customerSearch.toLowerCase()))
+    );
+  }, [customerSearch, customers]);
 
   const addToCart = (product: any) => {
     if (product.quantity <= 0) {
@@ -199,7 +210,6 @@ export default function BillingPage() {
     }
   };
 
-  // Optimización: Cálculos contables pesados solo cuando cambian ventas/gastos
   const accountingStats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const salesToday = (salesAll || []).filter((s: any) => s.timestamp.startsWith(today));
@@ -226,7 +236,6 @@ export default function BillingPage() {
     };
   }, [salesAll, expensesAll]);
 
-  // Optimización: Cálculo físico liviano para evitar "trabas" al teclear
   const physicalStats = useMemo(() => {
     const val = (k: string) => parseFloat(denominations[k]?.toString() || '0');
     
@@ -264,6 +273,12 @@ export default function BillingPage() {
         }
       }
     }
+  };
+
+  const selectCustomer = (customer: any) => {
+    setCustomerName(customer.name);
+    setDocType(customer.category === 'Crédito Fiscal' ? 'CCF' : 'CF');
+    toast({ title: "Cliente Seleccionado", description: `${customer.name} cargado correctamente.` });
   };
 
   return (
@@ -419,8 +434,48 @@ export default function BillingPage() {
 
             <div className="lg:col-span-8 space-y-4">
               <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-                <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">
+                <div className="bg-slate-50 border-b border-slate-100 px-4 py-2 flex justify-between items-center">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Receptor</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50">
+                        <Users size={12} className="mr-1.5" />
+                        Seleccionar Cliente Registrado
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0" align="end">
+                      <div className="p-3 border-b border-slate-100">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                          <Input 
+                            placeholder="Buscar en cartera..." 
+                            value={customerSearch}
+                            onChange={(e) => setCustomerSearch(e.target.value)}
+                            className="pl-8 h-8 text-xs bg-slate-50 border-none rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <ScrollArea className="h-60">
+                        <div className="p-1">
+                          {filteredCustomers.length === 0 ? (
+                            <div className="p-4 text-center text-slate-400 text-[10px] italic">No se encontraron clientes</div>
+                          ) : filteredCustomers.map((c: any) => (
+                            <div 
+                              key={c.id} 
+                              onClick={() => selectCustomer(c)}
+                              className="p-3 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors group"
+                            >
+                              <div className="flex justify-between items-start">
+                                <span className="text-[11px] font-bold text-slate-900 group-hover:text-blue-600">{c.name}</span>
+                                <Badge variant="outline" className="text-[8px] h-4 px-1">{c.category === 'Crédito Fiscal' ? 'CCF' : 'CF'}</Badge>
+                              </div>
+                              <p className="text-[9px] text-slate-400 font-mono mt-0.5">{c.nit || 'Consumidor Final'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-end">
                   <div className="w-full md:w-48 space-y-1.5">
