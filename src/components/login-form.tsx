@@ -52,7 +52,7 @@ export default function LoginForm() {
     
     toast({
       title: "Authentication Initialized",
-      description: "Accessing the ERP system securely. Redirecting...",
+      description: "Accessing NexWay ERP securely. Redirecting...",
     })
   }
 

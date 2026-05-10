@@ -2,8 +2,8 @@ import LoginForm from '@/components/login-form';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'ERP Login - Access Portal',
-  description: 'Secure access to your enterprise resource planning dashboard.',
+  title: 'NexWay ERP - Access Portal',
+  description: 'Secure access to your NexWay enterprise resource planning dashboard.',
 };
 
 export default function Home() {
@@ -30,17 +30,17 @@ export default function Home() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">
-            ERP Portal
+            NexWay ERP
           </h1>
           <p className="text-muted-foreground text-sm max-w-[280px]">
-            Please enter your credentials to access the management system.
+            Please enter your credentials to access the NexWay management system.
           </p>
         </div>
 
         <LoginForm />
 
         <div className="text-center text-xs text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} ERP Solutions Inc. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} NexWay ERP. All rights reserved.</p>
         </div>
       </div>
     </main>
