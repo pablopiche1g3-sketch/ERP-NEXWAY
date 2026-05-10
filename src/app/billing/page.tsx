@@ -16,16 +16,20 @@ import {
   History,
   Calculator,
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  User,
+  FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, doc, updateDoc, addDoc, query, where, Timestamp } from 'firebase/firestore';
+import { collection, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 
 interface CartItem {
@@ -42,6 +46,10 @@ export default function BillingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Estado para el cliente
+  const [docType, setDocType] = useState<'CF' | 'CCF'>('CF');
+  const [customerSearch, setCustomerSearch] = useState('');
 
   // Inventario real
   const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
@@ -96,15 +104,15 @@ export default function BillingPage() {
     setIsProcessing(true);
 
     try {
-      // Registrar venta
       await addDoc(collection(db, 'sales'), {
         items: cart,
         total: totalCart,
         timestamp: new Date().toISOString(),
-        type: 'contado'
+        type: 'contado',
+        docType: docType,
+        customer: customerSearch || 'Consumidor Final'
       });
 
-      // Actualizar stock
       for (const item of cart) {
         const product = inventory.find(p => p.id === item.id);
         if (product) {
@@ -117,6 +125,7 @@ export default function BillingPage() {
 
       toast({ title: "Venta Exitosa", description: "La factura ha sido procesada y el stock descargado." });
       setCart([]);
+      setCustomerSearch('');
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la venta." });
@@ -125,7 +134,6 @@ export default function BillingPage() {
     }
   };
 
-  // Lógica Cuadre de Caja (Simplificada para hoy)
   const todaySalesTotal = useMemo(() => {
     if (!salesToday) return 0;
     const today = new Date().toISOString().split('T')[0];
@@ -136,7 +144,7 @@ export default function BillingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8">
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <Link href="/">
             <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100">
@@ -152,74 +160,76 @@ export default function BillingPage() {
 
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="facturacion" className="space-y-6">
-          <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
-            <TabsTrigger value="facturacion" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6">
+          <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 h-auto">
+            <TabsTrigger value="facturacion" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <ShoppingCart size={16} className="mr-2" />
               Facturación
             </TabsTrigger>
-            <TabsTrigger value="abono" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6">
+            <TabsTrigger value="abono" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <UserCircle size={16} className="mr-2" />
               Abono de Clientes
             </TabsTrigger>
-            <TabsTrigger value="cuadre" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6">
+            <TabsTrigger value="cuadre" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <Calculator size={16} className="mr-2" />
               Cuadre de Caja
             </TabsTrigger>
           </TabsList>
 
-          {/* CONTENIDO: FACTURACIÓN */}
-          <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-8 focus-visible:outline-none">
-            <div className="lg:col-span-5 space-y-4">
+          <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 focus-visible:outline-none">
+            {/* PANEL IZQUIERDO: DETALLE DE VENTA */}
+            <div className="lg:col-span-4 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
-                <CardHeader className="bg-slate-900 text-white p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <CardTitle className="text-lg font-bold">Resumen de Venta</CardTitle>
-                    <div className="text-[10px] font-bold uppercase text-slate-400">Punto de Venta</div>
+                <CardHeader className="bg-slate-900 text-white p-5">
+                  <div className="flex justify-between items-center mb-2">
+                    <CardTitle className="text-base font-bold">Detalle de Factura</CardTitle>
+                    <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400">
+                      {docType === 'CF' ? 'CONSUMIDOR FINAL' : 'CRÉDITO FISCAL'}
+                    </Badge>
                   </div>
-                  <div className="flex justify-between items-end border-t border-slate-800 pt-4">
+                  <div className="flex justify-between items-end">
                     <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-500">Total a Pagar</p>
-                      <p className="text-4xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
+                      <p className="text-[9px] uppercase font-bold text-slate-500">Total a Pagar</p>
+                      <p className="text-3xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] uppercase font-bold text-slate-500">Ítems</p>
-                      <p className="text-xl font-bold">{cart.length}</p>
+                      <p className="text-[9px] uppercase font-bold text-slate-500">Items</p>
+                      <p className="text-lg font-bold">{cart.length}</p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="max-h-[400px] overflow-y-auto">
+                  <div className="max-h-[350px] overflow-y-auto">
                     <Table>
                       <TableHeader className="bg-slate-50">
                         <TableRow>
-                          <TableHead className="w-[50px] text-[10px] font-bold">CANT</TableHead>
+                          <TableHead className="w-[40px] text-[10px] font-bold px-3">CANT</TableHead>
                           <TableHead className="text-[10px] font-bold">PRODUCTO</TableHead>
                           <TableHead className="text-right text-[10px] font-bold">UNIT</TableHead>
                           <TableHead className="text-right text-[10px] font-bold">TOTAL</TableHead>
-                          <TableHead className="w-[40px]"></TableHead>
+                          <TableHead className="w-[30px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {cart.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center py-10 text-slate-400 italic">
-                              Cargue productos al carrito
+                            <TableCell colSpan={5} className="text-center py-12 text-slate-400 italic text-xs">
+                              Seleccione productos para facturar
                             </TableCell>
                           </TableRow>
                         ) : cart.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-black text-blue-600">{item.quantity}</TableCell>
+                          <TableRow key={item.id} className="hover:bg-slate-50">
+                            <TableCell className="font-black text-blue-600 px-3">{item.quantity}</TableCell>
                             <TableCell>
                               <div className="flex flex-col">
-                                <span className="font-bold text-slate-900">{item.name}</span>
+                                <span className="font-bold text-slate-900 text-xs leading-tight">{item.name}</span>
                                 <span className="text-[9px] font-mono text-slate-400">{item.sku}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-right text-slate-500">${item.price.toFixed(2)}</TableCell>
-                            <TableCell className="text-right font-bold text-slate-900">${(item.price * item.quantity).toFixed(2)}</TableCell>
-                            <TableCell>
-                              <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)} className="h-8 w-8 text-slate-300 hover:text-rose-500">
-                                <Trash2 size={14} />
+                            <TableCell className="text-right text-slate-500 text-xs">${item.price.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-bold text-slate-900 text-xs">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                            <TableCell className="px-2">
+                              <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)} className="h-6 w-6 text-slate-300 hover:text-rose-500">
+                                <Trash2 size={12} />
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -231,65 +241,99 @@ export default function BillingPage() {
               </Card>
               
               <Button 
-                className="w-full h-16 rounded-3xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl shadow-lg"
+                className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg"
                 disabled={cart.length === 0 || isProcessing}
                 onClick={handleFinalizeSale}
               >
                 {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CreditCard className="mr-2" />}
-                Finalizar Factura
+                Finalizar Venta
               </Button>
             </div>
 
-            <div className="lg:col-span-7 space-y-6">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input 
-                  placeholder="Buscar por código SKU o descripción..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-12 h-14 bg-white border-none shadow-sm rounded-2xl"
-                />
+            {/* PANEL DERECHO: BUSQUEDA Y PRODUCTOS */}
+            <div className="lg:col-span-8 space-y-4">
+              {/* AREA DE CLIENTE */}
+              <Card className="border-none shadow-sm rounded-2xl bg-white">
+                <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
+                  <div className="w-full md:w-48">
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Tipo Documento</label>
+                    <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                      <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100">
+                        <SelectValue placeholder="Tipo Doc" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CF">Consumidor Final</SelectItem>
+                        <SelectItem value="CCF">Crédito Fiscal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 w-full">
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Cliente / NRC</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <Input 
+                        placeholder={docType === 'CF' ? "Nombre del cliente..." : "Razón Social o NRC..."}
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        className="pl-10 h-10 bg-slate-50 border-slate-100 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* BUSCADOR DE PRODUCTOS */}
+              <div className="flex justify-end">
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <Input 
+                    placeholder="Buscar SKU o nombre..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-10 bg-white border-none shadow-sm rounded-xl text-sm"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* GRILLA DE PRODUCTOS (CUADROS PEQUEÑOS) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filteredProducts.map((product) => {
                   const isOutOfStock = product.quantity <= 0;
                   return (
-                    <Card 
+                    <div 
                       key={product.id}
                       onClick={() => !isOutOfStock && addToCart(product)}
-                      className={`border-none shadow-sm rounded-3xl bg-white hover:shadow-md transition-all cursor-pointer group ${isOutOfStock ? 'opacity-60 grayscale' : ''}`}
+                      className={`relative bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-200 transition-all cursor-pointer group flex flex-col justify-between aspect-square ${isOutOfStock ? 'opacity-60 bg-slate-50' : ''}`}
                     >
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isOutOfStock ? 'bg-rose-100 text-rose-500' : 'bg-blue-50 text-blue-500'}`}>
-                            <Package size={24} />
+                      <div className="flex justify-between items-start">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isOutOfStock ? 'bg-rose-100 text-rose-500' : 'bg-blue-50 text-blue-500'}`}>
+                          <Package size={16} />
+                        </div>
+                        <Badge className={`text-[9px] font-bold ${isOutOfStock ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`} variant="outline">
+                          {product.quantity}
+                        </Badge>
+                      </div>
+                      
+                      <div className="mt-2">
+                        <h3 className="text-xs font-bold text-slate-900 leading-tight line-clamp-2">{product.name}</h3>
+                        <p className="text-[9px] font-mono text-slate-400 mt-0.5">{product.sku}</p>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
+                        <span className="text-sm font-black text-slate-900">${(product.price || 0).toFixed(2)}</span>
+                        {!isOutOfStock && (
+                          <div className="w-6 h-6 bg-slate-900 text-white rounded-lg flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                            <Plus size={12} />
                           </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Existencia</p>
-                            <p className={`text-lg font-black ${isOutOfStock ? 'text-rose-600' : 'text-slate-900'}`}>
-                              {product.quantity} un.
-                            </p>
-                          </div>
+                        )}
+                      </div>
+                      
+                      {isOutOfStock && (
+                        <div className="absolute inset-0 bg-white/40 flex items-center justify-center rounded-2xl backdrop-blur-[1px]">
+                          <span className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">AGOTADO</span>
                         </div>
-                        <div className="space-y-1">
-                          <h3 className="font-bold text-slate-900 truncate">{product.name}</h3>
-                          <p className="text-xs font-mono font-bold text-slate-400">{product.sku}</p>
-                        </div>
-                        <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-50">
-                          <div className="text-2xl font-black text-slate-900">${(product.price || 0).toFixed(2)}</div>
-                          {isOutOfStock ? (
-                            <div className="text-[10px] font-black text-rose-500 uppercase flex items-center gap-1">
-                              <AlertCircle size={14} /> Agotado
-                            </div>
-                          ) : (
-                            <div className="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                              <Plus size={18} />
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                      )}
+                    </div>
                   );
                 })}
               </div>
