@@ -4,9 +4,8 @@ import * as React from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { User, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
+import { ShieldCheck, Loader2 } from "lucide-react"
 
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -17,20 +16,19 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 
 const formSchema = z.object({
-  username: z.string().min(3, {
-    message: "Username must be at least 3 characters.",
+  username: z.string().min(1, {
+    message: "El usuario es obligatorio.",
   }),
-  password: z.string().min(6, {
-    message: "Password must be at least 6 characters.",
+  password: z.string().min(1, {
+    message: "La contraseña es obligatoria.",
   }),
 })
 
 export default function LoginForm() {
-  const [showPassword, setShowPassword] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
   const { toast } = useToast()
 
@@ -44,23 +42,33 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1500))
     setIsLoading(false)
 
-    console.log("Form submitted with:", values)
+    console.log("Iniciando sesión con:", values)
     
     toast({
-      title: "Authentication Initialized",
-      description: "Accessing NexWay ERP securely. Redirecting...",
+      title: "Autenticación Iniciada",
+      description: "Accediendo a NexWay ERP de forma segura...",
     })
   }
 
   return (
-    <Card className="border-none shadow-xl bg-card transition-all duration-300 hover:shadow-2xl">
-      <CardHeader className="space-y-1 pt-8 pb-4">
+    <Card className="border-none shadow-2xl bg-white rounded-[2rem] py-4">
+      <CardHeader className="flex flex-col items-center space-y-4 pt-8">
+        <div className="w-16 h-16 bg-[#2563eb] rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <ShieldCheck className="w-10 h-10 text-white" />
+        </div>
+        <div className="text-center space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-headline">
+            NexWay ERP
+          </h1>
+          <p className="text-slate-400 text-sm">
+            Ingrese sus credenciales de acceso
+          </p>
+        </div>
       </CardHeader>
-      <CardContent className="grid gap-4 px-6 md:px-8">
+      <CardContent className="px-10 pb-8">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
@@ -68,18 +76,15 @@ export default function LoginForm() {
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    Username
+                  <FormLabel className="text-[10px] font-bold text-slate-500 tracking-wider">
+                    USUARIO
                   </FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <Input 
-                        placeholder="j.doe" 
-                        {...field} 
-                        className="bg-background transition-all focus:ring-2 focus:ring-accent/20"
-                      />
-                    </div>
+                    <Input 
+                      placeholder="Ej. pablo.andres" 
+                      {...field} 
+                      className="bg-slate-50 border-slate-100 h-12 focus:ring-0 focus:border-blue-500 rounded-xl px-4 text-slate-900 placeholder:text-slate-300 transition-all"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -90,35 +95,16 @@ export default function LoginForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                    Password
+                  <FormLabel className="text-[10px] font-bold text-slate-500 tracking-wider">
+                    CONTRASEÑA
                   </FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        {...field}
-                        className="bg-background pr-10 transition-all focus:ring-2 focus:ring-accent/20"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                        <span className="sr-only">
-                          {showPassword ? "Hide password" : "Show password"}
-                        </span>
-                      </Button>
-                    </div>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
+                      className="bg-slate-50 border-slate-100 h-12 focus:ring-0 focus:border-blue-500 rounded-xl px-4 text-slate-900 placeholder:text-slate-300 transition-all"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -126,26 +112,21 @@ export default function LoginForm() {
             />
             <Button 
               type="submit" 
-              className="w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all duration-300 transform hover:translate-y-[-1px] font-semibold h-11"
+              className="w-full bg-[#2563eb] text-white hover:bg-blue-700 transition-all duration-300 font-bold h-12 rounded-xl shadow-lg shadow-blue-500/30"
               disabled={isLoading}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying...
+                  Verificando...
                 </>
               ) : (
-                "Log In"
+                "Iniciar Sesión"
               )}
             </Button>
           </form>
         </Form>
       </CardContent>
-      <CardFooter className="flex flex-col items-center pb-8 pt-2">
-        <Button variant="link" className="text-xs text-muted-foreground hover:text-primary p-0">
-          Forgot your password?
-        </Button>
-      </CardFooter>
     </Card>
   )
 }
