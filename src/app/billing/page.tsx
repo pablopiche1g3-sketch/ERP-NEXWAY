@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   Calculator,
   User as UserIcon,
-  Receipt
+  Receipt,
+  DollarSign
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -155,7 +156,7 @@ export default function BillingPage() {
         timestamp: new Date().toISOString(),
         docType,
         paymentMethod,
-        paymentReference: paymentMethod === 'Efectivo' ? `Cambio: $${changeDue.toFixed(2)}` : paymentReference,
+        paymentReference: paymentMethod === 'Efectivo' ? `Efectivo: $${parseFloat(cashReceived).toFixed(2)} - Cambio: $${changeDue.toFixed(2)}` : paymentReference,
         status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'COMPLETADA',
         customer: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
         authorizedBy: paymentMethod === 'Credito' ? userProfile?.fullName : null
@@ -194,6 +195,24 @@ export default function BillingPage() {
     return salesAll.filter((s: any) => s.timestamp.startsWith(today));
   }, [salesAll, mounted]);
 
+  const dailyClosingTotals = useMemo(() => {
+    const summary = {
+      Efectivo: 0,
+      Tarjeta: 0,
+      Transferencia: 0,
+      Cheque: 0,
+      Credito: 0,
+      total: 0
+    };
+    salesTodayList.forEach((s: any) => {
+      if (s.paymentMethod in summary) {
+        summary[s.paymentMethod as keyof typeof summary] += s.total;
+      }
+      summary.total += s.total;
+    });
+    return summary;
+  }, [salesTodayList]);
+
   const accountsReceivable = useMemo(() => {
     if (!salesAll) return [];
     const credits = salesAll.filter((s: any) => s.paymentMethod === 'Credito' && s.status !== 'CANCELADA');
@@ -215,8 +234,8 @@ export default function BillingPage() {
             <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Facturación Pro</h1>
-            <p className="text-slate-500 text-sm">Control de ventas y terminal de punto de venta</p>
+            <h1 className="text-2xl font-bold text-slate-900">NexWay Facturación</h1>
+            <p className="text-slate-500 text-sm">Terminal de punto de venta y cierre de caja</p>
           </div>
         </div>
       </div>
@@ -392,7 +411,35 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="historial" className="space-y-4 outline-none">
+          <TabsContent value="historial" className="space-y-6 outline-none">
+            {/* CUADRE DE CAJA */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Efectivo</p>
+                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Efectivo.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Tarjeta</p>
+                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Tarjeta.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Transf.</p>
+                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Transferencia.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Cheques</p>
+                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Cheque.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Créditos</p>
+                  <p className="text-xl font-bold text-rose-600">${dailyClosingTotals.Credito.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-blue-600 p-4 text-white">
+                  <p className="text-[9px] font-black uppercase opacity-60">Total Venta</p>
+                  <p className="text-xl font-black">${dailyClosingTotals.total.toFixed(2)}</p>
+               </Card>
+            </div>
+
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
               <Table>
                 <TableHeader className="bg-slate-50">
@@ -401,7 +448,7 @@ export default function BillingPage() {
                     <TableHead>Documento</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Pago</TableHead>
-                    <TableHead>Referencia</TableHead>
+                    <TableHead>Referencia / Detalle</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -414,11 +461,11 @@ export default function BillingPage() {
                       <TableCell><Badge variant="outline" className="text-[9px] font-black">{sale.docType}</Badge></TableCell>
                       <TableCell className="font-bold text-xs">{sale.customer}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                        <Badge variant="secondary" className="text-[9px] font-bold">
                            {sale.paymentMethod}
-                        </div>
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-[10px] font-mono text-slate-400">{sale.paymentReference || 'N/A'}</TableCell>
+                      <TableCell className="text-[10px] font-mono text-slate-400 max-w-[200px] truncate">{sale.paymentReference || 'N/A'}</TableCell>
                       <TableCell className="text-right font-black text-slate-900">${sale.total.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
