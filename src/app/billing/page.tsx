@@ -23,7 +23,8 @@ import {
   Calculator,
   User as UserIcon,
   Receipt,
-  DollarSign
+  DollarSign,
+  Briefcase
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -249,6 +250,9 @@ export default function BillingPage() {
             <TabsTrigger value="historial" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <History size={16} className="mr-2" /> Ventas del Día
             </TabsTrigger>
+            <TabsTrigger value="cierre" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
+              <Calculator size={16} className="mr-2" /> Arqueo de Caja
+            </TabsTrigger>
             <TabsTrigger value="cuentas" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <FileSearch size={16} className="mr-2" /> Estado de Cuenta
             </TabsTrigger>
@@ -411,35 +415,7 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="historial" className="space-y-6 outline-none">
-            {/* CUADRE DE CAJA */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Efectivo</p>
-                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Efectivo.toFixed(2)}</p>
-               </Card>
-               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Tarjeta</p>
-                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Tarjeta.toFixed(2)}</p>
-               </Card>
-               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Transf.</p>
-                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Transferencia.toFixed(2)}</p>
-               </Card>
-               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Cheques</p>
-                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Cheque.toFixed(2)}</p>
-               </Card>
-               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Créditos</p>
-                  <p className="text-xl font-bold text-rose-600">${dailyClosingTotals.Credito.toFixed(2)}</p>
-               </Card>
-               <Card className="border-none shadow-sm rounded-2xl bg-blue-600 p-4 text-white">
-                  <p className="text-[9px] font-black uppercase opacity-60">Total Venta</p>
-                  <p className="text-xl font-black">${dailyClosingTotals.total.toFixed(2)}</p>
-               </Card>
-            </div>
-
+          <TabsContent value="historial" className="space-y-4 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
               <Table>
                 <TableHeader className="bg-slate-50">
@@ -472,6 +448,42 @@ export default function BillingPage() {
                 </TableBody>
               </Table>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="cierre" className="space-y-6 outline-none">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Efectivo</p>
+                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Efectivo.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Tarjeta</p>
+                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Tarjeta.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Transf.</p>
+                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Transferencia.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Cheques</p>
+                  <p className="text-xl font-bold text-slate-900">${dailyClosingTotals.Cheque.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Créditos</p>
+                  <p className="text-xl font-bold text-rose-600">${dailyClosingTotals.Credito.toFixed(2)}</p>
+               </Card>
+               <Card className="border-none shadow-sm rounded-2xl bg-blue-600 p-4 text-white">
+                  <p className="text-[9px] font-black uppercase opacity-60">Total Venta</p>
+                  <p className="text-xl font-black">${dailyClosingTotals.total.toFixed(2)}</p>
+               </Card>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex items-center gap-4">
+               <Briefcase className="text-blue-600" size={32} />
+               <div>
+                 <h3 className="font-bold text-blue-900">Arqueo Consolidado</h3>
+                 <p className="text-sm text-blue-700">Este resumen representa el total de ingresos registrados hoy por el sistema. Compare estos montos con su existencia física para el cierre de caja.</p>
+               </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="cuentas" className="space-y-4 outline-none">
