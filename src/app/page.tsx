@@ -76,12 +76,14 @@ export default function Home() {
             description="Movimiento entre bodegas"
           />
         </Link>
-        <ModuleCard 
-          icon={<Users className="text-white" size={24} />}
-          iconBg="bg-sky-500"
-          title="Registro de Cliente"
-          description="Contribuyentes y CF"
-        />
+        <Link href="/customers">
+          <ModuleCard 
+            icon={<Users className="text-white" size={24} />}
+            iconBg="bg-sky-500"
+            title="Registro de Cliente"
+            description="Contribuyentes y CF"
+          />
+        </Link>
         <Link href="/inventory">
           <ModuleCard 
             icon={<Package className="text-white" size={24} />}
