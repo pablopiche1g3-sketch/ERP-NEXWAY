@@ -5,7 +5,7 @@ import * as React from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { ShieldCheck, Loader2, Info } from "lucide-react"
+import { ShieldCheck, Loader2, Info, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { signInWithEmailAndPassword } from "firebase/auth"
 
@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/firebase"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
   email: z.string().email({
@@ -34,6 +35,7 @@ const formSchema = z.object({
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = React.useState(false)
+  const [authError, setAuthError] = React.useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
   const auth = useAuth()
@@ -48,6 +50,7 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
+    setAuthError(null)
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password)
       toast({
@@ -56,10 +59,18 @@ export default function LoginForm() {
       })
       router.push("/dashboard")
     } catch (error: any) {
+      console.error(error)
+      let message = "Usuario o contraseña incorrectos."
+      
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        message = "El usuario no existe o las credenciales son inválidas. ¿Ya creaste el usuario en la consola de Firebase?"
+      }
+      
+      setAuthError(message)
       toast({
         variant: "destructive",
-        title: "Error de autenticación",
-        description: "Usuario o contraseña incorrectos. Asegúrese de haber creado el usuario en la consola de Firebase.",
+        title: "Error de acceso",
+        description: message,
       })
     } finally {
       setIsLoading(false)
@@ -87,17 +98,31 @@ export default function LoginForm() {
         </div>
       </CardHeader>
       <CardContent className="px-10 pb-8">
+        {authError && (
+          <Alert variant="destructive" className="mb-6 rounded-xl bg-red-50 border-red-100 text-red-900">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle className="font-bold">Error de Autenticación</AlertTitle>
+            <AlertDescription className="text-xs">
+              {authError}
+              <div className="mt-2 font-semibold">
+                Paso necesario: Ve a Firebase Console &gt; Authentication &gt; Users &gt; Add User y crea a "admin@nexway.erp".
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-3">
           <Info className="w-5 h-5 text-blue-600 mt-0.5" />
           <div className="text-xs text-blue-700">
-            <p className="font-bold mb-1">Credenciales sugeridas:</p>
-            <p>Email: admin@nexway.erp</p>
-            <p>Pass: password123</p>
+            <p className="font-bold mb-1">Configuración requerida:</p>
+            <p>1. Crea el usuario en Firebase.</p>
+            <p>2. Usa admin@nexway.erp / password123</p>
             <button 
+              type="button"
               onClick={handleDemoAccess}
               className="mt-2 text-blue-800 font-bold hover:underline"
             >
-              Autocompletar ahora
+              Autocompletar campos
             </button>
           </div>
         </div>
