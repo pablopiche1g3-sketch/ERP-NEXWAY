@@ -33,7 +33,8 @@ import {
   FileSearch,
   AlertCircle,
   Clock,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Ticket
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -58,10 +59,11 @@ interface CartItem {
   quantity: number;
 }
 
-type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito';
+type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito' | 'Cheque';
 
 export default function BillingPage() {
   const db = useFirestore();
+  const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,23 +77,23 @@ export default function BillingPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [paymentReference, setPaymentReference] = useState('');
 
-  const [expenseDesc, setExpenseDesc] = useState('');
-  const [expenseAmount, setExpenseAmount] = useState<string | number>('');
-  const [expenseCat, setExpenseCat] = useState('Otros');
-  const [isRegisteringExpense, setIsRegisteringExpense] = useState(false);
-
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const userProfileRef = useMemo(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
+  const { data: userProfile } = useDoc<any>(userProfileRef);
+
+  const isAdminOrManager = useMemo(() => {
+    return userProfile?.role === 'admin' || userProfile?.role === 'manager';
+  }, [userProfile]);
+
   const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
   const salesQuery = useMemo(() => collection(db, 'sales'), [db]);
-  const expensesQuery = useMemo(() => collection(db, 'expenses'), [db]);
   const customersQuery = useMemo(() => collection(db, 'customers'), [db]);
 
   const { data: inventory } = useCollection<any>(inventoryQuery);
   const { data: salesAll } = useCollection<any>(salesQuery);
-  const { data: expensesAll } = useCollection<any>(expensesQuery);
   const { data: customers } = useCollection<any>(customersQuery);
 
   const filteredProducts = useMemo(() => {
@@ -140,6 +142,11 @@ export default function BillingPage() {
 
   const handleFinalizeSale = async () => {
     if (cart.length === 0) return;
+    if (paymentMethod === 'Credito' && !isAdminOrManager) {
+      toast({ variant: "destructive", title: "Acceso Denegado", description: "Solo gerentes o encargados pueden autorizar ventas al crédito." });
+      return;
+    }
+
     setIsProcessing(true);
     try {
       await addDoc(collection(db, 'sales'), {
@@ -150,7 +157,8 @@ export default function BillingPage() {
         paymentMethod,
         paymentReference,
         status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'COMPLETADA',
-        customer: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF')
+        customer: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+        authorizedBy: paymentMethod === 'Credito' ? userProfile?.fullName : null
       });
       for (const item of cart) {
         const product = inventory.find((p: any) => p.id === item.id);
@@ -178,11 +186,9 @@ export default function BillingPage() {
     if (!mounted) return { efectivoSales: 0, totalExpenses: 0, salesTodayList: [] };
     const today = new Date().toISOString().split('T')[0];
     const salesToday = (salesAll || []).filter((s: any) => s.timestamp.startsWith(today));
-    const expensesToday = (expensesAll || []).filter((e: any) => e.timestamp.startsWith(today));
     const efectivo = salesToday.filter((s: any) => s.paymentMethod === 'Efectivo').reduce((acc: number, s: any) => acc + s.total, 0);
-    const egresos = expensesToday.reduce((acc: number, e: any) => acc + (e.amount || 0), 0);
-    return { efectivoSales: efectivo, totalExpenses: egresos, salesTodayList: salesToday };
-  }, [salesAll, expensesAll, mounted]);
+    return { efectivoSales: efectivo, salesTodayList: salesToday };
+  }, [salesAll, mounted]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -270,7 +276,7 @@ export default function BillingPage() {
                   </ScrollArea>
                   <div className="p-4 border-t bg-slate-50/50 space-y-4">
                     <Label className="text-[10px] font-bold uppercase text-slate-400">Forma de Pago</Label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       <Button variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Efectivo')} className="h-9 text-[10px] font-bold rounded-xl">
                         <Wallet size={14} className="mr-2" /> Efectivo
                       </Button>
@@ -280,10 +286,24 @@ export default function BillingPage() {
                       <Button variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Transferencia')} className="h-9 text-[10px] font-bold rounded-xl">
                         <Landmark size={14} className="mr-2" /> Transf.
                       </Button>
-                      <Button variant={paymentMethod === 'Credito' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Credito')} className="h-9 text-[10px] font-bold rounded-xl">
-                        <Clock size={14} className="mr-2" /> Crédito
+                      <Button variant={paymentMethod === 'Cheque' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Cheque')} className="h-9 text-[10px] font-bold rounded-xl">
+                        <Ticket size={14} className="mr-2" /> Cheque
+                      </Button>
+                      <Button 
+                        variant={paymentMethod === 'Credito' ? 'default' : 'outline'} 
+                        size="sm" 
+                        disabled={!isAdminOrManager}
+                        onClick={() => setPaymentMethod('Credito')} 
+                        className={`h-9 text-[10px] font-bold rounded-xl ${!isAdminOrManager ? 'opacity-50' : ''}`}
+                      >
+                        <Clock size={14} className="mr-2" /> {isAdminOrManager ? 'Crédito' : 'Crédito (Bloq)'}
                       </Button>
                     </div>
+                    {!isAdminOrManager && (
+                      <p className="text-[9px] text-rose-500 font-bold italic">
+                        * El pago al crédito requiere autorización de gerencia.
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -385,6 +405,7 @@ export default function BillingPage() {
                              {sale.paymentMethod === 'Efectivo' && <Wallet size={12} className="text-emerald-500" />}
                              {sale.paymentMethod === 'Tarjeta' && <CardIcon size={12} className="text-blue-500" />}
                              {sale.paymentMethod === 'Transferencia' && <Landmark size={12} className="text-purple-500" />}
+                             {sale.paymentMethod === 'Cheque' && <Ticket size={12} className="text-slate-400" />}
                              {sale.paymentMethod === 'Credito' && <Clock size={12} className="text-amber-500" />}
                              {sale.paymentMethod}
                           </div>
