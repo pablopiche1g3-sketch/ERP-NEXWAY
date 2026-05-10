@@ -79,12 +79,14 @@ export default function Home() {
           title="Registro de Cliente"
           description="Contribuyentes y CF"
         />
-        <ModuleCard 
-          icon={<Package className="text-white" size={24} />}
-          iconBg="bg-rose-500"
-          title="Inventario"
-          description="Existencias y stock real"
-        />
+        <Link href="/inventory">
+          <ModuleCard 
+            icon={<Package className="text-white" size={24} />}
+            iconBg="bg-rose-500"
+            title="Inventario"
+            description="Códigos autorizados y Stock"
+          />
+        </Link>
       </div>
     </div>
   );
@@ -99,7 +101,7 @@ function ModuleCard({ icon, iconBg, title, description }: {
   return (
     <Card className="border-none shadow-sm rounded-3xl hover:shadow-md transition-all duration-300 cursor-pointer group bg-white h-full">
       <CardContent className="p-8">
-        <div className={`w-14 h-14 ${iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-${iconBg.split('-')[1]}-500/20 group-hover:scale-105 transition-transform`}>
+        <div className={`w-14 h-14 ${iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-opacity-20 group-hover:scale-105 transition-transform`}>
           {icon}
         </div>
         <div className="space-y-1">

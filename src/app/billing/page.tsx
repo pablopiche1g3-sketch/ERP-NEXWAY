@@ -10,7 +10,8 @@ import {
   ShoppingCart,
   Package,
   CreditCard,
-  Loader2
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,10 +37,8 @@ export default function BillingPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Obtener inventario real de Firestore
   const { data: inventory, loading } = useCollection<any>(collection(db, 'inventory'));
 
-  // Filter products based on search
   const filteredProducts = useMemo(() => {
     if (!inventory) return [];
     return inventory.filter(p => 
@@ -50,7 +49,7 @@ export default function BillingPage() {
 
   const addToCart = (product: any) => {
     if (product.quantity <= 0) {
-      toast({ variant: "destructive", title: "Sin Stock", description: "No hay existencias disponibles para este producto." });
+      toast({ variant: "destructive", title: "Sin Existencias", description: "No hay stock disponible para este código." });
       return;
     }
 
@@ -58,7 +57,7 @@ export default function BillingPage() {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
         if (existing.quantity >= product.quantity) {
-          toast({ variant: "destructive", title: "Límite alcanzado", description: "No puedes agregar más del stock disponible." });
+          toast({ variant: "destructive", title: "Límite alcanzado", description: "No puedes vender más de la existencia actual." });
           return prev;
         }
         return prev.map(item => 
@@ -69,7 +68,7 @@ export default function BillingPage() {
         id: product.id, 
         name: product.name, 
         sku: product.sku, 
-        price: product.price, 
+        price: product.price || 0, 
         quantity: 1 
       }];
     });
@@ -86,29 +85,27 @@ export default function BillingPage() {
     setIsProcessing(true);
 
     try {
-      // 1. Registrar la venta
       await addDoc(collection(db, 'sales'), {
         items: cart,
         total,
         timestamp: new Date().toISOString()
       });
 
-      // 2. Actualizar stock en el inventario (Descarga)
       for (const item of cart) {
         const product = inventory.find(p => p.id === item.id);
         if (product) {
           const productRef = doc(db, 'inventory', item.id);
           await updateDoc(productRef, {
-            quantity: product.quantity - item.quantity
+            quantity: Math.max(0, product.quantity - item.quantity)
           });
         }
       }
 
-      toast({ title: "Venta Exitosa", description: "La factura ha sido generada y el stock actualizado." });
+      toast({ title: "Facturación Completada", description: "Venta registrada y stock actualizado." });
       setCart([]);
     } catch (error) {
       console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "Hubo un problema al procesar la venta." });
+      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la venta." });
     } finally {
       setIsProcessing(false);
     }
@@ -116,7 +113,6 @@ export default function BillingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      {/* Header */}
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -126,10 +122,10 @@ export default function BillingPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-headline">Facturación</h1>
-            <p className="text-slate-500 text-sm">Punto de Venta / Emisión de DTE</p>
+            <p className="text-slate-500 text-sm">Emisión de venta y descarga de stock</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20 font-bold">
+        <div className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl shadow-lg font-bold">
           <ShoppingCart size={18} />
           <span>Venta Activa</span>
         </div>
@@ -137,75 +133,56 @@ export default function BillingPage() {
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Side: Cart */}
+        {/* Lado Izquierdo: Detalle Venta */}
         <div className="lg:col-span-5 space-y-4">
           <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-900 text-white p-6">
               <div className="flex justify-between items-center mb-4">
-                <CardTitle className="text-lg font-bold">Detalle de Venta</CardTitle>
-                <div className="text-xs font-medium uppercase tracking-wider text-slate-400">NexWay POS v1.0</div>
+                <CardTitle className="text-lg font-bold">Listado de Artículos</CardTitle>
+                <div className="text-[10px] font-bold uppercase text-slate-400">NexWay POS</div>
               </div>
-              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800">
-                <div className="text-center">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">Items</p>
-                  <p className="text-lg font-bold">{cart.length}</p>
+              <div className="flex justify-between items-end border-t border-slate-800 pt-4">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-slate-500">Subtotal de Venta</p>
+                  <p className="text-4xl font-black text-blue-400">${total.toFixed(2)}</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">Subtotal</p>
-                  <p className="text-lg font-bold">${total.toFixed(2)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold text-blue-400">Total</p>
-                  <p className="text-lg font-bold text-blue-400">${total.toFixed(2)}</p>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase font-bold text-slate-500">Ítems</p>
+                  <p className="text-xl font-bold">{cart.length}</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[500px] overflow-y-auto">
                 <Table>
-                  <TableHeader className="bg-slate-50 sticky top-0 z-10">
+                  <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="w-[50px] text-[10px] font-bold uppercase">Cant</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase">Producto</TableHead>
-                      <TableHead className="text-right text-[10px] font-bold uppercase">Precio</TableHead>
-                      <TableHead className="text-right text-[10px] font-bold uppercase">Total</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead className="w-[50px] text-[10px] font-bold">CANT</TableHead>
+                      <TableHead className="text-[10px] font-bold">PRODUCTO</TableHead>
+                      <TableHead className="text-right text-[10px] font-bold">UNIT</TableHead>
+                      <TableHead className="text-right text-[10px] font-bold">TOTAL</TableHead>
+                      <TableHead className="w-[40px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {cart.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-40 text-center text-slate-400 italic">
-                          No hay productos en la lista
+                    {cart.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-black text-blue-600">{item.quantity}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900">{item.name}</span>
+                            <span className="text-[9px] font-mono text-slate-400">{item.sku}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right text-slate-500">${item.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-bold text-slate-900">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)} className="h-8 w-8 text-slate-300 hover:text-rose-500">
+                            <Trash2 size={14} />
+                          </Button>
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      cart.map((item) => (
-                        <TableRow key={item.id} className="hover:bg-slate-50 transition-colors">
-                          <TableCell className="font-bold text-slate-900">{item.quantity}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium text-slate-900">{item.name}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">{item.sku}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right text-slate-600">${item.price.toFixed(2)}</TableCell>
-                          <TableCell className="text-right font-bold text-slate-900">
-                            ${(item.price * item.quantity).toFixed(2)}
-                          </TableCell>
-                          <TableCell>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => removeFromCart(item.id)}
-                              className="text-slate-300 hover:text-red-500"
-                            >
-                              <Trash2 size={16} />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -213,74 +190,68 @@ export default function BillingPage() {
           </Card>
           
           <Button 
-            className="w-full h-16 rounded-3xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl shadow-lg shadow-blue-500/20"
+            className="w-full h-16 rounded-3xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xl shadow-lg"
             disabled={cart.length === 0 || isProcessing}
             onClick={handleFinalizeSale}
           >
             {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CreditCard className="mr-2" />}
-            Finalizar Facturación
+            Procesar Facturación
           </Button>
         </div>
 
-        {/* Right Side: Product Search */}
+        {/* Lado Derecho: Catálogo */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="flex justify-end">
-            <div className="relative w-full md:w-80 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-              <Input 
-                placeholder="Buscar por código o nombre..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-14 bg-white border-none shadow-sm rounded-2xl focus:ring-2 focus:ring-blue-500/20 text-slate-900"
-              />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Input 
+              placeholder="Buscar por código o descripción..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-12 h-14 bg-white border-none shadow-sm rounded-2xl"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {loading ? (
-              <div className="col-span-full py-20 text-center text-slate-400">
-                <Loader2 className="animate-spin mx-auto mb-4" />
-                Cargando inventario...
-              </div>
-            ) : filteredProducts.map((product) => (
-              <Card 
-                key={product.id}
-                onClick={() => addToCart(product)}
-                className={`border-none shadow-sm rounded-3xl bg-white hover:shadow-md transition-all cursor-pointer group active:scale-[0.98] ${product.quantity <= 0 ? 'opacity-60 grayscale' : ''}`}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
-                      <Package size={24} />
+            {inventory?.map((product) => {
+              const isOutOfStock = product.quantity <= 0;
+              return (
+                <Card 
+                  key={product.id}
+                  onClick={() => addToCart(product)}
+                  className={`border-none shadow-sm rounded-3xl bg-white hover:shadow-md transition-all cursor-pointer group ${isOutOfStock ? 'bg-slate-50 opacity-60' : ''}`}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isOutOfStock ? 'bg-rose-100 text-rose-500' : 'bg-blue-50 text-blue-500'}`}>
+                        <Package size={24} />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Existencias</p>
+                        <p className={`text-lg font-black ${isOutOfStock ? 'text-rose-600' : 'text-slate-900'}`}>
+                          {product.quantity} un.
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Código</p>
-                      <p className="text-xs font-mono font-bold text-slate-900">{product.sku}</p>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-900">{product.name}</h3>
+                      <p className="text-xs font-mono font-bold text-slate-400">{product.sku}</p>
                     </div>
-                  </div>
-                  <div className="space-y-1 mb-4">
-                    <h3 className="font-bold text-slate-900 leading-tight">{product.name}</h3>
-                    <p className={`text-xs ${product.quantity <= 5 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
-                      Stock: {product.quantity} un.
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                    <div className="text-2xl font-black text-slate-900">${(product.price || 0).toFixed(2)}</div>
-                    <div className="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center text-white shadow-lg group-hover:bg-blue-600 transition-colors">
-                      <Plus size={18} />
+                    <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-50">
+                      <div className="text-2xl font-black text-slate-900">${(product.price || 0).toFixed(2)}</div>
+                      {isOutOfStock ? (
+                        <div className="text-[10px] font-black text-rose-500 uppercase flex items-center gap-1">
+                          <AlertCircle size={14} /> Agotado
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                          <Plus size={18} />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {!loading && filteredProducts.length === 0 && (
-              <div className="col-span-full py-20 text-center">
-                <p className="text-slate-400">No se encontraron productos en el sistema.</p>
-                <Link href="/purchases">
-                  <Button variant="link" className="text-blue-600 font-bold">Registrar nueva compra</Button>
-                </Link>
-              </div>
-            )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
 
