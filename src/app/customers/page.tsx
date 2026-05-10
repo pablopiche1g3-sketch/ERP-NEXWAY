@@ -102,7 +102,7 @@ export default function CustomersPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/">
+          <Link href="/" asChild>
             <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100">
               <ArrowLeft className="text-slate-600" size={20} />
             </Button>
@@ -115,7 +115,6 @@ export default function CustomersPage() {
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Formulario de Registro */}
         <div className="lg:col-span-4 space-y-4">
           <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
             <CardHeader className="bg-slate-900 text-white p-6">
@@ -244,7 +243,6 @@ export default function CustomersPage() {
           </Card>
         </div>
 
-        {/* Listado de Clientes */}
         <div className="lg:col-span-8 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -276,7 +274,7 @@ export default function CustomersPage() {
                         No se encontraron clientes registrados.
                       </TableCell>
                     </TableRow>
-                  ) : filteredCustomers.map((customer) => (
+                  ) : filteredCustomers.map((customer: any) => (
                     <TableRow key={customer.id} className="hover:bg-slate-50/50">
                       <TableCell className="px-6 py-4">
                         <div className="flex flex-col">

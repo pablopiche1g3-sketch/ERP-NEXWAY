@@ -52,12 +52,7 @@ export default function LoginForm() {
     setIsLoading(true)
     setAuthError(null)
     
-    // Mapeo sencillo de Usuario -> Email para Firebase
     const email = `${values.username.toLowerCase()}@nexway.erp`
-    
-    // Firebase requiere mínimo 6 caracteres. Si el usuario pone 12345, 
-    // lo ajustamos internamente o recomendamos 123456.
-    // Usaremos lo que el usuario ingrese, pero informamos que en Firebase debe ser de 6.
     const password = values.password.length === 5 ? values.password + "0" : values.password
 
     try {
@@ -66,7 +61,8 @@ export default function LoginForm() {
         title: "Acceso exitoso",
         description: `Bienvenido, ${values.username}.`,
       })
-      router.push("/dashboard")
+      // Redirigir directamente a la raíz para evitar bucles de historial con /dashboard
+      router.push("/")
     } catch (error: any) {
       console.error(error)
       let message = "Usuario o contraseña incorrectos."
