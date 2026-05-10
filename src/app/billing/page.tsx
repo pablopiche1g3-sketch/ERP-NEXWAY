@@ -182,7 +182,7 @@ export default function BillingPage() {
         category: expenseCat,
         timestamp: new Date().toISOString()
       });
-      toast({ title: "Gasto Registrado", description: "El egreso ha sido aplicado al cuadre de hoy." });
+      toast({ title: "Gasto Registrado", description: "El egreso ha sido aplicado al efectivo de hoy." });
       setExpenseDesc('');
       setExpenseAmount('');
       setExpenseCat('Otros');
@@ -215,6 +215,7 @@ export default function BillingPage() {
     return {
       ...salesStats,
       totalExpenses,
+      // El arqueo de caja solo descuenta los gastos del efectivo recibido físicamente
       netCash: salesStats.efectivoSales - totalExpenses,
       salesTodayList: salesToday,
       expensesTodayList: expensesToday
@@ -255,7 +256,6 @@ export default function BillingPage() {
           </TabsList>
 
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 focus-visible:outline-none">
-            {/* ... (Contenido de Facturación igual al anterior) ... */}
             <div className="lg:col-span-4 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
                 <CardHeader className="bg-slate-900 text-white p-5">
@@ -465,7 +465,6 @@ export default function BillingPage() {
           </TabsContent>
 
           <TabsContent value="abono" className="focus-visible:outline-none">
-            {/* ... (Contenido de Abono igual al anterior) ... */}
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
               <CardHeader className="bg-slate-50 border-b border-slate-100 p-8">
                 <CardTitle className="text-xl font-bold flex items-center gap-2 text-slate-900">
@@ -514,10 +513,11 @@ export default function BillingPage() {
                 <CardContent className="p-6 space-y-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Wallet size={16} className="text-emerald-200" />
-                    <p className="text-emerald-100 text-[10px] font-bold uppercase">Caja Real (Ventas - Gastos)</p>
+                    <p className="text-emerald-100 text-[10px] font-bold uppercase">Arqueo: Efectivo Real</p>
                   </div>
                   <p className="text-3xl font-black">${todayStats.netCash.toFixed(2)}</p>
-                  <p className="text-[9px] text-emerald-200 font-bold">Ingreso Efec: ${todayStats.efectivoSales.toFixed(2)}</p>
+                  <p className="text-[9px] text-emerald-200 font-bold">Ventas Efec: ${todayStats.efectivoSales.toFixed(2)}</p>
+                  <p className="text-[9px] text-emerald-100 font-medium">Gastos: -${todayStats.totalExpenses.toFixed(2)}</p>
                 </CardContent>
               </Card>
 
@@ -539,7 +539,7 @@ export default function BillingPage() {
                   <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <ArrowDownCircle className="text-rose-500" size={18} />
-                      Registrar Gasto
+                      Registrar Gasto (Efectivo)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 space-y-4">
@@ -633,10 +633,10 @@ export default function BillingPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {[
-                    { label: 'Efectivo (Ventas)', value: todayStats.efectivoSales, icon: <Wallet className="text-emerald-500" /> },
-                    { label: 'Tarjeta', value: todayStats.tarjeta, icon: <CardIcon className="text-blue-500" /> },
-                    { label: 'Transferencia', value: todayStats.transferencia, icon: <Landmark className="text-purple-500" /> },
-                    { label: 'Cheque', value: todayStats.cheque, icon: <BookOpen className="text-orange-500" /> }
+                    { label: 'Efectivo (Ventas)', value: todayStats.efectivoSales, icon: <Wallet className="text-emerald-500" />, sub: 'Suma al arqueo' },
+                    { label: 'Tarjeta', value: todayStats.tarjeta, icon: <CardIcon className="text-blue-500" />, sub: 'Dinero al Banco' },
+                    { label: 'Transferencia', value: todayStats.transferencia, icon: <Landmark className="text-purple-500" />, sub: 'Dinero al Banco' },
+                    { label: 'Cheque', value: todayStats.cheque, icon: <BookOpen className="text-orange-500" />, sub: 'En tránsito' }
                   ].map((item) => (
                     <Card key={item.label} className="border-none shadow-sm rounded-2xl bg-white border border-slate-100">
                       <CardContent className="p-4 flex items-center gap-4">
@@ -646,6 +646,7 @@ export default function BillingPage() {
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase">{item.label}</p>
                           <p className="text-xl font-black text-slate-900">${item.value.toFixed(2)}</p>
+                          <p className="text-[8px] text-slate-400 font-medium">{item.sub}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -656,7 +657,7 @@ export default function BillingPage() {
                   <CardHeader className="p-6 border-b border-slate-50">
                     <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900">
                       <ArrowUpCircle className="text-emerald-500" />
-                      Ventas Consolidadas
+                      Ventas Consolidadas (Historial del Día)
                     </CardTitle>
                   </CardHeader>
                   <Table>
