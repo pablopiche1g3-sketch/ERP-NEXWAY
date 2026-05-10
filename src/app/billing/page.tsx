@@ -23,7 +23,8 @@ import {
   Coins,
   ArrowDownCircle,
   AlertTriangle,
-  Loader2
+  Loader2,
+  DollarSign
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,6 +94,11 @@ export default function BillingPage() {
   const isAdminOrManager = useMemo(() => {
     return userProfile?.role === 'admin' || userProfile?.role === 'manager';
   }, [userProfile]);
+
+  // Configuración de Fondo Base (solo lectura aquí)
+  const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
+  const { data: cashConfig } = useDoc<any>(cashConfigRef);
+  const currentCashFloat = cashConfig?.cashFloat || 0;
 
   const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
   const salesQuery = useMemo(() => collection(db, 'sales'), [db]);
@@ -248,7 +254,8 @@ export default function BillingPage() {
     );
   }, [denominations]);
 
-  const expectedCashBalance = dailyClosingTotals.Efectivo - totalExpensesToday;
+  // Cálculo corregido con Fondo Base
+  const expectedCashBalance = currentCashFloat + dailyClosingTotals.Efectivo - totalExpensesToday;
   const cashDifference = physicalCashTotal - expectedCashBalance;
 
   const accountsReceivable = useMemo(() => {
@@ -493,7 +500,11 @@ export default function BillingPage() {
           </TabsContent>
 
           <TabsContent value="cierre" className="space-y-6 outline-none">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+               <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Fondo Base</p>
+                  <p className="text-xl font-bold text-slate-600">${currentCashFloat.toFixed(2)}</p>
+               </Card>
                <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
                   <p className="text-[9px] font-black uppercase text-slate-400">Efectivo Venta</p>
                   <p className="text-xl font-bold text-emerald-600">${dailyClosingTotals.Efectivo.toFixed(2)}</p>
@@ -650,6 +661,16 @@ export default function BillingPage() {
                   </div>
                </CardContent>
             </Card>
+            
+            <div className="flex justify-center">
+              <Button 
+                variant="outline" 
+                className="rounded-full border-slate-200 bg-white text-slate-500 font-bold px-8 h-10 hover:bg-slate-50 transition-all"
+                onClick={() => router.push('/management')}
+              >
+                <Settings2 className="mr-2" size={16} /> Configurar Fondo Base en Gerencia
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="cuentas" className="space-y-4 outline-none">

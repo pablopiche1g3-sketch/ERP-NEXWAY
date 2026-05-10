@@ -9,12 +9,15 @@ import {
   Unlock, 
   Save,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Coins,
+  DollarSign
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -25,9 +28,22 @@ export default function ManagementPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [cashFloat, setCashFloat] = useState<string>('');
 
+  // Configuración de módulos
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
-  const { data: config, loading } = useDoc<any>(configRef);
+  const { data: config, loading: loadingConfig } = useDoc<any>(configRef);
+
+  // Configuración de caja (Fondo Base)
+  const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
+  const { data: cashConfig, loading: loadingCash } = useDoc<any>(cashConfigRef);
+
+  // Inicializar el input de cashFloat cuando carguen los datos
+  React.useEffect(() => {
+    if (cashConfig?.cashFloat !== undefined) {
+      setCashFloat(cashConfig.cashFloat.toString());
+    }
+  }, [cashConfig]);
 
   const handleToggleModule = async (moduleId: string, value: boolean) => {
     const newConfig = { ...config, [moduleId]: value };
@@ -42,7 +58,19 @@ export default function ManagementPage() {
     }
   };
 
-  if (loading) {
+  const handleSaveCashFloat = async () => {
+    setIsSaving(true);
+    try {
+      await setDoc(cashConfigRef, { cashFloat: parseFloat(cashFloat) || 0 }, { merge: true });
+      toast({ title: "Fondo Base Guardado", description: "El monto inicial de caja ha sido actualizado." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el fondo base." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (loadingConfig || loadingCash) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="animate-spin text-blue-600" size={48} />
@@ -69,21 +97,68 @@ export default function ManagementPage() {
             <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Administración de Accesos</h1>
-            <p className="text-slate-500 text-sm">Control central de módulos activos para usuarios</p>
+            <h1 className="text-2xl font-bold text-slate-900">Gerencia y Control</h1>
+            <p className="text-slate-500 text-sm">Configuración de seguridad y parámetros financieros</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+            <CardHeader className="bg-slate-900 text-white p-6">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Coins className="text-blue-400" size={20} />
+                Fondo Base de Caja
+              </CardTitle>
+              <CardDescription className="text-slate-400 text-xs">
+                Monto inicial en efectivo para cambio diario.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400">Monto del Fondo ($)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <Input 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={cashFloat}
+                    onChange={(e) => setCashFloat(e.target.value)}
+                    className="h-12 pl-10 text-xl font-bold bg-slate-50 rounded-xl"
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleSaveCashFloat} 
+                disabled={isSaving}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl"
+              >
+                {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={18} />}
+                Establecer Fondo Base
+              </Button>
+            </CardContent>
+          </Card>
+
+          <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3">
+            <div className="flex items-center gap-2 text-blue-800 font-bold">
+              <AlertCircle size={20} />
+              <p className="text-sm">Control de Seguridad</p>
+            </div>
+            <p className="text-xs text-blue-700 leading-relaxed">
+              El <strong>Fondo Base</strong> es el dinero que el empleado recibe al iniciar el día. Este monto no se puede cambiar desde la pantalla de facturación para asegurar que el arqueo de caja sea íntegro.
+            </p>
+          </div>
+        </div>
+
         <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
           <CardHeader className="bg-slate-900 text-white p-6">
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="text-blue-400" />
-              Consola de Permisos Globales
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="text-blue-400" size={20} />
+              Control de Accesos a Módulos
             </CardTitle>
-            <CardDescription className="text-slate-400 italic">
-              Desactive módulos para restringir su uso a nivel general en la terminal.
+            <CardDescription className="text-slate-400 text-xs">
+              Active o desactive los módulos operativos de la terminal.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -107,14 +182,6 @@ export default function ManagementPage() {
             </div>
           </CardContent>
         </Card>
-
-        <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-3">
-          <AlertCircle className="text-blue-600 shrink-0 mt-0.5" size={18} />
-          <p className="text-[11px] text-blue-700 leading-relaxed">
-            <strong>Nota de Seguridad:</strong> Los cambios realizados en esta consola se aplican de forma inmediata en el panel principal. 
-            Esta función permite que la gerencia limite la operatividad del sistema durante cierres de inventario o auditorías.
-          </p>
-        </div>
       </div>
     </div>
   );
