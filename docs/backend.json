@@ -24,6 +24,18 @@
         "category": { "type": "string" }
       },
       "required": ["name", "sku", "quantity"]
+    },
+    "Expense": {
+      "title": "Internal Expense",
+      "description": "Daily expenses or reimbursements from cash drawer.",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string", "enum": ["Gasolina", "Anticipo", "Reintegro", "Alimentación", "Otros"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["description", "amount", "category", "timestamp"]
     }
   },
   "auth": {
@@ -37,6 +49,14 @@
     "/inventory": {
       "schema": "#/backend/entities/InventoryItem",
       "description": "Global inventory list."
+    },
+    "/expenses": {
+      "schema": "#/backend/entities/Expense",
+      "description": "Internal business expenses."
+    },
+    "/sales": {
+      "schema": "object",
+      "description": "Sales transactions."
     }
   }
 }
