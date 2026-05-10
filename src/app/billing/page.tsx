@@ -19,7 +19,9 @@ import {
   Wallet,
   Landmark,
   CreditCard as CardIcon,
-  BookOpen
+  BookOpen,
+  Hash,
+  UserCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,6 +57,7 @@ export default function BillingPage() {
   const [docType, setDocType] = useState<'CF' | 'CCF'>('CF');
   const [customerName, setCustomerName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
+  const [paymentReference, setPaymentReference] = useState('');
 
   // Inventario real
   const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
@@ -106,6 +109,21 @@ export default function BillingPage() {
 
   const handleFinalizeSale = async () => {
     if (cart.length === 0) return;
+
+    // Validar referencias de pago según el método
+    if (paymentMethod === 'Tarjeta' && paymentReference.length < 4) {
+      toast({ variant: "destructive", title: "Referencia Requerida", description: "Ingrese los últimos 4 dígitos de la tarjeta." });
+      return;
+    }
+    if (paymentMethod === 'Transferencia' && !paymentReference) {
+      toast({ variant: "destructive", title: "Referencia Requerida", description: "Ingrese el nombre de quien realiza la transferencia." });
+      return;
+    }
+    if (paymentMethod === 'Cheque' && !paymentReference) {
+      toast({ variant: "destructive", title: "Referencia Requerida", description: "Ingrese el código o número de cheque." });
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
@@ -116,6 +134,7 @@ export default function BillingPage() {
         type: 'contado',
         docType: docType,
         paymentMethod: paymentMethod,
+        paymentReference: paymentReference,
         customer: customerName || (docType === 'CF' ? 'Consumidor Final (Venta Bolsón)' : 'Cliente Genérico CCF')
       });
 
@@ -134,6 +153,7 @@ export default function BillingPage() {
       setCart([]);
       setCustomerName('');
       setPaymentMethod('Efectivo');
+      setPaymentReference('');
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la venta." });
@@ -217,7 +237,7 @@ export default function BillingPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="max-h-[350px] overflow-y-auto">
+                  <div className="max-h-[300px] overflow-y-auto">
                     <Table>
                       <TableHeader className="bg-slate-50">
                         <TableRow>
@@ -256,25 +276,52 @@ export default function BillingPage() {
                   </div>
 
                   {/* Selector de Pago en la Factura */}
-                  <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Forma de Pago</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['Efectivo', 'Tarjeta', 'Transferencia', 'Cheque'] as PaymentMethod[]).map((method) => (
-                        <Button 
-                          key={method}
-                          variant={paymentMethod === method ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setPaymentMethod(method)}
-                          className={`h-9 rounded-xl text-[10px] font-bold transition-all ${paymentMethod === method ? 'bg-blue-600 shadow-md' : 'bg-white border-slate-200'}`}
-                        >
-                          {method === 'Efectivo' && <Wallet size={12} className="mr-1.5" />}
-                          {method === 'Tarjeta' && <CardIcon size={12} className="mr-1.5" />}
-                          {method === 'Transferencia' && <Landmark size={12} className="mr-1.5" />}
-                          {method === 'Cheque' && <BookOpen size={12} className="mr-1.5" />}
-                          {method}
-                        </Button>
-                      ))}
+                  <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-4">
+                    <div>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Forma de Pago</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(['Efectivo', 'Tarjeta', 'Transferencia', 'Cheque'] as PaymentMethod[]).map((method) => (
+                          <Button 
+                            key={method}
+                            variant={paymentMethod === method ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                              setPaymentMethod(method);
+                              setPaymentReference('');
+                            }}
+                            className={`h-9 rounded-xl text-[10px] font-bold transition-all ${paymentMethod === method ? 'bg-blue-600 shadow-md' : 'bg-white border-slate-200'}`}
+                          >
+                            {method === 'Efectivo' && <Wallet size={12} className="mr-1.5" />}
+                            {method === 'Tarjeta' && <CardIcon size={12} className="mr-1.5" />}
+                            {method === 'Transferencia' && <Landmark size={12} className="mr-1.5" />}
+                            {method === 'Cheque' && <BookOpen size={12} className="mr-1.5" />}
+                            {method}
+                          </Button>
+                        ))}
+                      </div>
                     </div>
+
+                    {/* Campos condicionales según el método de pago */}
+                    {paymentMethod !== 'Efectivo' && (
+                      <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1">
+                          {paymentMethod === 'Tarjeta' && <><Hash size={10} /> Últimos 4 Dígitos</>}
+                          {paymentMethod === 'Transferencia' && <><UserCheck size={10} /> Nombre de quien transfiere</>}
+                          {paymentMethod === 'Cheque' && <><Hash size={10} /> Número de Cheque / Código</>}
+                        </Label>
+                        <Input 
+                          placeholder={
+                            paymentMethod === 'Tarjeta' ? "0000" : 
+                            paymentMethod === 'Transferencia' ? "Nombre completo..." : 
+                            "Número de cheque..."
+                          }
+                          value={paymentReference}
+                          onChange={(e) => setPaymentReference(e.target.value)}
+                          className="h-10 bg-white border-blue-100 rounded-xl focus:ring-blue-500/20 text-xs font-bold"
+                          maxLength={paymentMethod === 'Tarjeta' ? 4 : 50}
+                        />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -506,7 +553,7 @@ export default function BillingPage() {
                     <TableHead className="text-[10px] font-bold uppercase">Hora</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase">Cliente</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase">Documento</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase">Método</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase">Método / Ref</TableHead>
                     <TableHead className="text-right text-[10px] font-bold uppercase">Monto</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -525,12 +572,19 @@ export default function BillingPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
-                          {sale.paymentMethod === 'Tarjeta' && <CardIcon size={10} />}
-                          {sale.paymentMethod === 'Efectivo' && <Wallet size={10} />}
-                          {sale.paymentMethod === 'Transferencia' && <Landmark size={10} />}
-                          {sale.paymentMethod === 'Cheque' && <BookOpen size={10} />}
-                          {sale.paymentMethod || 'Efectivo'}
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600">
+                            {sale.paymentMethod === 'Tarjeta' && <CardIcon size={10} />}
+                            {sale.paymentMethod === 'Efectivo' && <Wallet size={10} />}
+                            {sale.paymentMethod === 'Transferencia' && <Landmark size={10} />}
+                            {sale.paymentMethod === 'Cheque' && <BookOpen size={10} />}
+                            {sale.paymentMethod || 'Efectivo'}
+                          </div>
+                          {sale.paymentReference && (
+                            <span className="text-[9px] text-blue-500 font-bold truncate max-w-[120px]">
+                              Ref: {sale.paymentReference}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-black text-slate-900">${(sale.total || 0).toFixed(2)}</TableCell>
