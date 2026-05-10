@@ -285,11 +285,11 @@ export default function BillingPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100">
+          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
+            <Link href="/">
               <ArrowLeft className="text-slate-600" size={20} />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Módulo de Facturación</h1>
             <p className="text-slate-500 text-sm">Operaciones de venta y control de caja</p>
@@ -533,7 +533,7 @@ export default function BillingPage() {
                           <Package size={16} />
                         </div>
                         <Badge className={`text-[9px] font-black px-1.5 h-5 ${isOutOfStock ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`} variant="outline">
-                          {product.quantity}
+                          {product.quantity} un.
                         </Badge>
                       </div>
                       

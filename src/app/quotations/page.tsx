@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -103,11 +104,11 @@ export default function QuotationsPage() {
     <div className="min-h-screen bg-slate-50 p-6 print:bg-white print:p-0">
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 print:hidden">
         <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100">
+          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
+            <Link href="/">
               <ArrowLeft className="text-slate-600" size={20} />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Generador de Cotizaciones</h1>
             <p className="text-slate-500 text-sm">Presupuestos rápidos para clientes y proyectos</p>
@@ -116,7 +117,6 @@ export default function QuotationsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Lado Izquierdo: Detalle y Totales */}
         <div className="lg:col-span-4 space-y-4 print:col-span-12">
           <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white print:shadow-none print:border">
             <CardHeader className="bg-slate-900 text-white p-5 print:bg-white print:text-black print:border-b">
@@ -210,7 +210,6 @@ export default function QuotationsPage() {
           </Button>
         </div>
 
-        {/* Lado Derecho: Receptor y Catálogo */}
         <div className="lg:col-span-8 space-y-4 print:hidden">
           <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
             <div className="bg-slate-50 border-b border-slate-100 px-4 py-2">

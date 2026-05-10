@@ -34,9 +34,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, getDocs, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
 
 interface PurchaseItem {
@@ -223,21 +222,15 @@ export default function PurchasesPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100">
+          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
+            <Link href="/">
               <ArrowLeft className="text-slate-600" size={20} />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Registro de Compra Operativa</h1>
             <p className="text-slate-500 text-sm">Control de ingresos, bodegas y términos de crédito</p>
           </div>
-        </div>
-        <div className="flex gap-2">
-           <Badge className="bg-emerald-600 text-white px-4 py-2 rounded-xl border-none shadow-lg">
-             <Truck size={16} className="mr-2" />
-             Ingreso de Mercadería
-           </Badge>
         </div>
       </div>
 

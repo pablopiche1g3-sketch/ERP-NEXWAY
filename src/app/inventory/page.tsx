@@ -26,15 +26,13 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useRouter } from 'next/navigation';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import Link from 'next/link';
 
 export default function InventoryMasterPage() {
   const db = useFirestore();
   const { toast } = useToast();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState('Todas');
@@ -151,13 +149,10 @@ export default function InventoryMasterPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-full bg-white shadow-sm hover:bg-slate-100"
-            onClick={() => router.push('/')}
-          >
-            <ArrowLeft className="text-slate-600" size={20} />
+          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
+            <Link href="/">
+              <ArrowLeft className="text-slate-600" size={20} />
+            </Link>
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Centro Logístico</h1>
@@ -180,14 +175,6 @@ export default function InventoryMasterPage() {
             <TabsTrigger value="entradas" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <Zap size={16} className="mr-2" />
               Entrada Rápida
-            </TabsTrigger>
-            <TabsTrigger value="kardex" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
-              <History size={16} className="mr-2" />
-              Kardex
-            </TabsTrigger>
-            <TabsTrigger value="salida" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
-              <ArrowDownCircle size={16} className="mr-2" />
-              Salida
             </TabsTrigger>
             <TabsTrigger value="config" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <Settings2 size={16} className="mr-2" />
@@ -245,7 +232,7 @@ export default function InventoryMasterPage() {
                     <TableHeader className="bg-slate-50">
                       <TableRow>
                         <TableHead className="text-[10px] font-bold uppercase">SKU</TableHead>
-                        <TableHead className="text-[10px] font-bold uppercase">Producto</TableHead>
+                        <TableHead className="text-[10px) font-bold uppercase">Producto</TableHead>
                         <TableHead className="text-center text-[10px] font-bold uppercase">Stock Actual</TableHead>
                         <TableHead className="text-right text-[10px] font-bold uppercase">Precio Sug.</TableHead>
                       </TableRow>
@@ -274,8 +261,6 @@ export default function InventoryMasterPage() {
             </div>
           </TabsContent>
 
-          {/* ... resto de TabsContent similares, usando router.push('/') para el botón atrás si se añade en otras partes ... */}
-          
           <TabsContent value="maestro" className="grid grid-cols-1 lg:grid-cols-3 gap-8 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
               <CardHeader>
@@ -419,7 +404,7 @@ export default function InventoryMasterPage() {
                   <Input 
                     placeholder="Ej. Bodega Principal" 
                     value={warehouseName}
-                    onChange={e => setWarehouseName(e.target.value)}
+                    onChange={e => warehouseName === '' ? '' : setWarehouseName(e.target.value)}
                     className="bg-slate-50 h-12 rounded-xl"
                   />
                 </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -29,14 +30,13 @@ import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useRouter } from 'next/navigation';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Link from 'next/link';
 
 export default function CustomersPage() {
   const db = useFirestore();
-  const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('cf');
@@ -74,7 +74,6 @@ export default function CustomersPage() {
 
     const customersRef = collection(db, 'customers');
 
-    // Operación no bloqueante
     addDoc(customersRef, customerData)
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -157,13 +156,10 @@ export default function CustomersPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-full bg-white shadow-sm hover:bg-slate-100"
-            onClick={() => router.push('/')}
-          >
-            <ArrowLeft className="text-slate-600" size={20} />
+          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100" asChild>
+            <Link href="/">
+              <ArrowLeft className="text-slate-600" size={20} />
+            </Link>
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Registro de Clientes</h1>
