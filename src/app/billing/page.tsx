@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -65,13 +64,11 @@ export default function BillingPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [paymentReference, setPaymentReference] = useState('');
 
-  // Estados para Gastos Internos
   const [expenseDesc, setExpenseDesc] = useState('');
-  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState<string | number>('');
   const [expenseCat, setExpenseCat] = useState('Otros');
   const [isRegisteringExpense, setIsRegisteringExpense] = useState(false);
 
-  // Estados para Cuadre Avanzado
   const [baseCash, setBaseCash] = useState<string>('0');
   const [denominations, setDenominations] = useState({
     b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0,
@@ -186,7 +183,7 @@ export default function BillingPage() {
     try {
       await addDoc(collection(db, 'expenses'), {
         description: expenseDesc,
-        amount: parseFloat(expenseAmount),
+        amount: parseFloat(expenseAmount.toString()) || 0,
         category: expenseCat,
         timestamp: new Date().toISOString()
       });
@@ -506,7 +503,7 @@ export default function BillingPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400">Monto del Abono ($)</Label>
-                      <Input type="number" step="0.01" className="h-14 text-2xl font-black rounded-xl bg-slate-50" placeholder="0.00" />
+                      <Input type="number" step="0.01" onFocus={e => e.target.select()} className="h-14 text-2xl font-black rounded-xl bg-slate-50" placeholder="0.00" />
                     </div>
                     <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-lg">
                       Registrar Pago
@@ -546,6 +543,7 @@ export default function BillingPage() {
                               <Input 
                                 type="number" 
                                 value={baseCash} 
+                                onFocus={e => e.target.select()}
                                 onChange={(e) => setBaseCash(e.target.value)} 
                                 className="h-8 font-bold"
                               />
@@ -608,6 +606,7 @@ export default function BillingPage() {
                             type="number" 
                             className="h-8 text-xs bg-slate-50 rounded-lg text-center" 
                             placeholder="0"
+                            onFocus={e => e.target.select()}
                             value={denominations[`b${b}` as keyof typeof denominations]}
                             onChange={(e) => updateDenomination(`b${b}` as any, e.target.value)}
                           />
@@ -629,6 +628,7 @@ export default function BillingPage() {
                             type="number" 
                             className="h-8 text-xs bg-slate-50 rounded-lg text-center" 
                             placeholder="0"
+                            onFocus={e => e.target.select()}
                             value={denominations[c.key as keyof typeof denominations]}
                             onChange={(e) => updateDenomination(c.key as any, e.target.value)}
                           />
@@ -684,6 +684,7 @@ export default function BillingPage() {
                         <Input 
                           type="number"
                           placeholder="0.00"
+                          onFocus={e => e.target.select()}
                           value={expenseAmount}
                           onChange={(e) => setExpenseAmount(e.target.value)}
                           className="h-10 rounded-xl bg-slate-50 text-xl font-black"

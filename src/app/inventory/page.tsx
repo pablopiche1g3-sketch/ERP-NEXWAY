@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -30,7 +29,7 @@ export default function InventoryMasterPage() {
     sku: '',
     name: '',
     category: 'General',
-    price: 0
+    price: '' as string | number
   });
 
   const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
@@ -54,13 +53,16 @@ export default function InventoryMasterPage() {
       }
 
       await addDoc(collection(db, 'inventory'), {
-        ...form,
-        quantity: 0, // Inicia sin existencia
+        sku: form.sku,
+        name: form.name,
+        category: form.category,
+        price: parseFloat(form.price.toString()) || 0,
+        quantity: 0,
         createdAt: new Date().toISOString()
       });
 
       toast({ title: "Código Autorizado", description: "El producto ha sido registrado en el maestro." });
-      setForm({ sku: '', name: '', category: 'General', price: 0 });
+      setForm({ sku: '', name: '', category: 'General', price: '' });
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo crear el producto." });
@@ -95,7 +97,6 @@ export default function InventoryMasterPage() {
       </div>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Registro de Código */}
         <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -129,7 +130,8 @@ export default function InventoryMasterPage() {
                   type="number"
                   step="0.01"
                   value={form.price}
-                  onChange={e => setForm({...form, price: parseFloat(e.target.value) || 0})}
+                  onFocus={e => e.target.select()}
+                  onChange={e => setForm({...form, price: e.target.value})}
                   className="bg-slate-50 border-slate-200"
                 />
               </div>
@@ -140,7 +142,6 @@ export default function InventoryMasterPage() {
           </CardContent>
         </Card>
 
-        {/* Listado de Productos Autorizados */}
         <div className="lg:col-span-2 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />

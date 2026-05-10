@@ -52,28 +52,23 @@ export default function PurchasesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   
-  // Parámetros Generales de la Compra
   const [pedidoId, setPedidoId] = useState('');
   const [generationCode, setGenerationCode] = useState('');
   const [docType, setDocType] = useState<'FACTURA' | 'CCF'>('FACTURA');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
-  const [creditDays, setCreditDays] = useState('0');
+  const [creditDays, setCreditDays] = useState<string | number>('');
   const [enteredBy, setEnteredBy] = useState('');
   const [warehouse, setWarehouse] = useState('Bodega Central');
 
-  // Gestión de ítems en la compra actual
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [skuSearch, setSkuSearch] = useState('');
-  const [manualQty, setManualQty] = useState(1);
+  const [manualQty, setManualQty] = useState<number | string>(1);
 
-  // Estados para UI
-  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: inventory } = useCollection<any>(collection(db, 'inventory'));
 
   useEffect(() => {
-    // Generar código de pedido automático: ORD-YYYYMMDD-RAND
     const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randPart = Math.floor(1000 + Math.random() * 9000);
     setPedidoId(`ORD-${datePart}-${randPart}`);
@@ -83,6 +78,7 @@ export default function PurchasesPage() {
     if (!skuSearch) return;
     
     const product = inventory?.find((p: any) => p.sku === skuSearch.toUpperCase());
+    const qty = parseInt(manualQty.toString()) || 0;
     
     if (!product) {
       toast({ 
@@ -93,17 +89,22 @@ export default function PurchasesPage() {
       return;
     }
 
+    if (qty <= 0) {
+      toast({ variant: "destructive", title: "Error", description: "La cantidad debe ser mayor a 0." });
+      return;
+    }
+
     const existing = purchaseItems.find(item => item.sku === product.sku);
     if (existing) {
       setPurchaseItems(prev => prev.map(item => 
-        item.sku === product.sku ? { ...item, quantity: item.quantity + manualQty } : item
+        item.sku === product.sku ? { ...item, quantity: item.quantity + qty } : item
       ));
     } else {
       setPurchaseItems(prev => [...prev, {
         id: product.id,
         sku: product.sku,
         name: product.name,
-        quantity: manualQty
+        quantity: qty
       }]);
     }
 
@@ -128,13 +129,12 @@ export default function PurchasesPage() {
 
     setLoading(true);
     try {
-      // 1. Guardar la Orden de Compra
       await addDoc(collection(db, 'purchases'), {
         pedidoId,
         generationCode,
         docType,
         paymentMethod,
-        creditDays: paymentMethod === 'Credito' ? parseInt(creditDays) : 0,
+        creditDays: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : 0,
         enteredBy,
         warehouse,
         items: purchaseItems,
@@ -142,7 +142,6 @@ export default function PurchasesPage() {
         timestamp: new Date().toISOString()
       });
 
-      // 2. Si se Cierra, actualizar el Inventario
       if (status === 'CERRADA') {
         for (const item of purchaseItems) {
           const productRef = doc(db, 'inventory', item.id);
@@ -158,14 +157,14 @@ export default function PurchasesPage() {
         toast({ title: "Borrador Guardado", description: "La compra está pendiente. El stock NO ha sido afectado." });
       }
 
-      // Reiniciar
       setPurchaseItems([]);
       setGenerationCode('');
       setEnteredBy('');
       setPaymentMethod('Efectivo');
-      setCreditDays('0');
-      // Generar nuevo ID para la siguiente
-      setPedidoId(`ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`);
+      setCreditDays('');
+      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const randPart = Math.floor(1000 + Math.random() * 9000);
+      setPedidoId(`ORD-${datePart}-${randPart}`);
 
     } catch (error) {
       console.error(error);
@@ -175,32 +174,6 @@ export default function PurchasesPage() {
     }
   };
 
-  const processBulkJson = (jsonData: any[]) => {
-    let count = 0;
-    const newItems: PurchaseItem[] = [...purchaseItems];
-
-    jsonData.forEach(item => {
-      const product = inventory?.find((p: any) => p.sku === item.sku?.toUpperCase());
-      if (product) {
-        const existingIdx = newItems.findIndex(ni => ni.sku === product.sku);
-        if (existingIdx > -1) {
-          newItems[existingIdx].quantity += parseInt(item.quantity) || 0;
-        } else {
-          newItems.push({
-            id: product.id,
-            sku: product.sku,
-            name: product.name,
-            quantity: parseInt(item.quantity) || 0
-          });
-        }
-        count++;
-      }
-    });
-
-    setPurchaseItems(newItems);
-    toast({ title: "Carga Masiva Exitosa", description: `Se añadieron ${count} productos válidos a la lista.` });
-  };
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -208,7 +181,30 @@ export default function PurchasesPage() {
       reader.onload = (e) => {
         try {
           const json = JSON.parse(e.target?.result as string);
-          if (Array.isArray(json)) processBulkJson(json);
+          if (Array.isArray(json)) {
+             let count = 0;
+             const newItems: PurchaseItem[] = [...purchaseItems];
+             json.forEach(item => {
+               const product = inventory?.find((p: any) => p.sku === item.sku?.toUpperCase());
+               if (product) {
+                 const existingIdx = newItems.findIndex(ni => ni.sku === product.sku);
+                 const qty = parseInt(item.quantity) || 0;
+                 if (existingIdx > -1) {
+                   newItems[existingIdx].quantity += qty;
+                 } else {
+                   newItems.push({
+                     id: product.id,
+                     sku: product.sku,
+                     name: product.name,
+                     quantity: qty
+                   });
+                 }
+                 count++;
+               }
+             });
+             setPurchaseItems(newItems);
+             toast({ title: "Carga Masiva Exitosa", description: `Se añadieron ${count} productos válidos.` });
+          }
         } catch (err) {
           toast({ variant: "destructive", title: "Error", description: "Formato JSON inválido." });
         }
@@ -241,7 +237,6 @@ export default function PurchasesPage() {
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* PANEL IZQUIERDO: CONFIGURACIÓN Y AGREGAR */}
         <div className="lg:col-span-4 space-y-6">
           <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
             <CardHeader className="bg-slate-900 text-white p-5">
@@ -349,6 +344,7 @@ export default function PurchasesPage() {
                         <Input 
                           type="number" 
                           value={creditDays} 
+                          onFocus={e => e.target.select()}
                           onChange={e => setCreditDays(e.target.value)} 
                           className="h-8 bg-white text-slate-900 font-bold"
                           placeholder="0"
@@ -374,7 +370,8 @@ export default function PurchasesPage() {
                 <Input 
                   type="number" 
                   value={manualQty}
-                  onChange={e => setManualQty(parseInt(e.target.value) || 1)}
+                  onFocus={e => e.target.select()}
+                  onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))}
                   className="w-20 h-12 bg-slate-50 border-slate-100 font-bold text-lg text-center text-slate-900"
                 />
               </div>
@@ -398,7 +395,6 @@ export default function PurchasesPage() {
           </Card>
         </div>
 
-        {/* PANEL DERECHO: DETALLE Y ACCIONES */}
         <div className="lg:col-span-8 space-y-6">
           <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden h-[500px] flex flex-col">
             <CardHeader className="bg-slate-50 border-b border-slate-100 px-6 py-4">
