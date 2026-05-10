@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -15,9 +14,7 @@ import {
   Building2, 
   Briefcase,
   Loader2,
-  Plus,
-  ShieldAlert,
-  ShieldCheck
+  Plus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -97,6 +94,26 @@ export default function SuppliersPage() {
     });
   };
 
+  const handleUpdateSupplierField = async (id: string, field: string, value: boolean) => {
+    const supplierRef = doc(db, 'suppliers', id);
+    const updateData = { [field]: value };
+    
+    updateDoc(supplierRef, updateData)
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: supplierRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
+    
+    toast({ 
+      title: "Perfil Actualizado", 
+      description: `Se ha modificado la condición de ${field === 'applyRetention' ? 'Retención' : 'Percepción'} para este proveedor.` 
+    });
+  };
+
   const handleDeleteSupplier = (id: string) => {
     const supplierRef = doc(db, 'suppliers', id);
     deleteDoc(supplierRef)
@@ -133,13 +150,13 @@ export default function SuppliersPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Directorio de Proveedores</h1>
-            <p className="text-slate-500 text-sm">Gestión de suministrantes y datos fiscales</p>
+            <p className="text-slate-500 text-sm">Gestión de suministrantes y condiciones tributarias</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-5 space-y-4">
+        <div className="lg:col-span-4 space-y-4">
           <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
             <CardHeader className="bg-emerald-700 text-white p-6">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -155,7 +172,7 @@ export default function SuppliersPage() {
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                     <Input 
-                      placeholder="Ej. Suministros Industriales S.A. de C.V."
+                      placeholder="Ej. Suministros Industriales S.A."
                       value={form.name}
                       onChange={e => setForm({...form, name: e.target.value})}
                       className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
@@ -166,60 +183,44 @@ export default function SuppliersPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-slate-400">NIT</Label>
-                    <div className="relative">
-                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                      <Input 
-                        placeholder="0000-000000-000-0" 
-                        value={form.nit}
-                        onChange={e => setForm({...form, nit: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
-                      />
-                    </div>
+                    <Input 
+                      placeholder="NIT..." 
+                      value={form.nit}
+                      onChange={e => setForm({...form, nit: e.target.value})}
+                      className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-slate-400">NRC</Label>
-                    <div className="relative">
-                      <BadgeInfo className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                      <Input 
-                        placeholder="Registro..." 
-                        value={form.nrc}
-                        onChange={e => setForm({...form, nrc: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
-                      />
-                    </div>
+                    <Input 
+                      placeholder="NRC..." 
+                      value={form.nrc}
+                      onChange={e => setForm({...form, nrc: e.target.value})}
+                      className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Giro Comercial</Label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <Input 
-                      placeholder="Venta de repuestos, servicios técnicos..." 
-                      value={form.giro}
-                      onChange={e => setForm({...form, giro: e.target.value})}
-                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
-                    />
-                  </div>
+                  <Input 
+                    placeholder="Giro..." 
+                    value={form.giro}
+                    onChange={e => setForm({...form, giro: e.target.value})}
+                    className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                  />
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Configuración Tributaria (IVA)</Label>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-xs font-bold text-slate-700">Retención 1%</Label>
-                      <p className="text-[10px] text-slate-400">Activar si el proveedor es Agente de Retención</p>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                    <Label className="text-[9px] font-bold uppercase">Retención</Label>
                     <Switch 
                       checked={form.applyRetention}
                       onCheckedChange={(val) => setForm({...form, applyRetention: val})}
                     />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-xs font-bold text-slate-700">Percepción 1%</Label>
-                      <p className="text-[10px] text-slate-400">Activar si se le aplica percepción al comprar</p>
-                    </div>
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                    <Label className="text-[9px] font-bold uppercase">Percepción</Label>
                     <Switch 
                       checked={form.applyPerception}
                       onCheckedChange={(val) => setForm({...form, applyPerception: val})}
@@ -227,48 +228,29 @@ export default function SuppliersPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Correo Electrónico</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                      <Input 
-                        type="email"
-                        placeholder="ventas@proveedor.com" 
-                        value={form.email}
-                        onChange={e => setForm({...form, email: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
-                      />
-                    </div>
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Correo</Label>
+                    <Input 
+                      type="email"
+                      placeholder="Email..." 
+                      value={form.email}
+                      onChange={e => setForm({...form, email: e.target.value})}
+                      className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Teléfono</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                      <Input 
-                        placeholder="2222-0000" 
-                        value={form.phone}
-                        onChange={e => setForm({...form, phone: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Dirección</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 text-slate-400" size={14} />
-                    <textarea 
-                      placeholder="Ubicación física..."
-                      value={form.address}
-                      onChange={e => setForm({...form, address: e.target.value})}
-                      className="w-full min-h-[60px] pl-9 pt-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                    <Input 
+                      placeholder="Tel..." 
+                      value={form.phone}
+                      onChange={e => setForm({...form, phone: e.target.value})}
+                      className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 rounded-xl font-bold text-white shadow-lg shadow-emerald-200">
+                <Button type="submit" className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 rounded-xl font-bold text-white shadow-lg">
                   <Plus size={18} className="mr-2" />
                   Registrar Proveedor
                 </Button>
@@ -277,7 +259,7 @@ export default function SuppliersPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-7 space-y-4">
+        <div className="lg:col-span-8 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <Input 
@@ -289,36 +271,32 @@ export default function SuppliersPage() {
           </div>
 
           <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-            <ScrollArea className="h-[550px]">
+            <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader className="bg-slate-50 sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="text-[10px] font-black uppercase px-6">Proveedor</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Tributos</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Contacto</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase">Retención</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase">Percepción</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loadingData ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Cargando directorio...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Cargando directorio...</TableCell></TableRow>
                   ) : filteredSuppliers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">
+                      <TableCell colSpan={5} className="text-center py-20 text-slate-400 italic text-xs">
                         No hay proveedores registrados.
                       </TableCell>
                     </TableRow>
                   ) : filteredSuppliers.map((supplier: any) => (
                     <TableRow key={supplier.id} className="hover:bg-slate-50/50">
                       <TableCell className="px-6 py-4">
-                        <span className="font-bold text-slate-900 text-xs">{supplier.name}</span>
-                        <div className="flex gap-1 mt-1">
-                          {supplier.applyRetention && (
-                            <Badge variant="outline" className="text-[8px] bg-amber-50 text-amber-600 border-amber-200 px-1 font-black uppercase">Retención 1%</Badge>
-                          )}
-                          {supplier.applyPerception && (
-                            <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-600 border-blue-200 px-1 font-black uppercase">Percepción 1%</Badge>
-                          )}
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 text-xs">{supplier.name}</span>
+                          <span className="text-[9px] text-slate-400">{supplier.email || 'Sin correo'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -328,15 +306,23 @@ export default function SuppliersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
-                            <Phone size={10} className="text-slate-400" />
-                            {supplier.phone || 'N/A'}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
-                            <Mail size={10} className="text-slate-400" />
-                            {supplier.email || 'N/A'}
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <Switch 
+                            checked={supplier.applyRetention}
+                            onCheckedChange={(val) => handleUpdateSupplierField(supplier.id, 'applyRetention', val)}
+                            className="scale-75"
+                          />
+                          <span className={`text-[9px] font-bold ${supplier.applyRetention ? 'text-amber-600' : 'text-slate-300'}`}>1%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch 
+                            checked={supplier.applyPerception}
+                            onCheckedChange={(val) => handleUpdateSupplierField(supplier.id, 'applyPerception', val)}
+                            className="scale-75"
+                          />
+                          <span className={`text-[9px] font-bold ${supplier.applyPerception ? 'text-blue-600' : 'text-slate-300'}`}>1%</span>
                         </div>
                       </TableCell>
                       <TableCell>
