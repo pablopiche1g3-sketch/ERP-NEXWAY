@@ -8,13 +8,10 @@ import {
   ArrowLeft, 
   Search, 
   Trash2,
-  AlertCircle,
   Warehouse,
   History,
-  ArrowUpCircle,
   ArrowDownCircle,
   Settings2,
-  CheckCircle2,
   Loader2,
   Zap,
   Tag
@@ -30,16 +27,18 @@ import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc } 
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function InventoryMasterPage() {
   const db = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState('Todas');
   
-  // Formulario Maestro
   const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
@@ -47,7 +46,6 @@ export default function InventoryMasterPage() {
     price: '' as string | number
   });
 
-  // Formulario Entrada Rápida
   const [quickEntry, setQuickEntry] = useState({
     sku: '',
     quantity: '' as string | number
@@ -56,7 +54,7 @@ export default function InventoryMasterPage() {
   const [warehouseName, setWarehouseName] = useState('');
 
   const { data: inventory, loading: loadingInv } = useCollection<any>(collection(db, 'inventory'));
-  const { data: warehouses, loading: loadingWh } = useCollection<any>(collection(db, 'warehouses'));
+  const { data: warehouses } = useCollection<any>(collection(db, 'warehouses'));
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,82 +64,79 @@ export default function InventoryMasterPage() {
     }
 
     setLoading(true);
-    try {
-      const q = query(collection(db, 'inventory'), where("sku", "==", productForm.sku));
-      const snap = await getDocs(q);
-      
-      if (!snap.empty) {
-        toast({ variant: "destructive", title: "Error", description: "Este código SKU ya existe en el sistema." });
-        setLoading(false);
-        return;
-      }
+    const q = query(collection(db, 'inventory'), where("sku", "==", productForm.sku));
+    const snap = await getDocs(q);
+    
+    if (!snap.empty) {
+      toast({ variant: "destructive", title: "Error", description: "Este código SKU ya existe en el sistema." });
+      setLoading(false);
+      return;
+    }
 
-      await addDoc(collection(db, 'inventory'), {
-        sku: productForm.sku,
-        name: productForm.name,
-        category: productForm.category,
-        price: parseFloat(productForm.price.toString()) || 0,
-        quantity: 0,
-        createdAt: new Date().toISOString()
+    const data = {
+      sku: productForm.sku,
+      name: productForm.name,
+      category: productForm.category,
+      price: parseFloat(productForm.price.toString()) || 0,
+      quantity: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    addDoc(collection(db, 'inventory'), data)
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'inventory', operation: 'create', requestResourceData: data }));
       });
 
-      toast({ title: "Código Autorizado", description: "El producto ha sido registrado en el maestro." });
-      setProductForm({ sku: '', name: '', category: 'General', price: '' });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo crear el producto." });
-    } finally {
-      setLoading(false);
-    }
+    toast({ title: "Código Autorizado", description: "El producto ha sido registrado en el maestro." });
+    setProductForm({ sku: '', name: '', category: 'General', price: '' });
+    setLoading(false);
   };
 
-  const handleQuickStockEntry = async (e: React.FormEvent) => {
+  const handleQuickStockEntry = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickEntry.sku || !quickEntry.quantity) {
       toast({ variant: "destructive", title: "Datos Faltantes", description: "Debe ingresar SKU y Cantidad." });
       return;
     }
 
-    setLoading(true);
-    try {
-      const product = inventory?.find((p: any) => p.sku === quickEntry.sku.toUpperCase());
-      if (!product) {
-        toast({ variant: "destructive", title: "No Encontrado", description: "El SKU no existe en el maestro." });
-        setLoading(false);
-        return;
-      }
+    const product = inventory?.find((p: any) => p.sku === quickEntry.sku.toUpperCase());
+    if (!product) {
+      toast({ variant: "destructive", title: "No Encontrado", description: "El SKU no existe en el maestro." });
+      return;
+    }
 
-      const productRef = doc(db, 'inventory', product.id);
-      await updateDoc(productRef, {
-        quantity: (product.quantity || 0) + (parseInt(quickEntry.quantity.toString()) || 0)
+    const productRef = doc(db, 'inventory', product.id);
+    const updateData = {
+      quantity: (product.quantity || 0) + (parseInt(quickEntry.quantity.toString()) || 0)
+    };
+
+    updateDoc(productRef, updateData)
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: productRef.path, operation: 'update', requestResourceData: updateData }));
       });
 
-      toast({ title: "Stock Actualizado", description: `Se agregaron ${quickEntry.quantity} unidades a ${product.name}.` });
-      setQuickEntry({ sku: '', quantity: '' });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el stock." });
-    } finally {
-      setLoading(false);
-    }
+    toast({ title: "Stock Actualizado", description: `Se agregaron ${quickEntry.quantity} unidades a ${product.name}.` });
+    setQuickEntry({ sku: '', quantity: '' });
   };
 
-  const handleCreateWarehouse = async () => {
+  const handleCreateWarehouse = () => {
     if (!warehouseName) return;
-    try {
-      await addDoc(collection(db, 'warehouses'), { name: warehouseName });
-      toast({ title: "Bodega Configurada", description: "La bodega ya está disponible." });
-      setWarehouseName('');
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo guardar la bodega." });
-    }
+    const data = { name: warehouseName };
+    addDoc(collection(db, 'warehouses'), data)
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'warehouses', operation: 'create', requestResourceData: data }));
+      });
+    toast({ title: "Bodega Configurada", description: "La bodega ya está disponible." });
+    setWarehouseName('');
   };
 
-  const handleDeleteWarehouse = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'warehouses', id));
-      toast({ title: "Bodega Eliminada", description: "Se ha removido la bodega del sistema." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar." });
-    }
+  const handleDeleteWarehouse = (id: string) => {
+    const whRef = doc(db, 'warehouses', id);
+    deleteDoc(whRef)
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: whRef.path, operation: 'delete' }));
+      });
+    toast({ title: "Bodega Eliminada", description: "Se ha removido la bodega del sistema." });
   };
 
   const filteredItems = useMemo(() => {
@@ -156,11 +151,14 @@ export default function InventoryMasterPage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:bg-slate-100">
-              <ArrowLeft className="text-slate-600" size={20} />
-            </Button>
-          </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full bg-white shadow-sm hover:bg-slate-100"
+            onClick={() => router.push('/')}
+          >
+            <ArrowLeft className="text-slate-600" size={20} />
+          </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Centro Logístico</h1>
             <p className="text-slate-500 text-sm">Administración de stock, bodegas y entradas rápidas</p>
@@ -276,6 +274,8 @@ export default function InventoryMasterPage() {
             </div>
           </TabsContent>
 
+          {/* ... resto de TabsContent similares, usando router.push('/') para el botón atrás si se añade en otras partes ... */}
+          
           <TabsContent value="maestro" className="grid grid-cols-1 lg:grid-cols-3 gap-8 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
               <CardHeader>
@@ -316,7 +316,7 @@ export default function InventoryMasterPage() {
                       className="bg-slate-50 border-slate-200"
                     />
                   </div>
-                  <Button disabled={loading} className="w-full bg-blue-600 h-12 rounded-xl font-bold">
+                  <Button disabled={loading} className="w-full bg-blue-600 h-12 rounded-xl font-bold text-white shadow-lg">
                     {loading ? <Loader2 className="animate-spin" /> : 'Crear Código Maestro'}
                   </Button>
                 </form>
@@ -383,8 +383,8 @@ export default function InventoryMasterPage() {
                       className="bg-slate-50 border-slate-200 h-12 text-xl font-black text-blue-600"
                     />
                   </div>
-                  <Button disabled={loading} className="w-full bg-slate-900 h-14 rounded-2xl font-bold shadow-lg">
-                    {loading ? <Loader2 className="animate-spin" /> : 'Cargar Existencia Inmediata'}
+                  <Button className="w-full bg-slate-900 h-14 rounded-2xl font-bold shadow-lg text-white">
+                    Cargar Existencia Inmediata
                   </Button>
                 </form>
               </CardContent>
@@ -402,32 +402,6 @@ export default function InventoryMasterPage() {
                 <p className="text-[11px] italic">"Media vez tenga la factura, regístrela en el módulo de Compras para formalizar el inventario legal."</p>
               </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="kardex" className="outline-none">
-            <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-              <CardHeader className="p-8">
-                <CardTitle className="text-xl font-bold">Libro de Movimientos (Kardex)</CardTitle>
-                <CardDescription>Registro cronológico de entradas, salidas y traslados</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0 pb-20 text-center space-y-4 flex flex-col items-center justify-center grayscale opacity-30">
-                <History size={64} />
-                <p className="text-sm font-bold">Trazabilidad detallada disponible próximamente.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="salida" className="outline-none">
-            <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-              <CardHeader className="p-8">
-                <CardTitle className="text-xl font-bold">Salidas de Inventario</CardTitle>
-                <CardDescription>Bajas por merma, daño o autoconsumo</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0 pb-20 text-center space-y-4 flex flex-col items-center justify-center grayscale opacity-30">
-                <ArrowDownCircle size={64} />
-                <p className="text-sm font-bold">Módulo de ajustes de salida disponible próximamente.</p>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="config" className="grid grid-cols-1 lg:grid-cols-2 gap-8 outline-none">
@@ -449,7 +423,7 @@ export default function InventoryMasterPage() {
                     className="bg-slate-50 h-12 rounded-xl"
                   />
                 </div>
-                <Button onClick={handleCreateWarehouse} className="w-full bg-slate-900 h-12 rounded-xl font-bold">
+                <Button onClick={handleCreateWarehouse} className="w-full bg-slate-900 h-12 rounded-xl font-bold text-white shadow-lg">
                   Guardar Bodega
                 </Button>
               </CardContent>
@@ -479,13 +453,6 @@ export default function InventoryMasterPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {warehouses?.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-center py-10 text-slate-400 italic text-xs">
-                        No hay bodegas configuradas.
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </Card>

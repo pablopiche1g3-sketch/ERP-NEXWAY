@@ -1,7 +1,16 @@
 
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function DashboardPage() {
-  // Redirigir la antigua ruta del dashboard a la raíz
-  redirect('/');
+  const router = useRouter();
+  
+  useEffect(() => {
+    // Redirigir la antigua ruta del dashboard a la raíz de forma limpia
+    router.replace('/');
+  }, [router]);
+
+  return null;
 }

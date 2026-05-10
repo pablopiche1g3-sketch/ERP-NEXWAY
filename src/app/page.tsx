@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   ShoppingCart, 
   Truck, 
@@ -10,23 +10,42 @@ import {
   Users, 
   Package,
   LogOut,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const auth = useAuth();
+  const { user, loading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
 
   const handleLogout = () => {
-    auth.signOut().catch(console.error);
+    auth.signOut().then(() => {
+      router.push("/login");
+    }).catch(console.error);
   };
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 md:p-12 lg:p-16">
-      {/* Header Section */}
       <div className="max-w-6xl mx-auto flex justify-between items-start mb-12">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 font-headline mb-2">Panel Principal</h1>
@@ -42,7 +61,6 @@ export default function Home() {
         </Button>
       </div>
 
-      {/* Main Grid Modules */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Link href="/billing">
           <ModuleCard 
