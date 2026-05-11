@@ -21,7 +21,8 @@ import {
   Box,
   ShoppingCart,
   Hash,
-  Tag
+  Tag,
+  Info
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -100,6 +101,7 @@ export default function InstitutionalProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [docNumber, setDocNumber] = useState('');
+  const [billingConcept, setBillingConcept] = useState(''); // Nuevo estado para ítem único/concepto
   const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
 
   const filteredInventory = useMemo(() => {
@@ -160,20 +162,26 @@ export default function InstitutionalProjectsPage() {
       return;
     }
     try {
-      const itemsDetail = cart.map(i => `${i.quantity} ${i.name} @ $${i.price}`).join(', ');
+      // Si hay un concepto definido, se usa como descripción principal, de lo contrario se lista todo
+      const finalItemsDetail = billingConcept 
+        ? `${billingConcept} (Consolidado)`
+        : cart.map(i => `${i.quantity} ${i.name} @ $${i.price}`).join(', ');
+
       await addDoc(salesRef, {
         projectId: selectedProjectId,
         docNumber,
         total: totalCart,
         date: new Date().toISOString().split('T')[0],
-        items: itemsDetail,
+        items: finalItemsDetail,
         cartItems: cart,
+        concept: billingConcept || null,
         createdAt: new Date().toISOString()
       });
       toast({ title: "Factura Institucional Guardada", description: "Venta añadida al proyecto correctamente." });
       setIsNewSaleOpen(false);
       setCart([]);
       setDocNumber('');
+      setBillingConcept('');
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la venta." });
     }
@@ -229,8 +237,8 @@ export default function InstitutionalProjectsPage() {
 
       // Ventas detalladas
       const sales = [
-        { docNumber: 'FAC-INST-001', total: 45000.00, date: '2024-03-01', items: '30 Camas UCI Modelo X-500 @ $1,500' },
-        { docNumber: 'FAC-INST-002', total: 32500.50, date: '2024-03-15', items: '20 Camas UCI Modelo X-500 + 5 Monitores @ $1,300 avg' }
+        { docNumber: 'FAC-INST-001', total: 45000.00, date: '2024-03-01', items: 'Suministro de 30 Camas UCI Modelo X-500 según contrato Hospital Rosales' },
+        { docNumber: 'FAC-INST-002', total: 32500.50, date: '2024-03-15', items: 'Instalación y puesta en marcha de equipos médicos UCI' }
       ];
 
       for (const s of sales) {
@@ -396,7 +404,7 @@ export default function InstitutionalProjectsPage() {
                           <TableRow>
                              <TableHead className="px-6 text-[10px] font-black uppercase">FECHA</TableHead>
                              <TableHead className="text-[10px] font-black uppercase">DOCUMENTO</TableHead>
-                             <TableHead className="text-[10px] font-black uppercase">DETALLE DE OBJETOS Y CANTIDADES</TableHead>
+                             <TableHead className="text-[10px] font-black uppercase">DETALLE DE OBJETOS O CONCEPTO ÚNICO</TableHead>
                              <TableHead className="text-right text-[10px] font-black uppercase pr-6">MONTO TOTAL</TableHead>
                           </TableRow>
                        </TableHeader>
@@ -407,7 +415,9 @@ export default function InstitutionalProjectsPage() {
                             <TableRow key={s.id}>
                                <TableCell className="px-6 text-xs text-slate-500 font-medium">{s.date}</TableCell>
                                <TableCell className="font-bold text-xs">{s.docNumber}</TableCell>
-                               <TableCell className="text-xs text-slate-600 italic font-medium">{s.items || 'Sin detalle de ítems'}</TableCell>
+                               <TableCell className="text-xs text-slate-600 italic font-medium">
+                                 {s.items || 'Sin detalle de ítems'}
+                               </TableCell>
                                <TableCell className="text-right pr-6 font-black text-emerald-600">${s.total.toLocaleString()}</TableCell>
                             </TableRow>
                           ))}
@@ -584,29 +594,48 @@ export default function InstitutionalProjectsPage() {
                 </ScrollArea>
               </div>
               
-              {/* Right: Cart & Summary */}
+              {/* Right: Cart & Summary & Concept */}
               <div className="lg:col-span-5 bg-white border-l p-6 flex flex-col overflow-hidden">
                 <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">No. Documento / Factura</Label>
-                    <div className="relative">
-                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                      <Input 
-                        placeholder="FAC-INST-000..." 
-                        value={docNumber} 
-                        onChange={e => setDocNumber(e.target.value)}
-                        className="h-11 pl-9 bg-slate-50 border-slate-100 rounded-xl font-bold text-lg" 
-                      />
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">No. Documento / Factura</Label>
+                      <div className="relative">
+                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <Input 
+                          placeholder="FAC-INST-000..." 
+                          value={docNumber} 
+                          onChange={e => setDocNumber(e.target.value)}
+                          className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl font-bold" 
+                        />
+                      </div>
                     </div>
                   </div>
+
+                  {/* Nuevo Campo de Concepto Único / Consolidado */}
+                  <Card className="border-none shadow-none bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Info size={14} className="text-emerald-600" />
+                        <Label className="text-[10px] font-black uppercase text-emerald-700 tracking-widest">Concepto de Facturación Institucional</Label>
+                      </div>
+                      <textarea 
+                        placeholder="Ej: Suministro de equipo médico según Licitación 04/2024..." 
+                        value={billingConcept}
+                        onChange={e => setBillingConcept(e.target.value)}
+                        className="w-full min-h-[80px] bg-white border border-emerald-100 rounded-xl p-3 text-xs font-medium focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                      />
+                      <p className="text-[9px] text-emerald-600 italic">Deje vacío para listar todos los productos individualmente.</p>
+                    </div>
+                  </Card>
                   
-                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block pt-2">Resumen de Objetos</Label>
-                  <ScrollArea className="flex-1 border-t border-b py-4">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block pt-2">Detalle Interno de Objetos</Label>
+                  <ScrollArea className="flex-1 border-t border-b py-2">
                     <Table>
                       <TableBody>
                         {cart.length === 0 ? (
                           <TableRow>
-                            <TableCell className="text-center py-20 text-slate-400 italic text-xs font-bold">Añada productos del catálogo</TableCell>
+                            <TableCell className="text-center py-10 text-slate-400 italic text-xs font-bold">Añada productos del catálogo</TableCell>
                           </TableRow>
                         ) : cart.map((item) => (
                           <TableRow key={item.id} className="border-none">
@@ -646,7 +675,7 @@ export default function InstitutionalProjectsPage() {
                   </ScrollArea>
                 </div>
                 
-                <div className="pt-6 space-y-4">
+                <div className="pt-4 space-y-4">
                   <div className="flex justify-between items-end">
                     <span className="text-sm font-black text-slate-400 uppercase">Total Factura</span>
                     <span className="text-4xl font-black text-emerald-600">${totalCart.toFixed(2)}</span>
