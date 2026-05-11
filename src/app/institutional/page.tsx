@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ export default function InstitutionalProjectsPage() {
   // Navigation States
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [activeMainTab, setActiveMainTab] = useState('projects');
+  const [isSeeding, setIsSeeding] = useState(false);
   
   // Data Fetching
   const projectsRef = useMemo(() => collection(db, 'institutional_projects'), [db]);
@@ -56,17 +58,17 @@ export default function InstitutionalProjectsPage() {
   const { data: customers } = useCollection<any>(customersRef);
   const { data: suppliers } = useCollection<any>(suppliersRef);
 
-  // Selected Project Details
-  const selectedProject = useMemo(() => 
-    projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]
-  );
-
   // Sales and Purchases for all or selected project
   const salesRef = useMemo(() => collection(db, 'institutional_sales'), [db]);
   const purchasesRef = useMemo(() => collection(db, 'institutional_purchases'), [db]);
   
   const { data: allSales } = useCollection<any>(salesRef);
   const { data: allPurchases } = useCollection<any>(purchasesRef);
+
+  // Selected Project Details
+  const selectedProject = useMemo(() => 
+    projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]
+  );
 
   const projectSales = useMemo(() => 
     allSales.filter(s => s.projectId === selectedProjectId), [allSales, selectedProjectId]
@@ -141,11 +143,55 @@ export default function InstitutionalProjectsPage() {
         total: parseFloat(newPurchase.total.toString()),
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Compra Registrada", description: "Gasto añadido al proyecto." });
+      toast({ title: "Compra Registrada", description: "Gasto añadida al proyecto." });
       setIsNewPurchaseOpen(false);
       setNewPurchase({ docNumber: '', total: '', supplierId: '', date: new Date().toISOString().split('T')[0] });
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la compra." });
+    }
+  };
+
+  const handleLoadDemoData = async () => {
+    setIsSeeding(true);
+    try {
+      // 1. Crear Proyecto Demo
+      const projectDoc = await addDoc(projectsRef, {
+        name: 'Equipamiento Hospital Rosales 2024',
+        customerName: 'Ministerio de Salud (MINSAL)',
+        customerId: 'demo-minsal',
+        description: 'Suministro e instalación de equipos médicos de alta gama para la nueva ala del hospital.',
+        status: 'ACTIVO',
+        createdAt: new Date().toISOString()
+      });
+
+      const pId = projectDoc.id;
+
+      // 2. Cargar Facturas de Venta (Ingresos)
+      const sales = [
+        { docNumber: 'FAC-INST-001', total: 45000.00, date: '2024-03-01' },
+        { docNumber: 'FAC-INST-002', total: 32500.50, date: '2024-03-15' }
+      ];
+
+      for (const s of sales) {
+        await addDoc(salesRef, { ...s, projectId: pId, createdAt: new Date().toISOString() });
+      }
+
+      // 3. Cargar Compras (Costos)
+      const purchases = [
+        { docNumber: 'CCF-PROV-882', total: 28000.00, supplierName: 'MediCorp International', date: '2024-03-05' },
+        { docNumber: 'CCF-PROV-901', total: 12400.00, supplierName: 'Suministros Médicos El Salvador', date: '2024-03-10' }
+      ];
+
+      for (const p of purchases) {
+        await addDoc(purchasesRef, { ...p, projectId: pId, createdAt: new Date().toISOString() });
+      }
+
+      toast({ title: "Datos Cargados", description: "Se ha generado el proyecto 'Hospital Rosales 2024' para demostración." });
+      setSelectedProjectId(pId);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo cargar el demo." });
+    } finally {
+      setIsSeeding(false);
     }
   };
 
@@ -170,9 +216,15 @@ export default function InstitutionalProjectsPage() {
           </div>
         </div>
         {!selectedProjectId && (
-          <Button className="bg-blue-600 rounded-xl font-bold" onClick={() => setIsNewProjectOpen(true)}>
-            <Plus className="mr-2" size={18} /> Nuevo Proyecto
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="rounded-xl font-bold border-blue-200 text-blue-600 hover:bg-blue-50" onClick={handleLoadDemoData} disabled={isSeeding}>
+              {isSeeding ? <Loader2 className="animate-spin mr-2" size={16} /> : <Sparkles className="mr-2" size={16} />}
+              Cargar Ejemplo
+            </Button>
+            <Button className="bg-blue-600 rounded-xl font-bold" onClick={() => setIsNewProjectOpen(true)}>
+              <Plus className="mr-2" size={18} /> Nuevo Proyecto
+            </Button>
+          </div>
         )}
       </div>
 
@@ -182,8 +234,11 @@ export default function InstitutionalProjectsPage() {
             {projects.length === 0 ? (
               <Card className="col-span-full border-dashed p-20 flex flex-col items-center justify-center text-slate-400">
                 <Briefcase size={48} className="mb-4 opacity-20" />
-                <p>No hay proyectos gubernamentales registrados.</p>
-                <Button variant="link" onClick={() => setIsNewProjectOpen(true)}>Crear el primer proyecto ahora</Button>
+                <p className="mb-4 text-center">No hay proyectos gubernamentales registrados.</p>
+                <div className="flex gap-4">
+                  <Button variant="outline" className="rounded-xl" onClick={handleLoadDemoData}>Ver un ejemplo ahora</Button>
+                  <Button className="rounded-xl" onClick={() => setIsNewProjectOpen(true)}>Crear el primer proyecto</Button>
+                </div>
               </Card>
             ) : projects.map((p: any) => {
               const pSales = allSales.filter(s => s.projectId === p.id).reduce((acc, s) => acc + s.total, 0);
@@ -320,7 +375,6 @@ export default function InstitutionalProjectsPage() {
               </TabsContent>
 
               <TabsContent value="sales" className="space-y-4">
-                 {/* POS-like logic for project sales */}
                  <Card className="border-none shadow-sm rounded-3xl bg-white p-8 text-center space-y-4">
                     <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
                        <Receipt size={32} />
