@@ -3,88 +3,153 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Building, 
+  Building2, 
   ArrowLeft, 
-  Save, 
-  Loader2, 
-  Globe, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  FileText, 
-  ShieldCheck,
-  Building2,
-  Hash,
-  Briefcase,
-  Target,
-  Rocket
+  Plus, 
+  Search, 
+  Trash2, 
+  Briefcase, 
+  TrendingUp, 
+  Receipt, 
+  ShoppingBag, 
+  Users, 
+  Truck, 
+  Calculator,
+  ChevronRight,
+  DollarSign,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useFirestore, useDoc } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { useFirestore, useCollection, useUser } from '@/firebase';
+import { collection, addDoc, deleteDoc, doc, query, where, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
-export default function InstitutionalPage() {
+export default function InstitutionalProjectsPage() {
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-  const [isSaving, setIsSaving] = useState(false);
+  const { user } = useUser();
+  
+  // Navigation States
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [activeMainTab, setActiveMainTab] = useState('projects');
+  
+  // Data Fetching
+  const projectsRef = useMemo(() => collection(db, 'institutional_projects'), [db]);
+  const customersRef = useMemo(() => collection(db, 'customers'), [db]);
+  const suppliersRef = useMemo(() => collection(db, 'suppliers'), [db]);
+  
+  const { data: projects, loading: loadingProjects } = useCollection<any>(projectsRef);
+  const { data: customers } = useCollection<any>(customersRef);
+  const { data: suppliers } = useCollection<any>(suppliersRef);
 
-  const profileRef = useMemo(() => doc(db, 'system', 'company_profile'), [db]);
-  const { data: profile, loading } = useDoc<any>(profileRef);
+  // Selected Project Details
+  const selectedProject = useMemo(() => 
+    projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]
+  );
 
-  const [form, setForm] = useState({
-    legalName: '',
-    brandName: '',
-    nit: '',
-    nrc: '',
-    giro: '',
-    address: '',
-    phone: '',
-    email: '',
-    vision: '',
-    mission: ''
-  });
+  // Sales and Purchases for all or selected project
+  const salesRef = useMemo(() => collection(db, 'institutional_sales'), [db]);
+  const purchasesRef = useMemo(() => collection(db, 'institutional_purchases'), [db]);
+  
+  const { data: allSales } = useCollection<any>(salesRef);
+  const { data: allPurchases } = useCollection<any>(purchasesRef);
 
-  useEffect(() => {
-    if (profile) {
-      setForm({
-        legalName: profile.legalName || '',
-        brandName: profile.brandName || '',
-        nit: profile.nit || '',
-        nrc: profile.nrc || '',
-        giro: profile.giro || '',
-        address: profile.address || '',
-        phone: profile.phone || '',
-        email: profile.email || '',
-        vision: profile.vision || '',
-        mission: profile.mission || ''
-      });
-    }
-  }, [profile]);
+  const projectSales = useMemo(() => 
+    allSales.filter(s => s.projectId === selectedProjectId), [allSales, selectedProjectId]
+  );
+  
+  const projectPurchases = useMemo(() => 
+    allPurchases.filter(p => p.projectId === selectedProjectId), [allPurchases, selectedProjectId]
+  );
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
+  const stats = useMemo(() => {
+    const salesTotal = projectSales.reduce((acc, s) => acc + s.total, 0);
+    const purchasesTotal = projectPurchases.reduce((acc, p) => acc + p.total, 0);
+    return {
+      sales: salesTotal,
+      purchases: purchasesTotal,
+      profit: salesTotal - purchasesTotal
+    };
+  }, [projectSales, projectPurchases]);
+
+  // Forms
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [newProject, setNewProject] = useState({ name: '', description: '', customerId: '' });
+  
+  const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
+  const [newSale, setNewSale] = useState({ docNumber: '', total: '', date: new Date().toISOString().split('T')[0] });
+
+  const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
+  const [newPurchase, setNewPurchase] = useState({ docNumber: '', total: '', supplierId: '', date: new Date().toISOString().split('T')[0] });
+
+  // Actions
+  const handleCreateProject = async () => {
+    if (!newProject.name || !newProject.customerId) return;
     try {
-      await setDoc(profileRef, {
-        ...form,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      toast({ title: "Perfil Institucional Guardado", description: "La información corporativa ha sido actualizada exitosamente." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el perfil institucional." });
-    } finally {
-      setIsSaving(false);
+      await addDoc(projectsRef, {
+        ...newProject,
+        customerName: customers.find(c => c.id === newProject.customerId)?.name || 'Cliente Desconocido',
+        status: 'ACTIVO',
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Proyecto Creado", description: "Inicie la carga de facturas y compras." });
+      setIsNewProjectOpen(false);
+      setNewProject({ name: '', description: '', customerId: '' });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo crear el proyecto." });
     }
   };
 
-  if (loading) {
+  const handleAddSale = async () => {
+    if (!selectedProjectId || !newSale.total) return;
+    try {
+      await addDoc(salesRef, {
+        projectId: selectedProjectId,
+        ...newSale,
+        total: parseFloat(newSale.total.toString()),
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Factura Registrada", description: "Venta añadida al proyecto." });
+      setIsNewSaleOpen(false);
+      setNewSale({ docNumber: '', total: '', date: new Date().toISOString().split('T')[0] });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la venta." });
+    }
+  };
+
+  const handleAddPurchase = async () => {
+    if (!selectedProjectId || !newPurchase.total || !newPurchase.supplierId) return;
+    try {
+      await addDoc(purchasesRef, {
+        projectId: selectedProjectId,
+        ...newPurchase,
+        supplierName: suppliers.find(s => s.id === newPurchase.supplierId)?.name || 'Proveedor Desconocido',
+        total: parseFloat(newPurchase.total.toString()),
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Compra Registrada", description: "Gasto añadido al proyecto." });
+      setIsNewPurchaseOpen(false);
+      setNewPurchase({ docNumber: '', total: '', supplierId: '', date: new Date().toISOString().split('T')[0] });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la compra." });
+    }
+  };
+
+  if (loadingProjects) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="animate-spin text-blue-600" size={48} />
@@ -93,200 +158,350 @@ export default function InstitutionalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10">
-      <div className="max-w-5xl mx-auto mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm" onClick={() => router.push('/')}>
+          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm" onClick={() => selectedProjectId ? setSelectedProjectId(null) : router.push('/')}>
             <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Perfil Institucional</h1>
-            <p className="text-slate-500 text-sm">Información legal y corporativa de la institución</p>
+            <h1 className="text-2xl font-bold text-slate-900">Institucional: Gobierno y Corporativos</h1>
+            <p className="text-slate-500 text-sm">Control de proyectos, licitaciones y márgenes de ganancia</p>
           </div>
         </div>
-        <Button 
-          form="institutional-form" 
-          disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 px-8"
-        >
-          {isSaving ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save className="mr-2" size={18} />}
-          Guardar Cambios
-        </Button>
+        {!selectedProjectId && (
+          <Button className="bg-blue-600 rounded-xl font-bold" onClick={() => setIsNewProjectOpen(true)}>
+            <Plus className="mr-2" size={18} /> Nuevo Proyecto
+          </Button>
+        )}
       </div>
 
-      <form id="institutional-form" onSubmit={handleSave} className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-7 space-y-6">
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-            <CardHeader className="bg-slate-900 text-white p-6">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <ShieldCheck className="text-blue-400" size={20} />
-                Datos Legales y Tributarios
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">Razón Social (Nombre Legal)</Label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <Input 
-                    placeholder="Nombre legal de la empresa..." 
-                    value={form.legalName}
-                    onChange={e => setForm({...form, legalName: e.target.value})}
-                    className="h-12 pl-10 bg-slate-50 border-slate-100 rounded-xl"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">Nombre Comercial</Label>
-                <div className="relative">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <Input 
-                    placeholder="Marca o nombre público..." 
-                    value={form.brandName}
-                    onChange={e => setForm({...form, brandName: e.target.value})}
-                    className="h-12 pl-10 bg-slate-50 border-slate-100 rounded-xl"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">NIT</Label>
-                  <div className="relative">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <Input 
-                      placeholder="0000-000000-000-0" 
-                      value={form.nit}
-                      onChange={e => setForm({...form, nit: e.target.value})}
-                      className="h-12 pl-10 bg-slate-50 border-slate-100 rounded-xl font-mono"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">NRC</Label>
-                  <div className="relative">
-                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <Input 
-                      placeholder="Registro contribuyente..." 
-                      value={form.nrc}
-                      onChange={e => setForm({...form, nrc: e.target.value})}
-                      className="h-12 pl-10 bg-slate-50 border-slate-100 rounded-xl font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">Giro Comercial</Label>
-                <div className="relative">
-                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <Input 
-                    placeholder="Actividad económica principal..." 
-                    value={form.giro}
-                    onChange={e => setForm({...form, giro: e.target.value})}
-                    className="h-12 pl-10 bg-slate-50 border-slate-100 rounded-xl"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="max-w-7xl mx-auto">
+        {!selectedProjectId ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.length === 0 ? (
+              <Card className="col-span-full border-dashed p-20 flex flex-col items-center justify-center text-slate-400">
+                <Briefcase size={48} className="mb-4 opacity-20" />
+                <p>No hay proyectos gubernamentales registrados.</p>
+                <Button variant="link" onClick={() => setIsNewProjectOpen(true)}>Crear el primer proyecto ahora</Button>
+              </Card>
+            ) : projects.map((p: any) => {
+              const pSales = allSales.filter(s => s.projectId === p.id).reduce((acc, s) => acc + s.total, 0);
+              const pPurchases = allPurchases.filter(pur => pur.projectId === p.id).reduce((acc, pur) => acc + pur.total, 0);
+              const profit = pSales - pPurchases;
 
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-            <CardHeader className="bg-slate-50 border-b p-6">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <MapPin className="text-blue-600" size={20} />
-                Contacto y Ubicación
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">Dirección Principal</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 text-slate-400" size={16} />
-                  <Textarea 
-                    placeholder="Dirección física exacta para documentos..." 
-                    value={form.address}
-                    onChange={e => setForm({...form, address: e.target.value})}
-                    className="min-h-[100px] pl-10 bg-slate-50 border-slate-100 rounded-xl"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Teléfono</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <Input 
-                      placeholder="2222-0000" 
-                      value={form.phone}
-                      onChange={e => setForm({...form, phone: e.target.value})}
-                      className="h-12 pl-10 bg-slate-50 border-slate-100 rounded-xl"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Correo Institucional</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <Input 
-                      placeholder="info@empresa.com" 
-                      value={form.email}
-                      onChange={e => setForm({...form, email: e.target.value})}
-                      className="h-12 pl-10 bg-slate-50 border-slate-100 rounded-xl"
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-blue-600 rounded-[2rem] p-8 text-white shadow-xl shadow-blue-500/20">
-             <Building size={48} className="mb-4 opacity-40" />
-             <h3 className="text-xl font-bold mb-2">Identidad Corporativa</h3>
-             <p className="text-blue-100 text-sm leading-relaxed mb-6">
-               Defina la proyección de su institución. Esta información puede ser utilizada en portales, presentaciones y reportes ejecutivos.
-             </p>
-             <div className="space-y-4">
-                <div className="space-y-2">
-                   <Label className="text-[10px] font-black uppercase text-blue-200 flex items-center gap-2">
-                      <Target size={14} /> Misión
-                   </Label>
-                   <Textarea 
-                     placeholder="Nuestra razón de ser..." 
-                     value={form.mission}
-                     onChange={e => setForm({...form, mission: e.target.value})}
-                     className="bg-white/10 border-white/20 text-white placeholder:text-white/40 min-h-[120px] rounded-2xl"
-                   />
-                </div>
-                <div className="space-y-2">
-                   <Label className="text-[10px] font-black uppercase text-blue-200 flex items-center gap-2">
-                      <Rocket size={14} /> Visión
-                   </Label>
-                   <Textarea 
-                     placeholder="Hacia dónde vamos..." 
-                     value={form.vision}
-                     onChange={e => setForm({...form, vision: e.target.value})}
-                     className="bg-white/10 border-white/20 text-white placeholder:text-white/40 min-h-[120px] rounded-2xl"
-                   />
-                </div>
-             </div>
+              return (
+                <Card key={p.id} className="border-none shadow-sm rounded-3xl bg-white hover:shadow-md transition-all cursor-pointer group" onClick={() => setSelectedProjectId(p.id)}>
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <Briefcase size={20} />
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-black uppercase">{p.status}</Badge>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-1 line-clamp-1">{p.name}</h3>
+                    <p className="text-xs text-slate-400 mb-4 flex items-center gap-1">
+                      <Building2 size={12} /> {p.customerName}
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-slate-400">Ventas</p>
+                        <p className="text-sm font-bold text-emerald-600">${pSales.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-slate-400">Ganancia</p>
+                        <p className={`text-sm font-bold ${profit >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>${profit.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
+        ) : (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+            {/* Project Header Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="bg-slate-900 text-white border-none rounded-3xl p-6">
+                <p className="text-[10px] font-black uppercase opacity-60">Total Facturado</p>
+                <p className="text-2xl font-black text-emerald-400">${stats.sales.toFixed(2)}</p>
+              </Card>
+              <Card className="bg-white border-none shadow-sm rounded-3xl p-6">
+                <p className="text-[10px] font-black uppercase text-slate-400">Total Inversión/Compra</p>
+                <p className="text-2xl font-black text-rose-500">${stats.purchases.toFixed(2)}</p>
+              </Card>
+              <Card className="bg-blue-600 text-white border-none rounded-3xl p-6">
+                <p className="text-[10px] font-black uppercase opacity-60">Utilidad Proyectada</p>
+                <p className="text-2xl font-black">${stats.profit.toFixed(2)}</p>
+              </Card>
+              <Card className="bg-white border-none shadow-sm rounded-3xl p-6 flex flex-col justify-center">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="text-emerald-500" size={16} />
+                  <p className="text-[10px] font-black uppercase text-slate-400">Margen Bruto</p>
+                </div>
+                <p className="text-2xl font-black text-slate-900">
+                  {stats.sales > 0 ? ((stats.profit / stats.sales) * 100).toFixed(1) : '0'}%
+                </p>
+              </Card>
+            </div>
 
-          <Card className="border-none shadow-sm rounded-3xl bg-slate-900 text-white overflow-hidden">
-             <CardContent className="p-8 space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center">
-                   <FileText size={24} />
+            <Tabs defaultValue="overview" className="space-y-6">
+              <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
+                <TabsTrigger value="overview" className="rounded-xl px-6"><Calculator size={14} className="mr-2"/> Resumen Financiero</TabsTrigger>
+                <TabsTrigger value="sales" className="rounded-xl px-6"><Receipt size={14} className="mr-2"/> Facturación</TabsTrigger>
+                <TabsTrigger value="purchases" className="rounded-xl px-6"><ShoppingBag size={14} className="mr-2"/> Compras/Inversión</TabsTrigger>
+                <TabsTrigger value="setup" className="rounded-xl px-6"><FileText size={14} className="mr-2"/> Detalle Proyecto</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card className="rounded-3xl border-none shadow-sm bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <CardTitle className="text-sm font-bold">Últimas Ventas (Ingresos)</CardTitle>
+                      <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px]" onClick={() => setIsNewSaleOpen(true)}>
+                        <Plus size={14} className="mr-1" /> Registrar Factura
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader className="bg-slate-50">
+                          <TableRow>
+                            <TableHead className="px-6 text-[10px]">Fecha</TableHead>
+                            <TableHead className="text-[10px]">Doc No.</TableHead>
+                            <TableHead className="text-right text-[10px] pr-6">Monto</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {projectSales.length === 0 ? (
+                            <TableRow><TableCell colSpan={3} className="text-center py-10 text-slate-400 text-xs italic">No hay facturas registradas.</TableCell></TableRow>
+                          ) : projectSales.map((s: any) => (
+                            <TableRow key={s.id}>
+                              <TableCell className="px-6 text-xs text-slate-500 font-mono">{s.date}</TableCell>
+                              <TableCell className="font-bold text-xs">{s.docNumber}</TableCell>
+                              <TableCell className="text-right pr-6 font-black text-emerald-600">${s.total.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="rounded-3xl border-none shadow-sm bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <CardTitle className="text-sm font-bold">Inversión en Compras (Costos)</CardTitle>
+                      <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px]" onClick={() => setIsNewPurchaseOpen(true)}>
+                        <Plus size={14} className="mr-1" /> Registrar Compra
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader className="bg-slate-50">
+                          <TableRow>
+                            <TableHead className="px-6 text-[10px]">Proveedor</TableHead>
+                            <TableHead className="text-[10px]">Doc No.</TableHead>
+                            <TableHead className="text-right text-[10px] pr-6">Costo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {projectPurchases.length === 0 ? (
+                            <TableRow><TableCell colSpan={3} className="text-center py-10 text-slate-400 text-xs italic">No hay compras vinculadas.</TableCell></TableRow>
+                          ) : projectPurchases.map((p: any) => (
+                            <TableRow key={p.id}>
+                              <TableCell className="px-6 text-xs font-bold">{p.supplierName}</TableCell>
+                              <TableCell className="text-xs font-mono">{p.docNumber}</TableCell>
+                              <TableCell className="text-right pr-6 font-black text-rose-600">-${p.total.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
                 </div>
-                <div>
-                   <h4 className="font-bold text-lg">Control Documental</h4>
-                   <p className="text-slate-400 text-xs leading-relaxed">
-                      La información de NIT y NRC es crítica para la generación de la firma electrónica y facturación digital en el futuro. Asegúrese de que coincidan exactamente con su tarjeta de IVA.
-                   </p>
-                </div>
-             </CardContent>
-          </Card>
-        </div>
-      </form>
+              </TabsContent>
+
+              <TabsContent value="sales" className="space-y-4">
+                 {/* POS-like logic for project sales */}
+                 <Card className="border-none shadow-sm rounded-3xl bg-white p-8 text-center space-y-4">
+                    <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
+                       <Receipt size={32} />
+                    </div>
+                    <div>
+                       <h3 className="text-lg font-bold">Facturación Especial para {selectedProject?.name}</h3>
+                       <p className="text-slate-500 text-sm max-w-md mx-auto">Registre las facturas comerciales o créditos fiscales emitidos específicamente para este proyecto de gobierno.</p>
+                    </div>
+                    <Button className="bg-emerald-600 hover:bg-emerald-700 font-bold h-12 rounded-xl px-8" onClick={() => setIsNewSaleOpen(true)}>
+                       EMITIR FACTURA DE PROYECTO
+                    </Button>
+                 </Card>
+              </TabsContent>
+
+              <TabsContent value="purchases" className="space-y-4">
+                 <Card className="border-none shadow-sm rounded-3xl bg-white p-8 text-center space-y-4">
+                    <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
+                       <ShoppingBag size={32} />
+                    </div>
+                    <div>
+                       <h3 className="text-lg font-bold">Registro de Inversión (Compras)</h3>
+                       <p className="text-slate-500 text-sm max-w-md mx-auto">Todas las compras de materiales o servicios que se carguen aquí restarán de la utilidad final del proyecto.</p>
+                    </div>
+                    <Button className="bg-slate-900 hover:bg-slate-800 font-bold h-12 rounded-xl px-8" onClick={() => setIsNewPurchaseOpen(true)}>
+                       CARGAR COMPRA DE MATERIALES
+                    </Button>
+                 </Card>
+              </TabsContent>
+
+              <TabsContent value="setup" className="space-y-6">
+                 <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                    <CardHeader className="bg-slate-50 p-6 border-b">
+                       <CardTitle className="text-base font-bold">Datos Generales del Proyecto</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <div className="space-y-4">
+                          <div className="space-y-1">
+                             <Label className="text-[10px] font-black uppercase text-slate-400">Nombre del Proyecto / Licitación</Label>
+                             <p className="text-lg font-bold text-slate-900">{selectedProject?.name}</p>
+                          </div>
+                          <div className="space-y-1">
+                             <Label className="text-[10px] font-black uppercase text-slate-400">Cliente / Institución</Label>
+                             <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="bg-blue-50 text-blue-700">GUBERNAMENTAL</Badge>
+                                <p className="text-sm font-bold text-slate-700">{selectedProject?.customerName}</p>
+                             </div>
+                          </div>
+                          <div className="space-y-1">
+                             <Label className="text-[10px] font-black uppercase text-slate-400">Descripción Técnica</Label>
+                             <p className="text-xs text-slate-500 leading-relaxed">{selectedProject?.description || 'Sin descripción detallada.'}</p>
+                          </div>
+                       </div>
+                       <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100 flex flex-col justify-center items-center text-center">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4">
+                             <AlertCircle className="text-blue-600" size={24} />
+                          </div>
+                          <h4 className="font-bold text-blue-900 mb-2">Cuadre de Caja del Proyecto</h4>
+                          <p className="text-xs text-blue-700 mb-4">Este proyecto maneja su propio flujo de caja independiente de la terminal de facturación general.</p>
+                          <Button className="w-full bg-blue-600 font-bold rounded-xl" onClick={() => toast({ title: "Módulo en Desarrollo", description: "El arqueo exclusivo por proyecto estará disponible pronto." })}>
+                             VER ARQUEO DEL PROYECTO
+                          </Button>
+                       </div>
+                    </CardContent>
+                 </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+      </div>
+
+      {/* New Project Dialog */}
+      <Dialog open={isNewProjectOpen} onOpenChange={setIsNewProjectOpen}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-black">
+              <Briefcase className="text-blue-600" /> Crear Proyecto Nuevo
+            </DialogTitle>
+            <DialogDescription>Defina el nombre y el cliente para iniciar el control de costos.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre del Proyecto</Label>
+              <Input placeholder="Ej. Licitación Hospital Rosales 2024..." value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="rounded-xl h-11" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Institución / Cliente Especial</Label>
+              <select 
+                className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20"
+                value={newProject.customerId}
+                onChange={e => setNewProject({...newProject, customerId: e.target.value})}
+              >
+                <option value="">Seleccione un cliente...</option>
+                {customers?.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Descripción Breve</Label>
+              <textarea 
+                className="w-full min-h-[80px] bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm outline-none"
+                placeholder="Detalles del contrato..."
+                value={newProject.description}
+                onChange={e => setNewProject({...newProject, description: e.target.value})}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="w-full bg-blue-600 h-12 rounded-xl font-bold text-white shadow-lg" onClick={handleCreateProject}>GUARDAR PROYECTO</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Sale Dialog */}
+      <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
+        <DialogContent className="rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-bold">
+               <Receipt className="text-emerald-600" /> Registrar Ingreso
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">No. Documento / Factura</Label>
+              <Input placeholder="FAC-001..." value={newSale.docNumber} onChange={e => setNewSale({...newSale, docNumber: e.target.value})} className="rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Monto Total de Venta ($)</Label>
+              <Input type="number" placeholder="0.00" value={newSale.total} onChange={e => setNewSale({...newSale, total: e.target.value})} className="rounded-xl h-12 text-lg font-black" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Fecha de Emisión</Label>
+              <Input type="date" value={newSale.date} onChange={e => setNewSale({...newSale, date: e.target.value})} className="rounded-xl" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="w-full bg-emerald-600 font-bold h-12 rounded-xl text-white" onClick={handleAddSale}>REGISTRAR FACTURA</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Purchase Dialog */}
+      <Dialog open={isNewPurchaseOpen} onOpenChange={setIsNewPurchaseOpen}>
+        <DialogContent className="rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-bold">
+               <ShoppingBag className="text-rose-600" /> Registrar Gasto/Compra
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Proveedor</Label>
+              <select 
+                className="w-full h-10 bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-medium outline-none"
+                value={newPurchase.supplierId}
+                onChange={e => setNewPurchase({...newPurchase, supplierId: e.target.value})}
+              >
+                <option value="">Seleccione proveedor...</option>
+                {suppliers?.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">No. Documento de Compra</Label>
+              <Input placeholder="CCF-123..." value={newPurchase.docNumber} onChange={e => setNewPurchase({...newPurchase, docNumber: e.target.value})} className="rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Inversión Total ($)</Label>
+              <Input type="number" placeholder="0.00" value={newPurchase.total} onChange={e => setNewPurchase({...newPurchase, total: e.target.value})} className="rounded-xl h-12 text-lg font-black text-rose-600" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Fecha de Gasto</Label>
+              <Input type="date" value={newPurchase.date} onChange={e => setNewPurchase({...newPurchase, date: e.target.value})} className="rounded-xl" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="w-full bg-slate-900 font-bold h-12 rounded-xl text-white" onClick={handleAddPurchase}>REGISTRAR COSTO</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
