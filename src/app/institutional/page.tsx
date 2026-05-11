@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Building2, 
   ArrowLeft, 
@@ -22,7 +23,9 @@ import {
   ShoppingCart,
   Hash,
   Tag,
-  Info
+  Info,
+  FileJson,
+  Upload
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,6 +59,9 @@ export default function InstitutionalProjectsPage() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [isClosingProject, setIsClosingProject] = useState(false);
   
+  // Refs
+  const purchaseFileInputRef = useRef<HTMLInputElement>(null);
+
   // Data Fetching
   const projectsRef = useMemo(() => collection(db, 'institutional_projects'), [db]);
   const customersRef = useMemo(() => collection(db, 'customers'), [db]);
@@ -204,6 +210,43 @@ export default function InstitutionalProjectsPage() {
     }
   };
 
+  const handleBulkPurchaseUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedProjectId) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (Array.isArray(data)) {
+          let count = 0;
+          for (const item of data) {
+            const supplierId = item.supplierId || (suppliers.find((s: any) => s.name === item.supplierName)?.id) || '';
+            const supplierName = item.supplierName || (suppliers.find((s: any) => s.id === supplierId)?.name) || 'Proveedor Desconocido';
+            
+            await addDoc(purchasesRef, {
+              projectId: selectedProjectId,
+              docNumber: item.docNumber || 'CCF-S/N',
+              total: parseFloat(item.total) || 0,
+              supplierId: supplierId,
+              supplierName: supplierName,
+              date: item.date || new Date().toISOString().split('T')[0],
+              items: item.items || 'Carga masiva por JSON',
+              createdAt: new Date().toISOString()
+            });
+            count++;
+          }
+          toast({ title: "Carga Masiva Exitosa", description: `Se han registrado ${count} compras en el proyecto.` });
+        }
+      } catch (error) {
+        toast({ variant: "destructive", title: "Error de Formato", description: "El archivo JSON no es válido o no tiene el formato esperado." });
+      } finally {
+        if (purchaseFileInputRef.current) purchaseFileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleCloseProject = async () => {
     if (!selectedProjectId) return;
     setIsClosingProject(true);
@@ -244,19 +287,7 @@ export default function InstitutionalProjectsPage() {
         await addDoc(salesRef, { ...s, projectId: pId, createdAt: new Date().toISOString() });
       }
 
-      // Compras detalladas (Registros de inversión)
-      const purchases = [
-        { docNumber: 'CCF-PROV-882', total: 28000.00, supplierName: 'MediCorp International', date: '2024-03-05', items: 'Importación de 50 kits de estructura metálica @ $560' },
-        { docNumber: 'CCF-PROV-901', total: 12400.00, supplierName: 'Suministros Médicos El Salvador', date: '2024-03-10', items: '50 Colchones anti-escaras + Instalación @ $248' },
-        { docNumber: 'CCF-PROV-1025', total: 3500.00, supplierName: 'Logística Global S.A.', date: '2024-03-12', items: 'Fletes y desaduanaje de contenedores de equipo médico' },
-        { docNumber: 'CCF-PROV-1150', total: 5200.00, supplierName: 'Técnicos del Norte', date: '2024-03-20', items: 'Subcontratación de cableado estructurado y tomas de oxígeno' }
-      ];
-
-      for (const p of purchases) {
-        await addDoc(purchasesRef, { ...p, projectId: pId, createdAt: new Date().toISOString() });
-      }
-
-      toast({ title: "Datos Cargados", description: "Se ha generado el proyecto 'Hospital Rosales 2024' con ingresos y registros de compra detallados." });
+      toast({ title: "Proyecto Demo Cargado", description: "Se ha generado el proyecto 'Hospital Rosales 2024' con ingresos base. Use la carga masiva para añadir facturas de compras." });
       setSelectedProjectId(pId);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo cargar el demo." });
@@ -428,12 +459,34 @@ export default function InstitutionalProjectsPage() {
               </TabsContent>
 
               <TabsContent value="purchases" className="space-y-4">
+                 <div className="flex justify-end gap-2 mb-4">
+                    <input 
+                      type="file" 
+                      ref={purchaseFileInputRef} 
+                      onChange={handleBulkPurchaseUpload} 
+                      className="hidden" 
+                      accept=".json" 
+                    />
+                    <Button 
+                      variant="outline" 
+                      className="h-9 rounded-xl font-bold text-slate-600 border-slate-200" 
+                      onClick={() => purchaseFileInputRef.current?.click()}
+                      disabled={selectedProject?.status === 'FINALIZADO'}
+                    >
+                      <FileJson size={16} className="mr-2" /> Carga Masiva (JSON)
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      className="bg-rose-600 hover:bg-rose-700 h-9 rounded-xl font-bold" 
+                      onClick={() => setIsNewPurchaseOpen(true)} 
+                      disabled={selectedProject?.status === 'FINALIZADO'}
+                    >
+                      <Plus size={16} className="mr-2" /> Registrar Compra Manual
+                    </Button>
+                 </div>
                  <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between border-b px-6 py-4">
-                       <CardTitle className="text-sm font-bold">Registro de Inversión y Costos</CardTitle>
-                       <Button size="sm" variant="outline" className="border-slate-200 h-9 rounded-xl font-bold" onClick={() => setIsNewPurchaseOpen(true)} disabled={selectedProject?.status === 'FINALIZADO'}>
-                          <Plus size={16} className="mr-2" /> Registrar Compra de Material
-                       </Button>
+                    <CardHeader className="bg-slate-50 border-b px-6 py-4">
+                       <CardTitle className="text-sm font-bold text-slate-900">Registro de Inversión y Costos del Proyecto</CardTitle>
                     </CardHeader>
                     <Table>
                        <TableHeader className="bg-slate-50">
@@ -737,12 +790,12 @@ export default function InstitutionalProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* New Purchase Dialog */}
+      {/* New Purchase Dialog (Manual) */}
       <Dialog open={isNewPurchaseOpen} onOpenChange={setIsNewPurchaseOpen}>
         <DialogContent className="rounded-3xl max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-black text-xl">
-               <ShoppingBag className="text-rose-600" /> Registrar Inversión / Compra
+               <ShoppingBag className="text-rose-600" /> Registrar Inversión / Compra Manual
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
