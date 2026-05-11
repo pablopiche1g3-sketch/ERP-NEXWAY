@@ -12,7 +12,8 @@ import {
   Building2,
   ShieldCheck,
   CalendarClock,
-  LayoutDashboard
+  LayoutDashboard,
+  Building
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
@@ -34,7 +35,8 @@ export default function Home() {
     customers: true,
     inventory: true,
     quedan: true,
-    management: true
+    management: true,
+    institutional: true
   };
 
   return (
@@ -124,6 +126,16 @@ export default function Home() {
               iconBg="bg-rose-500"
               title="Inventario"
               description="Códigos y Stock"
+            />
+          </Link>
+        )}
+        {modules.institutional && (
+          <Link href="/institutional">
+            <ModuleCard 
+              icon={<Building className="text-white" size={24} />}
+              iconBg="bg-blue-400"
+              title="Institucional"
+              description="Perfil e Identidad Corporativa"
             />
           </Link>
         )}

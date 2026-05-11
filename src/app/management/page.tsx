@@ -87,6 +87,7 @@ export default function ManagementPage() {
     { id: 'transfers', label: 'Traslados', desc: 'Movimientos entre bodegas' },
     { id: 'customers', label: 'Registro de Clientes', desc: 'Cartera de contribuyentes' },
     { id: 'inventory', label: 'Inventario Maestro', desc: 'Códigos y control de stock' },
+    { id: 'institutional', label: 'Módulo Institucional', desc: 'Perfil legal e identidad de la empresa' },
   ];
 
   return (

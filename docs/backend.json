@@ -69,6 +69,24 @@
         "applyPerception": { "type": "boolean", "description": "Si aplica percepción del 1%" }
       },
       "required": ["name", "nit", "nrc"]
+    },
+    "CompanyProfile": {
+      "title": "Company Profile",
+      "description": "Legal and institutional information of the business.",
+      "type": "object",
+      "properties": {
+        "legalName": { "type": "string" },
+        "brandName": { "type": "string" },
+        "nit": { "type": "string" },
+        "nrc": { "type": "string" },
+        "giro": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "vision": { "type": "string" },
+        "mission": { "type": "string" }
+      },
+      "required": ["legalName", "nit", "nrc"]
     }
   },
   "auth": {
@@ -98,6 +116,10 @@
     "/suppliers": {
       "schema": "#/backend/entities/Supplier",
       "description": "Supplier database."
+    },
+    "/system/company_profile": {
+      "schema": "#/backend/entities/CompanyProfile",
+      "description": "The institution's corporate data."
     }
   }
 }
