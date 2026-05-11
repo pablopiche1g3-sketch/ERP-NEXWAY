@@ -101,7 +101,7 @@ export default function InstitutionalProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [docNumber, setDocNumber] = useState('');
-  const [billingConcept, setBillingConcept] = useState(''); // Nuevo estado para ítem único/concepto
+  const [billingConcept, setBillingConcept] = useState(''); 
   const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
 
   const filteredInventory = useMemo(() => {
@@ -162,7 +162,6 @@ export default function InstitutionalProjectsPage() {
       return;
     }
     try {
-      // Si hay un concepto definido, se usa como descripción principal, de lo contrario se lista todo
       const finalItemsDetail = billingConcept 
         ? `${billingConcept} (Consolidado)`
         : cart.map(i => `${i.quantity} ${i.name} @ $${i.price}`).join(', ');
@@ -235,7 +234,7 @@ export default function InstitutionalProjectsPage() {
 
       const pId = projectDoc.id;
 
-      // Ventas detalladas
+      // Ventas iniciales (Licitación)
       const sales = [
         { docNumber: 'FAC-INST-001', total: 45000.00, date: '2024-03-01', items: 'Suministro de 30 Camas UCI Modelo X-500 según contrato Hospital Rosales' },
         { docNumber: 'FAC-INST-002', total: 32500.50, date: '2024-03-15', items: 'Instalación y puesta en marcha de equipos médicos UCI' }
@@ -245,17 +244,19 @@ export default function InstitutionalProjectsPage() {
         await addDoc(salesRef, { ...s, projectId: pId, createdAt: new Date().toISOString() });
       }
 
-      // Compras detalladas
+      // Compras detalladas (Registros de inversión)
       const purchases = [
         { docNumber: 'CCF-PROV-882', total: 28000.00, supplierName: 'MediCorp International', date: '2024-03-05', items: 'Importación de 50 kits de estructura metálica @ $560' },
-        { docNumber: 'CCF-PROV-901', total: 12400.00, supplierName: 'Suministros Médicos El Salvador', date: '2024-03-10', items: '50 Colchones anti-escaras + Instalación @ $248' }
+        { docNumber: 'CCF-PROV-901', total: 12400.00, supplierName: 'Suministros Médicos El Salvador', date: '2024-03-10', items: '50 Colchones anti-escaras + Instalación @ $248' },
+        { docNumber: 'CCF-PROV-1025', total: 3500.00, supplierName: 'Logística Global S.A.', date: '2024-03-12', items: 'Fletes y desaduanaje de contenedores de equipo médico' },
+        { docNumber: 'CCF-PROV-1150', total: 5200.00, supplierName: 'Técnicos del Norte', date: '2024-03-20', items: 'Subcontratación de cableado estructurado y tomas de oxígeno' }
       ];
 
       for (const p of purchases) {
         await addDoc(purchasesRef, { ...p, projectId: pId, createdAt: new Date().toISOString() });
       }
 
-      toast({ title: "Datos Cargados", description: "Se ha generado el proyecto 'Hospital Rosales 2024' con detalles de objetos y cantidades." });
+      toast({ title: "Datos Cargados", description: "Se ha generado el proyecto 'Hospital Rosales 2024' con ingresos y registros de compra detallados." });
       setSelectedProjectId(pId);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo cargar el demo." });
