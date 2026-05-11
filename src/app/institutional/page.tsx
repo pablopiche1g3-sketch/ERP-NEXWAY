@@ -22,7 +22,10 @@ import {
   AlertCircle,
   Loader2,
   FileText,
-  Sparkles
+  Sparkles,
+  Archive,
+  BarChart3,
+  Box
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,12 +45,11 @@ export default function InstitutionalProjectsPage() {
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useUser();
   
   // Navigation States
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [activeMainTab, setActiveMainTab] = useState('projects');
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isClosingProject, setIsClosingProject] = useState(false);
   
   // Data Fetching
   const projectsRef = useMemo(() => collection(db, 'institutional_projects'), [db]);
@@ -93,10 +95,10 @@ export default function InstitutionalProjectsPage() {
   const [newProject, setNewProject] = useState({ name: '', description: '', customerId: '' });
   
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
-  const [newSale, setNewSale] = useState({ docNumber: '', total: '', date: new Date().toISOString().split('T')[0] });
+  const [newSale, setNewSale] = useState({ docNumber: '', total: '', date: new Date().toISOString().split('T')[0], items: '' });
 
   const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
-  const [newPurchase, setNewPurchase] = useState({ docNumber: '', total: '', supplierId: '', date: new Date().toISOString().split('T')[0] });
+  const [newPurchase, setNewPurchase] = useState({ docNumber: '', total: '', supplierId: '', date: new Date().toISOString().split('T')[0], items: '' });
 
   // Actions
   const handleCreateProject = async () => {
@@ -127,7 +129,7 @@ export default function InstitutionalProjectsPage() {
       });
       toast({ title: "Factura Registrada", description: "Venta añadida al proyecto." });
       setIsNewSaleOpen(false);
-      setNewSale({ docNumber: '', total: '', date: new Date().toISOString().split('T')[0] });
+      setNewSale({ docNumber: '', total: '', date: new Date().toISOString().split('T')[0], items: '' });
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la venta." });
     }
@@ -145,48 +147,63 @@ export default function InstitutionalProjectsPage() {
       });
       toast({ title: "Compra Registrada", description: "Gasto añadida al proyecto." });
       setIsNewPurchaseOpen(false);
-      setNewPurchase({ docNumber: '', total: '', supplierId: '', date: new Date().toISOString().split('T')[0] });
+      setNewPurchase({ docNumber: '', total: '', supplierId: '', date: new Date().toISOString().split('T')[0], items: '' });
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la compra." });
+    }
+  };
+
+  const handleCloseProject = async () => {
+    if (!selectedProjectId) return;
+    setIsClosingProject(true);
+    try {
+      await updateDoc(doc(db, 'institutional_projects', selectedProjectId), {
+        status: 'FINALIZADO',
+        closedAt: new Date().toISOString()
+      });
+      toast({ title: "Proyecto Finalizado", description: "El proyecto ha sido archivado con éxito." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo finalizar el proyecto." });
+    } finally {
+      setIsClosingProject(false);
     }
   };
 
   const handleLoadDemoData = async () => {
     setIsSeeding(true);
     try {
-      // 1. Crear Proyecto Demo
       const projectDoc = await addDoc(projectsRef, {
         name: 'Equipamiento Hospital Rosales 2024',
         customerName: 'Ministerio de Salud (MINSAL)',
         customerId: 'demo-minsal',
-        description: 'Suministro e instalación de equipos médicos de alta gama para la nueva ala del hospital.',
+        description: 'Suministro e instalación de 50 camas UCI y 10 monitores de signos vitales de alta gama.',
         status: 'ACTIVO',
         createdAt: new Date().toISOString()
       });
 
       const pId = projectDoc.id;
 
-      // 2. Cargar Facturas de Venta (Ingresos)
+      // Ventas detalladas
       const sales = [
-        { docNumber: 'FAC-INST-001', total: 45000.00, date: '2024-03-01' },
-        { docNumber: 'FAC-INST-002', total: 32500.50, date: '2024-03-15' }
+        { docNumber: 'FAC-INST-001', total: 45000.00, date: '2024-03-01', items: '30 Camas UCI Modelo X-500 @ $1,500' },
+        { docNumber: 'FAC-INST-002', total: 32500.50, date: '2024-03-15', items: '20 Camas UCI Modelo X-500 + 5 Monitores @ $1,300 avg' }
       ];
 
       for (const s of sales) {
         await addDoc(salesRef, { ...s, projectId: pId, createdAt: new Date().toISOString() });
       }
 
-      // 3. Cargar Compras (Costos)
+      // Compras detalladas
       const purchases = [
-        { docNumber: 'CCF-PROV-882', total: 28000.00, supplierName: 'MediCorp International', date: '2024-03-05' },
-        { docNumber: 'CCF-PROV-901', total: 12400.00, supplierName: 'Suministros Médicos El Salvador', date: '2024-03-10' }
+        { docNumber: 'CCF-PROV-882', total: 28000.00, supplierName: 'MediCorp International', date: '2024-03-05', items: 'Importación de 50 kits de estructura metálica @ $560' },
+        { docNumber: 'CCF-PROV-901', total: 12400.00, supplierName: 'Suministros Médicos El Salvador', date: '2024-03-10', items: '50 Colchones anti-escaras + Instalación @ $248' }
       ];
 
       for (const p of purchases) {
         await addDoc(purchasesRef, { ...p, projectId: pId, createdAt: new Date().toISOString() });
       }
 
-      toast({ title: "Datos Cargados", description: "Se ha generado el proyecto 'Hospital Rosales 2024' para demostración." });
+      toast({ title: "Datos Cargados", description: "Se ha generado el proyecto 'Hospital Rosales 2024' con detalles de objetos y cantidades." });
       setSelectedProjectId(pId);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo cargar el demo." });
@@ -211,15 +228,15 @@ export default function InstitutionalProjectsPage() {
             <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Institucional: Gobierno y Corporativos</h1>
-            <p className="text-slate-500 text-sm">Control de proyectos, licitaciones y márgenes de ganancia</p>
+            <h1 className="text-2xl font-bold text-slate-900">NexWay Institucional</h1>
+            <p className="text-slate-500 text-sm">Proyectos gubernamentales y corporativos de alto volumen</p>
           </div>
         </div>
         {!selectedProjectId && (
           <div className="flex gap-2">
             <Button variant="outline" className="rounded-xl font-bold border-blue-200 text-blue-600 hover:bg-blue-50" onClick={handleLoadDemoData} disabled={isSeeding}>
               {isSeeding ? <Loader2 className="animate-spin mr-2" size={16} /> : <Sparkles className="mr-2" size={16} />}
-              Cargar Ejemplo
+              Ver Proyecto Demo
             </Button>
             <Button className="bg-blue-600 rounded-xl font-bold" onClick={() => setIsNewProjectOpen(true)}>
               <Plus className="mr-2" size={18} /> Nuevo Proyecto
@@ -234,10 +251,9 @@ export default function InstitutionalProjectsPage() {
             {projects.length === 0 ? (
               <Card className="col-span-full border-dashed p-20 flex flex-col items-center justify-center text-slate-400">
                 <Briefcase size={48} className="mb-4 opacity-20" />
-                <p className="mb-4 text-center">No hay proyectos gubernamentales registrados.</p>
+                <p className="mb-4 text-center">No hay proyectos institucionales registrados.</p>
                 <div className="flex gap-4">
-                  <Button variant="outline" className="rounded-xl" onClick={handleLoadDemoData}>Ver un ejemplo ahora</Button>
-                  <Button className="rounded-xl" onClick={() => setIsNewProjectOpen(true)}>Crear el primer proyecto</Button>
+                  <Button variant="outline" className="rounded-xl" onClick={handleLoadDemoData}>Ver ejemplo detallado</Button>
                 </div>
               </Card>
             ) : projects.map((p: any) => {
@@ -252,7 +268,9 @@ export default function InstitutionalProjectsPage() {
                       <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         <Briefcase size={20} />
                       </div>
-                      <Badge variant="outline" className="text-[10px] font-black uppercase">{p.status}</Badge>
+                      <Badge variant={p.status === 'FINALIZADO' ? 'secondary' : 'outline'} className="text-[10px] font-black uppercase">
+                        {p.status}
+                      </Badge>
                     </div>
                     <h3 className="text-lg font-bold text-slate-900 mb-1 line-clamp-1">{p.name}</h3>
                     <p className="text-xs text-slate-400 mb-4 flex items-center gap-1">
@@ -261,11 +279,11 @@ export default function InstitutionalProjectsPage() {
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                       <div>
                         <p className="text-[10px] font-black uppercase text-slate-400">Ventas</p>
-                        <p className="text-sm font-bold text-emerald-600">${pSales.toFixed(2)}</p>
+                        <p className="text-sm font-bold text-emerald-600">${pSales.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-black uppercase text-slate-400">Ganancia</p>
-                        <p className={`text-sm font-bold ${profit >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>${profit.toFixed(2)}</p>
+                        <p className="text-[10px] font-black uppercase text-slate-400">Utilidad</p>
+                        <p className={`text-sm font-bold ${profit >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>${profit.toLocaleString()}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -276,23 +294,36 @@ export default function InstitutionalProjectsPage() {
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
             {/* Project Header Stats */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <Badge className="bg-blue-600 h-6 px-3">{selectedProject?.status}</Badge>
+                <h2 className="text-xl font-bold text-slate-900">{selectedProject?.name}</h2>
+              </div>
+              {selectedProject?.status !== 'FINALIZADO' && (
+                <Button variant="outline" className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50" onClick={handleCloseProject} disabled={isClosingProject}>
+                  {isClosingProject ? <Loader2 className="animate-spin mr-2" size={16} /> : <Archive className="mr-2" size={16} />}
+                  Finalizar Proyecto
+                </Button>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="bg-slate-900 text-white border-none rounded-3xl p-6">
-                <p className="text-[10px] font-black uppercase opacity-60">Total Facturado</p>
-                <p className="text-2xl font-black text-emerald-400">${stats.sales.toFixed(2)}</p>
+                <p className="text-[10px] font-black uppercase opacity-60">Total Facturado (Ventas)</p>
+                <p className="text-2xl font-black text-emerald-400">${stats.sales.toLocaleString()}</p>
               </Card>
               <Card className="bg-white border-none shadow-sm rounded-3xl p-6">
-                <p className="text-[10px] font-black uppercase text-slate-400">Total Inversión/Compra</p>
-                <p className="text-2xl font-black text-rose-500">${stats.purchases.toFixed(2)}</p>
+                <p className="text-[10px] font-black uppercase text-slate-400">Inversión Total (Compras)</p>
+                <p className="text-2xl font-black text-rose-500">${stats.purchases.toLocaleString()}</p>
               </Card>
               <Card className="bg-blue-600 text-white border-none rounded-3xl p-6">
-                <p className="text-[10px] font-black uppercase opacity-60">Utilidad Proyectada</p>
-                <p className="text-2xl font-black">${stats.profit.toFixed(2)}</p>
+                <p className="text-[10px] font-black uppercase opacity-60">Ganancia Neta</p>
+                <p className="text-2xl font-black">${stats.profit.toLocaleString()}</p>
               </Card>
               <Card className="bg-white border-none shadow-sm rounded-3xl p-6 flex flex-col justify-center">
                 <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="text-emerald-500" size={16} />
-                  <p className="text-[10px] font-black uppercase text-slate-400">Margen Bruto</p>
+                  <BarChart3 className="text-emerald-500" size={16} />
+                  <p className="text-[10px] font-black uppercase text-slate-400">Rentabilidad</p>
                 </div>
                 <p className="text-2xl font-black text-slate-900">
                   {stats.sales > 0 ? ((stats.profit / stats.sales) * 100).toFixed(1) : '0'}%
@@ -300,142 +331,155 @@ export default function InstitutionalProjectsPage() {
               </Card>
             </div>
 
-            <Tabs defaultValue="overview" className="space-y-6">
+            <Tabs defaultValue="billing" className="space-y-6">
               <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
-                <TabsTrigger value="overview" className="rounded-xl px-6"><Calculator size={14} className="mr-2"/> Resumen Financiero</TabsTrigger>
-                <TabsTrigger value="sales" className="rounded-xl px-6"><Receipt size={14} className="mr-2"/> Facturación</TabsTrigger>
-                <TabsTrigger value="purchases" className="rounded-xl px-6"><ShoppingBag size={14} className="mr-2"/> Compras/Inversión</TabsTrigger>
-                <TabsTrigger value="setup" className="rounded-xl px-6"><FileText size={14} className="mr-2"/> Detalle Proyecto</TabsTrigger>
+                <TabsTrigger value="billing" className="rounded-xl px-8"><Receipt size={14} className="mr-2"/> Facturación Institucional</TabsTrigger>
+                <TabsTrigger value="purchases" className="rounded-xl px-8"><ShoppingBag size={14} className="mr-2"/> Registro de Compras</TabsTrigger>
+                <TabsTrigger value="overview" className="rounded-xl px-8"><Box size={14} className="mr-2"/> Análisis de Objetos</TabsTrigger>
+                <TabsTrigger value="setup" className="rounded-xl px-8"><FileText size={14} className="mr-2"/> Detalle Legal</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="overview" className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="rounded-3xl border-none shadow-sm bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <CardTitle className="text-sm font-bold">Últimas Ventas (Ingresos)</CardTitle>
-                      <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px]" onClick={() => setIsNewSaleOpen(true)}>
-                        <Plus size={14} className="mr-1" /> Registrar Factura
-                      </Button>
+              <TabsContent value="billing" className="space-y-4">
+                 <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between border-b px-6 py-4">
+                       <CardTitle className="text-sm font-bold">Control de Ingresos Facturados</CardTitle>
+                       <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-9 rounded-xl font-bold" onClick={() => setIsNewSaleOpen(true)} disabled={selectedProject?.status === 'FINALIZADO'}>
+                          <Plus size={16} className="mr-2" /> Nueva Factura Institucional
+                       </Button>
                     </CardHeader>
-                    <CardContent className="p-0">
-                      <Table>
-                        <TableHeader className="bg-slate-50">
+                    <Table>
+                       <TableHeader className="bg-slate-50">
                           <TableRow>
-                            <TableHead className="px-6 text-[10px]">Fecha</TableHead>
-                            <TableHead className="text-[10px]">Doc No.</TableHead>
-                            <TableHead className="text-right text-[10px] pr-6">Monto</TableHead>
+                             <TableHead className="px-6 text-[10px] font-black">FECHA</TableHead>
+                             <TableHead className="text-[10px] font-black">DOCUMENTO</TableHead>
+                             <TableHead className="text-[10px] font-black">DETALLE DE OBJETOS Y CANTIDADES</TableHead>
+                             <TableHead className="text-right text-[10px] font-black pr-6">MONTO TOTAL</TableHead>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                       </TableHeader>
+                       <TableBody>
                           {projectSales.length === 0 ? (
-                            <TableRow><TableCell colSpan={3} className="text-center py-10 text-slate-400 text-xs italic">No hay facturas registradas.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 text-xs italic">No hay facturas emitidas para este proyecto.</TableCell></TableRow>
                           ) : projectSales.map((s: any) => (
                             <TableRow key={s.id}>
-                              <TableCell className="px-6 text-xs text-slate-500 font-mono">{s.date}</TableCell>
-                              <TableCell className="font-bold text-xs">{s.docNumber}</TableCell>
-                              <TableCell className="text-right pr-6 font-black text-emerald-600">${s.total.toFixed(2)}</TableCell>
+                               <TableCell className="px-6 text-xs text-slate-500">{s.date}</TableCell>
+                               <TableCell className="font-bold text-xs">{s.docNumber}</TableCell>
+                               <TableCell className="text-xs text-slate-600 italic">{s.items || 'Sin detalle de ítems'}</TableCell>
+                               <TableCell className="text-right pr-6 font-black text-emerald-600">${s.total.toLocaleString()}</TableCell>
                             </TableRow>
                           ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="rounded-3xl border-none shadow-sm bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <CardTitle className="text-sm font-bold">Inversión en Compras (Costos)</CardTitle>
-                      <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px]" onClick={() => setIsNewPurchaseOpen(true)}>
-                        <Plus size={14} className="mr-1" /> Registrar Compra
-                      </Button>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <Table>
-                        <TableHeader className="bg-slate-50">
-                          <TableRow>
-                            <TableHead className="px-6 text-[10px]">Proveedor</TableHead>
-                            <TableHead className="text-[10px]">Doc No.</TableHead>
-                            <TableHead className="text-right text-[10px] pr-6">Costo</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {projectPurchases.length === 0 ? (
-                            <TableRow><TableCell colSpan={3} className="text-center py-10 text-slate-400 text-xs italic">No hay compras vinculadas.</TableCell></TableRow>
-                          ) : projectPurchases.map((p: any) => (
-                            <TableRow key={p.id}>
-                              <TableCell className="px-6 text-xs font-bold">{p.supplierName}</TableCell>
-                              <TableCell className="text-xs font-mono">{p.docNumber}</TableCell>
-                              <TableCell className="text-right pr-6 font-black text-rose-600">-${p.total.toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="sales" className="space-y-4">
-                 <Card className="border-none shadow-sm rounded-3xl bg-white p-8 text-center space-y-4">
-                    <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
-                       <Receipt size={32} />
-                    </div>
-                    <div>
-                       <h3 className="text-lg font-bold">Facturación Especial para {selectedProject?.name}</h3>
-                       <p className="text-slate-500 text-sm max-w-md mx-auto">Registre las facturas comerciales o créditos fiscales emitidos específicamente para este proyecto de gobierno.</p>
-                    </div>
-                    <Button className="bg-emerald-600 hover:bg-emerald-700 font-bold h-12 rounded-xl px-8" onClick={() => setIsNewSaleOpen(true)}>
-                       EMITIR FACTURA DE PROYECTO
-                    </Button>
+                       </TableBody>
+                    </Table>
                  </Card>
               </TabsContent>
 
               <TabsContent value="purchases" className="space-y-4">
-                 <Card className="border-none shadow-sm rounded-3xl bg-white p-8 text-center space-y-4">
-                    <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
-                       <ShoppingBag size={32} />
-                    </div>
-                    <div>
-                       <h3 className="text-lg font-bold">Registro de Inversión (Compras)</h3>
-                       <p className="text-slate-500 text-sm max-w-md mx-auto">Todas las compras de materiales o servicios que se carguen aquí restarán de la utilidad final del proyecto.</p>
-                    </div>
-                    <Button className="bg-slate-900 hover:bg-slate-800 font-bold h-12 rounded-xl px-8" onClick={() => setIsNewPurchaseOpen(true)}>
-                       CARGAR COMPRA DE MATERIALES
-                    </Button>
+                 <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between border-b px-6 py-4">
+                       <CardTitle className="text-sm font-bold">Registro de Inversión y Costos</CardTitle>
+                       <Button size="sm" variant="outline" className="border-slate-200 h-9 rounded-xl font-bold" onClick={() => setIsNewPurchaseOpen(true)} disabled={selectedProject?.status === 'FINALIZADO'}>
+                          <Plus size={16} className="mr-2" /> Registrar Compra de Material
+                       </Button>
+                    </CardHeader>
+                    <Table>
+                       <TableHeader className="bg-slate-50">
+                          <TableRow>
+                             <TableHead className="px-6 text-[10px] font-black">PROVEEDOR</TableHead>
+                             <TableHead className="text-[10px] font-black">DOC.</TableHead>
+                             <TableHead className="text-[10px] font-black">MATERIALES / SERVICIOS COMPRADOS</TableHead>
+                             <TableHead className="text-right text-[10px] font-black pr-6">COSTO TOTAL</TableHead>
+                          </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                          {projectPurchases.length === 0 ? (
+                            <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 text-xs italic">No hay registros de compras para este proyecto.</TableCell></TableRow>
+                          ) : projectPurchases.map((p: any) => (
+                            <TableRow key={p.id}>
+                               <TableCell className="px-6 text-xs font-bold">{p.supplierName}</TableCell>
+                               <TableCell className="text-xs font-mono">{p.docNumber}</TableCell>
+                               <TableCell className="text-xs text-slate-600">{p.items || 'Sin detalle de materiales'}</TableCell>
+                               <TableCell className="text-right pr-6 font-black text-rose-600">-${p.total.toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))}
+                       </TableBody>
+                    </Table>
                  </Card>
+              </TabsContent>
+
+              <TabsContent value="overview" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="rounded-3xl border-none shadow-sm bg-white p-6">
+                  <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+                    <BarChart3 size={18} className="text-blue-600" /> Comparativa de Flujo
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-end border-b pb-2">
+                      <span className="text-xs text-slate-500">Total Facturado</span>
+                      <span className="text-lg font-bold text-emerald-600">${stats.sales.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-end border-b pb-2">
+                      <span className="text-xs text-slate-500">Total Compras</span>
+                      <span className="text-lg font-bold text-rose-500">-${stats.purchases.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-end pt-2">
+                      <span className="text-sm font-black">Utilidad de Proyecto</span>
+                      <span className="text-2xl font-black text-blue-600">${stats.profit.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="rounded-3xl border-none shadow-sm bg-blue-600 text-white p-8 flex flex-col justify-center text-center">
+                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 size={32} />
+                   </div>
+                   <h3 className="text-xl font-bold mb-2">Cuadre de Proyecto</h3>
+                   <p className="text-sm text-blue-100 leading-relaxed">
+                     El balance de este proyecto se maneja de forma estricta mediante el cruce de facturas comerciales y comprobantes de crédito fiscal de proveedores.
+                   </p>
+                </Card>
               </TabsContent>
 
               <TabsContent value="setup" className="space-y-6">
                  <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
                     <CardHeader className="bg-slate-50 p-6 border-b">
-                       <CardTitle className="text-base font-bold">Datos Generales del Proyecto</CardTitle>
+                       <CardTitle className="text-base font-bold">Información del Contrato</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                       <div className="space-y-4">
-                          <div className="space-y-1">
-                             <Label className="text-[10px] font-black uppercase text-slate-400">Nombre del Proyecto / Licitación</Label>
-                             <p className="text-lg font-bold text-slate-900">{selectedProject?.name}</p>
-                          </div>
-                          <div className="space-y-1">
-                             <Label className="text-[10px] font-black uppercase text-slate-400">Cliente / Institución</Label>
-                             <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="bg-blue-50 text-blue-700">GUBERNAMENTAL</Badge>
+                    <CardContent className="p-6 space-y-6">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-4">
+                             <div className="space-y-1">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Nombre de Licitación / Proyecto</Label>
+                                <p className="text-lg font-bold text-slate-900">{selectedProject?.name}</p>
+                             </div>
+                             <div className="space-y-1">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Cliente / Institución</Label>
                                 <p className="text-sm font-bold text-slate-700">{selectedProject?.customerName}</p>
                              </div>
+                             <div className="space-y-1">
+                                <Label className="text-[10px] font-black uppercase text-slate-400">Descripción del Alcance</Label>
+                                <p className="text-xs text-slate-500 leading-relaxed">{selectedProject?.description || 'Sin descripción.'}</p>
+                             </div>
                           </div>
-                          <div className="space-y-1">
-                             <Label className="text-[10px] font-black uppercase text-slate-400">Descripción Técnica</Label>
-                             <p className="text-xs text-slate-500 leading-relaxed">{selectedProject?.description || 'Sin descripción detallada.'}</p>
+                          <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col justify-center">
+                             <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                <Archive size={16} /> Estado del Ciclo
+                             </h4>
+                             <div className="space-y-3">
+                                <div className="flex justify-between items-center text-xs">
+                                   <span className="text-slate-500">Creado el</span>
+                                   <span className="font-medium">{new Date(selectedProject?.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                   <span className="text-slate-500">Estado Actual</span>
+                                   <Badge variant={selectedProject?.status === 'FINALIZADO' ? 'secondary' : 'outline'} className="text-[10px]">
+                                      {selectedProject?.status}
+                                   </Badge>
+                                </div>
+                             </div>
+                             {selectedProject?.status !== 'FINALIZADO' && (
+                               <Button className="w-full mt-6 bg-rose-600 hover:bg-rose-700 font-bold rounded-xl" onClick={handleCloseProject} disabled={isClosingProject}>
+                                  FINALIZAR Y ARCHIVAR PROYECTO
+                               </Button>
+                             )}
                           </div>
-                       </div>
-                       <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100 flex flex-col justify-center items-center text-center">
-                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4">
-                             <AlertCircle className="text-blue-600" size={24} />
-                          </div>
-                          <h4 className="font-bold text-blue-900 mb-2">Cuadre de Caja del Proyecto</h4>
-                          <p className="text-xs text-blue-700 mb-4">Este proyecto maneja su propio flujo de caja independiente de la terminal de facturación general.</p>
-                          <Button className="w-full bg-blue-600 font-bold rounded-xl" onClick={() => toast({ title: "Módulo en Desarrollo", description: "El arqueo exclusivo por proyecto estará disponible pronto." })}>
-                             VER ARQUEO DEL PROYECTO
-                          </Button>
                        </div>
                     </CardContent>
                  </Card>
@@ -450,40 +494,39 @@ export default function InstitutionalProjectsPage() {
         <DialogContent className="rounded-3xl max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-black">
-              <Briefcase className="text-blue-600" /> Crear Proyecto Nuevo
+              <Briefcase className="text-blue-600" /> Nuevo Proyecto Institucional
             </DialogTitle>
-            <DialogDescription>Defina el nombre y el cliente para iniciar el control de costos.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre del Proyecto</Label>
-              <Input placeholder="Ej. Licitación Hospital Rosales 2024..." value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="rounded-xl h-11" />
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de Proyecto</Label>
+              <Input placeholder="Ej. Licitación MINSAL 2024..." value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Institución / Cliente Especial</Label>
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Cliente Institucional</Label>
               <select 
-                className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm font-medium outline-none"
                 value={newProject.customerId}
                 onChange={e => setNewProject({...newProject, customerId: e.target.value})}
               >
-                <option value="">Seleccione un cliente...</option>
+                <option value="">Seleccione cliente...</option>
                 {customers?.map((c: any) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Descripción Breve</Label>
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Detalles del Contrato</Label>
               <textarea 
                 className="w-full min-h-[80px] bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm outline-none"
-                placeholder="Detalles del contrato..."
+                placeholder="Alcance del proyecto..."
                 value={newProject.description}
                 onChange={e => setNewProject({...newProject, description: e.target.value})}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button className="w-full bg-blue-600 h-12 rounded-xl font-bold text-white shadow-lg" onClick={handleCreateProject}>GUARDAR PROYECTO</Button>
+            <Button className="w-full bg-blue-600 h-12 rounded-xl font-bold" onClick={handleCreateProject}>CREAR PROYECTO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -493,25 +536,30 @@ export default function InstitutionalProjectsPage() {
         <DialogContent className="rounded-3xl max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-bold">
-               <Receipt className="text-emerald-600" /> Registrar Ingreso
+               <Receipt className="text-emerald-600" /> Registrar Factura Institucional
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">No. Documento / Factura</Label>
-              <Input placeholder="FAC-001..." value={newSale.docNumber} onChange={e => setNewSale({...newSale, docNumber: e.target.value})} className="rounded-xl" />
+              <Label className="text-[10px] font-bold uppercase text-slate-400">No. Factura / Doc.</Label>
+              <Input placeholder="FAC-INST-..." value={newSale.docNumber} onChange={e => setNewSale({...newSale, docNumber: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Monto Total de Venta ($)</Label>
-              <Input type="number" placeholder="0.00" value={newSale.total} onChange={e => setNewSale({...newSale, total: e.target.value})} className="rounded-xl h-12 text-lg font-black" />
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Detalle de Objetos y Cantidades</Label>
+              <textarea 
+                className="w-full h-20 bg-slate-50 border rounded-xl p-3 text-xs"
+                placeholder="Ej. 10 Monitores de signos vitales @ $500 c/u"
+                value={newSale.items}
+                onChange={e => setNewSale({...newSale, items: e.target.value})}
+              />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Fecha de Emisión</Label>
-              <Input type="date" value={newSale.date} onChange={e => setNewSale({...newSale, date: e.target.value})} className="rounded-xl" />
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Monto Total Facturado ($)</Label>
+              <Input type="number" placeholder="0.00" value={newSale.total} onChange={e => setNewSale({...newSale, total: e.target.value})} className="h-12 text-lg font-black" />
             </div>
           </div>
           <DialogFooter>
-            <Button className="w-full bg-emerald-600 font-bold h-12 rounded-xl text-white" onClick={handleAddSale}>REGISTRAR FACTURA</Button>
+            <Button className="w-full bg-emerald-600 font-bold h-12 rounded-xl" onClick={handleAddSale}>REGISTRAR VENTA</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -521,14 +569,14 @@ export default function InstitutionalProjectsPage() {
         <DialogContent className="rounded-3xl max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-bold">
-               <ShoppingBag className="text-rose-600" /> Registrar Gasto/Compra
+               <ShoppingBag className="text-rose-600" /> Registrar Inversión / Compra
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-slate-400">Proveedor</Label>
               <select 
-                className="w-full h-10 bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-medium outline-none"
+                className="w-full h-10 bg-slate-50 border rounded-xl px-4 text-xs"
                 value={newPurchase.supplierId}
                 onChange={e => setNewPurchase({...newPurchase, supplierId: e.target.value})}
               >
@@ -539,20 +587,25 @@ export default function InstitutionalProjectsPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">No. Documento de Compra</Label>
-              <Input placeholder="CCF-123..." value={newPurchase.docNumber} onChange={e => setNewPurchase({...newPurchase, docNumber: e.target.value})} className="rounded-xl" />
+              <Label className="text-[10px] font-bold uppercase text-slate-400">No. Documento Compra</Label>
+              <Input placeholder="CCF-..." value={newPurchase.docNumber} onChange={e => setNewPurchase({...newPurchase, docNumber: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Inversión Total ($)</Label>
-              <Input type="number" placeholder="0.00" value={newPurchase.total} onChange={e => setNewPurchase({...newPurchase, total: e.target.value})} className="rounded-xl h-12 text-lg font-black text-rose-600" />
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Detalle de Materiales</Label>
+              <textarea 
+                className="w-full h-20 bg-slate-50 border rounded-xl p-3 text-xs"
+                placeholder="Ej. 20 estructuras metálicas + flete"
+                value={newPurchase.items}
+                onChange={e => setNewPurchase({...newPurchase, items: e.target.value})}
+              />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Fecha de Gasto</Label>
-              <Input type="date" value={newPurchase.date} onChange={e => setNewPurchase({...newPurchase, date: e.target.value})} className="rounded-xl" />
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Costo Total de Compra ($)</Label>
+              <Input type="number" placeholder="0.00" value={newPurchase.total} onChange={e => setNewPurchase({...newPurchase, total: e.target.value})} className="h-12 text-lg font-black text-rose-600" />
             </div>
           </div>
           <DialogFooter>
-            <Button className="w-full bg-slate-900 font-bold h-12 rounded-xl text-white" onClick={handleAddPurchase}>REGISTRAR COSTO</Button>
+            <Button className="w-full bg-slate-900 font-bold h-12 rounded-xl" onClick={handleAddPurchase}>REGISTRAR COSTO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
