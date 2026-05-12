@@ -11,7 +11,9 @@ import {
   Loader2,
   AlertCircle,
   Coins,
-  DollarSign
+  DollarSign,
+  Database,
+  Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +21,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, addDoc, getDocs, query, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -28,7 +30,7 @@ export default function ManagementPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [cashFloat, setCashFloat] = useState<string>('');
+  const [cashFloat, setCashFloat] = useState<string>('300'); // Por defecto 300 solicitado
 
   // Configuración de módulos
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
@@ -42,8 +44,11 @@ export default function ManagementPage() {
   React.useEffect(() => {
     if (cashConfig?.cashFloat !== undefined) {
       setCashFloat(cashConfig.cashFloat.toString());
+    } else {
+      // Si no existe, forzamos el set de 300 inicial solicitado
+      setDoc(cashConfigRef, { cashFloat: 300 }, { merge: true });
     }
-  }, [cashConfig]);
+  }, [cashConfig, cashConfigRef]);
 
   const handleToggleModule = async (moduleId: string, value: boolean) => {
     const newConfig = { ...config, [moduleId]: value };
@@ -65,6 +70,71 @@ export default function ManagementPage() {
       toast({ title: "Fondo Base Guardado", description: "El monto inicial de caja ha sido actualizado." });
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el fondo base." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSeedData = async () => {
+    setIsSaving(true);
+    try {
+      // 1. Verificar si ya hay datos para evitar duplicados masivos
+      const invCheck = await getDocs(query(collection(db, 'inventory'), limit(1)));
+      if (!invCheck.empty) {
+        const confirm = window.confirm("Ya existen datos en el sistema. ¿Desea agregar registros demo adicionales?");
+        if (!confirm) {
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // 2. Poblar Inventario Maestro
+      const invRef = collection(db, 'inventory');
+      const products = [
+        { sku: 'ACE-5W30', name: 'Aceite Sintético Motul 5W30 (Galeón)', price: 48.50, quantity: 24, category: 'Lubricantes' },
+        { sku: 'BAT-L3', name: 'Batería Bosch S5 12V 70Ah', price: 135.00, quantity: 15, category: 'Eléctrico' },
+        { sku: 'LLAN-R17', name: 'Llanta Bridgestone Dueler 265/65R17', price: 185.00, quantity: 12, category: 'Llantas' },
+        { sku: 'FRE-SET', name: 'Set de Pastillas Cerámicas (Delanteras)', price: 42.00, quantity: 30, category: 'Frenos' },
+        { sku: 'FIL-OIL', name: 'Filtro de Aceite Premium High-Flow', price: 8.75, quantity: 100, category: 'Filtros' }
+      ];
+      for (const p of products) await addDoc(invRef, { ...p, createdAt: new Date().toISOString() });
+
+      // 3. Poblar Clientes
+      const custRef = collection(db, 'customers');
+      const clients = [
+        { name: 'Talleres El Salvador S.A.', type: 'Empresa', category: 'Crédito Fiscal', nit: '0614-123456-101-1', nrc: '45678-9', email: 'admin@talleressv.com', phone: '2222-3333' },
+        { name: 'Ministerio de Obras Públicas (MOP)', type: 'Empresa', category: 'Crédito Fiscal', nit: '0511-010101-001-0', nrc: '111-2', email: 'uaci@mop.gob.sv', phone: '2525-0000' },
+        { name: 'María Eugenia Rivas', type: 'Individual', category: 'Consumidor Final', nit: '0614-150588-102-5', email: 'maria.rivas@gmail.com', phone: '7878-9999' }
+      ];
+      for (const c of clients) await addDoc(custRef, { ...c, createdAt: new Date().toISOString() });
+
+      // 4. Poblar Proveedores
+      const suppRef = collection(db, 'suppliers');
+      const vendors = [
+        { name: 'Importadora Automotriz S.A.', nit: '0614-998877-001-5', nrc: '987-0', applyRetention: true, applyPerception: false, email: 'ventas@importadora.com' },
+        { name: 'Logística Regional Express', nit: '0614-111222-003-1', nrc: '321-4', applyRetention: false, applyPerception: false, email: 'operaciones@logex.com' }
+      ];
+      for (const v of vendors) await addDoc(suppRef, { ...v, createdAt: new Date().toISOString() });
+
+      // 5. Proyecto Institucional Demo
+      const projRef = collection(db, 'institutional_projects');
+      await addDoc(projRef, {
+        name: 'Mantenimiento Flota Gubernamental 2024',
+        customerName: 'Ministerio de Obras Públicas (MOP)',
+        customerId: 'demo-id',
+        status: 'ACTIVO',
+        description: 'Contrato para suministro de lubricantes y repuestos para vehículos pesados.',
+        createdAt: new Date().toISOString()
+      });
+
+      toast({ 
+        title: "Sistema Inicializado", 
+        description: "Se han cargado productos, clientes, proveedores y un proyecto demo. Fondo base: $300." 
+      });
+
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron sembrar los datos demo." });
     } finally {
       setIsSaving(false);
     }
@@ -102,6 +172,15 @@ export default function ManagementPage() {
             <p className="text-slate-500 text-sm">Configuración de seguridad y parámetros financieros</p>
           </div>
         </div>
+        <Button 
+          variant="outline" 
+          className="rounded-xl border-blue-200 bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition-all h-10 px-6"
+          onClick={handleSeedData}
+          disabled={isSaving}
+        >
+          <Sparkles className="mr-2" size={16} /> 
+          Sembrar Datos Demo
+        </Button>
       </div>
 
       <div className="max-w-4xl mx-auto space-y-6">
@@ -147,7 +226,7 @@ export default function ManagementPage() {
               <p className="text-sm">Control de Seguridad</p>
             </div>
             <p className="text-xs text-blue-700 leading-relaxed">
-              El <strong>Fondo Base</strong> es el dinero que el empleado recibe al iniciar el día. Este monto no se puede cambiar desde la pantalla de facturación para asegurar que el arqueo de caja sea íntegro.
+              El <strong>Fondo Base</strong> es el dinero que el empleado recibe al iniciar el día. Actualmente configurado en <strong>${parseFloat(cashFloat).toFixed(2)}</strong>. Este monto es la base para el arqueo automático.
             </p>
           </div>
         </div>
