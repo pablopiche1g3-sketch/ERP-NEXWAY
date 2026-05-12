@@ -21,7 +21,7 @@ import {
   Wallet,
   Landmark,
   Building2,
-  Hash
+  DollarSign
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ interface PurchaseItem {
   sku: string;
   name: string;
   quantity: number;
+  cost: number;
 }
 
 type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Credito';
@@ -67,6 +68,7 @@ export default function PurchasesPage() {
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [skuSearch, setSkuSearch] = useState('');
   const [manualQty, setManualQty] = useState<number | string>(1);
+  const [manualPrice, setManualPrice] = useState<number | string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -92,11 +94,16 @@ export default function PurchasesPage() {
     setPedidoId(`ORD-${datePart}-${randPart}`);
   }, []);
 
+  const totalPurchase = useMemo(() => 
+    purchaseItems.reduce((acc, item) => acc + (item.cost * item.quantity), 0), [purchaseItems]
+  );
+
   const handleAddItem = async () => {
     if (!skuSearch) return;
     
     const product = inventory?.find((p: any) => p.sku === skuSearch.toUpperCase());
     const qty = parseInt(manualQty.toString()) || 0;
+    const price = parseFloat(manualPrice.toString()) || 0;
     
     if (!product) {
       toast({ 
@@ -112,22 +119,29 @@ export default function PurchasesPage() {
       return;
     }
 
+    if (price <= 0) {
+      toast({ variant: "destructive", title: "Error", description: "El precio de compra debe ser mayor a 0." });
+      return;
+    }
+
     const existing = purchaseItems.find(item => item.sku === product.sku);
     if (existing) {
       setPurchaseItems(prev => prev.map(item => 
-        item.sku === product.sku ? { ...item, quantity: item.quantity + qty } : item
+        item.sku === product.sku ? { ...item, quantity: item.quantity + qty, cost: price } : item
       ));
     } else {
       setPurchaseItems(prev => [...prev, {
         id: product.id,
         sku: product.sku,
         name: product.name,
-        quantity: qty
+        quantity: qty,
+        cost: price
       }]);
     }
 
     setSkuSearch('');
     setManualQty(1);
+    setManualPrice('');
     toast({ title: "Producto Añadido", description: `${product.name} agregado a la lista.` });
   };
 
@@ -165,6 +179,7 @@ export default function PurchasesPage() {
         warehouse,
         supplier: supplierName,
         items: purchaseItems,
+        total: totalPurchase,
         status,
         timestamp: new Date().toISOString()
       });
@@ -222,14 +237,17 @@ export default function PurchasesPage() {
                if (product) {
                  const existingIdx = newItems.findIndex(ni => ni.sku === product.sku);
                  const qty = parseInt(item.quantity) || 0;
+                 const price = parseFloat(item.price) || 0;
                  if (existingIdx > -1) {
                    newItems[existingIdx].quantity += qty;
+                   newItems[existingIdx].cost = price;
                  } else {
                    newItems.push({
                      id: product.id,
                      sku: product.sku,
                      name: product.name,
-                     quantity: qty
+                     quantity: qty,
+                     cost: price
                    });
                  }
                  count++;
@@ -433,20 +451,37 @@ export default function PurchasesPage() {
           <Card className="border-none shadow-sm rounded-3xl bg-white p-6">
             <Label className="text-[10px] font-black uppercase text-slate-400 mb-4 block tracking-widest">Agregar Producto</Label>
             <div className="space-y-4">
-              <div className="flex gap-2">
-                <Input 
-                  placeholder="SKU..." 
-                  value={skuSearch}
-                  onChange={e => setSkuSearch(e.target.value.toUpperCase())}
-                  className="h-12 bg-slate-50 border-slate-100 font-bold text-lg"
-                />
-                <Input 
-                  type="number" 
-                  value={manualQty}
-                  onFocus={e => e.target.select()}
-                  onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))}
-                  className="w-20 h-12 bg-slate-50 border-slate-100 font-bold text-lg text-center"
-                />
+              <div className="grid grid-cols-4 gap-2">
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-[9px] font-bold uppercase text-slate-400">SKU</Label>
+                  <Input 
+                    placeholder="SKU..." 
+                    value={skuSearch}
+                    onChange={e => setSkuSearch(e.target.value.toUpperCase())}
+                    className="h-10 bg-slate-50 border-slate-100 font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-bold uppercase text-slate-400">Cant.</Label>
+                  <Input 
+                    type="number" 
+                    value={manualQty}
+                    onFocus={e => e.target.select()}
+                    onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))}
+                    className="h-10 bg-slate-50 border-slate-100 font-bold text-center"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-bold uppercase text-slate-400">Costo</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="0.00"
+                    value={manualPrice}
+                    onFocus={e => e.target.select()}
+                    onChange={e => setManualPrice(e.target.value)}
+                    className="h-10 bg-slate-50 border-slate-100 font-bold text-emerald-600"
+                  />
+                </div>
               </div>
               <Button onClick={handleAddItem} className="w-full h-12 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-white shadow-lg">
                 <Plus size={18} className="mr-2" />
@@ -472,8 +507,14 @@ export default function PurchasesPage() {
           <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden h-[500px] flex flex-col">
             <CardHeader className="bg-slate-50 border-b border-slate-100 px-6 py-4">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-sm font-bold text-slate-900">Items del Pedido</CardTitle>
-                <Badge variant="secondary" className="font-mono text-[10px] bg-slate-100 text-slate-600">{purchaseItems.length} ítems</Badge>
+                <div className="flex items-center gap-4">
+                  <CardTitle className="text-sm font-bold text-slate-900">Items del Pedido</CardTitle>
+                  <Badge variant="secondary" className="font-mono text-[10px] bg-slate-100 text-slate-600">{purchaseItems.length} ítems</Badge>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-black uppercase text-slate-400">Total de Inversión</p>
+                  <p className="text-xl font-black text-emerald-600">${totalPurchase.toFixed(2)}</p>
+                </div>
               </div>
             </CardHeader>
             <ScrollArea className="flex-1">
@@ -482,14 +523,16 @@ export default function PurchasesPage() {
                   <TableRow>
                     <TableHead className="text-[10px] font-black uppercase px-6">SKU</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Producto</TableHead>
-                    <TableHead className="text-center text-[10px] font-black uppercase">Cantidad</TableHead>
+                    <TableHead className="text-center text-[10px] font-black uppercase">Cant.</TableHead>
+                    <TableHead className="text-right text-[10px] font-black uppercase">Costo Un.</TableHead>
+                    <TableHead className="text-right text-[10px] font-black uppercase">Subtotal</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {purchaseItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">
+                      <TableCell colSpan={6} className="text-center py-20 text-slate-400 italic text-xs">
                         No hay productos seleccionados para esta compra.
                       </TableCell>
                     </TableRow>
@@ -497,11 +540,9 @@ export default function PurchasesPage() {
                     <TableRow key={item.sku} className="hover:bg-slate-50/50">
                       <TableCell className="px-6 font-mono font-bold text-slate-600 text-[11px]">{item.sku}</TableCell>
                       <TableCell className="font-bold text-slate-900 text-xs">{item.name}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-blue-50 text-blue-700 border-blue-100 px-3 py-1 font-black">
-                          {item.quantity}
-                        </Badge>
-                      </TableCell>
+                      <TableCell className="text-center font-bold text-slate-600">{item.quantity}</TableCell>
+                      <TableCell className="text-right font-bold text-slate-500">${item.cost.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-black text-slate-900">${(item.cost * item.quantity).toFixed(2)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => removeItem(item.sku)} className="h-8 w-8 text-slate-300 hover:text-rose-500">
                           <Trash2 size={14} />
