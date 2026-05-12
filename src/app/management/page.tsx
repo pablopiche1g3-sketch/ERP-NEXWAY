@@ -30,25 +30,19 @@ export default function ManagementPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [cashFloat, setCashFloat] = useState<string>('300'); // Por defecto 300 solicitado
+  const [cashFloat, setCashFloat] = useState<string>('300');
 
-  // Configuración de módulos
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
   const { data: config, loading: loadingConfig } = useDoc<any>(configRef);
 
-  // Configuración de caja (Fondo Base)
   const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
   const { data: cashConfig, loading: loadingCash } = useDoc<any>(cashConfigRef);
 
-  // Inicializar el input de cashFloat cuando carguen los datos
   React.useEffect(() => {
     if (cashConfig?.cashFloat !== undefined) {
       setCashFloat(cashConfig.cashFloat.toString());
-    } else {
-      // Si no existe, forzamos el set de 300 inicial solicitado
-      setDoc(cashConfigRef, { cashFloat: 300 }, { merge: true });
     }
-  }, [cashConfig, cashConfigRef]);
+  }, [cashConfig]);
 
   const handleToggleModule = async (moduleId: string, value: boolean) => {
     const newConfig = { ...config, [moduleId]: value };
@@ -78,63 +72,77 @@ export default function ManagementPage() {
   const handleSeedData = async () => {
     setIsSaving(true);
     try {
-      // 1. Verificar si ya hay datos para evitar duplicados masivos
-      const invCheck = await getDocs(query(collection(db, 'inventory'), limit(1)));
-      if (!invCheck.empty) {
-        const confirm = window.confirm("Ya existen datos en el sistema. ¿Desea agregar registros demo adicionales?");
-        if (!confirm) {
-          setIsSaving(false);
-          return;
-        }
-      }
+      // 1. Configurar Sistema (Módulos y Caja)
+      await setDoc(cashConfigRef, { cashFloat: 300 }, { merge: true });
+      await setDoc(configRef, {
+        billing: true, purchases: true, suppliers: true, quedan: true, 
+        quotations: true, transfers: true, customers: true, inventory: true, 
+        management: true, institutional: true
+      }, { merge: true });
 
-      // 2. Poblar Inventario Maestro
+      // 2. Poblar Inventario Maestro con stock y precios
       const invRef = collection(db, 'inventory');
       const products = [
         { sku: 'ACE-5W30', name: 'Aceite Sintético Motul 5W30 (Galeón)', price: 48.50, quantity: 24, category: 'Lubricantes' },
         { sku: 'BAT-L3', name: 'Batería Bosch S5 12V 70Ah', price: 135.00, quantity: 15, category: 'Eléctrico' },
         { sku: 'LLAN-R17', name: 'Llanta Bridgestone Dueler 265/65R17', price: 185.00, quantity: 12, category: 'Llantas' },
         { sku: 'FRE-SET', name: 'Set de Pastillas Cerámicas (Delanteras)', price: 42.00, quantity: 30, category: 'Frenos' },
-        { sku: 'FIL-OIL', name: 'Filtro de Aceite Premium High-Flow', price: 8.75, quantity: 100, category: 'Filtros' }
+        { sku: 'FIL-OIL', name: 'Filtro de Aceite Premium High-Flow', price: 8.75, quantity: 100, category: 'Filtros' },
+        { sku: 'BOM-COM', name: 'Bomba de Combustible Denso High-Pressure', price: 210.00, quantity: 8, category: 'Motor' }
       ];
-      for (const p of products) await addDoc(invRef, { ...p, createdAt: new Date().toISOString() });
+      for (const p of products) {
+        await addDoc(invRef, { ...p, createdAt: new Date().toISOString() });
+      }
 
       // 3. Poblar Clientes
       const custRef = collection(db, 'customers');
       const clients = [
         { name: 'Talleres El Salvador S.A.', type: 'Empresa', category: 'Crédito Fiscal', nit: '0614-123456-101-1', nrc: '45678-9', email: 'admin@talleressv.com', phone: '2222-3333' },
         { name: 'Ministerio de Obras Públicas (MOP)', type: 'Empresa', category: 'Crédito Fiscal', nit: '0511-010101-001-0', nrc: '111-2', email: 'uaci@mop.gob.sv', phone: '2525-0000' },
-        { name: 'María Eugenia Rivas', type: 'Individual', category: 'Consumidor Final', nit: '0614-150588-102-5', email: 'maria.rivas@gmail.com', phone: '7878-9999' }
+        { name: 'María Eugenia Rivas', type: 'Individual', category: 'Consumidor Final', nit: '0614-150588-102-5', email: 'maria.rivas@gmail.com', phone: '7878-9999' },
+        { name: 'Inversiones Globales SV', type: 'Empresa', category: 'Crédito Fiscal', nit: '0614-201090-103-0', nrc: '98765-4', email: 'contabilidad@iglobales.com' }
       ];
-      for (const c of clients) await addDoc(custRef, { ...c, createdAt: new Date().toISOString() });
+      for (const c of clients) {
+        await addDoc(custRef, { ...c, createdAt: new Date().toISOString() });
+      }
 
       // 4. Poblar Proveedores
       const suppRef = collection(db, 'suppliers');
       const vendors = [
         { name: 'Importadora Automotriz S.A.', nit: '0614-998877-001-5', nrc: '987-0', applyRetention: true, applyPerception: false, email: 'ventas@importadora.com' },
-        { name: 'Logística Regional Express', nit: '0614-111222-003-1', nrc: '321-4', applyRetention: false, applyPerception: false, email: 'operaciones@logex.com' }
+        { name: 'Distribuidora Central de Repuestos', nit: '0614-445566-002-1', nrc: '556-2', applyRetention: false, applyPerception: true, email: 'pedidos@centralrepuestos.com' }
       ];
-      for (const v of vendors) await addDoc(suppRef, { ...v, createdAt: new Date().toISOString() });
+      for (const v of vendors) {
+        await addDoc(suppRef, { ...v, createdAt: new Date().toISOString() });
+      }
 
-      // 5. Proyecto Institucional Demo
+      // 5. Poblar Bodegas
+      const whRef = collection(db, 'warehouses');
+      const areas = [{ name: 'Bodega Central' }, { name: 'Showroom' }, { name: 'Taller de Instalación' }];
+      for (const w of areas) {
+        await addDoc(whRef, w);
+      }
+
+      // 6. Proyecto Institucional Demo
       const projRef = collection(db, 'institutional_projects');
       await addDoc(projRef, {
-        name: 'Mantenimiento Flota Gubernamental 2024',
+        name: 'Suministros Flota Nacional 2024',
         customerName: 'Ministerio de Obras Públicas (MOP)',
         customerId: 'demo-id',
         status: 'ACTIVO',
-        description: 'Contrato para suministro de lubricantes y repuestos para vehículos pesados.',
+        description: 'Licitación pública para el mantenimiento preventivo y correctivo de vehículos de carga.',
         createdAt: new Date().toISOString()
       });
 
+      setCashFloat('300');
       toast({ 
-        title: "Sistema Inicializado", 
-        description: "Se han cargado productos, clientes, proveedores y un proyecto demo. Fondo base: $300." 
+        title: "Sistema Cargado", 
+        description: "Se han sembrado todos los módulos con datos reales y fondo de $300." 
       });
 
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron sembrar los datos demo." });
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron sembrar los datos." });
     } finally {
       setIsSaving(false);
     }
@@ -149,15 +157,16 @@ export default function ManagementPage() {
   }
 
   const modules = [
-    { id: 'billing', label: 'Módulo de Facturación', desc: 'Ventas, cobros y estado de cuenta' },
-    { id: 'purchases', label: 'Registro de Compras', desc: 'Ingreso de mercadería al sistema' },
-    { id: 'suppliers', label: 'Directorio de Proveedores', desc: 'Base de datos de suministrantes' },
-    { id: 'quedan', label: 'Gestión de Quedan', desc: 'Control de pagos a proveedores' },
-    { id: 'quotations', label: 'Módulo de Cotizaciones', desc: 'Generación de presupuestos' },
-    { id: 'transfers', label: 'Traslados', desc: 'Movimientos entre bodegas' },
+    { id: 'billing', label: 'Módulo de Facturación', desc: 'Ventas, cobros y arqueos' },
+    { id: 'purchases', label: 'Registro de Compras', desc: 'Ingreso de mercadería al stock' },
+    { id: 'suppliers', label: 'Directorio de Proveedores', desc: 'Gestión de suministrantes' },
+    { id: 'quedan', label: 'Gestión de Quedan', desc: 'Programación de pagos' },
+    { id: 'quotations', label: 'Cotizaciones', desc: 'Presupuestos para clientes' },
+    { id: 'transfers', label: 'Traslados', desc: 'Movimientos logísticos' },
     { id: 'customers', label: 'Registro de Clientes', desc: 'Cartera de contribuyentes' },
-    { id: 'inventory', label: 'Inventario Maestro', desc: 'Códigos y control de stock' },
-    { id: 'institutional', label: 'Módulo Institucional', desc: 'Perfil legal e identidad de la empresa' },
+    { id: 'inventory', label: 'Inventario Maestro', desc: 'Control de SKUs y Stock' },
+    { id: 'institutional', label: 'Ventas Institucionales', desc: 'Licitaciones y Proyectos' },
+    { id: 'management', label: 'Gerencia', desc: 'Permisos y configuración base' },
   ];
 
   return (
@@ -169,12 +178,12 @@ export default function ManagementPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Gerencia y Control</h1>
-            <p className="text-slate-500 text-sm">Configuración de seguridad y parámetros financieros</p>
+            <p className="text-slate-500 text-sm">Parámetros operativos y carga de datos</p>
           </div>
         </div>
         <Button 
           variant="outline" 
-          className="rounded-xl border-blue-200 bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition-all h-10 px-6"
+          className="rounded-xl border-blue-200 bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 h-10 px-6"
           onClick={handleSeedData}
           disabled={isSaving}
         >
@@ -192,12 +201,12 @@ export default function ManagementPage() {
                 Fondo Base de Caja
               </CardTitle>
               <CardDescription className="text-slate-400 text-xs">
-                Monto inicial en efectivo para cambio diario.
+                Monto fijo para iniciar el día (cambio).
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">Monto del Fondo ($)</Label>
+                <Label className="text-[10px] font-black uppercase text-slate-400">Monto ($)</Label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <Input 
@@ -215,7 +224,7 @@ export default function ManagementPage() {
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl"
               >
                 {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={18} />}
-                Establecer Fondo Base
+                Establecer Fondo
               </Button>
             </CardContent>
           </Card>
@@ -223,10 +232,10 @@ export default function ManagementPage() {
           <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3">
             <div className="flex items-center gap-2 text-blue-800 font-bold">
               <AlertCircle size={20} />
-              <p className="text-sm">Control de Seguridad</p>
+              <p className="text-sm">Nota de Operación</p>
             </div>
             <p className="text-xs text-blue-700 leading-relaxed">
-              El <strong>Fondo Base</strong> es el dinero que el empleado recibe al iniciar el día. Actualmente configurado en <strong>${parseFloat(cashFloat).toFixed(2)}</strong>. Este monto es la base para el arqueo automático.
+              El <strong>Fondo Base</strong> de <strong>$300</strong> es el estándar configurado. Este monto será el punto de partida en todos tus cierres de caja para garantizar que siempre haya cambio disponible.
             </p>
           </div>
         </div>
@@ -235,11 +244,8 @@ export default function ManagementPage() {
           <CardHeader className="bg-slate-900 text-white p-6">
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="text-blue-400" size={20} />
-              Control de Accesos a Módulos
+              Visibilidad de Módulos
             </CardTitle>
-            <CardDescription className="text-slate-400 text-xs">
-              Active o desactive los módulos operativos de la terminal.
-            </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-slate-100">
