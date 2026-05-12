@@ -78,7 +78,7 @@ export default function ManagementPage() {
       await setDoc(configRef, {
         billing: true, purchases: true, suppliers: true, quedan: true, 
         quotations: true, transfers: true, customers: true, inventory: true, 
-        management: true, institutional: true
+        management: true, institutional: true, accounting: true
       }, { merge: true });
 
       // 2. Poblar Inventario Maestro
@@ -133,9 +133,19 @@ export default function ManagementPage() {
         createdAt: new Date().toISOString()
       });
 
+      // 7. Contabilidad Demo
+      const journalRef = collection(db, 'journal');
+      await addDoc(journalRef, {
+        description: 'Pago de Alquiler Local Central',
+        amount: 850.00,
+        type: 'Egreso',
+        account: 'Servicios Básicos',
+        timestamp: new Date().toISOString()
+      });
+
       toast({ 
         title: "Datos Sembrados", 
-        description: "El sistema ha sido poblado con éxito. Revisa los módulos para ver la información.",
+        description: "El sistema ha sido poblado con éxito incluyendo el módulo contable.",
       });
 
     } catch (e: any) {
@@ -156,6 +166,7 @@ export default function ManagementPage() {
 
   const modules = [
     { id: 'billing', label: 'Módulo de Facturación', desc: 'Ventas, cobros y arqueos' },
+    { id: 'accounting', label: 'Contabilidad Básica', desc: 'Estado de resultados e IVA' },
     { id: 'purchases', label: 'Registro de Compras', desc: 'Ingreso de mercadería al stock' },
     { id: 'suppliers', label: 'Directorio de Proveedores', desc: 'Gestión de suministrantes' },
     { id: 'quedan', label: 'Gestión de Quedan', desc: 'Programación de pagos' },

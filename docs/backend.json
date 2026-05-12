@@ -37,6 +37,19 @@
       },
       "required": ["description", "amount", "category", "timestamp"]
     },
+    "JournalEntry": {
+      "title": "Journal Entry",
+      "description": "Manual accounting records for adjustments.",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["Ingreso", "Egreso"] },
+        "account": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["description", "amount", "type", "account", "timestamp"]
+    },
     "Customer": {
       "title": "Customer",
       "description": "Tax and contact details for business or individual clients.",
@@ -104,6 +117,10 @@
     "/expenses": {
       "schema": "#/backend/entities/Expense",
       "description": "Internal business expenses."
+    },
+    "/journal": {
+      "schema": "#/backend/entities/JournalEntry",
+      "description": "General accounting ledger."
     },
     "/sales": {
       "schema": "object",

@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   CalendarClock,
   LayoutDashboard,
-  Building
+  Building,
+  BarChart3
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
@@ -36,7 +37,8 @@ export default function Home() {
     inventory: true,
     quedan: true,
     management: true,
-    institutional: true
+    institutional: true,
+    accounting: true
   };
 
   return (
@@ -66,6 +68,16 @@ export default function Home() {
               iconBg="bg-emerald-600"
               title="Registro de Compra"
               description="Entrada de mercadería"
+            />
+          </Link>
+        )}
+        {modules.accounting && (
+          <Link href="/accounting">
+            <ModuleCard 
+              icon={<BarChart3 className="text-white" size={24} />}
+              iconBg="bg-slate-900"
+              title="Contabilidad"
+              description="Resultados, P&L e IVA"
             />
           </Link>
         )}
@@ -135,7 +147,7 @@ export default function Home() {
               icon={<Building className="text-white" size={24} />}
               iconBg="bg-blue-400"
               title="Institucional"
-              description="Perfil e Identidad Corporativa"
+              description="Licitaciones y Proyectos"
             />
           </Link>
         )}
@@ -143,7 +155,7 @@ export default function Home() {
           <Link href="/management">
             <ModuleCard 
               icon={<ShieldCheck className="text-white" size={24} />}
-              iconBg="bg-slate-900"
+              iconBg="bg-slate-700"
               title="Gerencia"
               description="Control de Permisos"
             />
