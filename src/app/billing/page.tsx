@@ -100,9 +100,8 @@ export default function BillingPage() {
   const userProfileRef = useMemo(() => user ? doc(db, 'users', user.uid) : null, [db, user]);
   const { data: userProfile } = useDoc<any>(userProfileRef);
 
-  const isAdminOrManager = useMemo(() => {
-    return userProfile?.role === 'admin' || userProfile?.role === 'manager';
-  }, [userProfile]);
+  // En modo prototipo, permitimos permisos administrativos por defecto
+  const isAdminOrManager = true;
 
   const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
   const { data: cashConfig } = useDoc<any>(cashConfigRef);
@@ -159,10 +158,6 @@ export default function BillingPage() {
       toast({ variant: "destructive", title: "Carrito vacío", description: "Agregue productos antes de finalizar." });
       return;
     }
-    if (paymentMethod === 'Credito' && !isAdminOrManager) {
-      toast({ variant: "destructive", title: "Acceso Denegado", description: "Solo gerentes pueden autorizar ventas al crédito." });
-      return;
-    }
     setCashReceived('');
     setPaymentReference('');
     setIsCheckoutOpen(true);
@@ -185,7 +180,7 @@ export default function BillingPage() {
         paymentReference: paymentMethod === 'Efectivo' ? `Efectivo: $${parseFloat(cashReceived).toFixed(2)} - Cambio: $${changeDue.toFixed(2)}` : paymentReference,
         status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'COMPLETADA',
         customer: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
-        authorizedBy: paymentMethod === 'Credito' ? userProfile?.fullName : null
+        authorizedBy: paymentMethod === 'Credito' ? (userProfile?.fullName || 'Admin Demo') : null
       });
 
       for (const item of cart) {
@@ -210,11 +205,6 @@ export default function BillingPage() {
   };
 
   const handleVoidSale = async (sale: any) => {
-    if (!isAdminOrManager) {
-      toast({ variant: "destructive", title: "Acceso Denegado", description: "Solo gerentes pueden anular ventas." });
-      return;
-    }
-
     setIsProcessing(true);
     try {
       const saleRef = doc(db, 'sales', sale.id);
@@ -239,10 +229,6 @@ export default function BillingPage() {
   };
 
   const handleOpenCorrection = (sale: any) => {
-    if (!isAdminOrManager) {
-      toast({ variant: "destructive", title: "Acceso Denegado", description: "Solo gerentes pueden corregir métodos de pago." });
-      return;
-    }
     setSelectedSale(sale);
     setNewPaymentMethod(sale.paymentMethod);
     setIsCorrectionOpen(true);
@@ -256,7 +242,7 @@ export default function BillingPage() {
       await updateDoc(saleRef, { 
         paymentMethod: newPaymentMethod,
         correctedAt: new Date().toISOString(),
-        correctedBy: userProfile?.fullName
+        correctedBy: userProfile?.fullName || 'Admin Demo'
       });
       toast({ title: "Corrección Aplicada", description: "El método de pago ha sido actualizado en el arqueo." });
       setIsCorrectionOpen(false);
@@ -454,9 +440,8 @@ export default function BillingPage() {
                       <Button 
                         variant={paymentMethod === 'Credito' ? 'default' : 'outline'} 
                         size="sm" 
-                        disabled={!isAdminOrManager}
                         onClick={() => setPaymentMethod('Credito')} 
-                        className={`h-9 text-[10px] font-bold rounded-xl ${!isAdminOrManager ? 'opacity-50' : ''}`}
+                        className="h-9 text-[10px] font-bold rounded-xl"
                       >
                         <Clock size={14} className="mr-2" /> Crédito
                       </Button>

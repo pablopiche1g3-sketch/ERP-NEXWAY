@@ -28,7 +28,6 @@ import { useRouter } from 'next/navigation';
 
 export default function ManagementPage() {
   const db = useFirestore();
-  const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -72,11 +71,6 @@ export default function ManagementPage() {
   };
 
   const handleSeedData = async () => {
-    if (!user) {
-      toast({ variant: "destructive", title: "No autenticado", description: "Debes iniciar sesión para sembrar datos." });
-      return;
-    }
-
     setIsSaving(true);
     try {
       // 1. Configurar Sistema (Módulos y Caja)
