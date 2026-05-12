@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -23,7 +24,8 @@ import {
   FileJson,
   TrendingUp,
   AlertCircle,
-  Package
+  Package,
+  FileCode
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,14 +57,12 @@ export default function InstitutionalModulePage() {
   // Data Fetching
   const projectsRef = useMemo(() => collection(db, 'institutional_projects'), [db]);
   const customersRef = useMemo(() => collection(db, 'customers'), [db]);
-  const suppliersRef = useMemo(() => collection(db, 'suppliers'), [db]);
   const inventoryRef = useMemo(() => collection(db, 'inventory'), [db]);
   const salesRef = useMemo(() => collection(db, 'institutional_sales'), [db]);
   const purchasesRef = useMemo(() => collection(db, 'institutional_purchases'), [db]);
   
   const { data: projects, loading: loadingProjects } = useCollection<any>(projectsRef);
   const { data: customers } = useCollection<any>(customersRef);
-  const { data: suppliers } = useCollection<any>(suppliersRef);
   const { data: inventory } = useCollection<any>(inventoryRef);
   const { data: allSales } = useCollection<any>(salesRef);
   const { data: allPurchases } = useCollection<any>(purchasesRef);
@@ -117,13 +117,13 @@ export default function InstitutionalModulePage() {
   
   const handleFinalizeSale = async () => {
     if (cart.length === 0 || !docNumber || !customerName) {
-      toast({ variant: "destructive", title: "Faltan datos", description: "Asegúrese de seleccionar cliente, productos y número de documento." });
+      toast({ variant: "destructive", title: "Faltan datos", description: "Seleccione cliente, productos y No. de factura." });
       return;
     }
     setIsProcessing(true);
     try {
       const finalItemsDetail = billingConcept 
-        ? `${billingConcept} (Consolidado)`
+        ? `${billingConcept} (Detalle oculto)`
         : cart.map(i => `${i.quantity} ${i.name} @ $${i.price}`).join(', ');
 
       await addDoc(salesRef, {
@@ -138,7 +138,7 @@ export default function InstitutionalModulePage() {
         createdAt: new Date().toISOString()
       });
 
-      toast({ title: "Factura Institucional Exitosa", description: "Venta registrada correctamente." });
+      toast({ title: "Factura Institucional Emitida", description: "Se ha registrado la venta exitosamente." });
       setCart([]);
       setDocNumber('');
       setBillingConcept('');
@@ -152,15 +152,15 @@ export default function InstitutionalModulePage() {
   };
 
   const handleCreateProject = async () => {
-    if (!newProject.name || !newProject.customerId) return;
+    if (!newProject.name) return;
     try {
       await addDoc(projectsRef, {
         ...newProject,
-        customerName: customers.find(c => c.id === newProject.customerId)?.name || 'Cliente Desconocido',
+        customerName: customers?.find(c => c.id === newProject.customerId)?.name || 'Cliente Externo',
         status: 'ACTIVO',
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Proyecto Creado", description: "Ya puede vincular facturas a este proyecto." });
+      toast({ title: "Proyecto Creado", description: "El expediente ha sido abierto." });
       setIsNewProjectOpen(false);
       setNewProject({ name: '', description: '', customerId: '' });
     } catch (e) {
@@ -180,20 +180,22 @@ export default function InstitutionalModulePage() {
           let count = 0;
           for (const item of data) {
             await addDoc(purchasesRef, {
-              projectId: item.projectId || null,
+              projectId: selectedProjectId || item.projectId || null,
               docNumber: item.docNumber || 'S/N',
               total: parseFloat(item.total) || 0,
-              supplierName: item.supplierName || 'Proveedor Desconocido',
+              supplierName: item.supplierName || 'Proveedor Carga Masiva',
               date: item.date || new Date().toISOString().split('T')[0],
-              items: item.items || 'Carga masiva',
+              items: item.items || 'Carga Masiva JSON',
               createdAt: new Date().toISOString()
             });
             count++;
           }
-          toast({ title: "Carga Masiva Exitosa", description: `Se han registrado ${count} costos.` });
+          toast({ title: "Carga Exitosa", description: `Se importaron ${count} registros de costos.` });
+        } else {
+          toast({ variant: "destructive", title: "Formato Incorrecto", description: "El JSON debe ser una lista de objetos." });
         }
       } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "Archivo JSON no válido." });
+        toast({ variant: "destructive", title: "Error de lectura", description: "Archivo JSON no válido." });
       } finally {
         if (purchaseFileInputRef.current) purchaseFileInputRef.current.value = '';
       }
@@ -210,7 +212,7 @@ export default function InstitutionalModulePage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-headline">NexWay Institucional</h1>
-            <p className="text-slate-500 text-sm">Terminal de ventas gubernamentales y gestión de contratos</p>
+            <p className="text-slate-500 text-sm">Ventas gubernamentales y gestión de contratos</p>
           </div>
         </div>
       </div>
@@ -233,16 +235,15 @@ export default function InstitutionalModulePage() {
           </TabsList>
 
           <TabsContent value="billing" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
-            {/* Left side: Cart and Summary */}
             <div className="lg:col-span-5 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
                 <CardHeader className="bg-slate-900 text-white p-5">
                   <div className="flex justify-between items-center mb-2">
-                    <CardTitle className="text-base font-bold">Resumen Institucional</CardTitle>
-                    <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400 uppercase">Factura Inst.</Badge>
+                    <CardTitle className="text-base font-bold">Resumen de Venta</CardTitle>
+                    <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400 uppercase">Institucional</Badge>
                   </div>
                   <div>
-                    <p className="text-[9px] uppercase font-bold text-slate-500">Monto Total Gravado</p>
+                    <p className="text-[9px] uppercase font-bold text-slate-500">Total a Facturar</p>
                     <p className="text-4xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
                   </div>
                 </CardHeader>
@@ -261,7 +262,7 @@ export default function InstitutionalModulePage() {
                         {cart.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">
-                              Escanee o seleccione productos del catálogo
+                              Escanee o seleccione productos del catálogo maestro
                             </TableCell>
                           </TableRow>
                         ) : cart.map((item) => (
@@ -270,7 +271,7 @@ export default function InstitutionalModulePage() {
                             <TableCell>
                               <div className="flex flex-col">
                                 <span className="font-bold text-xs">{item.name}</span>
-                                <span className="text-[9px] text-slate-400">{item.sku} • ${(item.price).toFixed(2)} u.</span>
+                                <span className="text-[9px] text-slate-400">${item.price.toFixed(2)} unit.</span>
                               </div>
                             </TableCell>
                             <TableCell className="text-right font-bold text-xs">${(item.price * item.quantity).toFixed(2)}</TableCell>
@@ -284,50 +285,43 @@ export default function InstitutionalModulePage() {
                       </TableBody>
                     </Table>
                   </ScrollArea>
-                  <div className="p-4 border-t bg-blue-50/30 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Info size={14} className="text-blue-600" />
-                      <Label className="text-[10px] font-black uppercase text-blue-700 tracking-widest">Concepto Global Factura</Label>
-                    </div>
+                  <div className="p-4 border-t bg-slate-50/50 space-y-3">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Concepto Único para Factura</Label>
                     <textarea 
-                      placeholder="Escriba el concepto que aparecerá en la factura única..." 
+                      placeholder="Ej. Suministro global según contrato No..." 
                       value={billingConcept}
                       onChange={e => setBillingConcept(e.target.value)}
-                      className="w-full min-h-[80px] bg-white border border-blue-100 rounded-xl p-3 text-xs font-medium focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      className="w-full min-h-[80px] bg-white border border-slate-200 rounded-xl p-3 text-xs focus:ring-2 focus:ring-blue-500/20 outline-none"
                     />
                   </div>
                 </CardContent>
               </Card>
               <Button 
-                className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl shadow-blue-500/20" 
+                className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl" 
                 disabled={cart.length === 0 || isProcessing} 
                 onClick={handleFinalizeSale}
               >
                 {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <Receipt className="mr-2" />}
-                EMITIR FACTURA INSTITUCIONAL
+                PROCESAR VENTA INSTITUCIONAL
               </Button>
             </div>
 
-            {/* Right side: Catalog and Customer */}
             <div className="lg:col-span-7 space-y-4">
               <Card className="border-none shadow-sm rounded-2xl bg-white p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Cliente Receptor</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Seleccionar Cliente</Label>
                   <div className="flex gap-2">
-                    <Input placeholder="Nombre..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10 bg-slate-50 rounded-xl font-bold" />
+                    <Input placeholder="Nombre del receptor..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10 bg-slate-50 rounded-xl" />
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="outline" className="h-10 rounded-xl px-3"><Users size={16} /></Button>
+                        <Button variant="outline" className="h-10 rounded-xl"><Users size={16} /></Button>
                       </DialogTrigger>
                       <DialogContent className="rounded-3xl max-w-sm">
-                        <DialogHeader><DialogTitle>Buscar Cliente</DialogTitle></DialogHeader>
-                        <Input placeholder="Nombre o NIT..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-10 rounded-xl" />
+                        <DialogHeader><DialogTitle>Cartera de Clientes</DialogTitle></DialogHeader>
+                        <Input placeholder="Buscar..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="mb-4" />
                         <ScrollArea className="h-60">
                           {filteredCustomers.map(c => (
-                            <div key={c.id} onClick={() => {setCustomerName(c.name); toast({title: "Cliente Cargado"})}} className="p-3 hover:bg-slate-50 cursor-pointer rounded-lg border-b">
-                              <p className="text-xs font-bold">{c.name}</p>
-                              <p className="text-[10px] text-slate-400">{c.nit}</p>
-                            </div>
+                            <div key={c.id} onClick={() => setCustomerName(c.name)} className="p-3 border-b hover:bg-slate-50 cursor-pointer text-xs font-bold">{c.name}</div>
                           ))}
                         </ScrollArea>
                       </DialogContent>
@@ -335,46 +329,39 @@ export default function InstitutionalModulePage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Vincular a Proyecto (Opcional)</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Asociar a Proyecto</Label>
                   <select 
                     className="w-full h-10 bg-slate-50 border border-slate-100 rounded-xl px-4 text-xs font-bold"
                     value={selectedProjectId}
                     onChange={e => setSelectedProjectId(e.target.value)}
                   >
-                    <option value="">Venta Libre (Sin Proyecto)</option>
+                    <option value="">Venta Libre (No Proyecto)</option>
                     {projects?.map((p: any) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
                 </div>
                 <div className="md:col-span-2 space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">No. Documento / Factura</Label>
-                  <Input placeholder="FAC-INST-000..." value={docNumber} onChange={e => setDocNumber(e.target.value)} className="h-10 bg-slate-50 rounded-xl font-bold font-mono" />
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Número de Factura / Documento</Label>
+                  <Input placeholder="FAC-000-001..." value={docNumber} onChange={e => setDocNumber(e.target.value)} className="h-10 bg-slate-50 rounded-xl font-bold font-mono" />
                 </div>
               </Card>
 
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  placeholder="Buscar en catálogo maestro por SKU o Nombre..." 
-                  value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)} 
-                  className="pl-12 h-12 bg-white border-none shadow-sm rounded-2xl font-bold" 
-                />
+                <Input placeholder="Buscar en inventario maestro..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 h-12 bg-white border-none shadow-sm rounded-2xl" />
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {filteredInventory.map((p: any) => (
-                  <div key={p.id} onClick={() => addToCart(p)} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-400 cursor-pointer transition-all flex flex-col justify-between aspect-square group">
+                  <div key={p.id} onClick={() => addToCart(p)} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-400 cursor-pointer transition-all flex flex-col justify-between aspect-square">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400">{p.sku}</p>
                       <h3 className="text-xs font-bold text-slate-900 leading-tight line-clamp-2 h-8">{p.name}</h3>
                     </div>
                     <div className="mt-2 pt-2 border-t flex justify-between items-center">
                       <span className="text-sm font-black text-slate-900">${(p.price || 0).toFixed(2)}</span>
-                      <div className="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                        <Plus size={16} />
-                      </div>
+                      <div className="w-8 h-8 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all"><Plus size={16} /></div>
                     </div>
                   </div>
                 ))}
@@ -384,40 +371,33 @@ export default function InstitutionalModulePage() {
 
           <TabsContent value="projects" className="space-y-6 outline-none">
             <div className="flex justify-between items-center">
-               <h2 className="text-xl font-bold text-slate-900">Proyectos Activos</h2>
-               <Button className="bg-blue-600 rounded-xl font-bold" onClick={() => setIsNewProjectOpen(true)}>
-                 <Plus size={16} className="mr-2" /> Crear Proyecto
+               <h2 className="text-xl font-bold">Expedientes de Proyecto</h2>
+               <Button className="bg-blue-600 rounded-xl" onClick={() => setIsNewProjectOpen(true)}>
+                 <Plus size={16} className="mr-2" /> Abrir Nuevo Expediente
                </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {projects?.length === 0 ? (
-                <Card className="col-span-full border-dashed p-20 flex flex-col items-center justify-center text-slate-400">
-                  <Briefcase size={48} className="mb-4 opacity-20" />
-                  <p className="font-bold">No hay proyectos institucionales registrados.</p>
-                </Card>
-              ) : projects?.map((p: any) => {
+              {projects?.map((p: any) => {
                 const pSales = allSales?.filter(s => s.projectId === p.id).reduce((acc, s) => acc + s.total, 0) || 0;
                 const pPurchases = allPurchases?.filter(pur => pur.projectId === p.id).reduce((acc, pur) => acc + pur.total, 0) || 0;
                 return (
-                  <Card key={p.id} className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between mb-4">
-                        <Badge variant={p.status === 'ACTIVO' ? 'outline' : 'secondary'} className="font-black text-[9px]">{p.status}</Badge>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-200 hover:text-rose-500"><Archive size={14} /></Button>
-                      </div>
-                      <h3 className="text-base font-bold text-slate-900 mb-1">{p.name}</h3>
-                      <p className="text-xs text-slate-500 mb-4">{p.customerName}</p>
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                        <div>
-                          <p className="text-[9px] font-black uppercase text-slate-400">Ventas</p>
-                          <p className="text-sm font-bold text-emerald-600">${pSales.toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-black uppercase text-slate-400">Costos</p>
-                          <p className="text-sm font-bold text-rose-500">-${pPurchases.toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </CardContent>
+                  <Card key={p.id} className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-6 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <Badge variant="outline" className="text-[9px] font-black uppercase">{p.status}</Badge>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-rose-500"><Archive size={14} /></Button>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900">{p.name}</h3>
+                    <p className="text-xs text-slate-500">{p.customerName}</p>
+                    <div className="pt-4 border-t grid grid-cols-2 gap-4">
+                       <div>
+                         <p className="text-[9px] font-black uppercase text-slate-400">Ventas</p>
+                         <p className="text-sm font-bold text-emerald-600">${pSales.toFixed(2)}</p>
+                       </div>
+                       <div>
+                         <p className="text-[9px] font-black uppercase text-slate-400">Costos</p>
+                         <p className="text-sm font-bold text-rose-500">-${pPurchases.toFixed(2)}</p>
+                       </div>
+                    </div>
                   </Card>
                 )
               })}
@@ -426,18 +406,32 @@ export default function InstitutionalModulePage() {
 
           <TabsContent value="costs" className="space-y-4 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white p-12 text-center space-y-6">
-              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-3xl flex items-center justify-center mx-auto">
-                <FileJson size={32} />
-              </div>
+              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto"><FileJson size={32} /></div>
               <div className="max-w-md mx-auto">
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Carga Masiva de Costos</h3>
-                <p className="text-slate-500 text-sm">Importe facturas de proveedores y costos operativos directamente mediante archivos JSON para alimentar sus proyectos.</p>
+                <h3 className="text-xl font-bold mb-2">Carga Masiva de Costos</h3>
+                <p className="text-slate-500 text-sm mb-4">Importe sus gastos operativos y facturas de proveedores mediante JSON.</p>
+                <div className="bg-slate-50 p-4 rounded-xl border text-left mb-6">
+                   <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">Formato Requerido</p>
+                   <code className="text-[9px] text-blue-600 font-mono">[{"{"} "docNumber": "...", "total": 0.00, "supplierName": "..." {"}"}]</code>
+                </div>
               </div>
-              <div className="flex justify-center gap-4">
+              <div className="flex flex-col items-center gap-4">
                 <input type="file" ref={purchaseFileInputRef} onChange={handleBulkPurchaseUpload} className="hidden" accept=".json" />
-                <Button className="bg-slate-900 rounded-xl h-12 px-8 font-bold" onClick={() => purchaseFileInputRef.current?.click()}>
-                   <FileJson size={18} className="mr-2" /> SELECCIONAR ARCHIVO JSON
-                </Button>
+                <div className="flex gap-4">
+                  <select 
+                    className="h-12 bg-white border border-slate-200 rounded-xl px-4 text-xs font-bold w-64"
+                    value={selectedProjectId}
+                    onChange={e => setSelectedProjectId(e.target.value)}
+                  >
+                    <option value="">Carga Libre (Sin Proyecto)</option>
+                    {projects?.map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <Button className="bg-slate-900 rounded-xl h-12 px-8 font-bold" onClick={() => purchaseFileInputRef.current?.click()}>
+                    <FileJson size={18} className="mr-2" /> SELECCIONAR ARCHIVO JSON
+                  </Button>
+                </div>
               </div>
             </Card>
           </TabsContent>
@@ -445,20 +439,20 @@ export default function InstitutionalModulePage() {
           <TabsContent value="history" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="bg-slate-900 text-white rounded-3xl p-6">
-                <p className="text-[10px] font-black uppercase opacity-60">Total Ventas Inst.</p>
+                <p className="text-[10px] font-black uppercase opacity-60">Total Ventas</p>
                 <p className="text-3xl font-black">${allSales?.reduce((acc, s) => acc + s.total, 0).toLocaleString()}</p>
               </Card>
               <Card className="bg-white rounded-3xl p-6 border-none shadow-sm">
-                <p className="text-[10px] font-black uppercase text-slate-400">Total Costos Inv.</p>
+                <p className="text-[10px] font-black uppercase text-slate-400">Total Costos</p>
                 <p className="text-3xl font-black text-rose-600">${allPurchases?.reduce((acc, p) => acc + p.total, 0).toLocaleString()}</p>
               </Card>
               <Card className="bg-blue-600 text-white rounded-3xl p-6">
-                <p className="text-[10px] font-black uppercase opacity-60">Utilidad Acumulada</p>
+                <p className="text-[10px] font-black uppercase opacity-60">Utilidad Total</p>
                 <p className="text-3xl font-black">${(allSales?.reduce((acc, s) => acc + s.total, 0) - allPurchases?.reduce((acc, p) => acc + p.total, 0)).toLocaleString()}</p>
               </Card>
               <Card className="bg-white rounded-3xl p-6 border-none shadow-sm flex flex-col justify-center">
-                <p className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><TrendingUp size={12} /> Margen Bruto</p>
-                <p className="text-2xl font-black text-slate-900">
+                <p className="text-[10px] font-black uppercase text-slate-400">Margen Bruto</p>
+                <p className="text-2xl font-black">
                   {allSales?.length > 0 ? (
                     ((allSales?.reduce((acc, s) => acc + s.total, 0) - allPurchases?.reduce((acc, p) => acc + p.total, 0)) / allSales?.reduce((acc, s) => acc + s.total, 0) * 100).toFixed(1)
                   ) : '0'}%
@@ -473,24 +467,18 @@ export default function InstitutionalModulePage() {
                     <TableHead className="px-6">Fecha</TableHead>
                     <TableHead>Documento</TableHead>
                     <TableHead>Cliente</TableHead>
-                    <TableHead>Proyecto Asociado</TableHead>
-                    <TableHead className="text-right">Monto Total</TableHead>
+                    <TableHead>Proyecto</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allSales?.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400">No hay historial de ventas institucionales.</TableCell></TableRow>
-                  ) : allSales?.map((s: any) => (
+                  {allSales?.map((s: any) => (
                     <TableRow key={s.id}>
                       <TableCell className="px-6 text-xs">{s.date}</TableCell>
                       <TableCell className="font-mono text-xs font-bold">{s.docNumber}</TableCell>
                       <TableCell className="text-xs font-bold">{s.customerName}</TableCell>
-                      <TableCell>
-                        {s.projectId ? (
-                          <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-100 font-bold text-[9px]">
-                            {projects?.find(p => p.id === s.projectId)?.name || 'Cargando...'}
-                          </Badge>
-                        ) : <span className="text-slate-300 text-[10px] italic">Venta Libre</span>}
+                      <TableCell className="text-[10px] text-slate-500 italic">
+                        {projects?.find(p => p.id === s.projectId)?.name || 'Venta Libre'}
                       </TableCell>
                       <TableCell className="text-right font-black text-emerald-600">${s.total.toFixed(2)}</TableCell>
                     </TableRow>
@@ -502,44 +490,24 @@ export default function InstitutionalModulePage() {
         </Tabs>
       </div>
 
-      {/* New Project Dialog */}
       <Dialog open={isNewProjectOpen} onOpenChange={setIsNewProjectOpen}>
         <DialogContent className="rounded-3xl max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-black">
-              <Briefcase className="text-blue-600" /> Nuevo Proyecto / Licitación
-            </DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="text-xl font-black">Nuevo Proyecto / Licitación</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de Proyecto</Label>
-              <Input placeholder="Ej. Licitación Hospital Rosales..." value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="h-11 rounded-xl" />
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre del Proyecto</Label>
+              <Input placeholder="Ej. Licitación Hospital 2024..." value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Cliente Institucional</Label>
-              <select 
-                className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm font-bold"
-                value={newProject.customerId}
-                onChange={e => setNewProject({...newProject, customerId: e.target.value})}
-              >
-                <option value="">Seleccione un cliente de cartera...</option>
-                {customers?.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Cliente Asociado</Label>
+              <select className="w-full h-11 bg-slate-50 border rounded-xl px-4 text-xs font-bold" value={newProject.customerId} onChange={e => setNewProject({...newProject, customerId: e.target.value})}>
+                <option value="">Seleccione cliente...</option>
+                {customers?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Descripción del Alcance</Label>
-              <textarea 
-                className="w-full min-h-[80px] bg-slate-50 border rounded-xl p-4 text-sm outline-none"
-                placeholder="Detalles del contrato..."
-                value={newProject.description}
-                onChange={e => setNewProject({...newProject, description: e.target.value})}
-              />
             </div>
           </div>
           <DialogFooter>
-            <Button className="w-full bg-blue-600 h-12 rounded-xl font-bold text-white shadow-lg" onClick={handleCreateProject}>CREAR EXPEDIENTE DE PROYECTO</Button>
+            <Button className="w-full bg-blue-600 h-12 rounded-xl font-bold" onClick={handleCreateProject}>CREAR PROYECTO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

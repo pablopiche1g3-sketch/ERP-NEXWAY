@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   ArrowLeft, 
@@ -13,20 +13,22 @@ import {
   Coins,
   DollarSign,
   Database,
-  Sparkles
+  Sparkles,
+  CheckCircle2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { useFirestore, useDoc } from '@/firebase';
-import { doc, setDoc, collection, addDoc, getDocs, query, limit } from 'firebase/firestore';
+import { useFirestore, useDoc, useUser } from '@/firebase';
+import { doc, setDoc, collection, addDoc, getDocs, query, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
 export default function ManagementPage() {
   const db = useFirestore();
+  const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -38,7 +40,7 @@ export default function ManagementPage() {
   const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
   const { data: cashConfig, loading: loadingCash } = useDoc<any>(cashConfigRef);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (cashConfig?.cashFloat !== undefined) {
       setCashFloat(cashConfig.cashFloat.toString());
     }
@@ -70,6 +72,11 @@ export default function ManagementPage() {
   };
 
   const handleSeedData = async () => {
+    if (!user) {
+      toast({ variant: "destructive", title: "No autenticado", description: "Debes iniciar sesión para sembrar datos." });
+      return;
+    }
+
     setIsSaving(true);
     try {
       // 1. Configurar Sistema (Módulos y Caja)
@@ -80,16 +87,16 @@ export default function ManagementPage() {
         management: true, institutional: true
       }, { merge: true });
 
-      // 2. Poblar Inventario Maestro con stock y precios
+      // 2. Poblar Inventario Maestro
       const invRef = collection(db, 'inventory');
       const products = [
         { sku: 'ACE-5W30', name: 'Aceite Sintético Motul 5W30 (Galeón)', price: 48.50, quantity: 24, category: 'Lubricantes' },
         { sku: 'BAT-L3', name: 'Batería Bosch S5 12V 70Ah', price: 135.00, quantity: 15, category: 'Eléctrico' },
         { sku: 'LLAN-R17', name: 'Llanta Bridgestone Dueler 265/65R17', price: 185.00, quantity: 12, category: 'Llantas' },
         { sku: 'FRE-SET', name: 'Set de Pastillas Cerámicas (Delanteras)', price: 42.00, quantity: 30, category: 'Frenos' },
-        { sku: 'FIL-OIL', name: 'Filtro de Aceite Premium High-Flow', price: 8.75, quantity: 100, category: 'Filtros' },
-        { sku: 'BOM-COM', name: 'Bomba de Combustible Denso High-Pressure', price: 210.00, quantity: 8, category: 'Motor' }
+        { sku: 'FIL-OIL', name: 'Filtro de Aceite Premium High-Flow', price: 8.75, quantity: 100, category: 'Filtros' }
       ];
+      
       for (const p of products) {
         await addDoc(invRef, { ...p, createdAt: new Date().toISOString() });
       }
@@ -97,10 +104,9 @@ export default function ManagementPage() {
       // 3. Poblar Clientes
       const custRef = collection(db, 'customers');
       const clients = [
+        { name: 'Ministerio de Obras Públicas (MOP)', type: 'Empresa', category: 'Crédito Fiscal', nit: '0511-010101-001-0', nrc: '111-2', email: 'uaci@mop.gob.sv', phone: '2525-0000', address: 'San Salvador, El Salvador' },
         { name: 'Talleres El Salvador S.A.', type: 'Empresa', category: 'Crédito Fiscal', nit: '0614-123456-101-1', nrc: '45678-9', email: 'admin@talleressv.com', phone: '2222-3333' },
-        { name: 'Ministerio de Obras Públicas (MOP)', type: 'Empresa', category: 'Crédito Fiscal', nit: '0511-010101-001-0', nrc: '111-2', email: 'uaci@mop.gob.sv', phone: '2525-0000' },
-        { name: 'María Eugenia Rivas', type: 'Individual', category: 'Consumidor Final', nit: '0614-150588-102-5', email: 'maria.rivas@gmail.com', phone: '7878-9999' },
-        { name: 'Inversiones Globales SV', type: 'Empresa', category: 'Crédito Fiscal', nit: '0614-201090-103-0', nrc: '98765-4', email: 'contabilidad@iglobales.com' }
+        { name: 'Consumidor Final Genérico', type: 'Individual', category: 'Consumidor Final', nit: '', email: '', phone: '' }
       ];
       for (const c of clients) {
         await addDoc(custRef, { ...c, createdAt: new Date().toISOString() });
@@ -110,7 +116,7 @@ export default function ManagementPage() {
       const suppRef = collection(db, 'suppliers');
       const vendors = [
         { name: 'Importadora Automotriz S.A.', nit: '0614-998877-001-5', nrc: '987-0', applyRetention: true, applyPerception: false, email: 'ventas@importadora.com' },
-        { name: 'Distribuidora Central de Repuestos', nit: '0614-445566-002-1', nrc: '556-2', applyRetention: false, applyPerception: true, email: 'pedidos@centralrepuestos.com' }
+        { name: 'Distribuidora Central', nit: '0614-445566-002-1', nrc: '556-2', applyRetention: false, applyPerception: true, email: 'pedidos@central.com' }
       ];
       for (const v of vendors) {
         await addDoc(suppRef, { ...v, createdAt: new Date().toISOString() });
@@ -118,7 +124,7 @@ export default function ManagementPage() {
 
       // 5. Poblar Bodegas
       const whRef = collection(db, 'warehouses');
-      const areas = [{ name: 'Bodega Central' }, { name: 'Showroom' }, { name: 'Taller de Instalación' }];
+      const areas = [{ name: 'Bodega Principal' }, { name: 'Exhibición' }];
       for (const w of areas) {
         await addDoc(whRef, w);
       }
@@ -126,23 +132,21 @@ export default function ManagementPage() {
       // 6. Proyecto Institucional Demo
       const projRef = collection(db, 'institutional_projects');
       await addDoc(projRef, {
-        name: 'Suministros Flota Nacional 2024',
+        name: 'Mantenimiento Flota MOP 2024',
         customerName: 'Ministerio de Obras Públicas (MOP)',
-        customerId: 'demo-id',
         status: 'ACTIVO',
-        description: 'Licitación pública para el mantenimiento preventivo y correctivo de vehículos de carga.',
+        description: 'Suministro de repuestos y lubricantes para vehículos pesados.',
         createdAt: new Date().toISOString()
       });
 
-      setCashFloat('300');
       toast({ 
-        title: "Sistema Cargado", 
-        description: "Se han sembrado todos los módulos con datos reales y fondo de $300." 
+        title: "Datos Sembrados", 
+        description: "El sistema ha sido poblado con éxito. Revisa los módulos para ver la información.",
       });
 
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron sembrar los datos." });
+      toast({ variant: "destructive", title: "Error al sembrar", description: e.message || "No se pudieron cargar los datos." });
     } finally {
       setIsSaving(false);
     }
@@ -178,7 +182,7 @@ export default function ManagementPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Gerencia y Control</h1>
-            <p className="text-slate-500 text-sm">Parámetros operativos y carga de datos</p>
+            <p className="text-slate-500 text-sm">Configuración global y carga de datos maestros</p>
           </div>
         </div>
         <Button 
@@ -187,7 +191,7 @@ export default function ManagementPage() {
           onClick={handleSeedData}
           disabled={isSaving}
         >
-          <Sparkles className="mr-2" size={16} /> 
+          {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" size={16} />}
           Sembrar Datos Demo
         </Button>
       </div>
@@ -201,7 +205,7 @@ export default function ManagementPage() {
                 Fondo Base de Caja
               </CardTitle>
               <CardDescription className="text-slate-400 text-xs">
-                Monto fijo para iniciar el día (cambio).
+                Monto inicial fijo para cambio diario.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
@@ -232,10 +236,10 @@ export default function ManagementPage() {
           <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3">
             <div className="flex items-center gap-2 text-blue-800 font-bold">
               <AlertCircle size={20} />
-              <p className="text-sm">Nota de Operación</p>
+              <p className="text-sm">Nota Operativa</p>
             </div>
             <p className="text-xs text-blue-700 leading-relaxed">
-              El <strong>Fondo Base</strong> de <strong>$300</strong> es el estándar configurado. Este monto será el punto de partida en todos tus cierres de caja para garantizar que siempre haya cambio disponible.
+              El fondo base se utiliza para el arqueo de caja diario. Un monto de <strong>$300.00</strong> es la recomendación estándar para operaciones de NexWay.
             </p>
           </div>
         </div>
@@ -244,7 +248,7 @@ export default function ManagementPage() {
           <CardHeader className="bg-slate-900 text-white p-6">
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="text-blue-400" size={20} />
-              Visibilidad de Módulos
+              Estado de Módulos
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
