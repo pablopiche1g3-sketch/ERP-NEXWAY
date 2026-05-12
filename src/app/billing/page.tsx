@@ -24,7 +24,10 @@ import {
   AlertTriangle,
   Loader2,
   DollarSign,
-  Settings2
+  Settings2,
+  Edit3,
+  XCircle,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,6 +77,11 @@ export default function BillingPage() {
   const [paymentReference, setPaymentReference] = useState('');
   const [cashReceived, setCashReceived] = useState<string>('');
 
+  // Correction Modal States
+  const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<any>(null);
+  const [newPaymentMethod, setNewPaymentMethod] = useState<PaymentMethod>('Efectivo');
+
   // Arqueo Denominations State
   const [denominations, setDenominations] = useState({
     b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0,
@@ -95,7 +103,6 @@ export default function BillingPage() {
     return userProfile?.role === 'admin' || userProfile?.role === 'manager';
   }, [userProfile]);
 
-  // Configuración de Fondo Base (solo lectura aquí)
   const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
   const { data: cashConfig } = useDoc<any>(cashConfigRef);
   const currentCashFloat = cashConfig?.cashFloat || 0;
@@ -184,7 +191,7 @@ export default function BillingPage() {
         const product = inventory.find((p: any) => p.id === item.id);
         if (product) {
           updateDoc(doc(db, 'inventory', item.id), { 
-            quantity: Math.max(0, product.quantity - item.quantity) 
+            quantity: Math.max(0, (product.quantity || 0) - item.quantity) 
           });
         }
       }
@@ -196,6 +203,65 @@ export default function BillingPage() {
       setIsCheckoutOpen(false);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la venta." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVoidSale = async (sale: any) => {
+    if (!isAdminOrManager) {
+      toast({ variant: "destructive", title: "Acceso Denegado", description: "Solo gerentes pueden anular ventas." });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const saleRef = doc(db, 'sales', sale.id);
+      await updateDoc(saleRef, { status: 'CANCELADA' });
+
+      // Devolver stock al inventario
+      for (const item of sale.items) {
+        const product = inventory.find((p: any) => p.id === item.id);
+        if (product) {
+          await updateDoc(doc(db, 'inventory', item.id), { 
+            quantity: (product.quantity || 0) + item.quantity 
+          });
+        }
+      }
+
+      toast({ title: "Venta Anulada (Nota de Crédito)", description: "Stock devuelto e historial actualizado." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo anular la venta." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleOpenCorrection = (sale: any) => {
+    if (!isAdminOrManager) {
+      toast({ variant: "destructive", title: "Acceso Denegado", description: "Solo gerentes pueden corregir métodos de pago." });
+      return;
+    }
+    setSelectedSale(sale);
+    setNewPaymentMethod(sale.paymentMethod);
+    setIsCorrectionOpen(true);
+  };
+
+  const handleApplyCorrection = async () => {
+    if (!selectedSale) return;
+    setIsProcessing(true);
+    try {
+      const saleRef = doc(db, 'sales', selectedSale.id);
+      await updateDoc(saleRef, { 
+        paymentMethod: newPaymentMethod,
+        correctedAt: new Date().toISOString(),
+        correctedBy: userProfile?.fullName
+      });
+      toast({ title: "Corrección Aplicada", description: "El método de pago ha sido actualizado en el arqueo." });
+      setIsCorrectionOpen(false);
+      setSelectedSale(null);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo aplicar la corrección." });
     } finally {
       setIsProcessing(false);
     }
@@ -227,10 +293,12 @@ export default function BillingPage() {
   const dailyClosingTotals = useMemo(() => {
     const summary = { Efectivo: 0, Tarjeta: 0, Transferencia: 0, Cheque: 0, Credito: 0, total: 0 };
     salesTodayList.forEach((s: any) => {
-      if (s.paymentMethod in summary) {
-        summary[s.paymentMethod as keyof typeof summary] += s.total;
+      if (s.status !== 'CANCELADA') {
+        if (s.paymentMethod in summary) {
+          summary[s.paymentMethod as keyof typeof summary] += s.total;
+        }
+        summary.total += s.total;
       }
-      summary.total += s.total;
     });
     return summary;
   }, [salesTodayList]);
@@ -254,13 +322,12 @@ export default function BillingPage() {
     );
   }, [denominations]);
 
-  // Cálculo corregido con Fondo Base
   const expectedCashBalance = currentCashFloat + dailyClosingTotals.Efectivo - totalExpensesToday;
   const cashDifference = physicalCashTotal - expectedCashBalance;
 
   const accountsReceivable = useMemo(() => {
     if (!salesAll) return [];
-    const credits = salesAll.filter((s: any) => s.paymentMethod === 'Credito' && s.status !== 'CANCELADA');
+    const credits = salesAll.filter((s: any) => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE');
     const grouped = credits.reduce((acc: any, sale: any) => {
       const name = sale.customer || 'Consumidor Final';
       if (!acc[name]) acc[name] = { total: 0, count: 0 };
@@ -473,25 +540,55 @@ export default function BillingPage() {
                     <TableHead>Documento</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Pago</TableHead>
-                    <TableHead>Referencia / Detalle</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead className="text-right px-6">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {salesTodayList.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-20 text-slate-400 italic">No hay ventas registradas hoy.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center py-20 text-slate-400 italic">No hay ventas registradas hoy.</TableCell></TableRow>
                   ) : salesTodayList.map((sale: any) => (
-                    <TableRow key={sale.id}>
+                    <TableRow key={sale.id} className={sale.status === 'CANCELADA' ? 'opacity-40 grayscale' : ''}>
                       <TableCell className="px-6 text-xs text-slate-500">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[9px] font-black">{sale.docType}</Badge></TableCell>
                       <TableCell className="font-bold text-xs">{sale.customer}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-[9px] font-bold">
-                           {sale.paymentMethod}
+                        <div className="flex items-center gap-2">
+                           <Badge variant="secondary" className="text-[9px] font-bold">{sale.paymentMethod}</Badge>
+                           {sale.correctedAt && <RefreshCw size={10} className="text-blue-500" />}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-black text-slate-900">${sale.total.toFixed(2)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className={`text-[9px] font-black ${sale.status === 'CANCELADA' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                          {sale.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-[10px] font-mono text-slate-400 max-w-[200px] truncate">{sale.paymentReference || 'N/A'}</TableCell>
-                      <TableCell className="text-right font-black text-slate-900">${sale.total.toFixed(2)}</TableCell>
+                      <TableCell className="text-right px-6">
+                        <div className="flex justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-blue-500 hover:bg-blue-50"
+                            disabled={sale.status === 'CANCELADA'}
+                            onClick={() => handleOpenCorrection(sale)}
+                            title="Corregir Pago"
+                          >
+                            <Edit3 size={14} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-rose-500 hover:bg-rose-50"
+                            disabled={sale.status === 'CANCELADA'}
+                            onClick={() => handleVoidSale(sale)}
+                            title="Anular (Nota de Crédito)"
+                          >
+                            <XCircle size={14} />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -532,7 +629,6 @@ export default function BillingPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Conteo de Denominaciones */}
               <Card className="lg:col-span-5 border-none shadow-sm rounded-3xl bg-white overflow-hidden">
                 <CardHeader className="bg-slate-50 border-b">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -599,7 +695,6 @@ export default function BillingPage() {
                 </CardContent>
               </Card>
 
-              {/* Gastos de Caja */}
               <Card className="lg:col-span-7 border-none shadow-sm rounded-3xl bg-white overflow-hidden flex flex-col">
                 <CardHeader className="bg-slate-50 border-b px-6 py-4">
                   <div className="flex justify-between items-center">
@@ -643,7 +738,6 @@ export default function BillingPage() {
               </Card>
             </div>
 
-            {/* Resultado Final de Arqueo */}
             <Card className={`border-none shadow-xl rounded-3xl overflow-hidden ${cashDifference === 0 ? 'bg-emerald-600' : cashDifference > 0 ? 'bg-blue-600' : 'bg-rose-600'} text-white`}>
                <CardContent className="p-8">
                   <div className="flex flex-col md:flex-row justify-between items-center gap-8">
@@ -779,6 +873,61 @@ export default function BillingPage() {
               {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
               CONFIRMAR VENTA
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Correction Dialog */}
+      <Dialog open={isCorrectionOpen} onOpenChange={setIsCorrectionOpen}>
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-black">
+              <RefreshCw className="text-blue-600" /> Corregir Método de Pago
+            </DialogTitle>
+            <DialogDescription>
+              Cambie el método de pago para que el arqueo de caja sea exacto.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase">Resumen Venta</p>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-600">Monto:</span>
+                <span className="text-sm font-black text-slate-900">${selectedSale?.total?.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-600">Actual:</span>
+                <Badge variant="outline">{selectedSale?.paymentMethod}</Badge>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <Label className="text-[10px] font-black uppercase text-slate-400">Nuevo Método de Pago</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['Efectivo', 'Tarjeta', 'Transferencia', 'Cheque', 'Credito'] as PaymentMethod[]).map((m) => (
+                  <Button 
+                    key={m}
+                    variant={newPaymentMethod === m ? 'default' : 'outline'} 
+                    size="sm" 
+                    onClick={() => setNewPaymentMethod(m)} 
+                    className="h-9 text-[10px] font-bold rounded-xl"
+                  >
+                    {m}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+             <Button variant="ghost" onClick={() => setIsCorrectionOpen(false)} className="font-bold">Cancelar</Button>
+             <Button 
+               disabled={isProcessing} 
+               onClick={handleApplyCorrection}
+               className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl"
+             >
+               {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={16} />}
+               APLICAR CORRECCIÓN
+             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
