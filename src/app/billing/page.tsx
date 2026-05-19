@@ -28,7 +28,12 @@ import {
   Settings2,
   Edit3,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  FileMinus,
+  FilePlus,
+  PackageSearch,
+  Undo2,
+  ArrowUpCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -92,6 +97,10 @@ export default function BillingPage() {
   // Expense Modal State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Otros' });
+
+  // Nota de Credito/Debito States
+  const [adjustmentSearch, setAdjustmentSearch] = useState('');
+  const [selectedSaleForAdjustment, setSelectedSaleForAdjustment] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -330,6 +339,37 @@ export default function BillingPage() {
     setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF');
   };
 
+  const filteredSalesForAdjustment = useMemo(() => {
+    if (!adjustmentSearch || !salesAll) return [];
+    return salesAll.filter((s: any) => 
+      s.customer.toLowerCase().includes(adjustmentSearch.toLowerCase()) || 
+      s.id.toLowerCase().includes(adjustmentSearch.toLowerCase())
+    );
+  }, [adjustmentSearch, salesAll]);
+
+  const handleCreateAdjustmentNote = async (type: 'CREDITO' | 'DEBITO', reason: 'PRECIO' | 'DEVOLUCION') => {
+    if (!selectedSaleForAdjustment) return;
+    setIsProcessing(true);
+    try {
+      await addDoc(collection(db, 'adjustment_notes'), {
+        saleId: selectedSaleForAdjustment.id,
+        customer: selectedSaleForAdjustment.customer,
+        type,
+        reason,
+        amount: type === 'CREDITO' ? selectedSaleForAdjustment.total : 0, // Placeholder
+        timestamp: new Date().toISOString(),
+        status: 'EMITIDA'
+      });
+      toast({ title: `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida`, description: "Documento registrado correctamente." });
+      setSelectedSaleForAdjustment(null);
+      setAdjustmentSearch('');
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el ajuste." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-6">
@@ -339,7 +379,7 @@ export default function BillingPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">NexWay Facturación</h1>
-            <p className="text-slate-500 text-sm">Terminal de punto de venta y cierre de caja</p>
+            <p className="text-slate-500 text-sm">Terminal de punto de venta y gestión documental</p>
           </div>
         </div>
       </div>
@@ -349,6 +389,12 @@ export default function BillingPage() {
           <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 h-auto flex-wrap">
             <TabsTrigger value="facturacion" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <ShoppingCart size={16} className="mr-2" /> Nueva Venta
+            </TabsTrigger>
+            <TabsTrigger value="nota_credito" className="rounded-xl data-[state=active]:bg-rose-600 data-[state=active]:text-white px-6 py-2">
+              <FileMinus size={16} className="mr-2" /> Nota de Crédito
+            </TabsTrigger>
+            <TabsTrigger value="nota_debito" className="rounded-xl data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-6 py-2">
+              <FilePlus size={16} className="mr-2" /> Nota de Débito
             </TabsTrigger>
             <TabsTrigger value="historial" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
               <History size={16} className="mr-2" /> Ventas del Día
@@ -513,6 +559,166 @@ export default function BillingPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="nota_credito" className="space-y-6 outline-none">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-5 space-y-4">
+                 <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                    <CardHeader className="bg-rose-600 text-white p-6">
+                       <CardTitle className="text-lg font-bold flex items-center gap-2"><FileMinus size={20}/> Emisión de Nota de Crédito</CardTitle>
+                       <CardDescription className="text-rose-100">Ajuste de precio o devolución de mercadería</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                       <div className="space-y-4">
+                          <div className="space-y-2">
+                             <Label className="text-[10px] font-bold uppercase text-slate-400">Buscar Factura / CCF</Label>
+                             <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <Input 
+                                  placeholder="Nombre cliente o ID venta..." 
+                                  value={adjustmentSearch}
+                                  onChange={e => setAdjustmentSearch(e.target.value)}
+                                  className="h-10 pl-9 rounded-xl bg-slate-50"
+                                />
+                             </div>
+                             {filteredSalesForAdjustment.length > 0 && !selectedSaleForAdjustment && (
+                               <ScrollArea className="h-40 border rounded-xl mt-2 bg-white">
+                                  {filteredSalesForAdjustment.map((s: any) => (
+                                    <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-slate-50 cursor-pointer">
+                                       <p className="text-[11px] font-bold">{s.customer}</p>
+                                       <p className="text-[9px] text-slate-400">{new Date(s.timestamp).toLocaleDateString()} - ${s.total.toFixed(2)}</p>
+                                    </div>
+                                  ))}
+                               </ScrollArea>
+                             )}
+                          </div>
+
+                          {selectedSaleForAdjustment && (
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in zoom-in-95">
+                               <div className="flex justify-between items-center">
+                                  <span className="text-[10px] font-bold text-slate-400">VENTA SELECCIONADA</span>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSaleForAdjustment(null)}><XCircle size={14}/></Button>
+                               </div>
+                               <p className="text-xs font-bold text-slate-900">{selectedSaleForAdjustment.customer}</p>
+                               <p className="text-sm font-black text-rose-600">${selectedSaleForAdjustment.total.toFixed(2)}</p>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-4">
+                             <Button 
+                               variant="outline" 
+                               className="h-20 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50"
+                               disabled={!selectedSaleForAdjustment}
+                               onClick={() => handleCreateAdjustmentNote('CREDITO', 'PRECIO')}
+                             >
+                                <ArrowDownCircle size={20} className="text-rose-500" />
+                                <span className="text-[10px] font-bold uppercase">Por Precio</span>
+                             </Button>
+                             <Button 
+                               variant="outline" 
+                               className="h-20 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50"
+                               disabled={!selectedSaleForAdjustment}
+                               onClick={() => handleCreateAdjustmentNote('CREDITO', 'DEVOLUCION')}
+                             >
+                                <Undo2 size={20} className="text-rose-500" />
+                                <span className="text-[10px] font-bold uppercase">Por Devolución</span>
+                             </Button>
+                          </div>
+                       </div>
+                    </CardContent>
+                 </Card>
+              </div>
+              <div className="lg:col-span-7">
+                 <div className="bg-blue-50 border border-blue-100 p-8 rounded-3xl space-y-4">
+                    <h3 className="text-lg font-bold text-blue-900 flex items-center gap-2"><AlertTriangle size={20}/> Guía de Ajustes</h3>
+                    <div className="space-y-4 text-sm text-blue-800 leading-relaxed">
+                       <p><b>Por Devolución:</b> El sistema reintegrará automáticamente las unidades de los productos seleccionados al Inventario Maestro.</p>
+                       <p><b>Por Precio:</b> No afecta el stock, solo genera un crédito financiero a favor del cliente que puede usarse en futuras compras o disminuir saldos pendientes.</p>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="nota_debito" className="space-y-6 outline-none">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-5 space-y-4">
+                 <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                    <CardHeader className="bg-emerald-600 text-white p-6">
+                       <CardTitle className="text-lg font-bold flex items-center gap-2"><FilePlus size={20}/> Emisión de Nota de Débito</CardTitle>
+                       <CardDescription className="text-emerald-100">Aumentos de precio o cargos adicionales</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                       <div className="space-y-4">
+                          <div className="space-y-2">
+                             <Label className="text-[10px] font-bold uppercase text-slate-400">Vincular a Documento</Label>
+                             <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <Input 
+                                  placeholder="Buscar venta..." 
+                                  value={adjustmentSearch}
+                                  onChange={e => setAdjustmentSearch(e.target.value)}
+                                  className="h-10 pl-9 rounded-xl bg-slate-50"
+                                />
+                             </div>
+                             {filteredSalesForAdjustment.length > 0 && !selectedSaleForAdjustment && (
+                               <ScrollArea className="h-40 border rounded-xl mt-2 bg-white">
+                                  {filteredSalesForAdjustment.map((s: any) => (
+                                    <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-slate-50 cursor-pointer">
+                                       <p className="text-[11px] font-bold">{s.customer}</p>
+                                       <p className="text-[9px] text-slate-400">{new Date(s.timestamp).toLocaleDateString()} - ${s.total.toFixed(2)}</p>
+                                    </div>
+                                  ))}
+                               </ScrollArea>
+                             )}
+                          </div>
+
+                          {selectedSaleForAdjustment && (
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in zoom-in-95">
+                               <div className="flex justify-between items-center">
+                                  <span className="text-[10px] font-bold text-slate-400">VENTA SELECCIONADA</span>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSaleForAdjustment(null)}><XCircle size={14}/></Button>
+                               </div>
+                               <p className="text-xs font-bold text-slate-900">{selectedSaleForAdjustment.customer}</p>
+                               <p className="text-sm font-black text-emerald-600">${selectedSaleForAdjustment.total.toFixed(2)}</p>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-4">
+                             <Button 
+                               variant="outline" 
+                               className="h-20 rounded-2xl flex flex-col gap-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50"
+                               disabled={!selectedSaleForAdjustment}
+                               onClick={() => handleCreateAdjustmentNote('DEBITO', 'PRECIO')}
+                             >
+                                <ArrowUpCircle size={20} className="text-emerald-500" />
+                                <span className="text-[10px] font-bold uppercase">Aumento Precio</span>
+                             </Button>
+                             <Button 
+                               variant="outline" 
+                               className="h-20 rounded-2xl flex flex-col gap-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50"
+                               disabled={!selectedSaleForAdjustment}
+                               onClick={() => handleCreateAdjustmentNote('DEBITO', 'PRECIO')} // Reusing for "Otros"
+                             >
+                                <Receipt size={20} className="text-emerald-500" />
+                                <span className="text-[10px] font-bold uppercase">Cargos Varios</span>
+                             </Button>
+                          </div>
+                       </div>
+                    </CardContent>
+                 </Card>
+              </div>
+              <div className="lg:col-span-7">
+                 <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-3xl space-y-4">
+                    <h3 className="text-lg font-bold text-emerald-900 flex items-center gap-2"><CheckCircle2 size={20}/> Uso de Notas de Débito</h3>
+                    <div className="space-y-4 text-sm text-emerald-800 leading-relaxed">
+                       <p>Utilice este documento cuando necesite incrementar el valor de una factura ya emitida por errores de cálculo o cargos financieros no previstos.</p>
+                       <p><b>Legal:</b> Las Notas de Débito incrementan el IVA Débito Fiscal de la empresa y la cuenta por cobrar del cliente.</p>
+                    </div>
+                 </div>
               </div>
             </div>
           </TabsContent>
