@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Package, 
   Plus, 
@@ -13,7 +13,12 @@ import {
   Settings2,
   Loader2,
   Zap,
-  Tag
+  Tag,
+  FileJson,
+  ArrowRightLeft,
+  CheckCircle2,
+  Link2,
+  Info
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,12 +27,20 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useRouter } from 'next/navigation';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+interface SupplierItem {
+  code: string;
+  name: string;
+  mappedInternalSku?: string;
+}
 
 export default function InventoryMasterPage() {
   const db = useFirestore();
@@ -37,6 +50,11 @@ export default function InventoryMasterPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState('Todas');
   
+  // Vinculación States
+  const [supplierItems, setSupplierItems] = useState<SupplierItem[]>([]);
+  const [mappings, setMappings] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
@@ -53,9 +71,11 @@ export default function InventoryMasterPage() {
   // Estabilizar consultas
   const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
   const warehousesQuery = useMemo(() => collection(db, 'warehouses'), [db]);
+  const mappingsQuery = useMemo(() => collection(db, 'supplier_mappings'), [db]);
 
   const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryQuery);
   const { data: warehouses } = useCollection<any>(warehousesQuery);
+  const { data: savedMappings } = useCollection<any>(mappingsQuery);
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +98,7 @@ export default function InventoryMasterPage() {
       sku: productForm.sku,
       name: productForm.name,
       category: productForm.category,
-      price: 0, // Precio base en 0, se puede definir en otros módulos o editar luego
+      price: 0,
       quantity: 0,
       createdAt: new Date().toISOString()
     };
@@ -140,6 +160,73 @@ export default function InventoryMasterPage() {
     toast({ title: "Bodega Eliminada", description: "Se ha removido la bodega del sistema." });
   };
 
+  const handleJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        let items: SupplierItem[] = [];
+
+        // Soporte DTE Hacienda SV
+        if (json.cuerpoDocumento) {
+          items = json.cuerpoDocumento.map((item: any) => ({
+            code: item.codigo || item.sku || 'S/C',
+            name: item.descripcion || item.nombre || 'Sin descripción'
+          }));
+        } 
+        // Formato Array Simple
+        else if (Array.isArray(json)) {
+          items = json.map((item: any) => ({
+            code: item.codigo || item.code || item.sku || 'S/C',
+            name: item.descripcion || item.name || 'Sin descripción'
+          }));
+        } else {
+          toast({ variant: "destructive", title: "Formato Inválido", description: "El JSON no tiene una estructura compatible." });
+          return;
+        }
+
+        setSupplierItems(items);
+        
+        // Cargar mapeos existentes sugeridos
+        const initialMappings: Record<string, string> = {};
+        items.forEach(item => {
+          const existing = savedMappings?.find((m: any) => m.supplierCode === item.code);
+          if (existing) {
+            initialMappings[item.code] = existing.internalSku;
+          }
+        });
+        setMappings(initialMappings);
+
+        toast({ title: "JSON Cargado", description: `Se encontraron ${items.length} productos del proveedor.` });
+      } catch (error) {
+        toast({ variant: "destructive", title: "Error al leer archivo" });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const saveMappings = async () => {
+    setLoading(true);
+    try {
+      for (const [supCode, intSku] of Object.entries(mappings)) {
+        // Usar el código del proveedor como ID de documento para evitar duplicados del mismo proveedor
+        await setDoc(doc(db, 'supplier_mappings', supCode), {
+          supplierCode: supCode,
+          internalSku: intSku,
+          updatedAt: new Date().toISOString()
+        });
+      }
+      toast({ title: "Vinculaciones Guardadas", description: "Los códigos han sido asociados correctamente." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al guardar vinculaciones" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredItems = useMemo(() => {
     if (!inventory) return [];
     return inventory.filter(item => 
@@ -162,7 +249,7 @@ export default function InventoryMasterPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Centro Logístico</h1>
-            <p className="text-slate-500 text-sm">Administración de stock, bodegas y entradas rápidas</p>
+            <p className="text-slate-500 text-sm">Administración de stock, bodegas y vinculación de códigos</p>
           </div>
         </div>
       </div>
@@ -171,20 +258,19 @@ export default function InventoryMasterPage() {
         <Tabs defaultValue="existencia" className="space-y-6">
           <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 h-auto overflow-x-auto">
             <TabsTrigger value="existencia" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
-              <Package size={16} className="mr-2" />
-              Existencias
+              <Package size={16} className="mr-2" /> Existencias
             </TabsTrigger>
             <TabsTrigger value="maestro" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
-              <Tag size={16} className="mr-2" />
-              Maestro (Códigos)
+              <Tag size={16} className="mr-2" /> Maestro (Códigos)
+            </TabsTrigger>
+            <TabsTrigger value="vinculacion" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
+              <ArrowRightLeft size={16} className="mr-2" /> Vinculación Proveedor
             </TabsTrigger>
             <TabsTrigger value="entradas" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
-              <Zap size={16} className="mr-2" />
-              Entrada Rápida
+              <Zap size={16} className="mr-2" /> Entrada Rápida
             </TabsTrigger>
             <TabsTrigger value="config" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
-              <Settings2 size={16} className="mr-2" />
-              Bodegas
+              <Settings2 size={16} className="mr-2" /> Bodegas
             </TabsTrigger>
           </TabsList>
 
@@ -194,8 +280,7 @@ export default function InventoryMasterPage() {
                 <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
                   <CardHeader>
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Warehouse size={18} className="text-blue-600" />
-                      Filtro de Bodega
+                      <Warehouse size={18} className="text-blue-600" /> Filtro de Bodega
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0 pb-4">
@@ -267,12 +352,101 @@ export default function InventoryMasterPage() {
             </div>
           </TabsContent>
 
+          <TabsContent value="vinculacion" className="space-y-6 outline-none">
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-4 space-y-6">
+                   <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                      <CardHeader className="bg-slate-900 text-white p-6">
+                         <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <FileJson size={20} className="text-blue-400" /> Mapeo de Catálogo
+                         </CardTitle>
+                         <CardDescription className="text-slate-400">Vincule códigos de proveedores con su SKU interno</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                         <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl space-y-2">
+                            <div className="flex items-center gap-2 text-blue-800 font-bold">
+                               <Info size={16} />
+                               <span className="text-xs uppercase tracking-tight">Instrucciones</span>
+                            </div>
+                            <p className="text-[10px] text-blue-700 leading-relaxed">
+                               Cargue el JSON del proveedor (o un DTE oficial). El sistema mostrará los códigos que ellos usan para que usted los asocie a sus códigos autorizados de NexWay.
+                            </p>
+                         </div>
+                         
+                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleJsonUpload} />
+                         <Button 
+                            className="w-full h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl font-bold shadow-lg"
+                            onClick={() => fileInputRef.current?.click()}
+                         >
+                            <FileJson className="mr-2" size={20} /> CARGAR LISTA PROVEEDOR
+                         </Button>
+
+                         {supplierItems.length > 0 && (
+                            <Button 
+                               className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 rounded-2xl font-bold shadow-lg mt-2"
+                               onClick={saveMappings}
+                               disabled={loading}
+                            >
+                               {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={20} />}
+                               GUARDAR VINCULACIONES
+                            </Button>
+                         )}
+                      </CardContent>
+                   </Card>
+                </div>
+
+                <div className="lg:col-span-8">
+                   <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                      <Table>
+                         <TableHeader className="bg-slate-50">
+                            <TableRow>
+                               <TableHead className="px-6 text-[10px] font-black uppercase">Código Proveedor</TableHead>
+                               <TableHead className="text-[10px] font-black uppercase">Descripción Proveedor</TableHead>
+                               <TableHead className="text-[10px] font-black uppercase">Vincular a SKU Interno</TableHead>
+                            </TableRow>
+                         </TableHeader>
+                         <TableBody>
+                            {supplierItems.length === 0 ? (
+                               <TableRow>
+                                  <TableCell colSpan={3} className="text-center py-24 text-slate-400 italic">
+                                     Cargue un archivo JSON para comenzar el mapeo.
+                                  </TableCell>
+                               </TableRow>
+                            ) : supplierItems.map((item, idx) => (
+                               <TableRow key={idx}>
+                                  <TableCell className="px-6 font-mono text-[11px] font-bold text-slate-600">{item.code}</TableCell>
+                                  <TableCell className="text-xs text-slate-500 font-medium">{item.name}</TableCell>
+                                  <TableCell className="pr-6">
+                                     <Select 
+                                        value={mappings[item.code] || ""} 
+                                        onValueChange={(val) => setMappings(prev => ({...prev, [item.code]: val}))}
+                                     >
+                                        <SelectTrigger className="h-9 rounded-xl text-[10px] font-bold bg-slate-50 border-slate-100">
+                                           <SelectValue placeholder="Seleccione SKU Interno..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                           {inventory?.map((inv: any) => (
+                                              <SelectItem key={inv.id} value={inv.sku} className="text-xs">
+                                                 {inv.sku} - {inv.name}
+                                              </SelectItem>
+                                           ))}
+                                        </SelectContent>
+                                     </Select>
+                                  </TableCell>
+                               </TableRow>
+                            ))}
+                         </TableBody>
+                      </Table>
+                   </Card>
+                </div>
+             </div>
+          </TabsContent>
+
           <TabsContent value="maestro" className="grid grid-cols-1 lg:grid-cols-3 gap-8 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
               <CardHeader>
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Tag size={20} className="text-blue-600" />
-                  Autorizar Nuevo Código
+                  <Tag size={20} className="text-blue-600" /> Autorizar Nuevo Código
                 </CardTitle>
                 <CardDescription>Definición base del SKU en el sistema</CardDescription>
               </CardHeader>
@@ -338,8 +512,7 @@ export default function InventoryMasterPage() {
             <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
               <CardHeader>
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Zap size={20} className="text-amber-500" />
-                  Entrada Rápida de Stock
+                  <Zap size={20} className="text-amber-500" /> Entrada Rápida de Stock
                 </CardTitle>
                 <CardDescription>
                   Ingreso inmediato sin factura (para emergencias). 
@@ -393,8 +566,7 @@ export default function InventoryMasterPage() {
             <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
               <CardHeader>
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Warehouse size={20} className="text-blue-600" />
-                  Nueva Bodega
+                  <Warehouse size={20} className="text-blue-600" /> Nueva Bodega
                 </CardTitle>
                 <CardDescription>Defina las zonas de descarga para el Registro de Compra</CardDescription>
               </CardHeader>
