@@ -21,9 +21,10 @@ import {
   Wallet,
   Landmark,
   Building2,
-  DollarSign
+  DollarSign,
+  Info
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -224,44 +225,84 @@ export default function PurchasesPage() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const json = JSON.parse(e.target?.result as string);
-          if (Array.isArray(json)) {
-             let count = 0;
-             const newItems: PurchaseItem[] = [...purchaseItems];
-             json.forEach(item => {
-               const product = inventory?.find((p: any) => p.sku === item.sku?.toUpperCase());
-               if (product) {
-                 const existingIdx = newItems.findIndex(ni => ni.sku === product.sku);
-                 const qty = parseInt(item.quantity) || 0;
-                 const price = parseFloat(item.price) || 0;
-                 if (existingIdx > -1) {
-                   newItems[existingIdx].quantity += qty;
-                   newItems[existingIdx].cost = price;
-                 } else {
-                   newItems.push({
-                     id: product.id,
-                     sku: product.sku,
-                     name: product.name,
-                     quantity: qty,
-                     cost: price
-                   });
-                 }
-                 count++;
-               }
-             });
-             setPurchaseItems(newItems);
-             toast({ title: "Carga Masiva Exitosa", description: `Se añadieron ${count} productos válidos.` });
-          }
-        } catch (err) {
-          toast({ variant: "destructive", title: "Error", description: "Formato JSON inválido." });
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        let itemsToLoad: any[] = [];
+        let detectedCount = 0;
+
+        // Lógica DTE El Salvador
+        if (json.identificacion && json.emisor && json.resumen) {
+          setSupplierName(json.emisor.nombre || '');
+          setGenerationCode(json.identificacion.codigoGeneracion || '');
+          setDocType(json.identificacion.tipoDte === '03' ? 'CCF' : 'FACTURA');
+          
+          json.cuerpoDocumento?.forEach((item: any) => {
+            // Intentar buscar SKU por código o descripción en el inventario maestro
+            const product = inventory?.find((p: any) => 
+              p.sku === (item.codigo || '').toUpperCase() || 
+              p.name.toLowerCase() === (item.descripcion || '').toLowerCase()
+            );
+
+            if (product) {
+              itemsToLoad.push({
+                id: product.id,
+                sku: product.sku,
+                name: product.name,
+                quantity: item.cantidad || 0,
+                cost: item.precioUnitario || 0
+              });
+              detectedCount++;
+            }
+          });
+          toast({ title: "DTE Detectado", description: `Se identificó proveedor y ${detectedCount} productos del catálogo.` });
+        } 
+        // Lógica Formato Simple (Array)
+        else if (Array.isArray(json)) {
+          json.forEach(item => {
+            const product = inventory?.find((p: any) => p.sku === item.sku?.toUpperCase());
+            if (product) {
+              itemsToLoad.push({
+                id: product.id,
+                sku: product.sku,
+                name: product.name,
+                quantity: parseInt(item.quantity) || 0,
+                cost: parseFloat(item.price) || 0
+              });
+              detectedCount++;
+            }
+          });
+          toast({ title: "JSON Simple Cargado", description: `Se añadieron ${detectedCount} productos válidos.` });
+        } else {
+          toast({ variant: "destructive", title: "Formato Desconocido", description: "El archivo no coincide con el estándar DTE SV ni con una lista simple." });
+          return;
         }
-      };
-      reader.readAsText(file);
-    }
+
+        if (itemsToLoad.length > 0) {
+          setPurchaseItems(prev => {
+            const newList = [...prev];
+            itemsToLoad.forEach(newItem => {
+              const idx = newList.findIndex(i => i.sku === newItem.sku);
+              if (idx > -1) {
+                newList[idx].quantity += newItem.quantity;
+                newList[idx].cost = newItem.cost;
+              } else {
+                newList.push(newItem);
+              }
+            });
+            return newList;
+          });
+        }
+      } catch (err) {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo leer el archivo JSON." });
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -272,8 +313,8 @@ export default function PurchasesPage() {
             <ArrowLeft className="text-slate-600" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Registro de Compra Operativa</h1>
-            <p className="text-slate-500 text-sm">Control de ingresos, bodegas y términos de crédito</p>
+            <h1 className="text-2xl font-bold text-slate-900 font-headline">Registro de Compra Operativa</h1>
+            <p className="text-slate-500 text-sm">Carga masiva de DTE y control de ingresos a stock</p>
           </div>
         </div>
       </div>
@@ -300,8 +341,8 @@ export default function PurchasesPage() {
                     <Input 
                       placeholder="Seleccione proveedor..." 
                       value={supplierName}
-                      readOnly
-                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                      onChange={e => setSupplierName(e.target.value)}
+                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold"
                     />
                   </div>
                   <Popover>
@@ -382,7 +423,7 @@ export default function PurchasesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-400">Factura / Cód. Generación</Label>
+                <Label className="text-[10px] font-black uppercase text-slate-400">DTE / Cód. Generación</Label>
                 <div className="relative">
                   <FileCode className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                   <Input 
@@ -396,36 +437,34 @@ export default function PurchasesPage() {
 
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                  <Label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Forma de Pago</Label>
-                 <div className="grid grid-cols-1 gap-2">
-                    <div className="flex gap-2">
-                      <Button 
-                        variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setPaymentMethod('Efectivo')}
-                        className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Efectivo' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
-                      >
-                        <Wallet size={12} className="mr-1.5" />
-                        Efectivo
-                      </Button>
-                      <Button 
-                        variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setPaymentMethod('Transferencia')}
-                        className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Transferencia' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
-                      >
-                        <Landmark size={12} className="mr-1.5" />
-                        Transf.
-                      </Button>
-                      <Button 
-                        variant={paymentMethod === 'Credito' ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setPaymentMethod('Credito')}
-                        className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Credito' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
-                      >
-                        <CreditCard size={12} className="mr-1.5" />
-                        Crédito
-                      </Button>
-                    </div>
+                 <div className="flex gap-2">
+                    <Button 
+                      variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} 
+                      size="sm" 
+                      onClick={() => setPaymentMethod('Efectivo')}
+                      className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Efectivo' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
+                    >
+                      <Wallet size={12} className="mr-1.5" />
+                      Efectivo
+                    </Button>
+                    <Button 
+                      variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} 
+                      size="sm" 
+                      onClick={() => setPaymentMethod('Transferencia')}
+                      className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Transferencia' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
+                    >
+                      <Landmark size={12} className="mr-1.5" />
+                      Transf.
+                    </Button>
+                    <Button 
+                      variant={paymentMethod === 'Credito' ? 'default' : 'outline'} 
+                      size="sm" 
+                      onClick={() => setPaymentMethod('Credito')}
+                      className={`flex-1 h-9 text-[9px] font-bold rounded-xl transition-all ${paymentMethod === 'Credito' ? 'shadow-md' : 'bg-white border-slate-200 text-slate-600'}`}
+                    >
+                      <CreditCard size={12} className="mr-1.5" />
+                      Crédito
+                    </Button>
                  </div>
                  {paymentMethod === 'Credito' && (
                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 pt-2 border-t border-slate-200">
@@ -449,8 +488,33 @@ export default function PurchasesPage() {
           </Card>
 
           <Card className="border-none shadow-sm rounded-3xl bg-white p-6">
-            <Label className="text-[10px] font-black uppercase text-slate-400 mb-4 block tracking-widest">Agregar Producto</Label>
-            <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cargar Documento</Label>
+               <Popover>
+                  <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><Info size={14} /></Button></PopoverTrigger>
+                  <PopoverContent className="w-64 text-[10px] space-y-2">
+                     <p className="font-bold">Formatos Soportados:</p>
+                     <ul className="list-disc pl-4 space-y-1">
+                        <li><b>DTE Hacienda SV:</b> Extrae automáticamente proveedor, código de generación y productos del cuerpo del documento.</li>
+                        <li><b>JSON Simple:</b> Un array de objetos con <code className="bg-slate-100 p-0.5 rounded">sku</code>, <code className="bg-slate-100 p-0.5 rounded">quantity</code> y <code className="bg-slate-100 p-0.5 rounded">price</code>.</li>
+                     </ul>
+                  </PopoverContent>
+               </Popover>
+            </div>
+            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".json" />
+            <Button 
+              className="w-full h-14 bg-slate-900 rounded-2xl font-bold shadow-xl shadow-slate-200 flex flex-col items-center justify-center gap-0.5" 
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="flex items-center gap-2">
+                 <FileJson size={20} />
+                 <span>IMPORTAR JSON / DTE</span>
+              </div>
+              <span className="text-[9px] opacity-60 font-medium">Soporta Ministerio de Hacienda SV</span>
+            </Button>
+            
+            <div className="mt-8 pt-6 border-t border-slate-50 space-y-4">
+              <Label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest">Agregar Manualmente</Label>
               <div className="grid grid-cols-4 gap-2">
                 <div className="col-span-2 space-y-1">
                   <Label className="text-[9px] font-bold uppercase text-slate-400">SKU</Label>
@@ -483,28 +547,16 @@ export default function PurchasesPage() {
                   />
                 </div>
               </div>
-              <Button onClick={handleAddItem} className="w-full h-12 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-white shadow-lg">
-                <Plus size={18} className="mr-2" />
+              <Button onClick={handleAddItem} variant="outline" className="w-full h-10 border-blue-200 text-blue-600 rounded-xl font-bold">
+                <Plus size={16} className="mr-2" />
                 Añadir a la Lista
               </Button>
-            </div>
-            
-            <div className="mt-6 pt-6 border-t border-slate-50">
-               <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".json" />
-               <Button 
-                variant="outline" 
-                className="w-full h-12 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:bg-slate-50 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-               >
-                 <FileJson size={18} className="mr-2" />
-                 Carga Masiva (JSON)
-               </Button>
             </div>
           </Card>
         </div>
 
         <div className="lg:col-span-8 space-y-6">
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden h-[500px] flex flex-col">
+          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden h-[550px] flex flex-col">
             <CardHeader className="bg-slate-50 border-b border-slate-100 px-6 py-4">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
@@ -533,7 +585,7 @@ export default function PurchasesPage() {
                   {purchaseItems.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-20 text-slate-400 italic text-xs">
-                        No hay productos seleccionados para esta compra.
+                        No hay productos seleccionados. Importe un DTE o agréguelos manualmente.
                       </TableCell>
                     </TableRow>
                   ) : purchaseItems.map((item) => (
@@ -591,3 +643,4 @@ export default function PurchasesPage() {
     </div>
   );
 }
+
