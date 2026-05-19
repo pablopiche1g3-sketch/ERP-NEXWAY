@@ -25,7 +25,9 @@ import {
   TrendingUp,
   AlertCircle,
   Package,
-  FileCode
+  FileCode,
+  FileUp,
+  Download
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -175,27 +177,47 @@ export default function InstitutionalModulePage() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const data = JSON.parse(event.target?.result as string);
-        if (Array.isArray(data)) {
-          let count = 0;
-          for (const item of data) {
-            await addDoc(purchasesRef, {
-              projectId: selectedProjectId || item.projectId || null,
-              docNumber: item.docNumber || 'S/N',
-              total: parseFloat(item.total) || 0,
-              supplierName: item.supplierName || 'Proveedor Carga Masiva',
-              date: item.date || new Date().toISOString().split('T')[0],
-              items: item.items || 'Carga Masiva JSON',
-              createdAt: new Date().toISOString()
-            });
-            count++;
-          }
-          toast({ title: "Carga Exitosa", description: `Se importaron ${count} registros de costos.` });
-        } else {
-          toast({ variant: "destructive", title: "Formato Incorrecto", description: "El JSON debe ser una lista de objetos." });
+        const rawContent = event.target?.result as string;
+        const json = JSON.parse(rawContent);
+        
+        let purchasesToProcess: any[] = [];
+
+        // Lógica de Mapeo DTE El Salvador (Ministerio de Hacienda)
+        // El DTE suele tener una estructura: { identificacion: {...}, emisor: {...}, resumen: {...} }
+        if (json.identificacion && json.emisor && json.resumen) {
+          purchasesToProcess = [{
+            docNumber: json.identificacion.codigoGeneracion || json.identificacion.numeroControl || 'DTE-SV',
+            total: json.resumen.totalPagar || json.resumen.montoTotalOperacion || 0,
+            supplierName: json.emisor.nombre || 'Proveedor DTE',
+            date: json.identificacion.fecEmi || new Date().toISOString().split('T')[0],
+            items: json.cuerpoDocumento?.map((item: any) => `${item.cantidad} ${item.descripcion}`).join(', ') || 'Compra DTE'
+          }];
+        } 
+        // Lógica para listas de objetos (Carga NexWay Simple)
+        else if (Array.isArray(json)) {
+          purchasesToProcess = json;
+        } 
+        else {
+          toast({ variant: "destructive", title: "Formato Desconocido", description: "El JSON no coincide con el estándar DTE SV ni con el formato simple." });
+          return;
         }
+
+        let count = 0;
+        for (const item of purchasesToProcess) {
+          await addDoc(purchasesRef, {
+            projectId: selectedProjectId || item.projectId || null,
+            docNumber: item.docNumber || item.numeroDocumento || 'S/N',
+            total: parseFloat(item.total) || 0,
+            supplierName: item.supplierName || item.nombreProveedor || 'Proveedor Externo',
+            date: item.date || new Date().toISOString().split('T')[0],
+            items: item.items || 'Carga vía JSON',
+            createdAt: new Date().toISOString()
+          });
+          count++;
+        }
+        toast({ title: "Carga Exitosa", description: `Se importaron ${count} registros de costos al sistema.` });
       } catch (error) {
-        toast({ variant: "destructive", title: "Error de lectura", description: "Archivo JSON no válido." });
+        toast({ variant: "destructive", title: "Error de lectura", description: "Archivo JSON no válido o corrupto." });
       } finally {
         if (purchaseFileInputRef.current) purchaseFileInputRef.current.value = '';
       }
@@ -212,7 +234,7 @@ export default function InstitutionalModulePage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-headline">NexWay Institucional</h1>
-            <p className="text-slate-500 text-sm">Ventas gubernamentales y gestión de contratos</p>
+            <p className="text-slate-500 text-sm">Ventas gubernamentales y gestión de contratos salvadoreños</p>
           </div>
         </div>
       </div>
@@ -227,7 +249,7 @@ export default function InstitutionalModulePage() {
               <Briefcase size={14} className="mr-2"/> Gestión de Proyectos
             </TabsTrigger>
             <TabsTrigger value="costs" className="rounded-xl px-8 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              <ShoppingBag size={14} className="mr-2"/> Compras y Costos
+              <FileUp size={14} className="mr-2"/> Carga de Costos DTE
             </TabsTrigger>
             <TabsTrigger value="history" className="rounded-xl px-8 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
               <Calculator size={14} className="mr-2"/> Historial y Cuadre
@@ -311,10 +333,10 @@ export default function InstitutionalModulePage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Seleccionar Cliente</Label>
                   <div className="flex gap-2">
-                    <Input placeholder="Nombre del receptor..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10 bg-slate-50 rounded-xl" />
+                    <Input placeholder="Nombre..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10 bg-slate-50 rounded-xl font-bold" />
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="outline" className="h-10 rounded-xl"><Users size={16} /></Button>
+                        <Button variant="outline" className="h-10 rounded-xl px-3"><Users size={16} /></Button>
                       </DialogTrigger>
                       <DialogContent className="rounded-3xl max-w-sm">
                         <DialogHeader><DialogTitle>Cartera de Clientes</DialogTitle></DialogHeader>
@@ -394,7 +416,7 @@ export default function InstitutionalModulePage() {
                          <p className="text-sm font-bold text-emerald-600">${pSales.toFixed(2)}</p>
                        </div>
                        <div>
-                         <p className="text-[9px] font-black uppercase text-slate-400">Costos</p>
+                         <p className="text-[9px] font-black uppercase text-slate-400">Inversión</p>
                          <p className="text-sm font-bold text-rose-500">-${pPurchases.toFixed(2)}</p>
                        </div>
                     </div>
@@ -407,29 +429,50 @@ export default function InstitutionalModulePage() {
           <TabsContent value="costs" className="space-y-4 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white p-12 text-center space-y-6">
               <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto"><FileJson size={32} /></div>
-              <div className="max-w-md mx-auto">
-                <h3 className="text-xl font-bold mb-2">Carga Masiva de Costos</h3>
-                <p className="text-slate-500 text-sm mb-4">Importe sus gastos operativos y facturas de proveedores mediante JSON.</p>
-                <div className="bg-slate-50 p-4 rounded-xl border text-left mb-6">
-                   <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">Formato Requerido</p>
-                   <code className="text-[9px] text-blue-600 font-mono">[{"{"} "docNumber": "...", "total": 0.00, "supplierName": "..." {"}"}]</code>
+              <div className="max-w-xl mx-auto">
+                <h3 className="text-xl font-bold mb-2">Importación de Documentos Tributarios (DTE)</h3>
+                <p className="text-slate-500 text-sm mb-6">NexWay ahora interpreta los JSON oficiales del Ministerio de Hacienda de El Salvador para carga automática de costos.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                   <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-left">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                        <p className="text-xs font-bold text-emerald-900">Formatos Soportados</p>
+                      </div>
+                      <ul className="text-[10px] text-emerald-700 space-y-1 list-disc pl-4">
+                        <li>DTE - Factura Electrónica</li>
+                        <li>DTE - Comprobante Crédito Fiscal</li>
+                        <li>JSON NexWay Estándar</li>
+                      </ul>
+                   </div>
+                   <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-left">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Info size={16} className="text-blue-600" />
+                        <p className="text-xs font-bold text-blue-900">Mapeo Automático</p>
+                      </div>
+                      <p className="text-[10px] text-blue-700 leading-tight">Extraemos el <b>Código de Generación</b>, el <b>Nombre del Emisor</b> y el <b>Total a Pagar</b> directamente del resumen fiscal.</p>
+                   </div>
                 </div>
               </div>
+
               <div className="flex flex-col items-center gap-4">
                 <input type="file" ref={purchaseFileInputRef} onChange={handleBulkPurchaseUpload} className="hidden" accept=".json" />
-                <div className="flex gap-4">
-                  <select 
-                    className="h-12 bg-white border border-slate-200 rounded-xl px-4 text-xs font-bold w-64"
-                    value={selectedProjectId}
-                    onChange={e => setSelectedProjectId(e.target.value)}
-                  >
-                    <option value="">Carga Libre (Sin Proyecto)</option>
-                    {projects?.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  <Button className="bg-slate-900 rounded-xl h-12 px-8 font-bold" onClick={() => purchaseFileInputRef.current?.click()}>
-                    <FileJson size={18} className="mr-2" /> SELECCIONAR ARCHIVO JSON
+                <div className="flex flex-col md:flex-row gap-4 items-center">
+                  <div className="space-y-1 text-left">
+                    <Label className="text-[9px] font-black text-slate-400 uppercase ml-2">Asociar a Proyecto</Label>
+                    <select 
+                      className="h-12 bg-white border border-slate-200 rounded-xl px-4 text-xs font-bold w-64 shadow-sm"
+                      value={selectedProjectId}
+                      onChange={e => setSelectedProjectId(e.target.value)}
+                    >
+                      <option value="">Carga General (Sin Proyecto)</option>
+                      {projects?.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button className="bg-slate-900 rounded-2xl h-14 px-10 font-bold shadow-xl shadow-slate-200" onClick={() => purchaseFileInputRef.current?.click()}>
+                    <FileUp size={20} className="mr-2" /> SELECCIONAR ARCHIVO DTE
                   </Button>
                 </div>
               </div>
@@ -465,7 +508,7 @@ export default function InstitutionalModulePage() {
                 <TableHeader className="bg-slate-50">
                   <TableRow>
                     <TableHead className="px-6">Fecha</TableHead>
-                    <TableHead>Documento</TableHead>
+                    <TableHead>Documento / DTE</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Proyecto</TableHead>
                     <TableHead className="text-right">Total</TableHead>
