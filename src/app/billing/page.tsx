@@ -33,7 +33,8 @@ import {
   FilePlus,
   PackageSearch,
   Undo2,
-  ArrowUpCircle
+  ArrowUpCircle,
+  Ban
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -237,6 +238,35 @@ export default function BillingPage() {
     }
   };
 
+  const handleInvalidateDTE = async (sale: any) => {
+    if (!confirm('¿Está seguro de invalidar este DTE ante el Ministerio de Hacienda? Esta acción reintegrará el stock.')) return;
+    setIsProcessing(true);
+    try {
+      const saleRef = doc(db, 'sales', sale.id);
+      await updateDoc(saleRef, { 
+        status: 'INVALIDADA',
+        invalidatedAt: new Date().toISOString(),
+        invalidatedBy: userProfile?.fullName || 'Admin Demo'
+      });
+      
+      // Devolver stock al inventario
+      for (const item of sale.items) {
+        const product = inventory.find((p: any) => p.id === item.id);
+        if (product) {
+          await updateDoc(doc(db, 'inventory', item.id), { 
+            quantity: (product.quantity || 0) + item.quantity 
+          });
+        }
+      }
+
+      toast({ title: "DTE Invalidado", description: "El documento ha sido invalidado fiscalmente y el stock reintegrado." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo invalidar el DTE." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleOpenCorrection = (sale: any) => {
     setSelectedSale(sale);
     setNewPaymentMethod(sale.paymentMethod);
@@ -289,7 +319,7 @@ export default function BillingPage() {
   const dailyClosingTotals = useMemo(() => {
     const summary = { Efectivo: 0, Tarjeta: 0, Transferencia: 0, Cheque: 0, Credito: 0, total: 0 };
     salesTodayList.forEach((s: any) => {
-      if (s.status !== 'CANCELADA') {
+      if (s.status !== 'CANCELADA' && s.status !== 'INVALIDADA') {
         if (s.paymentMethod in summary) {
           summary[s.paymentMethod as keyof typeof summary] += s.total;
         }
@@ -741,7 +771,7 @@ export default function BillingPage() {
                   {salesTodayList.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="text-center py-20 text-slate-400 italic">No hay ventas registradas hoy.</TableCell></TableRow>
                   ) : salesTodayList.map((sale: any) => (
-                    <TableRow key={sale.id} className={sale.status === 'CANCELADA' ? 'opacity-40 grayscale' : ''}>
+                    <TableRow key={sale.id} className={sale.status === 'CANCELADA' || sale.status === 'INVALIDADA' ? 'opacity-40 grayscale' : ''}>
                       <TableCell className="px-6 text-xs text-slate-500">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[9px] font-black">{sale.docType}</Badge></TableCell>
                       <TableCell className="font-bold text-xs">{sale.customer}</TableCell>
@@ -753,7 +783,11 @@ export default function BillingPage() {
                       </TableCell>
                       <TableCell className="text-right font-black text-slate-900">${sale.total.toFixed(2)}</TableCell>
                       <TableCell className="text-center">
-                        <Badge className={`text-[9px] font-black ${sale.status === 'CANCELADA' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                        <Badge className={`text-[9px] font-black ${
+                          sale.status === 'CANCELADA' ? 'bg-rose-100 text-rose-600' : 
+                          sale.status === 'INVALIDADA' ? 'bg-slate-200 text-slate-600' :
+                          'bg-emerald-100 text-emerald-600'
+                        }`}>
                           {sale.status}
                         </Badge>
                       </TableCell>
@@ -762,8 +796,18 @@ export default function BillingPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
+                            className="h-8 w-8 text-slate-400 hover:text-slate-900 hover:bg-slate-100"
+                            disabled={sale.status === 'CANCELADA' || sale.status === 'INVALIDADA'}
+                            onClick={() => handleInvalidateDTE(sale)}
+                            title="Invalidar DTE (Hacienda)"
+                          >
+                            <Ban size={14} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
                             className="h-8 w-8 text-blue-500 hover:bg-blue-50"
-                            disabled={sale.status === 'CANCELADA'}
+                            disabled={sale.status === 'CANCELADA' || sale.status === 'INVALIDADA'}
                             onClick={() => handleOpenCorrection(sale)}
                             title="Corregir Pago"
                           >
@@ -773,7 +817,7 @@ export default function BillingPage() {
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8 text-rose-500 hover:bg-rose-50"
-                            disabled={sale.status === 'CANCELADA'}
+                            disabled={sale.status === 'CANCELADA' || sale.status === 'INVALIDADA'}
                             onClick={() => handleVoidSale(sale)}
                             title="Anular (Nota de Crédito)"
                           >
