@@ -34,7 +34,10 @@ import {
   PackageSearch,
   Undo2,
   ArrowUpCircle,
-  Ban
+  Ban,
+  TrendingUp,
+  TrendingDown,
+  Scale
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,12 +48,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 interface CartItem {
   id: string;
@@ -91,7 +96,7 @@ export default function BillingPage() {
   const [newPaymentMethod, setNewPaymentMethod] = useState<PaymentMethod>('Efectivo');
 
   // Arqueo Denominations State
-  const [denominations, setDenominations] = useState({
+  const [denominations, setDenominations] = useState<Record<string, number>>({
     b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0,
     c25: 0, c10: 0, c5: 0, c01: 0
   });
@@ -174,87 +179,86 @@ export default function BillingPage() {
     }
 
     setIsProcessing(true);
-    try {
-      await addDoc(collection(db, 'sales'), {
-        items: cart,
-        total: totalCart,
-        timestamp: new Date().toISOString(),
-        docType,
-        paymentMethod,
-        paymentReference: paymentMethod === 'Efectivo' ? `Efectivo: $${parseFloat(cashReceived).toFixed(2)} - Cambio: $${changeDue.toFixed(2)}` : paymentReference,
-        status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'COMPLETADA',
-        customer: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
-        authorizedBy: paymentMethod === 'Credito' ? (userProfile?.fullName || 'Admin Demo') : null
-      });
+    const saleData = {
+      items: cart,
+      total: totalCart,
+      timestamp: new Date().toISOString(),
+      docType,
+      paymentMethod,
+      paymentReference: paymentMethod === 'Efectivo' ? `Efectivo: $${parseFloat(cashReceived).toFixed(2)} - Cambio: $${changeDue.toFixed(2)}` : paymentReference,
+      status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'COMPLETADA',
+      customer: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+      authorizedBy: paymentMethod === 'Credito' ? (userProfile?.fullName || 'Admin Demo') : null
+    };
 
-      for (const item of cart) {
-        const product = inventory.find((p: any) => p.id === item.id);
-        if (product) {
-          updateDoc(doc(db, 'inventory', item.id), { 
-            quantity: Math.max(0, (product.quantity || 0) - item.quantity) 
-          });
+    addDoc(collection(db, 'sales'), saleData)
+      .then(async () => {
+        for (const item of cart) {
+          const product = inventory.find((p: any) => p.id === item.id);
+          if (product) {
+            updateDoc(doc(db, 'inventory', item.id), { 
+              quantity: Math.max(0, (product.quantity || 0) - item.quantity) 
+            });
+          }
         }
-      }
-
-      toast({ title: "Venta Exitosa", description: "Operación procesada correctamente." });
-      setCart([]);
-      setCustomerName('');
-      setPaymentMethod('Efectivo');
-      setIsCheckoutOpen(false);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la venta." });
-    } finally {
-      setIsProcessing(false);
-    }
+        toast({ title: "Venta Exitosa", description: "Operación procesada correctamente." });
+        setCart([]);
+        setCustomerName('');
+        setPaymentMethod('Efectivo');
+        setIsCheckoutOpen(false);
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'sales', operation: 'create', requestResourceData: saleData }));
+      })
+      .finally(() => setIsProcessing(false));
   };
 
   const handleVoidSale = async (sale: any) => {
     setIsProcessing(true);
-    try {
-      const saleRef = doc(db, 'sales', sale.id);
-      await updateDoc(saleRef, { status: 'CANCELADA' });
-
-      for (const item of sale.items) {
-        const product = inventory.find((p: any) => p.id === item.id);
-        if (product) {
-          await updateDoc(doc(db, 'inventory', item.id), { 
-            quantity: (product.quantity || 0) + item.quantity 
-          });
+    const saleRef = doc(db, 'sales', sale.id);
+    updateDoc(saleRef, { status: 'CANCELADA' })
+      .then(async () => {
+        for (const item of sale.items) {
+          const product = inventory.find((p: any) => p.id === item.id);
+          if (product) {
+            await updateDoc(doc(db, 'inventory', item.id), { 
+              quantity: (product.quantity || 0) + item.quantity 
+            });
+          }
         }
-      }
-      toast({ title: "Venta Anulada (Nota de Crédito)", description: "Stock devuelto e historial actualizado." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo anular la venta." });
-    } finally {
-      setIsProcessing(false);
-    }
+        toast({ title: "Venta Anulada", description: "Stock devuelto e historial actualizado." });
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: saleRef.path, operation: 'update', requestResourceData: { status: 'CANCELADA' } }));
+      })
+      .finally(() => setIsProcessing(false));
   };
 
   const handleInvalidateDTE = async (sale: any) => {
-    if (!confirm('¿Está seguro de invalidar este DTE ante el Ministerio de Hacienda? Esta acción reintegrará el stock.')) return;
     setIsProcessing(true);
-    try {
-      const saleRef = doc(db, 'sales', sale.id);
-      await updateDoc(saleRef, { 
-        status: 'INVALIDADA',
-        invalidatedAt: new Date().toISOString(),
-        invalidatedBy: userProfile?.fullName || 'Admin Demo'
-      });
-      
-      for (const item of sale.items) {
-        const product = inventory.find((p: any) => p.id === item.id);
-        if (product) {
-          await updateDoc(doc(db, 'inventory', item.id), { 
-            quantity: (product.quantity || 0) + item.quantity 
-          });
+    const saleRef = doc(db, 'sales', sale.id);
+    const invalidateData = { 
+      status: 'INVALIDADA',
+      invalidatedAt: new Date().toISOString(),
+      invalidatedBy: userProfile?.fullName || 'Admin Demo'
+    };
+
+    updateDoc(saleRef, invalidateData)
+      .then(async () => {
+        for (const item of sale.items) {
+          const product = inventory.find((p: any) => p.id === item.id);
+          if (product) {
+            await updateDoc(doc(db, 'inventory', item.id), { 
+              quantity: (product.quantity || 0) + item.quantity 
+            });
+          }
         }
-      }
-      toast({ title: "DTE Invalidado", description: "El documento ha sido invalidado fiscalmente y el stock reintegrado." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo invalidar el DTE." });
-    } finally {
-      setIsProcessing(false);
-    }
+        toast({ title: "DTE Invalidado", description: "Documento anulado fiscalmente y stock reintegrado." });
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: saleRef.path, operation: 'update', requestResourceData: invalidateData }));
+      })
+      .finally(() => setIsProcessing(false));
   };
 
   const handleLoadSaleDetail = (sale: any) => {
@@ -262,7 +266,7 @@ export default function BillingPage() {
     setCustomerName(sale.customer || '');
     setDocType(sale.docType || 'CF');
     setActiveTab('facturacion');
-    toast({ title: "Documento Cargado", description: "Puede ver los productos en la pestaña de facturación." });
+    toast({ title: "Documento Cargado", description: "Detalles visibles en la terminal." });
   };
 
   const handleOpenCorrection = (sale: any) => {
@@ -274,38 +278,43 @@ export default function BillingPage() {
   const handleApplyCorrection = async () => {
     if (!selectedSale) return;
     setIsProcessing(true);
-    try {
-      const saleRef = doc(db, 'sales', selectedSale.id);
-      await updateDoc(saleRef, { 
-        paymentMethod: newPaymentMethod,
-        correctedAt: new Date().toISOString(),
-        correctedBy: userProfile?.fullName || 'Admin Demo'
-      });
-      toast({ title: "Corrección Aplicada", description: "El método de pago ha sido actualizado en el arqueo." });
-      setIsCorrectionOpen(false);
-      setSelectedSale(null);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo aplicar la corrección." });
-    } finally {
-      setIsProcessing(false);
-    }
+    const saleRef = doc(db, 'sales', selectedSale.id);
+    const correctionData = { 
+      paymentMethod: newPaymentMethod,
+      correctedAt: new Date().toISOString(),
+      correctedBy: userProfile?.fullName || 'Admin Demo'
+    };
+
+    updateDoc(saleRef, correctionData)
+      .then(() => {
+        toast({ title: "Corrección Aplicada", description: "El arqueo se actualizará automáticamente." });
+        setIsCorrectionOpen(false);
+        setSelectedSale(null);
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: saleRef.path, operation: 'update', requestResourceData: correctionData }));
+      })
+      .finally(() => setIsProcessing(false));
   };
 
   const handleAddExpense = async () => {
     if (!newExpense.description || !newExpense.amount) return;
-    try {
-      await addDoc(collection(db, 'expenses'), {
-        description: newExpense.description,
-        amount: parseFloat(newExpense.amount),
-        category: newExpense.category,
-        timestamp: new Date().toISOString()
+    const expenseData = {
+      description: newExpense.description,
+      amount: parseFloat(newExpense.amount),
+      category: newExpense.category,
+      timestamp: new Date().toISOString()
+    };
+
+    addDoc(collection(db, 'expenses'), expenseData)
+      .then(() => {
+        toast({ title: "Gasto Registrado", description: "Egreso de caja guardado." });
+        setNewExpense({ description: '', amount: '', category: 'Otros' });
+        setIsExpenseModalOpen(false);
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'expenses', operation: 'create', requestResourceData: expenseData }));
       });
-      toast({ title: "Gasto Registrado", description: "El egreso de caja ha sido guardado." });
-      setNewExpense({ description: '', amount: '', category: 'Otros' });
-      setIsExpenseModalOpen(false);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el gasto." });
-    }
   };
 
   const salesTodayList = useMemo(() => {
@@ -353,22 +362,29 @@ export default function BillingPage() {
   const expectedCashBalance = currentCashFloat + dailyClosingTotals.Efectivo - totalExpensesToday;
   const cashDifference = physicalCashTotal - expectedCashBalance;
 
-  const accountsReceivable = useMemo(() => {
-    if (!salesAll) return [];
-    const credits = salesAll.filter((s: any) => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE');
-    const grouped = credits.reduce((acc: any, sale: any) => {
-      const name = sale.customer || 'Consumidor Final';
-      if (!acc[name]) acc[name] = { total: 0, count: 0 };
-      acc[name].total += sale.total;
-      acc[name].count += 1;
-      return acc;
-    }, {});
-    return Object.entries(grouped).map(([name, data]: [string, any]) => ({ name, ...data }));
-  }, [salesAll]);
+  const handleCreateAdjustmentNote = async (type: 'CREDITO' | 'DEBITO', reason: string) => {
+    if (!selectedSaleForAdjustment) return;
+    setIsProcessing(true);
+    const adjustmentData = {
+      saleId: selectedSaleForAdjustment.id,
+      customer: selectedSaleForAdjustment.customer,
+      type,
+      reason,
+      amount: selectedSaleForAdjustment.total, 
+      timestamp: new Date().toISOString(),
+      status: 'EMITIDA'
+    };
 
-  const selectRegisteredCustomer = (c: any) => {
-    setCustomerName(c.name);
-    setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF');
+    addDoc(collection(db, 'adjustment_notes'), adjustmentData)
+      .then(() => {
+        toast({ title: `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida` });
+        setSelectedSaleForAdjustment(null);
+        setAdjustmentSearch('');
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'adjustment_notes', operation: 'create', requestResourceData: adjustmentData }));
+      })
+      .finally(() => setIsProcessing(false));
   };
 
   const filteredSalesForAdjustment = useMemo(() => {
@@ -378,29 +394,6 @@ export default function BillingPage() {
       s.id.toLowerCase().includes(adjustmentSearch.toLowerCase())
     );
   }, [adjustmentSearch, salesAll]);
-
-  const handleCreateAdjustmentNote = async (type: 'CREDITO' | 'DEBITO', reason: 'PRECIO' | 'DEVOLUCION') => {
-    if (!selectedSaleForAdjustment) return;
-    setIsProcessing(true);
-    try {
-      await addDoc(collection(db, 'adjustment_notes'), {
-        saleId: selectedSaleForAdjustment.id,
-        customer: selectedSaleForAdjustment.customer,
-        type,
-        reason,
-        amount: type === 'CREDITO' ? selectedSaleForAdjustment.total : 0, 
-        timestamp: new Date().toISOString(),
-        status: 'EMITIDA'
-      });
-      toast({ title: `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida`, description: "Documento registrado correctamente." });
-      setSelectedSaleForAdjustment(null);
-      setAdjustmentSearch('');
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el ajuste." });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -419,26 +412,24 @@ export default function BillingPage() {
       <div className="max-w-7xl mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 h-auto flex-wrap">
-            <TabsTrigger value="facturacion" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
+            <TabsTrigger value="facturacion" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
               <ShoppingCart size={16} className="mr-2" /> Nueva Venta
             </TabsTrigger>
-            <TabsTrigger value="nota_credito" className="rounded-xl data-[state=active]:bg-rose-600 data-[state=active]:text-white px-6 py-2">
+            <TabsTrigger value="nota_credito" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white">
               <FileMinus size={16} className="mr-2" /> Nota de Crédito
             </TabsTrigger>
-            <TabsTrigger value="nota_debito" className="rounded-xl data-[state=active]:bg-emerald-600 data-[state=active]:text-white px-6 py-2">
+            <TabsTrigger value="nota_debito" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
               <FilePlus size={16} className="mr-2" /> Nota de Débito
             </TabsTrigger>
-            <TabsTrigger value="historial" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
+            <TabsTrigger value="historial" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
               <History size={16} className="mr-2" /> Ventas del Día
             </TabsTrigger>
-            <TabsTrigger value="cierre" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
+            <TabsTrigger value="cierre" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
               <Calculator size={16} className="mr-2" /> Arqueo de Caja
-            </TabsTrigger>
-            <TabsTrigger value="cuentas" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white px-6 py-2">
-              <FileSearch size={16} className="mr-2" /> Estado de Cuenta
             </TabsTrigger>
           </TabsList>
 
+          {/* Terminal de Facturación */}
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 focus-visible:outline-none">
             <div className="lg:col-span-5 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
@@ -515,12 +506,7 @@ export default function BillingPage() {
                       <Button variant={paymentMethod === 'Cheque' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Cheque')} className="h-9 text-[10px] font-bold rounded-xl">
                         <Ticket size={14} className="mr-2" /> Cheque
                       </Button>
-                      <Button 
-                        variant={paymentMethod === 'Credito' ? 'default' : 'outline'} 
-                        size="sm" 
-                        onClick={() => setPaymentMethod('Credito')} 
-                        className="h-9 text-[10px] font-bold rounded-xl"
-                      >
+                      <Button variant={paymentMethod === 'Credito' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Credito')} className="h-9 text-[10px] font-bold rounded-xl">
                         <Clock size={14} className="mr-2" /> Crédito
                       </Button>
                     </div>
@@ -533,43 +519,37 @@ export default function BillingPage() {
             </div>
 
             <div className="lg:col-span-7 space-y-4">
-              <Card className="border-none shadow-sm rounded-2xl bg-white p-4">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Cliente Receptor</Label>
-                    <div className="flex gap-2">
-                      <Input placeholder="Nombre del receptor..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10 bg-slate-50 rounded-xl" />
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="h-10 rounded-xl px-3 border-slate-200">
-                            <Users size={16} className="mr-2 text-blue-600" /> <span className="text-xs font-bold">Cargar</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0" align="end">
-                          <div className="p-3 border-b">
-                            <Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-8 text-xs" />
+              <Card className="border-none shadow-sm rounded-2xl bg-white p-4 flex flex-col md:flex-row gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Cliente Receptor</Label>
+                  <div className="flex gap-2">
+                    <Input placeholder="Nombre..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10 bg-slate-50 rounded-xl font-bold" />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="h-10 rounded-xl px-3 border-slate-200"><Users size={16} /></Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0" align="end">
+                        <div className="p-3 border-b"><Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-8 text-xs" /></div>
+                        <ScrollArea className="h-60">
+                          <div className="p-1">
+                            {filteredCustomers.map((c: any) => (
+                              <div key={c.id} onClick={() => { setCustomerName(c.name); setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF'); }} className="p-3 hover:bg-slate-50 cursor-pointer rounded-lg">
+                                <p className="text-[11px] font-bold">{c.name}</p>
+                                <p className="text-[9px] text-slate-400">NIT: {c.nit || 'C/F'}</p>
+                              </div>
+                            ))}
                           </div>
-                          <ScrollArea className="h-60">
-                            <div className="p-1">
-                              {filteredCustomers.map((c: any) => (
-                                <div key={c.id} onClick={() => selectRegisteredCustomer(c)} className="p-3 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors group">
-                                  <p className="text-[11px] font-bold text-slate-900 group-hover:text-blue-600">{c.name}</p>
-                                  <p className="text-[9px] text-slate-400">NIT: {c.nit || 'C/F'}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                  <div className="w-full md:w-48 space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Tipo de Documento</Label>
-                    <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                      <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="CF">Consumidor Final</SelectItem><SelectItem value="CCF">Crédito Fiscal</SelectItem></SelectContent>
-                    </Select>
-                  </div>
+                </div>
+                <div className="w-full md:w-48 space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Tipo de Documento</Label>
+                  <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="CF">Consumidor Final</SelectItem><SelectItem value="CCF">Crédito Fiscal</SelectItem></SelectContent>
+                  </Select>
                 </div>
               </Card>
 
@@ -595,81 +575,117 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
+          {/* Nota de Crédito */}
           <TabsContent value="nota_credito" className="space-y-6 outline-none">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-5 space-y-4">
-                 <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-                    <CardHeader className="bg-rose-600 text-white p-6">
-                       <CardTitle className="text-lg font-bold flex items-center gap-2"><FileMinus size={20}/> Emisión de Nota de Crédito</CardTitle>
-                       <CardDescription className="text-rose-100">Ajuste de precio o devolución de mercadería</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-6 space-y-6">
-                       <div className="space-y-4">
-                          <div className="space-y-2">
-                             <Label className="text-[10px] font-bold uppercase text-slate-400">Buscar Factura / CCF</Label>
-                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                                <Input 
-                                  placeholder="Nombre cliente o ID venta..." 
-                                  value={adjustmentSearch}
-                                  onChange={e => setAdjustmentSearch(e.target.value)}
-                                  className="h-10 pl-9 rounded-xl bg-slate-50"
-                                />
-                             </div>
-                             {filteredSalesForAdjustment.length > 0 && !selectedSaleForAdjustment && (
-                               <ScrollArea className="h-40 border rounded-xl mt-2 bg-white">
-                                  {filteredSalesForAdjustment.map((s: any) => (
-                                    <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-slate-50 cursor-pointer">
-                                       <p className="text-[11px] font-bold">{s.customer}</p>
-                                       <p className="text-[9px] text-slate-400">{new Date(s.timestamp).toLocaleDateString()} - ${s.total.toFixed(2)}</p>
-                                    </div>
-                                  ))}
-                               </ScrollArea>
-                             )}
-                          </div>
-
-                          {selectedSaleForAdjustment && (
-                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 animate-in fade-in zoom-in-95">
-                               <div className="flex justify-between items-center">
-                                  <span className="text-[10px] font-bold text-slate-400">VENTA SELECCIONADA</span>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSaleForAdjustment(null)}><XCircle size={14}/></Button>
-                               </div>
-                               <p className="text-xs font-bold text-slate-900">{selectedSaleForAdjustment.customer}</p>
-                               <p className="text-sm font-black text-rose-600">${selectedSaleForAdjustment.total.toFixed(2)}</p>
+            <div className="max-w-2xl mx-auto">
+              <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                <CardHeader className="bg-rose-600 text-white p-6">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2"><FileMinus size={20}/> Emisión de Nota de Crédito</CardTitle>
+                  <CardDescription className="text-rose-100">Devolución de mercadería o ajuste de precio a favor del cliente</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">Buscar Venta</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <Input placeholder="Cliente o ID de venta..." value={adjustmentSearch} onChange={e => setAdjustmentSearch(e.target.value)} className="h-10 pl-9 rounded-xl bg-slate-50" />
+                      </div>
+                      {filteredSalesForAdjustment.length > 0 && !selectedSaleForAdjustment && (
+                        <ScrollArea className="h-40 border rounded-xl mt-2 bg-white">
+                          {filteredSalesForAdjustment.map((s: any) => (
+                            <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-slate-50 cursor-pointer">
+                              <p className="text-[11px] font-bold">{s.customer}</p>
+                              <p className="text-[9px] text-slate-400">{new Date(s.timestamp).toLocaleDateString()} - ${s.total.toFixed(2)}</p>
                             </div>
-                          )}
+                          ))}
+                        </ScrollArea>
+                      )}
+                    </div>
 
-                          <div className="grid grid-cols-2 gap-4">
-                             <Button 
-                               variant="outline" 
-                               className="h-20 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50"
-                               disabled={!selectedSaleForAdjustment}
-                               onClick={() => handleCreateAdjustmentNote('CREDITO', 'PRECIO')}
-                             >
-                                <ArrowDownCircle size={20} className="text-rose-500" />
-                                <span className="text-[10px] font-bold uppercase">Por Precio</span>
-                             </Button>
-                             <Button 
-                               variant="outline" 
-                               className="h-20 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50"
-                               disabled={!selectedSaleForAdjustment}
-                               onClick={() => handleCreateAdjustmentNote('CREDITO', 'DEVOLUCION')}
-                             >
-                                <Undo2 size={20} className="text-rose-500" />
-                                <span className="text-[10px] font-bold uppercase">Por Devolución</span>
-                             </Button>
-                          </div>
-                       </div>
-                    </CardContent>
-                 </Card>
-              </div>
+                    {selectedSaleForAdjustment && (
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-400">VENTA SELECCIONADA</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSaleForAdjustment(null)}><XCircle size={14}/></Button>
+                        </div>
+                        <p className="text-xs font-bold">{selectedSaleForAdjustment.customer}</p>
+                        <p className="text-lg font-black text-rose-600">${selectedSaleForAdjustment.total.toFixed(2)}</p>
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <Button variant="outline" className="h-20 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50" onClick={() => handleCreateAdjustmentNote('CREDITO', 'DEVOLUCION')}>
+                            <Undo2 size={20} className="text-rose-500" />
+                            <span className="text-[10px] font-bold uppercase">Por Devolución</span>
+                          </Button>
+                          <Button variant="outline" className="h-20 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50" onClick={() => handleCreateAdjustmentNote('CREDITO', 'PRECIO')}>
+                            <ArrowDownCircle size={20} className="text-rose-500" />
+                            <span className="text-[10px] font-bold uppercase">Por Precio</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
-          <TabsContent value="historial" className="space-y-4 outline-none">
-            <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 text-[10px] font-bold text-blue-700">
-               TIP: Haz doble clic en una fila para ver el detalle de productos en la terminal.
+          {/* Nota de Débito */}
+          <TabsContent value="nota_debito" className="space-y-6 outline-none">
+            <div className="max-w-2xl mx-auto">
+              <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                <CardHeader className="bg-emerald-600 text-white p-6">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2"><FilePlus size={20}/> Emisión de Nota de Débito</CardTitle>
+                  <CardDescription className="text-emerald-100">Cargos adicionales, intereses o aumentos de precio posteriores</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400">Buscar Venta / Cuenta</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <Input placeholder="Buscar por cliente..." value={adjustmentSearch} onChange={e => setAdjustmentSearch(e.target.value)} className="h-10 pl-9 rounded-xl bg-slate-50" />
+                      </div>
+                      {filteredSalesForAdjustment.length > 0 && !selectedSaleForAdjustment && (
+                        <ScrollArea className="h-40 border rounded-xl mt-2 bg-white">
+                          {filteredSalesForAdjustment.map((s: any) => (
+                            <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-slate-50 cursor-pointer">
+                              <p className="text-[11px] font-bold">{s.customer}</p>
+                              <p className="text-[9px] text-slate-400">Venta ID: {s.id.slice(0, 8)} - ${s.total.toFixed(2)}</p>
+                            </div>
+                          ))}
+                        </ScrollArea>
+                      )}
+                    </div>
+
+                    {selectedSaleForAdjustment && (
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-400">RECEPTOR SELECCIONADO</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSaleForAdjustment(null)}><XCircle size={14}/></Button>
+                        </div>
+                        <p className="text-xs font-bold">{selectedSaleForAdjustment.customer}</p>
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <Button variant="outline" className="h-24 rounded-2xl flex flex-col gap-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50" onClick={() => handleCreateAdjustmentNote('DEBITO', 'CARGO_ADICIONAL')}>
+                            <ArrowUpCircle size={20} className="text-emerald-500" />
+                            <span className="text-[10px] font-bold uppercase">Cargo Adicional</span>
+                            <span className="text-[8px] text-slate-400">Intereses o Servicios</span>
+                          </Button>
+                          <Button variant="outline" className="h-24 rounded-2xl flex flex-col gap-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50" onClick={() => handleCreateAdjustmentNote('DEBITO', 'AJUSTE_PRECIO')}>
+                            <TrendingUp size={20} className="text-emerald-500" />
+                            <span className="text-[10px] font-bold uppercase">Ajuste de Precio</span>
+                            <span className="text-[8px] text-slate-400">Aumento de Valor</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
+          </TabsContent>
+
+          {/* Historial de Ventas */}
+          <TabsContent value="historial" className="space-y-4 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
               <Table>
                 <TableHeader className="bg-slate-50">
@@ -684,65 +700,21 @@ export default function BillingPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {salesTodayList.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-20 text-slate-400 italic">No hay ventas registradas hoy.</TableCell></TableRow>
-                  ) : salesTodayList.map((sale: any) => (
-                    <TableRow 
-                      key={sale.id} 
-                      onDoubleClick={() => handleLoadSaleDetail(sale)}
-                      className={`cursor-pointer transition-colors hover:bg-slate-50/80 ${sale.status === 'CANCELADA' || sale.status === 'INVALIDADA' ? 'opacity-40 grayscale' : ''}`}
-                    >
+                  {salesTodayList.map((sale: any) => (
+                    <TableRow key={sale.id} onDoubleClick={() => handleLoadSaleDetail(sale)} className={`cursor-pointer ${sale.status === 'CANCELADA' || sale.status === 'INVALIDADA' ? 'opacity-40 grayscale' : ''}`}>
                       <TableCell className="px-6 text-xs text-slate-500">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[9px] font-black">{sale.docType}</Badge></TableCell>
                       <TableCell className="font-bold text-xs">{sale.customer}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                           <Badge variant="secondary" className="text-[9px] font-bold">{sale.paymentMethod}</Badge>
-                           {sale.correctedAt && <RefreshCw size={10} className="text-blue-500" />}
-                        </div>
-                      </TableCell>
+                      <TableCell><Badge variant="secondary" className="text-[9px] font-bold">{sale.paymentMethod}</Badge></TableCell>
                       <TableCell className="text-right font-black text-slate-900">${sale.total.toFixed(2)}</TableCell>
                       <TableCell className="text-center">
-                        <Badge className={`text-[9px] font-black ${
-                          sale.status === 'CANCELADA' ? 'bg-rose-100 text-rose-600' : 
-                          sale.status === 'INVALIDADA' ? 'bg-slate-200 text-slate-600' :
-                          'bg-emerald-100 text-emerald-600'
-                        }`}>
-                          {sale.status}
-                        </Badge>
+                        <Badge className={`text-[9px] font-black ${sale.status === 'CANCELADA' ? 'bg-rose-100 text-rose-600' : sale.status === 'INVALIDADA' ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-600'}`}>{sale.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right px-6">
                         <div className="flex justify-end gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-slate-400 hover:text-slate-900 hover:bg-slate-100"
-                            disabled={sale.status === 'CANCELADA' || sale.status === 'INVALIDADA'}
-                            onClick={(e) => { e.stopPropagation(); handleInvalidateDTE(sale); }}
-                            title="Invalidar DTE (Hacienda)"
-                          >
-                            <Ban size={14} />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-blue-500 hover:bg-blue-50"
-                            disabled={sale.status === 'CANCELADA' || sale.status === 'INVALIDADA'}
-                            onClick={(e) => { e.stopPropagation(); handleOpenCorrection(sale); }}
-                            title="Corregir Pago"
-                          >
-                            <Edit3 size={14} />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-rose-500 hover:bg-rose-50"
-                            disabled={sale.status === 'CANCELADA' || sale.status === 'INVALIDADA'}
-                            onClick={(e) => { e.stopPropagation(); handleVoidSale(sale); }}
-                            title="Anular (Nota de Crédito)"
-                          >
-                            <XCircle size={14} />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleInvalidateDTE(sale); }}><Ban size={14} /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleOpenCorrection(sale); }}><Edit3 size={14} /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleVoidSale(sale); }}><XCircle size={14} /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -752,15 +724,208 @@ export default function BillingPage() {
             </Card>
           </TabsContent>
 
+          {/* Arqueo de Caja */}
           <TabsContent value="cierre" className="space-y-6 outline-none">
-            {/* Arqueo de Caja content remains the same */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-4 space-y-6">
+                <Card className="border-none shadow-sm rounded-3xl bg-white p-6">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Coins className="text-blue-600" /> Conteo de Efectivo</h3>
+                  <div className="space-y-3">
+                    {Object.entries({
+                      'Billetes $100': 'b100', 'Billetes $50': 'b50', 'Billetes $20': 'b20', 
+                      'Billetes $10': 'b10', 'Billetes $5': 'b5', 'Billetes $1': 'b1',
+                      'Monedas $0.25': 'c25', 'Monedas $0.10': 'c10', 'Monedas $0.05': 'c5', 'Monedas $0.01': 'c01'
+                    }).map(([label, key]) => (
+                      <div key={key} className="flex items-center justify-between gap-4">
+                        <Label className="text-[10px] font-bold text-slate-500 uppercase flex-1">{label}</Label>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          value={denominations[key]} 
+                          onFocus={e => e.target.select()}
+                          onChange={e => setDenominations({...denominations, [key]: parseInt(e.target.value) || 0})}
+                          className="h-8 w-20 text-right font-bold bg-slate-50"
+                        />
+                      </div>
+                    ))}
+                    <div className="pt-4 border-t mt-4 flex justify-between items-center">
+                      <span className="text-sm font-black">TOTAL FÍSICO</span>
+                      <span className="text-xl font-black text-blue-600">${physicalCashTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              <div className="lg:col-span-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <Card className="border-none shadow-sm rounded-3xl bg-slate-900 text-white p-8">
+                      <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-1">Saldo Esperado en Caja</p>
+                      <h2 className="text-4xl font-black mb-6">${expectedCashBalance.toFixed(2)}</h2>
+                      <div className="space-y-3 text-xs opacity-80">
+                         <div className="flex justify-between"><span>Fondo Base:</span><span className="font-bold">+${currentCashFloat.toFixed(2)}</span></div>
+                         <div className="flex justify-between"><span>Ventas Efectivo:</span><span className="font-bold">+${dailyClosingTotals.Efectivo.toFixed(2)}</span></div>
+                         <div className="flex justify-between"><span>Egresos / Gastos:</span><span className="font-bold">-${totalExpensesToday.toFixed(2)}</span></div>
+                      </div>
+                   </Card>
+
+                   <Card className={`border-none shadow-sm rounded-3xl p-8 flex flex-col justify-center ${cashDifference === 0 ? 'bg-white' : cashDifference > 0 ? 'bg-emerald-50 border border-emerald-100' : 'bg-rose-50 border border-rose-100'}`}>
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Diferencia de Arqueo</p>
+                      <h2 className={`text-4xl font-black ${cashDifference === 0 ? 'text-slate-900' : cashDifference > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {cashDifference >= 0 ? '+' : '-'}${Math.abs(cashDifference).toFixed(2)}
+                      </h2>
+                      <p className="text-xs mt-2 font-bold text-slate-500">
+                        {cashDifference === 0 ? 'Caja Cuadrada' : cashDifference > 0 ? 'Sobrante detectado' : 'Faltante en caja'}
+                      </p>
+                   </Card>
+                </div>
+
+                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                   <CardHeader className="border-b bg-slate-50/50">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-sm font-bold">Resumen de Ventas por Método</CardTitle>
+                        <Button variant="outline" size="sm" className="rounded-xl h-8 text-[10px] font-bold" onClick={() => setIsExpenseModalOpen(true)}>
+                          <TrendingDown size={14} className="mr-1 text-rose-500" /> REGISTRAR GASTO
+                        </Button>
+                      </div>
+                   </CardHeader>
+                   <div className="p-0">
+                      <Table>
+                         <TableHeader>
+                            <TableRow>
+                               <TableHead className="px-6 text-[10px] uppercase">Método</TableHead>
+                               <TableHead className="text-right px-6 text-[10px] uppercase">Total Recaudado</TableHead>
+                            </TableRow>
+                         </TableHeader>
+                         <TableBody>
+                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><Wallet size={14}/> Efectivo</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Efectivo.toFixed(2)}</TableCell></TableRow>
+                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><CardIcon size={14}/> Tarjeta</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Tarjeta.toFixed(2)}</TableCell></TableRow>
+                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><Landmark size={14}/> Transferencia</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Transferencia.toFixed(2)}</TableCell></TableRow>
+                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><Clock size={14}/> Crédito (CXC)</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Credito.toFixed(2)}</TableCell></TableRow>
+                            <TableRow className="bg-slate-50"><TableCell className="px-6 font-black">TOTAL DÍA</TableCell><TableCell className="text-right px-6 font-black text-blue-600">${dailyClosingTotals.total.toFixed(2)}</TableCell></TableRow>
+                         </TableBody>
+                      </Table>
+                   </div>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
-      
-      {/* Modals for Checkout, Correction and Expense remain same as previous state */}
+
+      {/* Checkout Modal */}
       <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-        {/* Checkout Modal content */}
+        <DialogContent className="rounded-[2rem] max-w-md p-8">
+          <DialogHeader className="mb-6">
+            <DialogTitle className="text-2xl font-black text-slate-900">Finalizar Operación</DialogTitle>
+            <DialogDescription>Confirme el recibo de fondos y emita el documento.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="bg-slate-900 rounded-3xl p-6 text-white flex justify-between items-center">
+               <div><p className="text-[10px] font-black uppercase opacity-60">Total a Pagar</p><p className="text-3xl font-black text-blue-400">${totalCart.toFixed(2)}</p></div>
+               <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center"><Calculator size={24} /></div>
+            </div>
+
+            {paymentMethod === 'Efectivo' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Efectivo Recibido</Label>
+                  <Input type="number" placeholder="0.00" value={cashReceived} onChange={e => setCashReceived(e.target.value)} className="h-12 text-xl font-bold rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Cambio a Entregar</Label>
+                  <div className="h-12 flex items-center px-4 bg-emerald-50 text-emerald-600 rounded-xl font-black text-xl border border-emerald-100">${changeDue.toFixed(2)}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400">Referencia de Pago ({paymentMethod})</Label>
+                <Input placeholder="No. de transacción, autorización..." value={paymentReference} onChange={e => setPaymentReference(e.target.value)} className="h-12 rounded-xl" />
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-8">
+            <Button className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl" onClick={handleFinalizeSale} disabled={isProcessing}>
+              {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
+              CONFIRMAR VENTA
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Correction Modal */}
+      <Dialog open={isCorrectionOpen} onOpenChange={setIsCorrectionOpen}>
+        <DialogContent className="rounded-3xl max-w-sm">
+           <DialogHeader>
+              <DialogTitle className="text-lg font-bold">Corregir Forma de Pago</DialogTitle>
+              <DialogDescription>Esto ajustará los totales en el arqueo de caja.</DialogDescription>
+           </DialogHeader>
+           <div className="py-4 space-y-4">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                 <p className="text-[10px] font-bold text-slate-400 uppercase">Venta Seleccionada</p>
+                 <p className="text-xs font-bold">{selectedSale?.customer}</p>
+                 <p className="text-sm font-black text-blue-600">${selectedSale?.total.toFixed(2)}</p>
+              </div>
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-bold uppercase text-slate-400">Nuevo Método de Pago</Label>
+                 <Select value={newPaymentMethod} onValueChange={(v: any) => setNewPaymentMethod(v)}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                       <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                       <SelectItem value="Efectivo">Efectivo</SelectItem>
+                       <SelectItem value="Tarjeta">Tarjeta</SelectItem>
+                       <SelectItem value="Transferencia">Transferencia</SelectItem>
+                       <SelectItem value="Cheque">Cheque</SelectItem>
+                    </SelectContent>
+                 </Select>
+              </div>
+           </div>
+           <DialogFooter>
+              <Button className="w-full bg-blue-600 h-12 rounded-xl font-bold" onClick={handleApplyCorrection} disabled={isProcessing}>
+                 APLICAR CORRECCIÓN
+              </Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expense Modal */}
+      <Dialog open={isExpenseModalOpen} onOpenChange={setIsExpenseModalOpen}>
+        <DialogContent className="rounded-3xl max-w-sm">
+           <DialogHeader>
+              <DialogTitle className="text-lg font-bold">Registrar Gasto de Caja</DialogTitle>
+              <DialogDescription>Cualquier salida de efectivo debe ser reportada aquí.</DialogDescription>
+           </DialogHeader>
+           <div className="py-4 space-y-4">
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-bold uppercase text-slate-400">Descripción del Gasto</Label>
+                 <Input placeholder="Ej. Pago de Gasolina..." value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} className="rounded-xl" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">Monto ($)</Label>
+                  <Input type="number" placeholder="0.00" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: e.target.value})} className="rounded-xl font-bold" />
+                </div>
+                <div className="space-y-2">
+                   <Label className="text-[10px] font-bold uppercase text-slate-400">Categoría</Label>
+                   <Select value={newExpense.category} onValueChange={v => setNewExpense({...newExpense, category: v})}>
+                      <SelectTrigger className="rounded-xl h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                         <SelectItem value="Gasolina">Gasolina</SelectItem>
+                         <SelectItem value="Alimentación">Alimentación</SelectItem>
+                         <SelectItem value="Reintegro">Reintegro</SelectItem>
+                         <SelectItem value="Anticipo">Anticipo</SelectItem>
+                         <SelectItem value="Otros">Otros</SelectItem>
+                      </SelectContent>
+                   </Select>
+                </div>
+              </div>
+           </div>
+           <DialogFooter>
+              <Button className="w-full bg-slate-900 h-12 rounded-xl font-bold text-white" onClick={handleAddExpense}>
+                 GUARDAR GASTO
+              </Button>
+           </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );
