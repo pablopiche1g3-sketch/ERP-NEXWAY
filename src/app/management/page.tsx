@@ -28,7 +28,7 @@ export default function ManagementPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [cashFloat, setCashFloat] = useState<string>('300');
+  const [cashFloat, setCashFloat] = useState<string>('0');
 
   // Referencias estables a documentos de configuración global
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
