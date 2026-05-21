@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -12,9 +11,7 @@ import {
   AlertCircle,
   Coins,
   DollarSign,
-  Database,
-  Sparkles,
-  CheckCircle2
+  Database
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc, useUser } from '@/firebase';
-import { doc, setDoc, collection, addDoc, getDocs, query, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -70,92 +67,6 @@ export default function ManagementPage() {
     }
   };
 
-  const handleSeedData = async () => {
-    setIsSaving(true);
-    try {
-      // 1. Configurar Sistema (Módulos y Caja)
-      await setDoc(cashConfigRef, { cashFloat: 300 }, { merge: true });
-      await setDoc(configRef, {
-        billing: true, purchases: true, suppliers: true, quedan: true, 
-        quotations: true, transfers: true, customers: true, inventory: true, 
-        management: true, institutional: true, accounting: true
-      }, { merge: true });
-
-      // 2. Poblar Inventario Maestro
-      const invRef = collection(db, 'inventory');
-      const products = [
-        { sku: 'ACE-5W30', name: 'Aceite Sintético Motul 5W30 (Galeón)', price: 48.50, quantity: 24, category: 'Lubricantes' },
-        { sku: 'BAT-L3', name: 'Batería Bosch S5 12V 70Ah', price: 135.00, quantity: 15, category: 'Eléctrico' },
-        { sku: 'LLAN-R17', name: 'Llanta Bridgestone Dueler 265/65R17', price: 185.00, quantity: 12, category: 'Llantas' },
-        { sku: 'FRE-SET', name: 'Set de Pastillas Cerámicas (Delanteras)', price: 42.00, quantity: 30, category: 'Frenos' },
-        { sku: 'FIL-OIL', name: 'Filtro de Aceite Premium High-Flow', price: 8.75, quantity: 100, category: 'Filtros' }
-      ];
-      
-      for (const p of products) {
-        await addDoc(invRef, { ...p, createdAt: new Date().toISOString() });
-      }
-
-      // 3. Poblar Clientes
-      const custRef = collection(db, 'customers');
-      const clients = [
-        { name: 'Ministerio de Obras Públicas (MOP)', type: 'Empresa', category: 'Crédito Fiscal', nit: '0511-010101-001-0', nrc: '111-2', email: 'uaci@mop.gob.sv', phone: '2525-0000', address: 'San Salvador, El Salvador' },
-        { name: 'Talleres El Salvador S.A.', type: 'Empresa', category: 'Crédito Fiscal', nit: '0614-123456-101-1', nrc: '45678-9', email: 'admin@talleressv.com', phone: '2222-3333' },
-        { name: 'Consumidor Final Genérico', type: 'Individual', category: 'Consumidor Final', nit: '', email: '', phone: '' }
-      ];
-      for (const c of clients) {
-        await addDoc(custRef, { ...c, createdAt: new Date().toISOString() });
-      }
-
-      // 4. Poblar Proveedores
-      const suppRef = collection(db, 'suppliers');
-      const vendors = [
-        { name: 'Importadora Automotriz S.A.', nit: '0614-998877-001-5', nrc: '987-0', applyRetention: true, applyPerception: false, email: 'ventas@importadora.com' },
-        { name: 'Distribuidora Central', nit: '0614-445566-002-1', nrc: '556-2', applyRetention: false, applyPerception: true, email: 'pedidos@central.com' }
-      ];
-      for (const v of vendors) {
-        await addDoc(suppRef, { ...v, createdAt: new Date().toISOString() });
-      }
-
-      // 5. Poblar Bodegas
-      const whRef = collection(db, 'warehouses');
-      const areas = [{ name: 'Bodega Principal' }, { name: 'Exhibición' }];
-      for (const w of areas) {
-        await addDoc(whRef, w);
-      }
-
-      // 6. Proyecto Institucional Demo
-      const projRef = collection(db, 'institutional_projects');
-      await addDoc(projRef, {
-        name: 'Mantenimiento Flota MOP 2024',
-        customerName: 'Ministerio de Obras Públicas (MOP)',
-        status: 'ACTIVO',
-        description: 'Suministro de repuestos y lubricantes para vehículos pesados.',
-        createdAt: new Date().toISOString()
-      });
-
-      // 7. Contabilidad Demo
-      const journalRef = collection(db, 'journal');
-      await addDoc(journalRef, {
-        description: 'Pago de Alquiler Local Central',
-        amount: 850.00,
-        type: 'Egreso',
-        account: 'Servicios Básicos',
-        timestamp: new Date().toISOString()
-      });
-
-      toast({ 
-        title: "Datos Sembrados", 
-        description: "El sistema ha sido poblado con éxito incluyendo el módulo contable.",
-      });
-
-    } catch (e: any) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Error al sembrar", description: e.message || "No se pudieron cargar los datos." });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (loadingConfig || loadingCash) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -179,32 +90,23 @@ export default function ManagementPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-slate-50 p-6 transition-colors duration-300 dark:bg-background">
       <div className="max-w-4xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm" onClick={() => router.push('/')}>
-            <ArrowLeft className="text-slate-600" size={20} />
+          <Button variant="ghost" size="icon" className="rounded-full bg-card shadow-sm border" onClick={() => router.push('/')}>
+            <ArrowLeft className="text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Gerencia y Control</h1>
-            <p className="text-slate-500 text-sm">Configuración global y carga de datos maestros</p>
+            <h1 className="text-2xl font-bold text-foreground">Gerencia y Control</h1>
+            <p className="text-muted-foreground text-sm">Configuración global y gestión de permisos</p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          className="rounded-xl border-blue-200 bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 h-10 px-6"
-          onClick={handleSeedData}
-          disabled={isSaving}
-        >
-          {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" size={16} />}
-          Sembrar Datos Demo
-        </Button>
       </div>
 
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-            <CardHeader className="bg-slate-900 text-white p-6">
+          <Card className="border-none shadow-sm rounded-3xl bg-card overflow-hidden border">
+            <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Coins className="text-blue-400" size={20} />
                 Fondo Base de Caja
@@ -215,15 +117,15 @@ export default function ManagementPage() {
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">Monto ($)</Label>
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">Monto ($)</Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                   <Input 
                     type="number" 
                     placeholder="0.00" 
                     value={cashFloat}
                     onChange={(e) => setCashFloat(e.target.value)}
-                    className="h-12 pl-10 text-xl font-bold bg-slate-50 rounded-xl"
+                    className="h-12 pl-10 text-xl font-bold bg-muted rounded-xl border-none"
                   />
                 </div>
               </div>
@@ -238,31 +140,32 @@ export default function ManagementPage() {
             </CardContent>
           </Card>
 
-          <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3">
-            <div className="flex items-center gap-2 text-blue-800 font-bold">
+          <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20">
+            <div className="flex items-center gap-2 text-blue-800 font-bold dark:text-blue-300">
               <AlertCircle size={20} />
               <p className="text-sm">Nota Operativa</p>
             </div>
-            <p className="text-xs text-blue-700 leading-relaxed">
+            <p className="text-xs text-blue-700 leading-relaxed dark:text-blue-400">
               El fondo base se utiliza para el arqueo de caja diario. Un monto de <strong>$300.00</strong> es la recomendación estándar para operaciones de NexWay.
             </p>
           </div>
         </div>
 
-        <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-          <CardHeader className="bg-slate-900 text-white p-6">
+        <Card className="border-none shadow-sm rounded-3xl bg-card overflow-hidden border">
+          <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="text-blue-400" size={20} />
               Estado de Módulos
             </CardTitle>
+            <CardDescription className="text-slate-400 text-xs">Habilite o deshabilite funcionalidades para todos los usuarios.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-border">
               {modules.map((m) => (
-                <div key={m.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                <div key={m.id} className="p-6 flex items-center justify-between hover:bg-muted/30 transition-colors">
                   <div className="space-y-1">
-                    <Label className="text-sm font-bold text-slate-900">{m.label}</Label>
-                    <p className="text-xs text-slate-400">{m.desc}</p>
+                    <Label className="text-sm font-bold text-foreground">{m.label}</Label>
+                    <p className="text-xs text-muted-foreground">{m.desc}</p>
                   </div>
                   <div className="flex items-center gap-4">
                     {config?.[m.id] === false ? <Lock className="text-rose-500" size={16} /> : <Unlock className="text-emerald-500" size={16} />}
