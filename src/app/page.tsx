@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -20,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { ModeToggle } from '@/components/mode-toggle';
 
 export default function Home() {
   const db = useFirestore();
@@ -42,12 +42,13 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 md:p-12 lg:p-16">
+    <div className="min-h-screen bg-background p-8 md:p-12 lg:p-16">
       <div className="max-w-6xl mx-auto flex justify-between items-start mb-12">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 font-headline mb-2">Panel Principal</h1>
-          <p className="text-slate-500 text-lg">Bienvenido al centro de operaciones NexWay</p>
+          <h1 className="text-3xl font-bold text-foreground font-headline mb-2">Panel Principal</h1>
+          <p className="text-muted-foreground text-lg">Bienvenido al centro de operaciones NexWay</p>
         </div>
+        <ModeToggle />
       </div>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -173,14 +174,14 @@ function ModuleCard({ icon, iconBg, title, description }: {
   description: string 
 }) {
   return (
-    <Card className="border-none shadow-sm rounded-3xl hover:shadow-md transition-all duration-300 cursor-pointer group bg-white h-full">
+    <Card className="border-none shadow-sm rounded-3xl hover:shadow-md transition-all duration-300 cursor-pointer group bg-card h-full overflow-hidden border-border/50">
       <CardContent className="p-8">
-        <div className={`w-14 h-14 ${iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-opacity-20 group-hover:scale-105 transition-transform`}>
+        <div className={`w-14 h-14 ${iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-105 transition-transform`}>
           {icon}
         </div>
         <div className="space-y-1">
-          <h3 className="text-xl font-bold text-slate-900">{title}</h3>
-          <p className="text-slate-400 text-sm">{description}</p>
+          <h3 className="text-xl font-bold text-foreground">{title}</h3>
+          <p className="text-muted-foreground text-sm">{description}</p>
         </div>
       </CardContent>
     </Card>

@@ -31,25 +31,25 @@
     --chart-5: 212 97% 87%;
   }
   .dark {
-    --background: 222 47% 7%;
+    --background: 222 47% 4%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
+    --card: 222 47% 8%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
+    --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222 47% 11.2%;
-    --secondary: 217 32% 17.5%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 12%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 32% 17.5%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 32% 17.5%;
+    --muted: 217.2 32.6% 15%;
+    --muted-foreground: 215 20% 75%;
+    --accent: 217.2 32.6% 15%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 32% 17.5%;
-    --input: 217 32% 17.5%;
-    --ring: 212 72% 59%;
+    --border: 217.2 32.6% 15%;
+    --input: 217.2 32.6% 15%;
+    --ring: 224.3 76.3% 48%;
   }
 }
 
@@ -63,4 +63,18 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
   }
+}
+
+/* Custom Overrides for Dark Mode Readability */
+.dark .bg-slate-50 {
+  @apply bg-slate-950/40;
+}
+.dark .bg-white {
+  @apply bg-slate-900;
+}
+.dark .text-slate-500, .dark .text-slate-400 {
+  @apply text-slate-300;
+}
+.dark .border-slate-100, .dark .border-slate-50 {
+  @apply border-slate-800/60;
 }
