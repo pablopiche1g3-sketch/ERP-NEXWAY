@@ -38,7 +38,8 @@ import {
   TrendingUp,
   TrendingDown,
   Scale,
-  MinusCircle
+  MinusCircle,
+  Info
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -407,6 +408,11 @@ export default function BillingPage() {
             <h1 className="text-2xl font-bold text-slate-900">NexWay Facturación</h1>
             <p className="text-slate-500 text-sm">Terminal de punto de venta y gestión documental</p>
           </div>
+        </div>
+        {/* Mostrador de Efectivo Teórico (Visible en todas las pestañas) */}
+        <div className="bg-emerald-600 px-6 py-2 rounded-2xl shadow-lg shadow-emerald-600/20 text-white flex flex-col items-end">
+           <p className="text-[10px] font-black uppercase opacity-80 tracking-widest leading-tight">Efectivo Teórico en Caja</p>
+           <p className="text-xl font-black">${expectedCashBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
         </div>
       </div>
 
