@@ -413,23 +413,23 @@ export default function BillingPage() {
   }, [adjustmentSearch, salesAll]);
 
   return (
-    <div className="min-h-screen bg-background p-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto flex items-center justify-between mb-6">
+    <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-card shadow-sm border" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">NexWay Facturación</h1>
-            <p className="text-muted-foreground text-sm">Terminal de punto de venta y gestión documental</p>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">NexWay Facturación</h1>
+            <p className="text-muted-foreground text-xs md:text-sm">Terminal de punto de venta y gestión documental</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           {activeTab === 'cierre' && (
-            <div className="bg-emerald-600 px-6 py-2 rounded-2xl shadow-lg shadow-emerald-600/20 text-white flex flex-col items-end animate-in fade-in slide-in-from-right-4">
-               <p className="text-[10px] font-black uppercase opacity-80 tracking-widest leading-tight">Efectivo Teórico en Gaveta</p>
-               <p className="text-xl font-black">${expectedCashInDrawer.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            <div className="bg-emerald-600 px-4 py-2 rounded-2xl shadow-lg shadow-emerald-600/20 text-white flex flex-col items-end animate-in fade-in slide-in-from-right-4">
+               <p className="text-[8px] font-black uppercase opacity-80 tracking-widest leading-tight">Efectivo Teórico</p>
+               <p className="text-lg font-black">${expectedCashInDrawer.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             </div>
           )}
           <ModeToggle />
@@ -438,39 +438,39 @@ export default function BillingPage() {
 
       <div className="max-w-7xl mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap">
-            <TabsTrigger value="facturacion" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              <ShoppingCart size={16} className="mr-2" /> Nueva Venta
+          <TabsList className="bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
+            <TabsTrigger value="facturacion" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+              <ShoppingCart size={14} className="mr-2" /> Venta
             </TabsTrigger>
-            <TabsTrigger value="nota_credito" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white">
-              <FileMinus size={16} className="mr-2" /> Nota de Crédito
+            <TabsTrigger value="nota_credito" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+              <FileMinus size={14} className="mr-2" /> N. Crédito
             </TabsTrigger>
-            <TabsTrigger value="nota_debito" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-              <FilePlus size={16} className="mr-2" /> Nota de Débito
+            <TabsTrigger value="nota_debito" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+              <FilePlus size={14} className="mr-2" /> N. Débito
             </TabsTrigger>
-            <TabsTrigger value="historial" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              <History size={16} className="mr-2" /> Ventas del Día
+            <TabsTrigger value="historial" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+              <History size={14} className="mr-2" /> Historial
             </TabsTrigger>
-            <TabsTrigger value="cierre" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              <Calculator size={16} className="mr-2" /> Arqueo de Caja
+            <TabsTrigger value="cierre" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+              <Calculator size={14} className="mr-2" /> Arqueo
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 focus-visible:outline-none">
-            <div className="lg:col-span-5 space-y-4">
+            <div className="lg:col-span-5 order-2 lg:order-1 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-card border">
-                <CardHeader className="bg-slate-950 text-white p-5">
+                <CardHeader className="bg-slate-950 text-white p-4 md:p-5">
                   <div className="flex justify-between items-center mb-2">
-                    <CardTitle className="text-base font-bold">Resumen de Venta</CardTitle>
-                    <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400 uppercase">{docType}</Badge>
+                    <CardTitle className="text-sm md:text-base font-bold">Resumen de Venta</CardTitle>
+                    <Badge variant="outline" className="text-[8px] md:text-[10px] text-blue-400 border-blue-400 uppercase">{docType}</Badge>
                   </div>
                   <div>
-                    <p className="text-[9px] uppercase font-bold text-slate-500">Total Gravado</p>
-                    <p className="text-4xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
+                    <p className="text-[8px] md:text-[9px] uppercase font-bold text-slate-500">Total Gravado</p>
+                    <p className="text-3xl md:text-4xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="h-[250px] md:h-[300px]">
                     <Table>
                       <TableHeader className="bg-muted/50">
                         <TableRow>
@@ -483,31 +483,31 @@ export default function BillingPage() {
                       <TableBody>
                         {cart.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic text-xs">
+                            <TableCell colSpan={4} className="text-center py-12 md:py-20 text-muted-foreground italic text-[10px] md:text-xs">
                               Escanee o seleccione productos
                             </TableCell>
                           </TableRow>
                         ) : cart.map((item) => (
                           <TableRow key={item.id}>
-                            <TableCell className="text-center font-black text-blue-600 dark:text-blue-400">{item.quantity}</TableCell>
+                            <TableCell className="text-center font-black text-blue-600 dark:text-blue-400 text-xs">{item.quantity}</TableCell>
                             <TableCell>
                               <div className="flex flex-col">
-                                <span className="font-bold text-xs text-foreground">{item.name}</span>
+                                <span className="font-bold text-[10px] md:text-xs text-foreground leading-tight line-clamp-1">{item.name}</span>
                                 <div className="flex items-center gap-1 mt-1">
-                                  <span className="text-[9px] text-muted-foreground font-bold">$</span>
+                                  <span className="text-[8px] md:text-[9px] text-muted-foreground font-bold">$</span>
                                   <Input 
                                     type="number" 
                                     step="0.01" 
                                     value={item.price} 
                                     onFocus={e => e.target.select()}
                                     onChange={(e) => updateCartPrice(item.id, parseFloat(e.target.value) || 0)} 
-                                    className="h-6 w-20 text-[10px] bg-muted font-bold border-none" 
+                                    className="h-5 w-16 text-[9px] bg-muted font-bold border-none px-1" 
                                   />
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="text-right font-bold text-xs text-foreground">${(item.price * item.quantity).toFixed(2)}</TableCell>
-                            <TableCell>
+                            <TableCell className="text-right font-bold text-[10px] md:text-xs text-foreground">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                            <TableCell className="px-1">
                               <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)} className="h-6 w-6 text-muted-foreground hover:text-destructive">
                                 <Trash2 size={12} />
                               </Button>
@@ -517,49 +517,51 @@ export default function BillingPage() {
                       </TableBody>
                     </Table>
                   </ScrollArea>
-                  <div className="p-4 border-t bg-muted/20 space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Método de Pago Seleccionado</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      <Button variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Efectivo')} className="h-9 text-[10px] font-bold rounded-xl">
-                        <Wallet size={14} className="mr-2" /> Efectivo
+                  <div className="p-3 md:p-4 border-t bg-muted/20 space-y-3">
+                    <Label className="text-[8px] md:text-[10px] font-black uppercase text-muted-foreground">Método de Pago</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <Button variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Efectivo')} className="h-8 md:h-9 text-[9px] md:text-[10px] font-bold rounded-xl px-1">
+                        <Wallet size={12} className="mr-1 md:mr-2" /> Efectivo
                       </Button>
-                      <Button variant={paymentMethod === 'Tarjeta' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Tarjeta')} className="h-9 text-[10px] font-bold rounded-xl">
-                        <CardIcon size={14} className="mr-2" /> Tarjeta
+                      <Button variant={paymentMethod === 'Tarjeta' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Tarjeta')} className="h-8 md:h-9 text-[9px] md:text-[10px] font-bold rounded-xl px-1">
+                        <CardIcon size={12} className="mr-1 md:mr-2" /> Tarjeta
                       </Button>
-                      <Button variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Transferencia')} className="h-9 text-[10px] font-bold rounded-xl">
-                        <Landmark size={14} className="mr-2" /> Transf.
+                      <Button variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Transferencia')} className="h-8 md:h-9 text-[9px] md:text-[10px] font-bold rounded-xl px-1">
+                        <Landmark size={12} className="mr-1 md:mr-2" /> Transf.
                       </Button>
-                      <Button variant={paymentMethod === 'Cheque' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Cheque')} className="h-9 text-[10px] font-bold rounded-xl">
-                        <Ticket size={14} className="mr-2" /> Cheque
+                      <Button variant={paymentMethod === 'Cheque' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Cheque')} className="h-8 md:h-9 text-[9px] md:text-[10px] font-bold rounded-xl px-1">
+                        <Ticket size={12} className="mr-1 md:mr-2" /> Cheque
                       </Button>
-                      <Button variant={paymentMethod === 'Credito' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Credito')} className="h-9 text-[10px] font-bold rounded-xl">
-                        <Clock size={14} className="mr-2" /> Crédito
+                      <Button variant={paymentMethod === 'Credito' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Credito')} className="h-8 md:h-9 text-[9px] md:text-[10px] font-bold rounded-xl px-1">
+                        <Clock size={12} className="mr-1 md:mr-2" /> Crédito
                       </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Button className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl" disabled={cart.length === 0} onClick={handleOpenCheckout}>
+              <Button className="w-full h-14 md:h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base md:text-lg shadow-xl" disabled={cart.length === 0} onClick={handleOpenCheckout}>
                 FINALIZAR VENTA
               </Button>
             </div>
 
-            <div className="lg:col-span-7 space-y-4">
-              <Card className="border-none shadow-sm rounded-2xl bg-card border p-4 flex flex-col md:flex-row gap-4">
+            <div className="lg:col-span-7 order-1 lg:order-2 space-y-4">
+              <Card className="border-none shadow-sm rounded-2xl bg-card border p-3 md:p-4 flex flex-col sm:flex-row gap-3 md:gap-4">
                 <div className="flex-1 space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Cliente Receptor</Label>
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground">Cliente Receptor</Label>
                   <div className="flex gap-2">
-                    <Input placeholder="Nombre..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-10 bg-muted rounded-xl font-bold" />
+                    <Input placeholder="Nombre..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-9 md:h-10 bg-muted rounded-xl font-bold text-xs" />
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="h-10 rounded-xl px-3"><Users size={16} /></Button>
+                        <Button variant="outline" className="h-9 md:h-10 rounded-xl px-3"><Users size={16} /></Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-80 p-0" align="end">
+                      <PopoverContent className="w-[calc(100vw-32px)] sm:w-80 p-0" align="end">
                         <div className="p-3 border-b"><Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-8 text-xs" /></div>
                         <ScrollArea className="h-60">
                           <div className="p-1">
-                            {filteredCustomers.map((c: any) => (
-                              <div key={c.id} onClick={() => { setCustomerName(c.name); setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF'); }} className="p-3 hover:bg-muted cursor-pointer rounded-lg">
+                            {filteredCustomers.length === 0 ? (
+                              <p className="p-4 text-center text-[10px] text-muted-foreground">No se encontraron clientes</p>
+                            ) : filteredCustomers.map((c: any) => (
+                              <div key={c.id} onClick={() => { setCustomerName(c.name); setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF'); }} className="p-3 hover:bg-muted cursor-pointer rounded-lg transition-colors">
                                 <p className="text-[11px] font-bold">{c.name}</p>
                                 <p className="text-[9px] text-muted-foreground">NIT: {c.nit || 'C/F'}</p>
                               </div>
@@ -570,32 +572,32 @@ export default function BillingPage() {
                     </Popover>
                   </div>
                 </div>
-                <div className="w-full md:w-48 space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Documento</Label>
-                  <div className="flex items-center gap-2">
-                     <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                       <SelectTrigger className="h-10 rounded-xl bg-muted border-none"><SelectValue /></SelectTrigger>
-                       <SelectContent><SelectItem value="CF">Consumidor Final</SelectItem><SelectItem value="CCF">Crédito Fiscal</SelectItem></SelectContent>
-                     </Select>
-                  </div>
+                <div className="w-full sm:w-48 space-y-2">
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground">Tipo Documento</Label>
+                  <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                    <SelectTrigger className="h-9 md:h-10 rounded-xl bg-muted border-none text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="CF" className="text-xs">Consumidor Final</SelectItem><SelectItem value="CCF" className="text-xs">Crédito Fiscal</SelectItem></SelectContent>
+                  </Select>
                 </div>
               </Card>
 
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                <Input placeholder="Buscar producto por SKU o Nombre..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 h-12 bg-card border shadow-sm rounded-2xl" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} md-size={18} />
+                <Input placeholder="Buscar por SKU o Nombre..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 md:pl-12 h-10 md:h-12 bg-card border shadow-sm rounded-2xl text-xs md:text-sm" />
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {filteredProducts.map((p: any) => (
-                  <div key={p.id} onClick={() => addToCart(p)} className="bg-card p-3 rounded-2xl shadow-sm border border-border hover:border-blue-400 cursor-pointer transition-all flex flex-col justify-between aspect-square">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
+                {filteredProducts.length === 0 ? (
+                  <div className="col-span-full py-12 text-center text-muted-foreground text-xs italic">Cargando inventario...</div>
+                ) : filteredProducts.map((p: any) => (
+                  <div key={p.id} onClick={() => addToCart(p)} className="bg-card p-3 rounded-2xl shadow-sm border border-border hover:border-blue-400 cursor-pointer transition-all flex flex-col justify-between aspect-square group active:scale-95">
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground">{p.sku}</p>
-                      <h3 className="text-xs font-bold text-foreground leading-tight line-clamp-2 h-8">{p.name}</h3>
+                      <p className="text-[8px] md:text-[10px] font-bold text-muted-foreground">{p.sku}</p>
+                      <h3 className="text-[10px] md:text-xs font-bold text-foreground leading-tight line-clamp-2 h-7 md:h-8">{p.name}</h3>
                     </div>
                     <div className="mt-2 pt-2 border-t flex justify-between items-center">
-                      <span className="text-sm font-black text-foreground">${(p.price || 0).toFixed(2)}</span>
-                      <Badge variant="outline" className={`text-[9px] font-black ${p.quantity <= 0 ? 'text-destructive border-destructive/20 bg-destructive/5' : 'text-emerald-500 border-emerald-500/20 bg-emerald-500/5'}`}>{p.quantity} un.</Badge>
+                      <span className="text-xs md:text-sm font-black text-foreground">${(p.price || 0).toFixed(2)}</span>
+                      <Badge variant="outline" className={`text-[7px] md:text-[9px] font-black h-5 px-1 ${p.quantity <= 0 ? 'text-destructive border-destructive/20 bg-destructive/5' : 'text-emerald-500 border-emerald-500/20 bg-emerald-500/5'}`}>{p.quantity} un.</Badge>
                     </div>
                   </div>
                 ))}
@@ -603,28 +605,28 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          {/* Other TabsContent remain logically similar but with refined dark mode classes */}
+          {/* Otros TabsContent con soporte responsivo */}
           <TabsContent value="nota_credito" className="space-y-6 outline-none">
             <div className="max-w-2xl mx-auto">
               <Card className="border-none shadow-sm rounded-3xl bg-card border overflow-hidden">
-                <CardHeader className="bg-rose-600 text-white p-6">
-                  <CardTitle className="text-lg font-bold flex items-center gap-2"><FileMinus size={20}/> Emisión de Nota de Crédito</CardTitle>
-                  <CardDescription className="text-rose-100">Devolución de mercadería o ajuste de precio a favor del cliente</CardDescription>
+                <CardHeader className="bg-rose-600 text-white p-4 md:p-6">
+                  <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2"><FileMinus size={20}/> Emisión de Nota de Crédito</CardTitle>
+                  <CardDescription className="text-rose-100 text-xs">Ajustes a favor del cliente</CardDescription>
                 </CardHeader>
-                <CardContent className="p-6 space-y-6">
+                <CardContent className="p-4 md:p-6 space-y-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Buscar Venta</Label>
+                      <Label className="text-[9px] md:text-[10px] font-bold uppercase text-muted-foreground">Buscar Venta</Label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                        <Input placeholder="Cliente o ID de venta..." value={adjustmentSearch} onChange={e => setAdjustmentSearch(e.target.value)} className="h-10 pl-9 rounded-xl bg-muted" />
+                        <Input placeholder="Cliente o ID de venta..." value={adjustmentSearch} onChange={e => setAdjustmentSearch(e.target.value)} className="h-10 pl-9 rounded-xl bg-muted text-xs" />
                       </div>
                       {filteredSalesForAdjustment.length > 0 && !selectedSaleForAdjustment && (
                         <ScrollArea className="h-40 border rounded-xl mt-2 bg-card">
                           {filteredSalesForAdjustment.map((s: any) => (
-                            <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-muted cursor-pointer">
-                              <p className="text-[11px] font-bold text-foreground">{s.customer}</p>
-                              <p className="text-[9px] text-muted-foreground">{new Date(s.timestamp).toLocaleDateString()} - ${s.total.toFixed(2)}</p>
+                            <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-muted cursor-pointer transition-colors">
+                              <p className="text-[10px] md:text-[11px] font-bold text-foreground">{s.customer}</p>
+                              <p className="text-[8px] md:text-[9px] text-muted-foreground">{new Date(s.timestamp).toLocaleDateString()} - ${s.total.toFixed(2)}</p>
                             </div>
                           ))}
                         </ScrollArea>
@@ -632,77 +634,23 @@ export default function BillingPage() {
                     </div>
 
                     {selectedSaleForAdjustment && (
-                      <div className="p-4 bg-muted/40 rounded-2xl border space-y-3">
+                      <div className="p-4 bg-muted/40 rounded-2xl border space-y-3 animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-muted-foreground">VENTA SELECCIONADA</span>
+                          <span className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Venta Seleccionada</span>
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSaleForAdjustment(null)}><XCircle size={14}/></Button>
                         </div>
-                        <p className="text-xs font-bold text-foreground">{selectedSaleForAdjustment.customer}</p>
-                        <p className="text-lg font-black text-rose-600 dark:text-rose-400">${selectedSaleForAdjustment.total.toFixed(2)}</p>
-                        <div className="grid grid-cols-2 gap-4 pt-2">
-                          <Button variant="outline" className="h-24 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10" onClick={() => handleCreateAdjustmentNote('CREDITO', 'DEVOLUCION')}>
-                            <Undo2 size={20} className="text-rose-500" />
-                            <span className="text-[10px] font-bold uppercase">Por Devolución</span>
-                            <span className="text-[8px] text-muted-foreground italic">Reintegra Inventario</span>
+                        <p className="text-xs md:text-sm font-bold text-foreground leading-tight">{selectedSaleForAdjustment.customer}</p>
+                        <p className="text-lg md:text-xl font-black text-rose-600 dark:text-rose-400">${selectedSaleForAdjustment.total.toFixed(2)}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                          <Button variant="outline" className="h-20 md:h-24 rounded-2xl flex flex-col gap-1 md:gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10 active:scale-95 transition-all" onClick={() => handleCreateAdjustmentNote('CREDITO', 'DEVOLUCION')}>
+                            <Undo2 size={18} className="text-rose-500" />
+                            <span className="text-[9px] md:text-[10px] font-bold uppercase">Por Devolución</span>
+                            <span className="text-[7px] md:text-[8px] text-muted-foreground italic">Reintegra Inventario</span>
                           </Button>
-                          <Button variant="outline" className="h-24 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10" onClick={() => handleCreateAdjustmentNote('CREDITO', 'PRECIO')}>
-                            <ArrowDownCircle size={20} className="text-rose-500" />
-                            <span className="text-[10px] font-bold uppercase">Por Precio</span>
-                            <span className="text-[8px] text-muted-foreground italic">Descuento Posterior</span>
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="nota_debito" className="space-y-6 outline-none">
-            <div className="max-w-2xl mx-auto">
-              <Card className="border-none shadow-sm rounded-3xl bg-card border overflow-hidden">
-                <CardHeader className="bg-emerald-600 text-white p-6">
-                  <CardTitle className="text-lg font-bold flex items-center gap-2"><FilePlus size={20}/> Emisión de Nota de Débito</CardTitle>
-                  <CardDescription className="text-emerald-100">Cargos adicionales, intereses o aumentos de precio posteriores</CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Buscar Venta / Cuenta</Label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                        <Input placeholder="Buscar por cliente..." value={adjustmentSearch} onChange={e => setAdjustmentSearch(e.target.value)} className="h-10 pl-9 rounded-xl bg-muted" />
-                      </div>
-                      {filteredSalesForAdjustment.length > 0 && !selectedSaleForAdjustment && (
-                        <ScrollArea className="h-40 border rounded-xl mt-2 bg-card">
-                          {filteredSalesForAdjustment.map((s: any) => (
-                            <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-muted cursor-pointer">
-                              <p className="text-[11px] font-bold text-foreground">{s.customer}</p>
-                              <p className="text-[9px] text-muted-foreground">Venta ID: {s.id.slice(0, 8)} - ${s.total.toFixed(2)}</p>
-                            </div>
-                          ))}
-                        </ScrollArea>
-                      )}
-                    </div>
-
-                    {selectedSaleForAdjustment && (
-                      <div className="p-4 bg-muted/40 rounded-2xl border space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-muted-foreground">RECEPTOR SELECCIONADO</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSaleForAdjustment(null)}><XCircle size={14}/></Button>
-                        </div>
-                        <p className="text-xs font-bold text-foreground">{selectedSaleForAdjustment.customer}</p>
-                        <div className="grid grid-cols-2 gap-4 pt-2">
-                          <Button variant="outline" className="h-24 rounded-2xl flex flex-col gap-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10" onClick={() => handleCreateAdjustmentNote('DEBITO', 'CARGO_ADICIONAL')}>
-                            <ArrowUpCircle size={20} className="text-emerald-500" />
-                            <span className="text-[10px] font-bold uppercase">Cargo Adicional</span>
-                            <span className="text-[8px] text-muted-foreground">Intereses o Servicios</span>
-                          </Button>
-                          <Button variant="outline" className="h-24 rounded-2xl flex flex-col gap-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10" onClick={() => handleCreateAdjustmentNote('DEBITO', 'AJUSTE_PRECIO')}>
-                            <TrendingUp size={20} className="text-emerald-500" />
-                            <span className="text-[10px] font-bold uppercase">Ajuste de Precio</span>
-                            <span className="text-[8px] text-muted-foreground">Aumento de Valor</span>
+                          <Button variant="outline" className="h-20 md:h-24 rounded-2xl flex flex-col gap-1 md:gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10 active:scale-95 transition-all" onClick={() => handleCreateAdjustmentNote('CREDITO', 'PRECIO')}>
+                            <ArrowDownCircle size={18} className="text-rose-500" />
+                            <span className="text-[9px] md:text-[10px] font-bold uppercase">Por Precio</span>
+                            <span className="text-[7px] md:text-[8px] text-muted-foreground italic">Descuento Posterior</span>
                           </Button>
                         </div>
                       </div>
@@ -715,48 +663,52 @@ export default function BillingPage() {
 
           <TabsContent value="historial" className="space-y-4 outline-none">
             <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
-              <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow>
-                    <TableHead className="px-6">Hora</TableHead>
-                    <TableHead>Documento</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Pago</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
-                    <TableHead className="text-right px-6">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {salesTodayList.map((sale: any) => (
-                    <TableRow key={sale.id} onDoubleClick={() => handleLoadSaleDetail(sale)} className={`cursor-pointer ${sale.status === 'CANCELADA' || sale.status === 'INVALIDADA' ? 'opacity-40 grayscale' : ''}`}>
-                      <TableCell className="px-6 text-xs text-muted-foreground">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[9px] font-black">{sale.docType}</Badge></TableCell>
-                      <TableCell className="font-bold text-xs text-foreground">{sale.customer}</TableCell>
-                      <TableCell><Badge variant="secondary" className="text-[9px] font-bold">{sale.paymentMethod}</Badge></TableCell>
-                      <TableCell className="text-right font-black text-foreground">${sale.total.toFixed(2)}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge className={`text-[9px] font-black ${sale.status === 'CANCELADA' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20' : sale.status === 'INVALIDADA' ? 'bg-slate-200 text-slate-600 dark:bg-slate-800' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20'}`}>{sale.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right px-6">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleInvalidateDTE(sale); }}><Ban size={14} /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleOpenCorrection(sale); }}><Edit3 size={14} /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleVoidSale(sale); }}><XCircle size={14} /></Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="px-4 md:px-6 text-[10px] uppercase">Hora</TableHead>
+                      <TableHead className="text-[10px] uppercase">DTE</TableHead>
+                      <TableHead className="text-[10px] uppercase">Cliente</TableHead>
+                      <TableHead className="text-[10px] uppercase">Pago</TableHead>
+                      <TableHead className="text-right text-[10px] uppercase">Total</TableHead>
+                      <TableHead className="text-center text-[10px] uppercase">Estado</TableHead>
+                      <TableHead className="text-right px-4 md:px-6 text-[10px] uppercase">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {salesTodayList.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-xs italic">No hay ventas registradas hoy</TableCell></TableRow>
+                    ) : salesTodayList.map((sale: any) => (
+                      <TableRow key={sale.id} onDoubleClick={() => handleLoadSaleDetail(sale)} className={`cursor-pointer transition-colors ${sale.status === 'CANCELADA' || sale.status === 'INVALIDADA' ? 'opacity-40 grayscale' : 'hover:bg-muted/30'}`}>
+                        <TableCell className="px-4 md:px-6 text-[10px] md:text-xs text-muted-foreground whitespace-nowrap">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-[8px] md:text-[9px] font-black h-5">{sale.docType}</Badge></TableCell>
+                        <TableCell className="font-bold text-[10px] md:text-xs text-foreground max-w-[120px] truncate">{sale.customer}</TableCell>
+                        <TableCell><Badge variant="secondary" className="text-[8px] md:text-[9px] font-bold h-5">{sale.paymentMethod}</Badge></TableCell>
+                        <TableCell className="text-right font-black text-foreground text-[10px] md:text-xs">${sale.total.toFixed(2)}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={`text-[8px] md:text-[9px] font-black h-5 ${sale.status === 'CANCELADA' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20' : sale.status === 'INVALIDADA' ? 'bg-slate-200 text-slate-600 dark:bg-slate-800' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20'}`}>{sale.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right px-4 md:px-6">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleInvalidateDTE(sale); }}><Ban size={12} /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleOpenCorrection(sale); }}><Edit3 size={12} /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500" disabled={sale.status !== 'COMPLETADA'} onClick={(e) => { e.stopPropagation(); handleVoidSale(sale); }}><XCircle size={12} /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </Card>
           </TabsContent>
 
           <TabsContent value="cierre" className="space-y-6 outline-none">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-4 space-y-6">
-                <Card className="border shadow-sm rounded-3xl bg-card p-5">
-                  <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Coins className="text-blue-600" /> Conteo Físico</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+              <div className="lg:col-span-4 order-2 lg:order-1 space-y-6">
+                <Card className="border shadow-sm rounded-3xl bg-card p-4 md:p-5">
+                  <h3 className="text-sm md:text-base font-bold mb-4 flex items-center gap-2"><Coins className="text-blue-600" /> Conteo Físico</h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     {Object.entries({
                       '$100': 'b100', '$50': 'b50', '$20': 'b20', 
@@ -764,116 +716,80 @@ export default function BillingPage() {
                       '0.25¢': 'c25', '0.10¢': 'c10', '0.05¢': 'c5', '0.01¢': 'c01'
                     }).map(([label, key]) => (
                       <div key={key} className="flex items-center justify-between gap-2 border-b border-muted pb-1">
-                        <Label className="text-[9px] font-black text-muted-foreground uppercase w-8">{label}</Label>
+                        <Label className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase w-8">{label}</Label>
                         <Input 
                           type="number" 
                           min="0" 
                           value={denominations[key]} 
                           onFocus={e => e.target.select()}
                           onChange={e => setDenominations({...denominations, [key]: parseInt(e.target.value) || 0})}
-                          className="h-7 w-12 text-center text-[10px] font-bold bg-muted border-none p-1 focus:ring-1 focus:ring-blue-400"
+                          className="h-6 md:h-7 w-10 md:w-12 text-center text-[9px] md:text-[10px] font-bold bg-muted border-none p-1 focus:ring-1 focus:ring-blue-400"
                         />
                       </div>
                     ))}
                   </div>
                   <div className="pt-3 border-t mt-3 flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase text-muted-foreground">Total Físico en Gaveta</span>
-                    <span className="text-lg font-black text-blue-600 dark:text-blue-400">${physicalCashTotal.toFixed(2)}</span>
+                    <span className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground">Total Físico en Gaveta</span>
+                    <span className="text-base md:text-lg font-black text-blue-600 dark:text-blue-400">${physicalCashTotal.toFixed(2)}</span>
                   </div>
                 </Card>
               </div>
 
-              <div className="lg:col-span-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <Card className="border shadow-sm rounded-2xl bg-card p-5">
-                      <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Fondo Base</p>
-                      <h2 className="text-xl font-bold text-foreground">${currentCashFloat.toFixed(2)}</h2>
-                      <p className="text-[9px] text-muted-foreground mt-1">Monto inicial para cambio</p>
+              <div className="lg:col-span-8 order-1 lg:order-2 space-y-4 md:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                   <Card className="border shadow-sm rounded-2xl bg-card p-4 md:p-5">
+                      <p className="text-[8px] md:text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Fondo Base</p>
+                      <h2 className="text-lg md:text-xl font-bold text-foreground">${currentCashFloat.toFixed(2)}</h2>
                    </Card>
 
-                   <Card className="border-none shadow-sm rounded-2xl bg-slate-950 text-white p-5">
-                      <p className="text-[9px] font-black uppercase text-blue-400 tracking-widest mb-1">Vendido Real (Físico)</p>
-                      <h2 className="text-xl font-black text-blue-400">${realCashSalesFound.toFixed(2)}</h2>
-                      <p className="text-[9px] opacity-60 mt-1">Total Físico - Fondo + Gastos</p>
+                   <Card className="border-none shadow-sm rounded-2xl bg-slate-950 text-white p-4 md:p-5">
+                      <p className="text-[8px] md:text-[9px] font-black uppercase text-blue-400 tracking-widest mb-1">Vendido Real (Físico)</p>
+                      <h2 className="text-lg md:text-xl font-black text-blue-400">${realCashSalesFound.toFixed(2)}</h2>
                    </Card>
 
-                   <Card className={`border shadow-sm rounded-2xl p-5 ${Math.abs(cashDifference) < 0.01 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
-                      <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Diferencia vs Sistema</p>
-                      <h2 className={`text-xl font-black ${Math.abs(cashDifference) < 0.01 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                   <Card className={`border shadow-sm rounded-2xl p-4 md:p-5 ${Math.abs(cashDifference) < 0.01 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                      <p className="text-[8px] md:text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Diferencia vs Sistema</p>
+                      <h2 className={`text-lg md:text-xl font-black ${Math.abs(cashDifference) < 0.01 ? 'text-emerald-500' : 'text-rose-500'}`}>
                         {cashDifference >= 0 ? '+' : '-'}${Math.abs(cashDifference).toFixed(2)}
                       </h2>
-                      <p className="text-[9px] font-bold text-foreground/70 mt-1">
-                        {Math.abs(cashDifference) < 0.01 ? 'Caja Cuadrada' : cashDifference > 0 ? 'Sobrante detectado' : 'Faltante en caja'}
-                      </p>
                    </Card>
                 </div>
 
                 <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
-                   <CardHeader className="border-b bg-muted/30">
-                      <div className="flex justify-between items-center">
-                        <CardTitle className="text-sm font-bold text-foreground">Resumen de Sistema (Controles)</CardTitle>
-                        <Button variant="outline" size="sm" className="rounded-xl h-8 text-[10px] font-bold" onClick={() => setIsExpenseModalOpen(true)}>
+                   <CardHeader className="border-b bg-muted/30 p-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <CardTitle className="text-xs md:text-sm font-bold text-foreground uppercase tracking-tight">Resumen de Controles</CardTitle>
+                        <Button variant="outline" size="sm" className="rounded-xl h-8 text-[9px] md:text-[10px] font-bold w-full sm:w-auto" onClick={() => setIsExpenseModalOpen(true)}>
                           <TrendingDown size={14} className="mr-1 text-rose-500" /> REGISTRAR GASTO
                         </Button>
                       </div>
                    </CardHeader>
-                   <div className="p-0">
+                   <div className="p-0 overflow-x-auto">
                       <Table>
-                         <TableHeader>
-                            <TableRow>
-                               <TableHead className="px-6 text-[10px] uppercase">Categoría</TableHead>
-                               <TableHead className="text-right px-6 text-[10px] uppercase">Monto en Sistema</TableHead>
-                            </TableRow>
-                         </TableHeader>
                          <TableBody>
-                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2 text-foreground"><Wallet size={14}/> Ventas en Efectivo Registradas</TableCell><TableCell className="text-right px-6 font-black text-foreground">${dailyClosingTotals.Efectivo.toFixed(2)}</TableCell></TableRow>
-                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2 text-rose-500"><TrendingDown size={14}/> Gastos Reportados (Salidas)</TableCell><TableCell className="text-right px-6 font-black text-rose-500">-${totalExpensesToday.toFixed(2)}</TableCell></TableRow>
-                            <TableRow className="bg-muted/30"><TableCell className="px-6 font-black text-foreground">SALDO QUE DEBERÍA HABER (SISTEMA)</TableCell><TableCell className="text-right px-6 font-black text-blue-600 dark:text-blue-400">${expectedCashInDrawer.toFixed(2)}</TableCell></TableRow>
+                            <TableRow><TableCell className="px-4 md:px-6 font-bold flex items-center gap-2 text-[10px] md:text-xs text-foreground whitespace-nowrap"><Wallet size={14}/> Ventas en Efectivo</TableCell><TableCell className="text-right px-4 md:px-6 font-black text-foreground text-[10px] md:text-xs">${dailyClosingTotals.Efectivo.toFixed(2)}</TableCell></TableRow>
+                            <TableRow><TableCell className="px-4 md:px-6 font-bold flex items-center gap-2 text-rose-500 text-[10px] md:text-xs whitespace-nowrap"><TrendingDown size={14}/> Gastos Reportados</TableCell><TableCell className="text-right px-4 md:px-6 font-black text-rose-500 text-[10px] md:text-xs">-${totalExpensesToday.toFixed(2)}</TableCell></TableRow>
+                            <TableRow className="bg-muted/30"><TableCell className="px-4 md:px-6 font-black text-foreground text-[10px] md:text-xs whitespace-nowrap uppercase">Saldo Teórico (Sistema)</TableCell><TableCell className="text-right px-4 md:px-6 font-black text-blue-600 dark:text-blue-400 text-xs md:text-sm">${expectedCashInDrawer.toFixed(2)}</TableCell></TableRow>
                          </TableBody>
                       </Table>
                    </div>
                 </Card>
 
-                {/* Desglose por Método de Pago */}
                 <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
-                   <CardHeader className="bg-muted/30 border-b px-6 py-4">
-                      <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
-                        <CreditCard size={18} className="text-muted-foreground" /> Ventas del Día por Método de Pago
+                   <CardHeader className="bg-muted/30 border-b px-4 md:px-6 py-3 md:py-4">
+                      <CardTitle className="text-xs md:text-sm font-bold flex items-center gap-2 text-foreground">
+                        <CreditCard size={16} className="text-muted-foreground" /> Ventas por Método de Pago
                       </CardTitle>
                    </CardHeader>
-                   <div className="p-0">
+                   <div className="p-0 overflow-x-auto">
                       <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="px-6 text-[10px] uppercase">Método</TableHead>
-                            <TableHead className="text-right px-6 text-[10px] uppercase">Venta Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
                         <TableBody>
-                          <TableRow>
-                            <TableCell className="px-6 flex items-center gap-2 text-foreground"><Wallet size={14} className="text-muted-foreground" /> Efectivo</TableCell>
-                            <TableCell className="text-right px-6 font-bold text-foreground">${dailyClosingTotals.Efectivo.toFixed(2)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell className="px-6 flex items-center gap-2 text-foreground"><CardIcon size={14} className="text-blue-500" /> Tarjeta (POS)</TableCell>
-                            <TableCell className="text-right px-6 font-bold text-foreground">${dailyClosingTotals.Tarjeta.toFixed(2)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell className="px-6 flex items-center gap-2 text-foreground"><Landmark size={14} className="text-emerald-500" /> Transferencia Bancaria</TableCell>
-                            <TableCell className="text-right px-6 font-bold text-foreground">${dailyClosingTotals.Transferencia.toFixed(2)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell className="px-6 flex items-center gap-2 text-foreground"><Ticket size={14} className="text-amber-500" /> Cheque</TableCell>
-                            <TableCell className="text-right px-6 font-bold text-foreground">${dailyClosingTotals.Cheque.toFixed(2)}</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell className="px-6 flex items-center gap-2 text-foreground"><Clock size={14} className="text-purple-500" /> Crédito (Ctas. por Cobrar)</TableCell>
-                            <TableCell className="text-right px-6 font-bold text-foreground">${dailyClosingTotals.Credito.toFixed(2)}</TableCell>
-                          </TableRow>
-                          <TableRow className="bg-blue-600/5 dark:bg-blue-900/10 border-t-2">
-                            <TableCell className="px-6 font-black uppercase text-blue-900 dark:text-blue-300">Total Facturado Hoy</TableCell>
-                            <TableCell className="text-right px-6 font-black text-blue-700 dark:text-blue-400 text-lg">${dailyClosingTotals.total.toFixed(2)}</TableCell>
-                          </TableRow>
+                          <TableRow><TableCell className="px-4 md:px-6 flex items-center gap-2 text-[10px] md:text-xs text-foreground"><Wallet size={14} className="text-muted-foreground" /> Efectivo</TableCell><TableCell className="text-right px-4 md:px-6 font-bold text-foreground text-[10px] md:text-xs">${dailyClosingTotals.Efectivo.toFixed(2)}</TableCell></TableRow>
+                          <TableRow><TableCell className="px-4 md:px-6 flex items-center gap-2 text-[10px] md:text-xs text-foreground"><CardIcon size={14} className="text-blue-500" /> Tarjeta (POS)</TableCell><TableCell className="text-right px-4 md:px-6 font-bold text-foreground text-[10px] md:text-xs">${dailyClosingTotals.Tarjeta.toFixed(2)}</TableCell></TableRow>
+                          <TableRow><TableCell className="px-4 md:px-6 flex items-center gap-2 text-[10px] md:text-xs text-foreground"><Landmark size={14} className="text-emerald-500" /> Transferencia</TableCell><TableCell className="text-right px-4 md:px-6 font-bold text-foreground text-[10px] md:text-xs">${dailyClosingTotals.Transferencia.toFixed(2)}</TableCell></TableRow>
+                          <TableRow><TableCell className="px-4 md:px-6 flex items-center gap-2 text-[10px] md:text-xs text-foreground"><Ticket size={14} className="text-amber-500" /> Cheque</TableCell><TableCell className="text-right px-4 md:px-6 font-bold text-foreground text-[10px] md:text-xs">${dailyClosingTotals.Cheque.toFixed(2)}</TableCell></TableRow>
+                          <TableRow><TableCell className="px-4 md:px-6 flex items-center gap-2 text-[10px] md:text-xs text-foreground"><Clock size={14} className="text-purple-500" /> Crédito</TableCell><TableCell className="text-right px-4 md:px-6 font-bold text-foreground text-[10px] md:text-xs">${dailyClosingTotals.Credito.toFixed(2)}</TableCell></TableRow>
+                          <TableRow className="bg-blue-600/5 dark:bg-blue-900/10 border-t-2"><TableCell className="px-4 md:px-6 font-black uppercase text-blue-900 dark:text-blue-300 text-[10px] md:text-xs">TOTAL FACTURADO</TableCell><TableCell className="text-right px-4 md:px-6 font-black text-blue-700 dark:text-blue-400 text-sm md:text-lg">${dailyClosingTotals.total.toFixed(2)}</TableCell></TableRow>
                         </TableBody>
                       </Table>
                    </div>
@@ -884,39 +800,39 @@ export default function BillingPage() {
         </Tabs>
       </div>
 
-      {/* Modals remain mostly same but using background variables */}
+      {/* Modals con soporte responsivo */}
       <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-        <DialogContent className="rounded-[2rem] max-w-md p-8 bg-card border">
-          <DialogHeader className="mb-6">
-            <DialogTitle className="text-2xl font-black text-foreground">Finalizar Operación</DialogTitle>
-            <DialogDescription>Confirme el recibo de fondos y emita el documento.</DialogDescription>
+        <DialogContent className="rounded-[1.5rem] md:rounded-[2rem] max-w-[95vw] md:max-w-md p-4 md:p-8 bg-card border overflow-y-auto max-h-[90vh]">
+          <DialogHeader className="mb-4 md:mb-6">
+            <DialogTitle className="text-xl md:text-2xl font-black text-foreground">Finalizar Venta</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">Confirme fondos y emita documento.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-6">
-            <div className="bg-slate-950 rounded-3xl p-6 text-white flex justify-between items-center">
-               <div><p className="text-[10px] font-black uppercase opacity-60">Total a Pagar</p><p className="text-3xl font-black text-blue-400">${totalCart.toFixed(2)}</p></div>
-               <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center"><Calculator size={24} /></div>
+          <div className="space-y-4 md:space-y-6">
+            <div className="bg-slate-950 rounded-2xl md:rounded-3xl p-4 md:p-6 text-white flex justify-between items-center">
+               <div><p className="text-[8px] md:text-[10px] font-black uppercase opacity-60">Total a Pagar</p><p className="text-2xl md:text-3xl font-black text-blue-400">${totalCart.toFixed(2)}</p></div>
+               <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 rounded-xl md:rounded-2xl flex items-center justify-center"><Calculator size={20} md-size={24} /></div>
             </div>
 
             {paymentMethod === 'Efectivo' ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Efectivo Recibido</Label>
-                  <input type="number" placeholder="0.00" value={cashReceived} onChange={e => setCashReceived(e.target.value)} className="h-12 w-full text-xl font-bold rounded-xl border border-border px-4 bg-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-foreground" />
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground">Dinero Recibido</Label>
+                  <input type="number" placeholder="0.00" value={cashReceived} onChange={e => setCashReceived(e.target.value)} className="h-10 md:h-12 w-full text-lg md:text-xl font-bold rounded-xl border border-border px-4 bg-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-foreground" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Cambio a Entregar</Label>
-                  <div className="h-12 flex items-center px-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-xl border border-emerald-500/20">${changeDue.toFixed(2)}</div>
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground">Cambio</Label>
+                  <div className="h-10 md:h-12 flex items-center px-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-lg md:text-xl border border-emerald-500/20">${changeDue.toFixed(2)}</div>
                 </div>
               </div>
             ) : (
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground">Referencia de Pago ({paymentMethod})</Label>
-                <Input placeholder="No. de transacción, autorización..." value={paymentReference} onChange={e => setPaymentReference(e.target.value)} className="h-12 rounded-xl bg-muted border-none" />
+                <Label className="text-[9px] md:text-[10px] font-black uppercase text-muted-foreground">Referencia de Pago ({paymentMethod})</Label>
+                <Input placeholder="ID de transacción..." value={paymentReference} onChange={e => setPaymentReference(e.target.value)} className="h-10 md:h-12 rounded-xl bg-muted border-none text-xs md:text-sm" />
               </div>
             )}
           </div>
-          <DialogFooter className="mt-8">
-            <Button className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl" onClick={handleFinalizeSale} disabled={isProcessing}>
+          <DialogFooter className="mt-6 md:mt-8">
+            <Button className="w-full h-12 md:h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base md:text-lg shadow-xl transition-all active:scale-95" onClick={handleFinalizeSale} disabled={isProcessing}>
               {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
               CONFIRMAR VENTA
             </Button>

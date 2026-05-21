@@ -42,16 +42,16 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-8 md:p-12 lg:p-16">
-      <div className="max-w-6xl mx-auto flex justify-between items-start mb-12">
+    <div className="min-h-screen bg-background p-4 md:p-12 lg:p-16">
+      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start gap-4 mb-8 md:mb-12">
         <div>
-          <h1 className="text-3xl font-bold text-foreground font-headline mb-2">Panel Principal</h1>
-          <p className="text-muted-foreground text-lg">Bienvenido al centro de operaciones NexWay</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground font-headline mb-1 md:mb-2">Panel Principal</h1>
+          <p className="text-muted-foreground text-sm md:text-lg">Bienvenido al centro de operaciones NexWay</p>
         </div>
         <ModeToggle />
       </div>
 
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {modules.billing && (
           <Link href="/billing">
             <ModuleCard 
@@ -175,13 +175,13 @@ function ModuleCard({ icon, iconBg, title, description }: {
 }) {
   return (
     <Card className="border-none shadow-sm rounded-3xl hover:shadow-md transition-all duration-300 cursor-pointer group bg-card h-full overflow-hidden border-border/50">
-      <CardContent className="p-8">
-        <div className={`w-14 h-14 ${iconBg} rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-105 transition-transform`}>
+      <CardContent className="p-6 md:p-8">
+        <div className={`w-12 h-12 md:w-14 md:h-14 ${iconBg} rounded-2xl flex items-center justify-center mb-4 md:mb-6 shadow-lg group-hover:scale-105 transition-transform`}>
           {icon}
         </div>
         <div className="space-y-1">
-          <h3 className="text-xl font-bold text-foreground">{title}</h3>
-          <p className="text-muted-foreground text-sm">{description}</p>
+          <h3 className="text-lg md:text-xl font-bold text-foreground">{title}</h3>
+          <p className="text-muted-foreground text-xs md:text-sm">{description}</p>
         </div>
       </CardContent>
     </Card>
