@@ -380,8 +380,21 @@ export default function BillingPage() {
     };
 
     addDoc(collection(db, 'adjustment_notes'), adjustmentData)
-      .then(() => {
-        toast({ title: `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida` });
+      .then(async () => {
+        // Lógica de reintegro si es crédito por devolución
+        if (type === 'CREDITO' && reason === 'DEVOLUCION') {
+          for (const item of selectedSaleForAdjustment.items || []) {
+            const product = inventory?.find((p: any) => p.id === item.id);
+            if (product) {
+              await updateDoc(doc(db, 'inventory', item.id), { 
+                quantity: (product.quantity || 0) + item.quantity 
+              });
+            }
+          }
+          toast({ title: "Nota de Crédito Emitida", description: "Stock reintegrado por devolución." });
+        } else {
+          toast({ title: `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida` });
+        }
         setSelectedSaleForAdjustment(null);
         setAdjustmentSearch('');
       })
@@ -623,13 +636,15 @@ export default function BillingPage() {
                         <p className="text-xs font-bold">{selectedSaleForAdjustment.customer}</p>
                         <p className="text-lg font-black text-rose-600">${selectedSaleForAdjustment.total.toFixed(2)}</p>
                         <div className="grid grid-cols-2 gap-4 pt-2">
-                          <Button variant="outline" className="h-20 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50" onClick={() => handleCreateAdjustmentNote('CREDITO', 'DEVOLUCION')}>
+                          <Button variant="outline" className="h-24 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50" onClick={() => handleCreateAdjustmentNote('CREDITO', 'DEVOLUCION')}>
                             <Undo2 size={20} className="text-rose-500" />
                             <span className="text-[10px] font-bold uppercase">Por Devolución</span>
+                            <span className="text-[8px] text-slate-400 italic">Reintegra Inventario</span>
                           </Button>
-                          <Button variant="outline" className="h-20 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50" onClick={() => handleCreateAdjustmentNote('CREDITO', 'PRECIO')}>
+                          <Button variant="outline" className="h-24 rounded-2xl flex flex-col gap-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50" onClick={() => handleCreateAdjustmentNote('CREDITO', 'PRECIO')}>
                             <ArrowDownCircle size={20} className="text-rose-500" />
                             <span className="text-[10px] font-bold uppercase">Por Precio</span>
+                            <span className="text-[8px] text-slate-400 italic">Descuento Posterior</span>
                           </Button>
                         </div>
                       </div>
