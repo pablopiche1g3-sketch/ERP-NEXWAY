@@ -39,7 +39,8 @@ import {
   TrendingDown,
   Scale,
   MinusCircle,
-  Info
+  Info,
+  CreditCard
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -361,9 +362,6 @@ export default function BillingPage() {
     );
   }, [denominations]);
 
-  // Lógica de Cuadre: 
-  // 1. El total físico debe cubrir el Fondo Base.
-  // 2. El excedente + lo que se gastó es la venta real del día.
   const expectedCashInDrawer = currentCashFloat + dailyClosingTotals.Efectivo - totalExpensesToday;
   const realCashSalesFound = physicalCashTotal - currentCashFloat + totalExpensesToday;
   const cashDifference = realCashSalesFound - dailyClosingTotals.Efectivo;
@@ -414,7 +412,6 @@ export default function BillingPage() {
           </div>
         </div>
         
-        {/* Mostrador de Efectivo Teórico (Visible SOLO en Arqueo) */}
         {activeTab === 'cierre' && (
           <div className="bg-emerald-600 px-6 py-2 rounded-2xl shadow-lg shadow-emerald-600/20 text-white flex flex-col items-end animate-in fade-in slide-in-from-right-4">
              <p className="text-[10px] font-black uppercase opacity-80 tracking-widest leading-tight">Efectivo Teórico en Gaveta</p>
@@ -443,7 +440,6 @@ export default function BillingPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Terminal de Facturación */}
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 focus-visible:outline-none">
             <div className="lg:col-span-5 space-y-4">
               <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
@@ -591,7 +587,6 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          {/* Nota de Crédito */}
           <TabsContent value="nota_credito" className="space-y-6 outline-none">
             <div className="max-w-2xl mx-auto">
               <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
@@ -645,7 +640,6 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          {/* Nota de Débito */}
           <TabsContent value="nota_debito" className="space-y-6 outline-none">
             <div className="max-w-2xl mx-auto">
               <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
@@ -700,7 +694,6 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          {/* Historial de Ventas */}
           <TabsContent value="historial" className="space-y-4 outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
               <Table>
@@ -740,7 +733,6 @@ export default function BillingPage() {
             </Card>
           </TabsContent>
 
-          {/* Arqueo de Caja */}
           <TabsContent value="cierre" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-4 space-y-6">
@@ -822,6 +814,51 @@ export default function BillingPage() {
                       </Table>
                    </div>
                 </Card>
+
+                {/* Desglose por Método de Pago */}
+                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                   <CardHeader className="bg-slate-50 border-b px-6 py-4">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <CreditCard size={18} className="text-slate-400" /> Ventas del Día por Método de Pago
+                      </CardTitle>
+                   </CardHeader>
+                   <div className="p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="px-6 text-[10px] uppercase">Método</TableHead>
+                            <TableHead className="text-right px-6 text-[10px] uppercase">Venta Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell className="px-6 flex items-center gap-2"><Wallet size={14} className="text-slate-400" /> Efectivo</TableCell>
+                            <TableCell className="text-right px-6 font-bold">${dailyClosingTotals.Efectivo.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="px-6 flex items-center gap-2"><CardIcon size={14} className="text-blue-500" /> Tarjeta (POS)</TableCell>
+                            <TableCell className="text-right px-6 font-bold">${dailyClosingTotals.Tarjeta.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="px-6 flex items-center gap-2"><Landmark size={14} className="text-emerald-500" /> Transferencia Bancaria</TableCell>
+                            <TableCell className="text-right px-6 font-bold">${dailyClosingTotals.Transferencia.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="px-6 flex items-center gap-2"><Ticket size={14} className="text-amber-500" /> Cheque</TableCell>
+                            <TableCell className="text-right px-6 font-bold">${dailyClosingTotals.Cheque.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="px-6 flex items-center gap-2"><Clock size={14} className="text-purple-500" /> Crédito (Ctas. por Cobrar)</TableCell>
+                            <TableCell className="text-right px-6 font-bold">${dailyClosingTotals.Credito.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow className="bg-blue-50/50 border-t-2">
+                            <TableCell className="px-6 font-black uppercase text-blue-900">Total Facturado Hoy</TableCell>
+                            <TableCell className="text-right px-6 font-black text-blue-700 text-lg">${dailyClosingTotals.total.toFixed(2)}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                   </div>
+                </Card>
               </div>
             </div>
           </TabsContent>
@@ -845,7 +882,7 @@ export default function BillingPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Efectivo Recibido</Label>
-                  <Input type="number" placeholder="0.00" value={cashReceived} onChange={e => setCashReceived(e.target.value)} className="h-12 text-xl font-bold rounded-xl" />
+                  <input type="number" placeholder="0.00" value={cashReceived} onChange={e => setCashReceived(e.target.value)} className="h-12 w-full text-xl font-bold rounded-xl border border-slate-200 px-4 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Cambio a Entregar</Label>
