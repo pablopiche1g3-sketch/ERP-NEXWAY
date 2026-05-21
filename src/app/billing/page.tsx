@@ -39,7 +39,8 @@ import {
   Scale,
   MinusCircle,
   Info,
-  CreditCard
+  CreditCard,
+  PlusCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -605,7 +606,6 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          {/* Otros TabsContent con soporte responsivo */}
           <TabsContent value="nota_credito" className="space-y-6 outline-none">
             <div className="max-w-2xl mx-auto">
               <Card className="border-none shadow-sm rounded-3xl bg-card border overflow-hidden">
@@ -651,6 +651,61 @@ export default function BillingPage() {
                             <ArrowDownCircle size={18} className="text-rose-500" />
                             <span className="text-[9px] md:text-[10px] font-bold uppercase">Por Precio</span>
                             <span className="text-[7px] md:text-[8px] text-muted-foreground italic">Descuento Posterior</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="nota_debito" className="space-y-6 outline-none">
+            <div className="max-w-2xl mx-auto">
+              <Card className="border-none shadow-sm rounded-3xl bg-card border overflow-hidden">
+                <CardHeader className="bg-emerald-600 text-white p-4 md:p-6">
+                  <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2"><FilePlus size={20}/> Emisión de Nota de Débito</CardTitle>
+                  <CardDescription className="text-emerald-100 text-xs">Cargos a favor de la empresa (Aumenta saldo)</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[9px] md:text-[10px] font-bold uppercase text-muted-foreground">Buscar Venta</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                        <Input placeholder="Cliente o ID de venta..." value={adjustmentSearch} onChange={e => setAdjustmentSearch(e.target.value)} className="h-10 pl-9 rounded-xl bg-muted text-xs" />
+                      </div>
+                      {filteredSalesForAdjustment.length > 0 && !selectedSaleForAdjustment && (
+                        <ScrollArea className="h-40 border rounded-xl mt-2 bg-card">
+                          {filteredSalesForAdjustment.map((s: any) => (
+                            <div key={s.id} onClick={() => setSelectedSaleForAdjustment(s)} className="p-3 border-b hover:bg-muted cursor-pointer transition-colors">
+                              <p className="text-[10px] md:text-[11px] font-bold text-foreground">{s.customer}</p>
+                              <p className="text-[8px] md:text-[9px] text-muted-foreground">{new Date(s.timestamp).toLocaleDateString()} - ${s.total.toFixed(2)}</p>
+                            </div>
+                          ))}
+                        </ScrollArea>
+                      )}
+                    </div>
+
+                    {selectedSaleForAdjustment && (
+                      <div className="p-4 bg-muted/40 rounded-2xl border space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Venta Seleccionada</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSaleForAdjustment(null)}><XCircle size={14}/></Button>
+                        </div>
+                        <p className="text-xs md:text-sm font-bold text-foreground leading-tight">{selectedSaleForAdjustment.customer}</p>
+                        <p className="text-lg md:text-xl font-black text-emerald-600 dark:text-emerald-400">${selectedSaleForAdjustment.total.toFixed(2)}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                          <Button variant="outline" className="h-20 md:h-24 rounded-2xl flex flex-col gap-1 md:gap-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 active:scale-95 transition-all" onClick={() => handleCreateAdjustmentNote('DEBITO', 'AJUSTE_VALOR')}>
+                            <TrendingUp size={18} className="text-emerald-500" />
+                            <span className="text-[9px] md:text-[10px] font-bold uppercase">Por Ajuste de Valor</span>
+                            <span className="text-[7px] md:text-[8px] text-muted-foreground italic">Diferencia de Precio</span>
+                          </Button>
+                          <Button variant="outline" className="h-20 md:h-24 rounded-2xl flex flex-col gap-1 md:gap-2 border-emerald-100 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 active:scale-95 transition-all" onClick={() => handleCreateAdjustmentNote('DEBITO', 'CARGO_ADICIONAL')}>
+                            <PlusCircle size={18} className="text-emerald-500" />
+                            <span className="text-[9px] md:text-[10px] font-bold uppercase">Cargo Adicional</span>
+                            <span className="text-[7px] md:text-[8px] text-muted-foreground italic">Intereses o Servicios</span>
                           </Button>
                         </div>
                       </div>
@@ -835,6 +890,64 @@ export default function BillingPage() {
             <Button className="w-full h-12 md:h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base md:text-lg shadow-xl transition-all active:scale-95" onClick={handleFinalizeSale} disabled={isProcessing}>
               {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
               CONFIRMAR VENTA
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expense Modal */}
+      <Dialog open={isExpenseModalOpen} onOpenChange={setIsExpenseModalOpen}>
+        <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><TrendingDown className="text-rose-500" /> Registrar Gasto de Caja</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Descripción</Label>
+              <Input placeholder="Ej. Pago de Gasolina..." value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} className="rounded-xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Monto ($)</Label>
+                <Input type="number" placeholder="0.00" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: e.target.value})} className="rounded-xl font-bold" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Categoría</Label>
+                <Select value={newExpense.category} onValueChange={v => setNewExpense({...newExpense, category: v})}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Gasolina">Gasolina</SelectItem>
+                    <SelectItem value="Alimentación">Alimentación</SelectItem>
+                    <SelectItem value="Otros">Otros</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="w-full bg-rose-600 text-white rounded-xl" onClick={handleAddExpense}>GUARDAR GASTO</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Correction Modal */}
+      <Dialog open={isCorrectionOpen} onOpenChange={setIsCorrectionOpen}>
+        <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Corregir Método de Pago</DialogTitle>
+            <DialogDescription>Cambie la forma en que se registró el ingreso.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Label className="text-[10px] font-bold uppercase">Nuevo Método de Pago</Label>
+            <div className="grid grid-cols-2 gap-2">
+               {['Efectivo', 'Tarjeta', 'Transferencia', 'Cheque', 'Credito'].map((m: any) => (
+                 <Button key={m} variant={newPaymentMethod === m ? 'default' : 'outline'} onClick={() => setNewPaymentMethod(m)} className="h-10 text-[10px] rounded-xl">{m}</Button>
+               ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="w-full bg-blue-600 text-white rounded-xl" onClick={handleApplyCorrection} disabled={isProcessing}>
+               {isProcessing ? <Loader2 className="animate-spin mr-2" /> : "APLICAR CAMBIO"}
             </Button>
           </DialogFooter>
         </DialogContent>
