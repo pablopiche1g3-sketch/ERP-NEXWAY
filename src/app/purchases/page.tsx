@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -234,14 +233,14 @@ export default function PurchasesPage() {
         let itemsToLoad: any[] = [];
         let detectedCount = 0;
 
-        // Lógica DTE El Salvador
-        if (json.identificacion && json.emisor && json.resumen) {
+        // Lógica Ministerio de Hacienda El Salvador V3
+        if (json.identificacion && json.emisor && json.cuerpoDocumento) {
           setSupplierName(json.emisor.nombre || '');
           setGenerationCode(json.identificacion.codigoGeneracion || '');
           setDocType(json.identificacion.tipoDte === '03' ? 'CCF' : 'FACTURA');
           
           json.cuerpoDocumento?.forEach((item: any) => {
-            // Intentar buscar SKU por código o descripción en el inventario maestro
+            // Intentar buscar SKU por código del DTE o descripción en el inventario maestro
             const product = inventory?.find((p: any) => 
               p.sku === (item.codigo || '').toUpperCase() || 
               p.name.toLowerCase() === (item.descripcion || '').toLowerCase()
@@ -258,9 +257,9 @@ export default function PurchasesPage() {
               detectedCount++;
             }
           });
-          toast({ title: "DTE Detectado", description: `Se identificó proveedor y ${detectedCount} productos del catálogo.` });
+          toast({ title: "DTE V3 Detectado", description: `Se identificó proveedor y ${detectedCount} productos compatibles.` });
         } 
-        // Lógica Formato Simple (Array)
+        // Soporte Formato Simple (Array)
         else if (Array.isArray(json)) {
           json.forEach(item => {
             const product = inventory?.find((p: any) => p.sku === item.sku?.toUpperCase());
@@ -275,9 +274,9 @@ export default function PurchasesPage() {
               detectedCount++;
             }
           });
-          toast({ title: "JSON Simple Cargado", description: `Se añadieron ${detectedCount} productos válidos.` });
+          toast({ title: "JSON Cargado", description: `Se añadieron ${detectedCount} productos válidos.` });
         } else {
-          toast({ variant: "destructive", title: "Formato Desconocido", description: "El archivo no coincide con el estándar DTE SV ni con una lista simple." });
+          toast({ variant: "destructive", title: "Formato Desconocido", description: "El archivo no coincide con el estándar DTE V3 de El Salvador." });
           return;
         }
 
@@ -314,7 +313,7 @@ export default function PurchasesPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-headline">Registro de Compra Operativa</h1>
-            <p className="text-slate-500 text-sm">Carga masiva de DTE y control de ingresos a stock</p>
+            <p className="text-slate-500 text-sm">Soporte nativo para DTE V3 Hacienda El Salvador</p>
           </div>
         </div>
       </div>
@@ -489,15 +488,12 @@ export default function PurchasesPage() {
 
           <Card className="border-none shadow-sm rounded-3xl bg-white p-6">
             <div className="flex items-center justify-between mb-4">
-               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cargar Documento</Label>
+               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cargar DTE V3</Label>
                <Popover>
                   <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><Info size={14} /></Button></PopoverTrigger>
                   <PopoverContent className="w-64 text-[10px] space-y-2">
-                     <p className="font-bold">Formatos Soportados:</p>
-                     <ul className="list-disc pl-4 space-y-1">
-                        <li><b>DTE Hacienda SV:</b> Extrae automáticamente proveedor, código de generación y productos del cuerpo del documento.</li>
-                        <li><b>JSON Simple:</b> Un array de objetos con <code className="bg-slate-100 p-0.5 rounded">sku</code>, <code className="bg-slate-100 p-0.5 rounded">quantity</code> y <code className="bg-slate-100 p-0.5 rounded">price</code>.</li>
-                     </ul>
+                     <p className="font-bold">Hacienda El Salvador V3:</p>
+                     <p>Extrae automáticamente proveedor, códigos de productos, cantidades y precios directamente desde el archivo oficial del Ministerio.</p>
                   </PopoverContent>
                </Popover>
             </div>
@@ -508,7 +504,7 @@ export default function PurchasesPage() {
             >
               <div className="flex items-center gap-2">
                  <FileJson size={20} />
-                 <span>IMPORTAR JSON / DTE</span>
+                 <span>IMPORTAR DTE V3 (JSON)</span>
               </div>
               <span className="text-[9px] opacity-60 font-medium">Soporta Ministerio de Hacienda SV</span>
             </Button>
@@ -585,7 +581,7 @@ export default function PurchasesPage() {
                   {purchaseItems.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-20 text-slate-400 italic text-xs">
-                        No hay productos seleccionados. Importe un DTE o agréguelos manualmente.
+                        No hay productos seleccionados. Importe un DTE V3 o agréguelos manualmente.
                       </TableCell>
                     </TableRow>
                   ) : purchaseItems.map((item) => (
@@ -643,4 +639,3 @@ export default function PurchasesPage() {
     </div>
   );
 }
-

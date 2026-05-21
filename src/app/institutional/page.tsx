@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -229,9 +228,10 @@ export default function InstitutionalModulePage() {
         const json = JSON.parse(event.target?.result as string);
         let purchasesToProcess: any[] = [];
 
-        if (json.identificacion && json.emisor && json.resumen) {
+        // Lógica Ministerio de Hacienda DTE SV V3
+        if (json.identificacion && json.emisor && json.resumen && json.cuerpoDocumento) {
           purchasesToProcess = [{
-            docNumber: json.identificacion.codigoGeneracion || json.identificacion.numeroControl || 'DTE-SV',
+            docNumber: json.identificacion.codigoGeneracion || json.identificacion.numeroControl || 'DTE-SV-V3',
             total: json.resumen.totalPagar || json.resumen.montoTotalOperacion || 0,
             supplierName: json.emisor.nombre || 'Proveedor DTE',
             date: json.identificacion.fecEmi || new Date().toISOString().split('T')[0],
@@ -240,7 +240,7 @@ export default function InstitutionalModulePage() {
         } else if (Array.isArray(json)) {
           purchasesToProcess = json;
         } else {
-          toast({ variant: "destructive", title: "Formato Desconocido", description: "No coincide con DTE SV ni formato simple." });
+          toast({ variant: "destructive", title: "Formato Desconocido", description: "No coincide con el estándar DTE V3 de Hacienda." });
           return;
         }
 
@@ -251,11 +251,11 @@ export default function InstitutionalModulePage() {
             total: parseFloat(item.total) || 0,
             supplierName: item.supplierName || item.nombreProveedor || 'Proveedor Externo',
             date: item.date || new Date().toISOString().split('T')[0],
-            items: item.items || 'Carga vía JSON',
+            items: item.items || 'Carga vía DTE V3',
             createdAt: new Date().toISOString()
           });
         }
-        toast({ title: "Carga Exitosa" });
+        toast({ title: "Carga de DTE Exitosa" });
       } catch (error) {
         toast({ variant: "destructive", title: "Error de lectura" });
       } finally {
@@ -274,7 +274,7 @@ export default function InstitutionalModulePage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-headline">NexWay Institucional</h1>
-            <p className="text-slate-500 text-sm">Ventas gubernamentales y gestión de contratos salvadoreños</p>
+            <p className="text-slate-500 text-sm">Ventas gubernamentales y soporte DTE V3 Hacienda</p>
           </div>
         </div>
       </div>
@@ -431,6 +431,56 @@ export default function InstitutionalModulePage() {
             </div>
           </TabsContent>
 
+          <TabsContent value="costs" className="space-y-6 outline-none">
+             <div className="max-w-2xl mx-auto">
+                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                   <CardHeader className="bg-blue-600 text-white p-6">
+                      <CardTitle className="text-lg font-bold flex items-center gap-2">
+                         <FileUp size={20} /> Importar Costos de Proyecto
+                      </CardTitle>
+                      <CardDescription className="text-blue-100">Cargue el DTE V3 del proveedor para asignar costos directos</CardDescription>
+                   </CardHeader>
+                   <CardContent className="p-8 space-y-6">
+                      <div className="space-y-4">
+                         <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold uppercase text-slate-400">Asignar a Proyecto (Opcional)</Label>
+                            <select 
+                               className="w-full h-11 bg-slate-50 border border-slate-100 rounded-xl px-4 text-xs font-bold"
+                               value={selectedProjectId}
+                               onChange={e => setSelectedProjectId(e.target.value)}
+                            >
+                               <option value="">Carga General (Sin Proyecto)</option>
+                               {projects?.map((p: any) => (
+                                  <option key={p.id} value={p.id}>{p.name}</option>
+                               ))}
+                            </select>
+                         </div>
+                         
+                         <div className="border-2 border-dashed border-slate-200 rounded-3xl p-10 flex flex-col items-center justify-center text-center gap-4 bg-slate-50/50">
+                            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-blue-600">
+                               <FileCode size={32} />
+                            </div>
+                            <div>
+                               <p className="text-sm font-bold text-slate-900">Suelta el JSON de Hacienda aquí</p>
+                               <p className="text-xs text-slate-500">Soporta estándar DTE Versión 3 (Facturas/CCF)</p>
+                            </div>
+                            <input 
+                               type="file" 
+                               ref={purchaseFileInputRef} 
+                               onChange={handleBulkPurchaseUpload} 
+                               className="hidden" 
+                               accept=".json" 
+                            />
+                            <Button variant="outline" className="rounded-xl border-blue-200 text-blue-600 font-bold" onClick={() => purchaseFileInputRef.current?.click()}>
+                               SELECCIONAR ARCHIVO
+                            </Button>
+                         </div>
+                      </div>
+                   </CardContent>
+                </Card>
+             </div>
+          </TabsContent>
+
           <TabsContent value="history" className="space-y-6 outline-none">
             <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 text-[10px] font-bold text-blue-700">
                TIP: Haz doble clic en una fila para ver el detalle de productos en la terminal.
@@ -488,7 +538,7 @@ export default function InstitutionalModulePage() {
       </div>
 
       <Dialog open={isNewProjectOpen} onOpenChange={setIsNewProjectOpen}>
-        {/* New Project Modal remains same */}
+        {/* Modal content remains unchanged */}
       </Dialog>
     </div>
   );

@@ -170,19 +170,21 @@ export default function InventoryMasterPage() {
         const json = JSON.parse(event.target?.result as string);
         let items: SupplierItem[] = [];
 
-        if (json.cuerpoDocumento) {
+        // Soporte Ministerio de Hacienda DTE V3 (cuerpoDocumento)
+        if (json.cuerpoDocumento && Array.isArray(json.cuerpoDocumento)) {
           items = json.cuerpoDocumento.map((item: any) => ({
             code: item.codigo || item.sku || 'S/C',
             name: item.descripcion || item.nombre || 'Sin descripción'
           }));
         } 
+        // Soporte formato simple o array
         else if (Array.isArray(json)) {
           items = json.map((item: any) => ({
             code: item.codigo || item.code || item.sku || 'S/C',
             name: item.descripcion || item.name || 'Sin descripción'
           }));
         } else {
-          toast({ variant: "destructive", title: "Formato Inválido", description: "El JSON no tiene una estructura compatible." });
+          toast({ variant: "destructive", title: "Formato Inválido", description: "El JSON no tiene una estructura compatible con DTE V3." });
           return;
         }
 
@@ -197,7 +199,7 @@ export default function InventoryMasterPage() {
         });
         setMappings(initialMappings);
 
-        toast({ title: "JSON Cargado", description: `Se encontraron ${items.length} productos del proveedor.` });
+        toast({ title: "DTE V3 Cargado", description: `Se encontraron ${items.length} productos del proveedor.` });
       } catch (error) {
         toast({ variant: "destructive", title: "Error al leer archivo" });
       }
@@ -369,9 +371,9 @@ export default function InventoryMasterPage() {
                    <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
                       <CardHeader className="bg-slate-900 text-white p-5 md:p-6">
                          <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
-                            <FileJson size={20} className="text-blue-400" /> Mapeo Catálogo
+                            <FileJson size={20} className="text-blue-400" /> Mapeo DTE V3
                          </CardTitle>
-                         <CardDescription className="text-slate-400 text-xs">Vincule códigos del proveedor</CardDescription>
+                         <CardDescription className="text-slate-400 text-xs">Vincule códigos del proveedor de Hacienda</CardDescription>
                       </CardHeader>
                       <CardContent className="p-4 md:p-6 space-y-4 md:space-y-6">
                          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl space-y-2">
@@ -380,7 +382,7 @@ export default function InventoryMasterPage() {
                                <span className="text-[10px] uppercase tracking-tight">Instrucciones</span>
                             </div>
                             <p className="text-[9px] md:text-[10px] text-blue-700 leading-relaxed">
-                               Cargue el JSON del proveedor. Asocie sus códigos para automatizar futuras compras.
+                               Cargue el JSON DTE (Factura o CCF) del proveedor. Asocie sus códigos para automatizar futuras compras.
                             </p>
                          </div>
                          
@@ -389,7 +391,7 @@ export default function InventoryMasterPage() {
                             className="w-full h-12 md:h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl font-bold text-xs"
                             onClick={() => fileInputRef.current?.click()}
                          >
-                            <FileJson className="mr-2" size={16} md-size={20} /> CARGAR JSON
+                            <FileJson className="mr-2" size={16} md-size={20} /> CARGAR DTE V3
                          </Button>
 
                          {supplierItems.length > 0 && (
@@ -421,7 +423,7 @@ export default function InventoryMasterPage() {
                               {supplierItems.length === 0 ? (
                                  <TableRow>
                                     <TableCell colSpan={3} className="text-center py-20 md:py-24 text-slate-400 text-xs italic">
-                                       Cargue un archivo para comenzar
+                                       Cargue un archivo DTE para comenzar
                                     </TableCell>
                                  </TableRow>
                               ) : supplierItems.map((item, idx) => (
