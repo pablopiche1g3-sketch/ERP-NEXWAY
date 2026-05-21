@@ -361,8 +361,12 @@ export default function BillingPage() {
     );
   }, [denominations]);
 
-  const expectedCashBalance = currentCashFloat + dailyClosingTotals.Efectivo - totalExpensesToday;
-  const cashDifference = physicalCashTotal - expectedCashBalance;
+  // Lógica de Cuadre: 
+  // 1. El total físico debe cubrir el Fondo Base.
+  // 2. El excedente + lo que se gastó es la venta real del día.
+  const expectedCashInDrawer = currentCashFloat + dailyClosingTotals.Efectivo - totalExpensesToday;
+  const realCashSalesFound = physicalCashTotal - currentCashFloat + totalExpensesToday;
+  const cashDifference = realCashSalesFound - dailyClosingTotals.Efectivo;
 
   const handleCreateAdjustmentNote = async (type: 'CREDITO' | 'DEBITO', reason: string) => {
     if (!selectedSaleForAdjustment) return;
@@ -413,8 +417,8 @@ export default function BillingPage() {
         {/* Mostrador de Efectivo Teórico (Visible SOLO en Arqueo) */}
         {activeTab === 'cierre' && (
           <div className="bg-emerald-600 px-6 py-2 rounded-2xl shadow-lg shadow-emerald-600/20 text-white flex flex-col items-end animate-in fade-in slide-in-from-right-4">
-             <p className="text-[10px] font-black uppercase opacity-80 tracking-widest leading-tight">Efectivo Teórico en Caja</p>
-             <p className="text-xl font-black">${expectedCashBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+             <p className="text-[10px] font-black uppercase opacity-80 tracking-widest leading-tight">Efectivo Teórico en Gaveta</p>
+             <p className="text-xl font-black">${expectedCashInDrawer.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
           </div>
         )}
       </div>
@@ -556,10 +560,12 @@ export default function BillingPage() {
                 </div>
                 <div className="w-full md:w-48 space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Tipo de Documento</Label>
-                  <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="CF">Consumidor Final</SelectItem><SelectItem value="CCF">Crédito Fiscal</SelectItem></SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                     <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                       <SelectTrigger className="h-10 rounded-xl bg-slate-50 border-slate-100"><SelectValue /></SelectTrigger>
+                       <SelectContent><SelectItem value="CF">Consumidor Final</SelectItem><SelectItem value="CCF">Crédito Fiscal</SelectItem></SelectContent>
+                     </Select>
+                  </div>
                 </div>
               </Card>
 
@@ -760,31 +766,33 @@ export default function BillingPage() {
                     ))}
                   </div>
                   <div className="pt-3 border-t mt-3 flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase text-slate-400">Total Efectivo</span>
+                    <span className="text-[10px] font-black uppercase text-slate-400">Total Físico en Gaveta</span>
                     <span className="text-lg font-black text-blue-600">${physicalCashTotal.toFixed(2)}</span>
                   </div>
                 </Card>
               </div>
 
               <div className="lg:col-span-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <Card className="border-none shadow-sm rounded-3xl bg-slate-900 text-white p-8">
-                      <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-1">Saldo Esperado en Caja</p>
-                      <h2 className="text-4xl font-black mb-6">${expectedCashBalance.toFixed(2)}</h2>
-                      <div className="space-y-3 text-xs opacity-80">
-                         <div className="flex justify-between"><span>Fondo Base:</span><span className="font-bold">+${currentCashFloat.toFixed(2)}</span></div>
-                         <div className="flex justify-between"><span>Ventas Efectivo:</span><span className="font-bold">+${dailyClosingTotals.Efectivo.toFixed(2)}</span></div>
-                         <div className="flex justify-between"><span>Egresos / Gastos:</span><span className="font-bold">-${totalExpensesToday.toFixed(2)}</span></div>
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                   <Card className="border-none shadow-sm rounded-2xl bg-white p-5">
+                      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Fondo Base</p>
+                      <h2 className="text-xl font-bold">${currentCashFloat.toFixed(2)}</h2>
+                      <p className="text-[9px] text-slate-400 mt-1">Monto inicial para cambio</p>
                    </Card>
 
-                   <Card className={`border-none shadow-sm rounded-3xl p-8 flex flex-col justify-center ${cashDifference === 0 ? 'bg-white' : cashDifference > 0 ? 'bg-emerald-50 border border-emerald-100' : 'bg-rose-50 border border-rose-100'}`}>
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Diferencia de Arqueo</p>
-                      <h2 className={`text-4xl font-black ${cashDifference === 0 ? 'text-slate-900' : cashDifference > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                   <Card className="border-none shadow-sm rounded-2xl bg-slate-900 text-white p-5">
+                      <p className="text-[9px] font-black uppercase text-blue-400 tracking-widest mb-1">Vendido Real (Físico)</p>
+                      <h2 className="text-xl font-black text-blue-400">${realCashSalesFound.toFixed(2)}</h2>
+                      <p className="text-[9px] opacity-60 mt-1">Total Físico - Fondo + Gastos</p>
+                   </Card>
+
+                   <Card className={`border-none shadow-sm rounded-2xl p-5 ${Math.abs(cashDifference) < 0.01 ? 'bg-emerald-50 border border-emerald-100' : 'bg-rose-50 border border-rose-100'}`}>
+                      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Diferencia vs Sistema</p>
+                      <h2 className={`text-xl font-black ${Math.abs(cashDifference) < 0.01 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {cashDifference >= 0 ? '+' : '-'}${Math.abs(cashDifference).toFixed(2)}
                       </h2>
-                      <p className="text-xs mt-2 font-bold text-slate-500">
-                        {cashDifference === 0 ? 'Caja Cuadrada' : cashDifference > 0 ? 'Sobrante detectado' : 'Faltante en caja'}
+                      <p className="text-[9px] font-bold text-slate-500 mt-1">
+                        {Math.abs(cashDifference) < 0.01 ? 'Caja Cuadrada' : cashDifference > 0 ? 'Sobrante detectado' : 'Faltante en caja'}
                       </p>
                    </Card>
                 </div>
@@ -792,7 +800,7 @@ export default function BillingPage() {
                 <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
                    <CardHeader className="border-b bg-slate-50/50">
                       <div className="flex justify-between items-center">
-                        <CardTitle className="text-sm font-bold">Resumen de Ventas por Método</CardTitle>
+                        <CardTitle className="text-sm font-bold">Resumen de Sistema (Controles)</CardTitle>
                         <Button variant="outline" size="sm" className="rounded-xl h-8 text-[10px] font-bold" onClick={() => setIsExpenseModalOpen(true)}>
                           <TrendingDown size={14} className="mr-1 text-rose-500" /> REGISTRAR GASTO
                         </Button>
@@ -802,16 +810,14 @@ export default function BillingPage() {
                       <Table>
                          <TableHeader>
                             <TableRow>
-                               <TableHead className="px-6 text-[10px] uppercase">Método</TableHead>
-                               <TableHead className="text-right px-6 text-[10px] uppercase">Total Recaudado</TableHead>
+                               <TableHead className="px-6 text-[10px] uppercase">Categoría</TableHead>
+                               <TableHead className="text-right px-6 text-[10px] uppercase">Monto en Sistema</TableHead>
                             </TableRow>
                          </TableHeader>
                          <TableBody>
-                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><Wallet size={14}/> Efectivo</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Efectivo.toFixed(2)}</TableCell></TableRow>
-                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><CardIcon size={14}/> Tarjeta</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Tarjeta.toFixed(2)}</TableCell></TableRow>
-                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><Landmark size={14}/> Transferencia</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Transferencia.toFixed(2)}</TableCell></TableRow>
-                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><Clock size={14}/> Crédito (CXC)</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Credito.toFixed(2)}</TableCell></TableRow>
-                            <TableRow className="bg-slate-50"><TableCell className="px-6 font-black">TOTAL DÍA</TableCell><TableCell className="text-right px-6 font-black text-blue-600">${dailyClosingTotals.total.toFixed(2)}</TableCell></TableRow>
+                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2"><Wallet size={14}/> Ventas en Efectivo Registradas</TableCell><TableCell className="text-right px-6 font-black">${dailyClosingTotals.Efectivo.toFixed(2)}</TableCell></TableRow>
+                            <TableRow><TableCell className="px-6 font-bold flex items-center gap-2 text-rose-600"><TrendingDown size={14}/> Gastos Reportados (Salidas)</TableCell><TableCell className="text-right px-6 font-black text-rose-600">-${totalExpensesToday.toFixed(2)}</TableCell></TableRow>
+                            <TableRow className="bg-slate-50"><TableCell className="px-6 font-black">SALDO QUE DEBERÍA HABER (SISTEMA)</TableCell><TableCell className="text-right px-6 font-black text-blue-600">${expectedCashInDrawer.toFixed(2)}</TableCell></TableRow>
                          </TableBody>
                       </Table>
                    </div>
