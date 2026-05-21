@@ -729,30 +729,30 @@ export default function BillingPage() {
           <TabsContent value="cierre" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-4 space-y-6">
-                <Card className="border-none shadow-sm rounded-3xl bg-white p-6">
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Coins className="text-blue-600" /> Conteo de Efectivo</h3>
-                  <div className="space-y-3">
+                <Card className="border-none shadow-sm rounded-3xl bg-white p-5">
+                  <h3 className="text-base font-bold mb-4 flex items-center gap-2"><Coins className="text-blue-600" /> Conteo Físico</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     {Object.entries({
-                      'Billetes $100': 'b100', 'Billetes $50': 'b50', 'Billetes $20': 'b20', 
-                      'Billetes $10': 'b10', 'Billetes $5': 'b5', 'Billetes $1': 'b1',
-                      'Monedas $0.25': 'c25', 'Monedas $0.10': 'c10', 'Monedas $0.05': 'c5', 'Monedas $0.01': 'c01'
+                      '$100': 'b100', '$50': 'b50', '$20': 'b20', 
+                      '$10': 'b10', '$5': 'b5', '$1': 'b1',
+                      '0.25¢': 'c25', '0.10¢': 'c10', '0.05¢': 'c5', '0.01¢': 'c01'
                     }).map(([label, key]) => (
-                      <div key={key} className="flex items-center justify-between gap-4">
-                        <Label className="text-[10px] font-bold text-slate-500 uppercase flex-1">{label}</Label>
+                      <div key={key} className="flex items-center justify-between gap-2 border-b border-slate-50 pb-1">
+                        <Label className="text-[9px] font-black text-slate-400 uppercase w-8">{label}</Label>
                         <Input 
                           type="number" 
                           min="0" 
                           value={denominations[key]} 
                           onFocus={e => e.target.select()}
                           onChange={e => setDenominations({...denominations, [key]: parseInt(e.target.value) || 0})}
-                          className="h-8 w-20 text-right font-bold bg-slate-50"
+                          className="h-7 w-12 text-center text-[10px] font-bold bg-slate-50 border-none p-1 focus:ring-1 focus:ring-blue-400"
                         />
                       </div>
                     ))}
-                    <div className="pt-4 border-t mt-4 flex justify-between items-center">
-                      <span className="text-sm font-black">TOTAL FÍSICO</span>
-                      <span className="text-xl font-black text-blue-600">${physicalCashTotal.toFixed(2)}</span>
-                    </div>
+                  </div>
+                  <div className="pt-3 border-t mt-3 flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase text-slate-400">Total Efectivo</span>
+                    <span className="text-lg font-black text-blue-600">${physicalCashTotal.toFixed(2)}</span>
                   </div>
                 </Card>
               </div>
@@ -931,4 +931,3 @@ export default function BillingPage() {
     </div>
   );
 }
-
