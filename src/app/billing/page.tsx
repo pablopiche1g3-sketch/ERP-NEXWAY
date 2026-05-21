@@ -409,11 +409,14 @@ export default function BillingPage() {
             <p className="text-slate-500 text-sm">Terminal de punto de venta y gestión documental</p>
           </div>
         </div>
-        {/* Mostrador de Efectivo Teórico (Visible en todas las pestañas) */}
-        <div className="bg-emerald-600 px-6 py-2 rounded-2xl shadow-lg shadow-emerald-600/20 text-white flex flex-col items-end">
-           <p className="text-[10px] font-black uppercase opacity-80 tracking-widest leading-tight">Efectivo Teórico en Caja</p>
-           <p className="text-xl font-black">${expectedCashBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-        </div>
+        
+        {/* Mostrador de Efectivo Teórico (Visible SOLO en Arqueo) */}
+        {activeTab === 'cierre' && (
+          <div className="bg-emerald-600 px-6 py-2 rounded-2xl shadow-lg shadow-emerald-600/20 text-white flex flex-col items-end animate-in fade-in slide-in-from-right-4">
+             <p className="text-[10px] font-black uppercase opacity-80 tracking-widest leading-tight">Efectivo Teórico en Caja</p>
+             <p className="text-xl font-black">${expectedCashBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto">
