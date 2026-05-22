@@ -135,6 +135,18 @@
         "closedBy": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" }
       }
+    },
+    "InstitutionalProject": {
+      "title": "Institutional Project",
+      "description": "Licitaciones y proyectos institucionales.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "purchaseOrder": { "type": "string" },
+        "totalBudget": { "type": "number" },
+        "status": { "type": "string" },
+        "customerName": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -188,6 +200,18 @@
     "/daily_closings": {
       "schema": "#/backend/entities/DailyClosing",
       "description": "Records of daily register closures."
+    },
+    "/institutional_projects": {
+      "schema": "#/backend/entities/InstitutionalProject",
+      "description": "Expedientes de licitaciones."
+    },
+    "/institutional_sales": {
+      "schema": "object",
+      "description": "Ingresos por proyectos."
+    },
+    "/institutional_purchases": {
+      "schema": "object",
+      "description": "Egresos por costos de proyectos."
     }
   }
 }
