@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -19,7 +18,8 @@ import {
   ArrowRightLeft,
   CheckCircle2,
   Link2,
-  Info
+  Info,
+  Hash
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -86,32 +86,42 @@ export default function InventoryMasterPage() {
     }
 
     setLoading(true);
-    const q = query(inventoryQuery, where("sku", "==", productForm.sku));
-    const snap = await getDocs(q);
-    
-    if (!snap.empty) {
-      toast({ variant: "destructive", title: "Error", description: "Este código SKU ya existe en el sistema." });
+    try {
+      const q = query(inventoryQuery, where("sku", "==", productForm.sku.toUpperCase()));
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        toast({ variant: "destructive", title: "Error", description: "Este código SKU ya existe en el sistema." });
+        setLoading(false);
+        return;
+      }
+
+      const data = {
+        sku: productForm.sku.toUpperCase(),
+        name: productForm.name,
+        category: productForm.category,
+        price: 0,
+        quantity: 0,
+        createdAt: new Date().toISOString()
+      };
+
+      await addDoc(inventoryQuery, data);
+      toast({ title: "Código Autorizado", description: "El producto ha sido registrado en el maestro." });
+      setProductForm({ sku: '', name: '', category: 'General' });
+    } catch (err: any) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'inventory', operation: 'create', requestResourceData: productForm }));
+    } finally {
       setLoading(false);
-      return;
     }
+  };
 
-    const data = {
-      sku: productForm.sku,
-      name: productForm.name,
-      category: productForm.category,
-      price: 0,
-      quantity: 0,
-      createdAt: new Date().toISOString()
-    };
-
-    addDoc(inventoryQuery, data)
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'inventory', operation: 'create', requestResourceData: data }));
-      });
-
-    toast({ title: "Código Autorizado", description: "El producto ha sido registrado en el maestro." });
-    setProductForm({ sku: '', name: '', category: 'General' });
-    setLoading(false);
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'inventory', id));
+      toast({ title: "Producto Eliminado" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al eliminar" });
+    }
   };
 
   const handleQuickStockEntry = (e: React.FormEvent) => {
@@ -171,6 +181,7 @@ export default function InventoryMasterPage() {
         const json = JSON.parse(event.target?.result as string);
         let items: SupplierItem[] = [];
 
+        // Lógica DTE SV V3
         if (json.cuerpoDocumento && Array.isArray(json.cuerpoDocumento)) {
           items = json.cuerpoDocumento.map((item: any) => ({
             code: item.codigo || item.sku || 'S/C',
@@ -233,27 +244,27 @@ export default function InventoryMasterPage() {
   }, [searchTerm, inventory]);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-6 transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full bg-white shadow-sm hover:bg-slate-100" 
+            className="rounded-full bg-white dark:bg-card shadow-sm hover:bg-slate-100 border" 
             onClick={() => router.push('/')}
           >
-            <ArrowLeft className="text-slate-600" size={20} />
+            <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-slate-900">Centro Logístico</h1>
-            <p className="text-slate-500 text-xs md:text-sm">Administración de stock y bodegas</p>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-foreground">Centro Logístico</h1>
+            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Administración de stock y bodegas</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="existencia" className="space-y-6">
-          <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 h-auto w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border h-auto w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="existencia" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
               <Package size={14} className="mr-2" /> Existencias
             </TabsTrigger>
@@ -274,7 +285,7 @@ export default function InventoryMasterPage() {
           <TabsContent value="existencia" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-1 space-y-4">
-                <Card className="border-none shadow-sm rounded-3xl bg-white h-fit hidden lg:block">
+                <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border h-fit hidden lg:block">
                   <CardHeader>
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Warehouse size={18} className="text-blue-600" /> Bodega
@@ -304,7 +315,7 @@ export default function InventoryMasterPage() {
                 </Card>
                 <div className="lg:hidden">
                   <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
-                    <SelectTrigger className="w-full rounded-xl bg-white h-11 border-none shadow-sm text-xs font-bold">
+                    <SelectTrigger className="w-full rounded-xl bg-white dark:bg-card h-11 border-none shadow-sm text-xs font-bold">
                       <SelectValue placeholder="Filtrar por bodega" />
                     </SelectTrigger>
                     <SelectContent>
@@ -324,14 +335,14 @@ export default function InventoryMasterPage() {
                     placeholder="Buscar existencia..." 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-10 md:pl-12 h-10 md:h-12 bg-white border-none shadow-sm rounded-2xl text-xs md:text-sm"
+                    className="pl-10 md:pl-12 h-10 md:h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
                   />
                 </div>
 
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader className="bg-slate-50">
+                      <TableHeader className="bg-slate-50 dark:bg-muted/50">
                         <TableRow>
                           <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">SKU</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase">Producto</TableHead>
@@ -343,15 +354,15 @@ export default function InventoryMasterPage() {
                         {loadingInv ? (
                           <TableRow><TableCell colSpan={4} className="text-center py-12 text-xs">Cargando...</TableCell></TableRow>
                         ) : filteredItems?.map((item) => (
-                          <TableRow key={item.id} className="hover:bg-slate-50 transition-colors">
-                            <TableCell className="px-4 md:px-6 font-mono font-bold text-slate-600 text-[10px] md:text-[11px] whitespace-nowrap">{item.sku}</TableCell>
-                            <TableCell className="font-bold text-slate-900 text-[10px] md:text-xs min-w-[120px]">{item.name}</TableCell>
+                          <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30 transition-colors">
+                            <TableCell className="px-4 md:px-6 font-mono font-bold text-slate-600 dark:text-muted-foreground text-[10px] md:text-[11px] whitespace-nowrap">{item.sku}</TableCell>
+                            <TableCell className="font-bold text-slate-900 dark:text-foreground text-[10px] md:text-xs min-w-[120px]">{item.name}</TableCell>
                             <TableCell className="text-center">
                               <Badge className={`font-black text-[9px] h-5 ${item.quantity <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
                                 {item.quantity} un.
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right px-4 md:px-6 font-bold text-slate-900 text-[10px] md:text-xs whitespace-nowrap">
+                            <TableCell className="text-right px-4 md:px-6 font-bold text-slate-900 dark:text-foreground text-[10px] md:text-xs whitespace-nowrap">
                               ${(item.price || 0).toFixed(2)}
                             </TableCell>
                           </TableRow>
@@ -364,23 +375,148 @@ export default function InventoryMasterPage() {
             </div>
           </TabsContent>
 
+          <TabsContent value="maestro" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
+            <div className="lg:col-span-4 space-y-6">
+              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Plus className="text-blue-400" size={18} /> Registro de Códigos Autorizados
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-xs">Añada productos al catálogo maestro del sistema.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <form onSubmit={handleCreateProduct} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Código Interno (SKU)</Label>
+                      <div className="relative">
+                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <Input 
+                          placeholder="EJ: ACC-001" 
+                          value={productForm.sku}
+                          onChange={e => setProductForm({...productForm, sku: e.target.value.toUpperCase()})}
+                          className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre del Producto</Label>
+                      <Input 
+                        placeholder="Descripción completa..." 
+                        value={productForm.name}
+                        onChange={e => setProductForm({...productForm, name: e.target.value})}
+                        className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría</Label>
+                      <Select 
+                        value={productForm.category} 
+                        onValueChange={(val) => setProductForm({...productForm, category: val})}
+                      >
+                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="General">General</SelectItem>
+                          <SelectItem value="Repuestos">Repuestos</SelectItem>
+                          <SelectItem value="Accesorios">Accesorios</SelectItem>
+                          <SelectItem value="Lubricantes">Lubricantes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Button 
+                      type="submit" 
+                      className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg"
+                      disabled={loading}
+                    >
+                      {loading ? <Loader2 className="animate-spin mr-2" /> : <Tag className="mr-2" size={18} />}
+                      AUTORIZAR CÓDIGO
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-5 rounded-3xl space-y-2">
+                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-bold">
+                  <Info size={16} />
+                  <span className="text-xs uppercase tracking-tight">Catálogo Único</span>
+                </div>
+                <p className="text-[10px] md:text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
+                  Todos los productos deben ser creados aquí primero. Los módulos de **Ventas**, **Compras** e **Institucional** solo reconocen códigos que ya existen en este Maestro.
+                </p>
+              </div>
+            </div>
+
+            <div className="lg:col-span-8 space-y-4">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Input 
+                  placeholder="Buscar en el catálogo maestro..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl"
+                />
+              </div>
+
+              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                      <TableRow>
+                        <TableHead className="px-6 text-[10px] font-black uppercase">SKU Autorizado</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Descripción</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Categoría</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingInv ? (
+                        <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Sincronizando catálogo...</TableCell></TableRow>
+                      ) : filteredItems.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">No hay productos en el maestro.</TableCell></TableRow>
+                      ) : filteredItems.map((item) => (
+                        <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                          <TableCell className="px-6 py-4">
+                            <Badge variant="outline" className="font-mono font-black text-[10px] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-muted-foreground">
+                              {item.sku}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">{item.name}</TableCell>
+                          <TableCell><Badge variant="secondary" className="text-[8px] font-bold uppercase">{item.category}</Badge></TableCell>
+                          <TableCell className="px-4">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteProduct(item.id)}>
+                              <Trash2 size={14} />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </Card>
+            </div>
+          </TabsContent>
+
           <TabsContent value="vinculacion" className="space-y-6 outline-none">
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
                 <div className="lg:col-span-4 space-y-6">
-                   <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-                      <CardHeader className="bg-slate-900 text-white p-5 md:p-6">
+                   <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
+                      <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5 md:p-6">
                          <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
                             <FileJson size={20} className="text-blue-400" /> Mapeo DTE V3
                          </CardTitle>
                          <CardDescription className="text-slate-400 text-xs">Vincule códigos del proveedor de Hacienda</CardDescription>
                       </CardHeader>
                       <CardContent className="p-4 md:p-6 space-y-4 md:space-y-6">
-                         <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl space-y-2">
-                            <div className="flex items-center gap-2 text-blue-800 font-bold">
+                         <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-4 rounded-2xl space-y-2">
+                            <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-bold">
                                <Info size={14} />
                                <span className="text-[10px] uppercase tracking-tight">Instrucciones</span>
                             </div>
-                            <p className="text-[9px] md:text-[10px] text-blue-700 leading-relaxed">
+                            <p className="text-[9px] md:text-[10px] text-blue-700 dark:text-blue-400 leading-relaxed">
                                Cargue el JSON DTE (Factura o CCF) del proveedor. Asocie sus códigos para automatizar futuras compras.
                             </p>
                          </div>
@@ -408,10 +544,10 @@ export default function InventoryMasterPage() {
                 </div>
 
                 <div className="lg:col-span-8">
-                   <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                   <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
                       <div className="overflow-x-auto">
                         <Table>
-                           <TableHeader className="bg-slate-50">
+                           <TableHeader className="bg-slate-50 dark:bg-muted/50">
                               <TableRow>
                                  <TableHead className="px-4 md:px-6 text-[10px] font-black uppercase whitespace-nowrap">Código Prov.</TableHead>
                                  <TableHead className="text-[10px] font-black uppercase whitespace-nowrap">Descripción</TableHead>
@@ -427,14 +563,14 @@ export default function InventoryMasterPage() {
                                  </TableRow>
                               ) : supplierItems.map((item, idx) => (
                                  <TableRow key={idx}>
-                                    <TableCell className="px-4 md:px-6 font-mono text-[10px] md:text-[11px] font-bold text-slate-600 whitespace-nowrap">{item.code}</TableCell>
-                                    <TableCell className="text-[10px] md:text-xs text-slate-500 font-medium max-w-[120px] truncate">{item.name}</TableCell>
+                                    <TableCell className="px-4 md:px-6 font-mono text-[10px] md:text-[11px] font-bold text-slate-600 dark:text-muted-foreground whitespace-nowrap">{item.code}</TableCell>
+                                    <TableCell className="text-[10px] md:text-xs text-slate-500 dark:text-muted-foreground font-medium max-w-[120px] truncate">{item.name}</TableCell>
                                     <TableCell className="pr-4 md:pr-6">
                                        <Select 
                                           value={mappings[item.code] || ""} 
                                           onValueChange={(val) => setMappings(prev => ({...prev, [item.code]: val}))}
                                        >
-                                          <SelectTrigger className="h-8 md:h-9 rounded-xl text-[9px] md:text-[10px] font-bold bg-slate-50 border-slate-100">
+                                          <SelectTrigger className="h-8 md:h-9 rounded-xl text-[9px] md:text-[10px] font-bold bg-slate-50 dark:bg-muted border-none">
                                              <SelectValue placeholder="Vincular a..." />
                                           </SelectTrigger>
                                           <SelectContent>
@@ -457,7 +593,7 @@ export default function InventoryMasterPage() {
           </TabsContent>
 
           <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-            <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
+            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
               <CardHeader className="p-5 md:p-6">
                 <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
                   <Zap size={18} md-size={20} className="text-amber-500" /> Entrada Rápida
@@ -472,7 +608,7 @@ export default function InventoryMasterPage() {
                       placeholder="SKU..." 
                       value={quickEntry.sku}
                       onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
-                      className="bg-slate-50 border-slate-200 h-10 md:h-12 text-base md:text-lg font-bold"
+                      className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-base md:text-lg font-bold"
                     />
                   </div>
                   <div className="space-y-2">
@@ -483,20 +619,20 @@ export default function InventoryMasterPage() {
                       value={quickEntry.quantity}
                       onFocus={e => e.target.select()}
                       onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
-                      className="bg-slate-50 border-slate-200 h-10 md:h-12 text-lg md:text-xl font-black text-blue-600"
+                      className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-lg md:text-xl font-black text-blue-600 dark:text-blue-400"
                     />
                   </div>
-                  <Button className="w-full bg-slate-900 h-12 md:h-14 rounded-2xl font-bold shadow-lg text-white text-xs md:text-sm">
+                  <Button className="w-full bg-slate-900 dark:bg-blue-600 h-12 md:h-14 rounded-2xl font-bold shadow-lg text-white text-xs md:text-sm">
                     CARGAR STOCK
                   </Button>
                 </form>
               </CardContent>
             </Card>
 
-            <div className="bg-blue-600 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center">
+            <div className="bg-blue-600 dark:bg-blue-900/30 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center border border-blue-500/20">
               <History size={40} md-size={48} className="mb-4 text-blue-200" />
               <h3 className="text-lg md:text-xl font-bold mb-2">¿Emergencia de Stock?</h3>
-              <p className="text-blue-100 text-xs md:text-sm leading-relaxed mb-6">
+              <p className="text-blue-100 dark:text-blue-300 text-xs md:text-sm leading-relaxed mb-6">
                 Utiliza la entrada rápida para habilitar productos recién llegados que necesitan ser vendidos de inmediato antes de procesar la factura legal en Compras.
               </p>
               <div className="bg-blue-500/30 p-3 md:p-4 rounded-2xl border border-blue-400/30">
@@ -506,7 +642,7 @@ export default function InventoryMasterPage() {
           </TabsContent>
 
           <TabsContent value="config" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-            <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
+            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
               <CardHeader className="p-5 md:p-6">
                 <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
                   <Warehouse size={18} md-size={20} className="text-blue-600" /> Gestión de Bodegas
@@ -521,22 +657,22 @@ export default function InventoryMasterPage() {
                       placeholder="Ej. Bodega Central, Sucursal 1..." 
                       value={warehouseName}
                       onChange={e => setWarehouseName(e.target.value)}
-                      className="bg-slate-50 border-slate-200 h-10"
+                      className="bg-slate-50 dark:bg-muted border-none h-10"
                     />
-                    <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold">
+                    <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold rounded-xl">
                       CREAR
                     </Button>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100">
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                   <Label className="text-[10px] font-black uppercase text-slate-400 block mb-3">Bodegas Registradas</Label>
                   <div className="space-y-2">
                     {warehouses?.length === 0 ? (
                       <p className="text-[10px] text-slate-400 italic">No hay bodegas configuradas.</p>
                     ) : warehouses?.map((wh: any) => (
-                      <div key={wh.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <span className="text-xs font-bold text-slate-700">{wh.name}</span>
+                      <div key={wh.id} className="flex justify-between items-center bg-slate-50 dark:bg-muted/30 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <span className="text-xs font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteWarehouse(wh.id)}>
                           <Trash2 size={14} />
                         </Button>
@@ -547,7 +683,7 @@ export default function InventoryMasterPage() {
               </CardContent>
             </Card>
 
-            <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center">
+            <div className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center border border-slate-800">
               <Warehouse size={40} md-size={48} className="mb-4 text-blue-400" />
               <h3 className="text-lg md:text-xl font-bold mb-2">Multibodega</h3>
               <p className="text-slate-400 text-xs md:text-sm leading-relaxed mb-6">
