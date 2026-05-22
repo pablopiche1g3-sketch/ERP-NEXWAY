@@ -30,6 +30,7 @@ import { Switch } from '@/components/ui/switch';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { useRouter } from 'next/navigation';
+import { ModeToggle } from '@/components/mode-toggle';
 
 export default function SuppliersPage() {
   const db = useFirestore();
@@ -137,90 +138,91 @@ export default function SuppliersPage() {
   }, [searchTerm, suppliers]);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full bg-white shadow-sm hover:bg-slate-100" 
+            className="rounded-full bg-card shadow-sm hover:bg-accent border" 
             onClick={() => router.push('/')}
           >
-            <ArrowLeft className="text-slate-600" size={20} />
+            <ArrowLeft className="text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Directorio de Proveedores</h1>
-            <p className="text-slate-500 text-sm">Gestión de suministrantes y condiciones tributarias</p>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">Directorio de Proveedores</h1>
+            <p className="text-muted-foreground text-xs md:text-sm">Gestión de suministrantes y condiciones tributarias</p>
           </div>
         </div>
+        <ModeToggle />
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         <div className="lg:col-span-4 space-y-4">
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+          <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
             <CardHeader className="bg-emerald-700 text-white p-6">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Building2 size={20} />
                 Nuevo Proveedor
               </CardTitle>
-              <CardDescription className="text-emerald-100">Ingrese los datos legales para facturación</CardDescription>
+              <CardDescription className="text-emerald-100/80">Ingrese los datos legales para facturación</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={handleCreateSupplier} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Razón Social</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Razón Social</Label>
                   <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
                     <Input 
                       placeholder="Ej. Suministros Industriales S.A."
                       value={form.name}
                       onChange={e => setForm({...form, name: e.target.value})}
-                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                      className="h-10 pl-9 bg-muted border-none rounded-xl text-xs font-bold"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">NIT</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">NIT</Label>
                     <Input 
                       placeholder="NIT..." 
                       value={form.nit}
                       onChange={e => setForm({...form, nit: e.target.value})}
-                      className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                      className="h-10 bg-muted border-none rounded-xl text-xs font-mono font-bold"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">NRC</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">NRC</Label>
                     <Input 
                       placeholder="NRC..." 
                       value={form.nrc}
                       onChange={e => setForm({...form, nrc: e.target.value})}
-                      className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                      className="h-10 bg-muted border-none rounded-xl text-xs font-mono font-bold"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Giro Comercial</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Giro Comercial</Label>
                   <Input 
                     placeholder="Giro..." 
                     value={form.giro}
                     onChange={e => setForm({...form, giro: e.target.value})}
-                    className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                    className="h-10 bg-muted border-none rounded-xl text-xs font-bold"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
-                    <Label className="text-[9px] font-bold uppercase">Retención</Label>
+                  <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border">
+                    <Label className="text-[9px] font-bold uppercase text-foreground">Retención</Label>
                     <Switch 
                       checked={form.applyRetention}
                       onCheckedChange={(val) => setForm({...form, applyRetention: val})}
                     />
                   </div>
-                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
-                    <Label className="text-[9px] font-bold uppercase">Percepción</Label>
+                  <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border">
+                    <Label className="text-[9px] font-bold uppercase text-foreground">Percepción</Label>
                     <Switch 
                       checked={form.applyPerception}
                       onCheckedChange={(val) => setForm({...form, applyPerception: val})}
@@ -230,27 +232,27 @@ export default function SuppliersPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Correo</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Correo</Label>
                     <Input 
                       type="email"
                       placeholder="Email..." 
                       value={form.email}
                       onChange={e => setForm({...form, email: e.target.value})}
-                      className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                      className="h-10 bg-muted border-none rounded-xl text-xs"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Teléfono</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Teléfono</Label>
                     <Input 
                       placeholder="Tel..." 
                       value={form.phone}
                       onChange={e => setForm({...form, phone: e.target.value})}
-                      className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                      className="h-10 bg-muted border-none rounded-xl text-xs"
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 rounded-xl font-bold text-white shadow-lg">
+                <Button type="submit" className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 rounded-xl font-bold text-white shadow-lg shadow-emerald-700/20 active:scale-95 transition-all">
                   <Plus size={18} className="mr-2" />
                   Registrar Proveedor
                 </Button>
@@ -261,21 +263,21 @@ export default function SuppliersPage() {
 
         <div className="lg:col-span-8 space-y-4">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <Input 
               placeholder="Buscar por razón social o NIT..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 bg-white border-none shadow-sm rounded-2xl"
+              className="pl-12 h-10 md:h-12 bg-card border shadow-sm rounded-2xl text-xs md:text-sm"
             />
           </div>
 
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+          <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
             <ScrollArea className="h-[600px]">
               <Table>
-                <TableHeader className="bg-slate-50 sticky top-0 z-10">
+                <TableHeader className="bg-muted/50 sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase px-6">Proveedor</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase px-4 md:px-6">Proveedor</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Tributos</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Retención</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Percepción</TableHead>
@@ -284,25 +286,25 @@ export default function SuppliersPage() {
                 </TableHeader>
                 <TableBody>
                   {loadingData ? (
-                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Cargando directorio...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground"><Loader2 className="animate-spin mx-auto mb-2" /> Cargando directorio...</TableCell></TableRow>
                   ) : filteredSuppliers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-20 text-slate-400 italic text-xs">
+                      <TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic text-xs">
                         No hay proveedores registrados.
                       </TableCell>
                     </TableRow>
                   ) : filteredSuppliers.map((supplier: any) => (
-                    <TableRow key={supplier.id} className="hover:bg-slate-50/50">
-                      <TableCell className="px-6 py-4">
+                    <TableRow key={supplier.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="px-4 md:px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 text-xs">{supplier.name}</span>
-                          <span className="text-[9px] text-slate-400">{supplier.email || 'Sin correo'}</span>
+                          <span className="font-bold text-foreground text-xs">{supplier.name}</span>
+                          <span className="text-[9px] text-muted-foreground">{supplier.email || 'Sin correo'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-mono font-bold text-slate-600">NIT: {supplier.nit}</span>
-                          <span className="text-[10px] font-mono text-slate-400">NRC: {supplier.nrc}</span>
+                          <span className="text-[10px] font-mono font-bold text-foreground">NIT: {supplier.nit}</span>
+                          <span className="text-[10px] font-mono font-bold text-muted-foreground">NRC: {supplier.nrc}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -312,7 +314,7 @@ export default function SuppliersPage() {
                             onCheckedChange={(val) => handleUpdateSupplierField(supplier.id, 'applyRetention', val)}
                             className="scale-75"
                           />
-                          <span className={`text-[9px] font-bold ${supplier.applyRetention ? 'text-amber-600' : 'text-slate-300'}`}>1%</span>
+                          <span className={`text-[9px] font-black ${supplier.applyRetention ? 'text-amber-500' : 'text-muted-foreground/30'}`}>1%</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -322,15 +324,15 @@ export default function SuppliersPage() {
                             onCheckedChange={(val) => handleUpdateSupplierField(supplier.id, 'applyPerception', val)}
                             className="scale-75"
                           />
-                          <span className={`text-[9px] font-bold ${supplier.applyPerception ? 'text-blue-600' : 'text-slate-300'}`}>1%</span>
+                          <span className={`text-[9px] font-black ${supplier.applyPerception ? 'text-blue-500' : 'text-muted-foreground/30'}`}>1%</span>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4">
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           onClick={() => handleDeleteSupplier(supplier.id)}
-                          className="h-8 w-8 text-slate-300 hover:text-rose-500"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 size={14} />
                         </Button>
