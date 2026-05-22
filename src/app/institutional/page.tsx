@@ -30,7 +30,10 @@ import {
   History,
   BookOpen,
   PieChart,
-  BarChart3
+  BarChart3,
+  Edit3,
+  User,
+  CheckCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +49,7 @@ import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestor
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface CartItem {
   id: string;
@@ -246,6 +250,25 @@ export default function InstitutionalModulePage() {
     }
   };
 
+  const handleDeleteProject = async (id: string) => {
+    if (!confirm('¿Confirma que desea eliminar este expediente?')) return;
+    try {
+      await deleteDoc(doc(db, 'institutional_projects', id));
+      toast({ title: "Proyecto Eliminado" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al eliminar" });
+    }
+  };
+
+  const handleMarkAsDelivered = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'institutional_projects', id), { status: 'FINALIZADO' });
+      toast({ title: "Proyecto Finalizado", description: "El estado ha sido actualizado a Entregado." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al actualizar estado" });
+    }
+  };
+
   const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -343,9 +366,7 @@ export default function InstitutionalModulePage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Billing Content (Omitted for brevity, assumed same as previous) */}
           <TabsContent value="billing" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
-             {/* ... (Existing billing logic) */}
              <div className="lg:col-span-5 space-y-4">
                 <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-card border">
                   <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
@@ -353,10 +374,12 @@ export default function InstitutionalModulePage() {
                     <p className="text-4xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <ScrollArea className="h-[250px]">
+                    <ScrollArea className="h-[300px]">
                        <Table>
                           <TableBody>
-                            {cart.map(item => (
+                            {cart.length === 0 ? (
+                               <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground text-xs italic">Agregue suministros para facturar</TableCell></TableRow>
+                            ) : cart.map(item => (
                               <TableRow key={item.id}>
                                 <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
                                 <TableCell className="text-right font-black">${(item.price * item.quantity).toFixed(2)}</TableCell>
@@ -368,34 +391,131 @@ export default function InstitutionalModulePage() {
                     </ScrollArea>
                   </CardContent>
                 </Card>
-                <Button className="w-full h-14 rounded-2xl bg-blue-600 font-black" onClick={handleFinalizeSale}>FACTURAR PROYECTO</Button>
+                <Button className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-xl" onClick={handleFinalizeSale} disabled={isProcessing}>
+                   {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <Receipt className="mr-2" />}
+                   FACTURAR PROYECTO
+                </Button>
              </div>
              <div className="lg:col-span-7 space-y-4">
-                <Card className="p-4 bg-white dark:bg-card rounded-2xl border flex gap-4">
-                   <div className="flex-1 space-y-1">
-                      <Label className="text-[10px] font-bold uppercase">No. Factura</Label>
-                      <Input value={docNumber} onChange={e => setDocNumber(e.target.value)} className="bg-muted border-none" />
+                <Card className="p-4 bg-white dark:bg-card rounded-2xl border space-y-4">
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                         <Label className="text-[10px] font-bold uppercase text-muted-foreground">No. Factura / CCF</Label>
+                         <Input value={docNumber} onChange={e => setDocNumber(e.target.value)} className="bg-muted border-none h-10 rounded-xl" placeholder="000-000..." />
+                      </div>
+                      <div className="space-y-1">
+                         <Label className="text-[10px] font-bold uppercase text-muted-foreground">Asignar Proyecto</Label>
+                         <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                            <SelectTrigger className="bg-muted border-none h-10 rounded-xl"><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                            <SelectContent>{projects?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                         </Select>
+                      </div>
+                      <div className="space-y-1">
+                         <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cliente Receptor</Label>
+                         <div className="flex gap-2">
+                            <Input value={customerName} onChange={e => setCustomerName(e.target.value)} className="bg-muted border-none h-10 rounded-xl" placeholder="Nombre..." />
+                            <Popover>
+                               <PopoverTrigger asChild><Button variant="outline" className="h-10 rounded-xl px-3"><User size={16}/></Button></PopoverTrigger>
+                               <PopoverContent className="w-80 p-0" align="end">
+                                  <div className="p-3 border-b"><Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-8 text-xs" /></div>
+                                  <ScrollArea className="h-48">
+                                     {filteredCustomers.map(c => (
+                                        <div key={c.id} onClick={() => setCustomerName(c.name)} className="p-3 hover:bg-muted cursor-pointer text-[11px] font-bold border-b">{c.name}</div>
+                                     ))}
+                                  </ScrollArea>
+                               </PopoverContent>
+                            </Popover>
+                         </div>
+                      </div>
                    </div>
-                   <div className="flex-1 space-y-1">
-                      <Label className="text-[10px] font-bold uppercase">Asignar Proyecto</Label>
-                      <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                         <SelectTrigger className="bg-muted border-none"><SelectValue placeholder="Seleccione..." /></SelectTrigger>
-                         <SelectContent>{projects?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                      </Select>
+                   <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Concepto Institucional (Opcional)</Label>
+                      <Input value={billingConcept} onChange={e => setBillingConcept(e.target.value)} className="bg-muted border-none h-10 rounded-xl" placeholder="Ej: Pago de primer hito de suministro..." />
                    </div>
                 </Card>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                   {filteredInventory.slice(0, 8).map(p => (
-                     <div key={p.id} onClick={() => addToCart(p)} className="p-3 bg-white dark:bg-card rounded-xl border hover:border-blue-500 cursor-pointer">
-                        <p className="text-[10px] font-bold truncate">{p.name}</p>
-                        <p className="font-black text-blue-600">${p.price}</p>
+
+                <div className="relative">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                   <Input placeholder="Buscar suministros..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl" />
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                   {filteredInventory.slice(0, 12).map(p => (
+                     <div key={p.id} onClick={() => addToCart(p)} className="p-3 bg-white dark:bg-card rounded-xl border border-border hover:border-blue-500 cursor-pointer transition-all flex flex-col justify-between aspect-square">
+                        <p className="text-[9px] font-mono text-muted-foreground">{p.sku}</p>
+                        <h4 className="text-[11px] font-bold leading-tight line-clamp-2 h-7">{p.name}</h4>
+                        <div className="mt-2 pt-2 border-t flex justify-between items-center">
+                           <span className="font-black text-blue-600">${p.price}</span>
+                           <Plus size={14} className="text-muted-foreground" />
+                        </div>
                      </div>
                    ))}
                 </div>
              </div>
           </TabsContent>
 
-          {/* Consolidation Tab */}
+          <TabsContent value="projects" className="space-y-4 outline-none">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="relative w-full md:w-80">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                   <Input placeholder="Buscar por OC o nombre..." value={projectSearchTerm} onChange={e => setProjectSearchTerm(e.target.value)} className="pl-10 h-10 bg-white dark:bg-card border-none rounded-xl shadow-sm" />
+                </div>
+                <Button className="w-full md:w-auto h-11 bg-blue-600 text-white font-bold rounded-xl shadow-lg" onClick={() => setIsNewProjectOpen(true)}>
+                   <Plus size={18} className="mr-2" /> APERTURA DE EXPEDIENTE
+                </Button>
+             </div>
+
+             <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Table>
+                   <TableHeader className="bg-slate-50 dark:bg-muted/50">
+                      <TableRow>
+                         <TableHead className="px-6 text-[10px] uppercase font-black">Proyecto / Orden de Compra</TableHead>
+                         <TableHead className="text-[10px] uppercase font-black">Cliente</TableHead>
+                         <TableHead className="text-[10px] uppercase font-black text-right">Presupuesto</TableHead>
+                         <TableHead className="text-[10px] uppercase font-black text-center">Estado</TableHead>
+                         <TableHead className="text-right px-6 text-[10px] uppercase font-black">Acciones</TableHead>
+                      </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                      {loadingProjects ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-blue-600" /></TableCell></TableRow>
+                      ) : filteredProjects.length === 0 ? (
+                        <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">No hay proyectos activos registrados</TableCell></TableRow>
+                      ) : filteredProjects.map(p => (
+                        <TableRow key={p.id} className="hover:bg-slate-50/50">
+                           <TableCell className="px-6 py-4">
+                              <div className="flex flex-col">
+                                 <span className="font-bold text-xs">{p.name}</span>
+                                 <span className="text-[10px] font-mono text-muted-foreground uppercase">{p.purchaseOrder || 'Sin OC'}</span>
+                              </div>
+                           </TableCell>
+                           <TableCell className="text-xs font-medium">{p.customerName}</TableCell>
+                           <TableCell className="text-right font-black text-blue-600">${parseFloat(p.totalBudget || 0).toLocaleString()}</TableCell>
+                           <TableCell className="text-center">
+                              <Badge className={`text-[8px] font-black ${p.status === 'FINALIZADO' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                 {p.status}
+                              </Badge>
+                           </TableCell>
+                           <TableCell className="text-right px-6">
+                              <div className="flex justify-end gap-2">
+                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-500" onClick={() => handleMarkAsDelivered(p.id)} disabled={p.status === 'FINALIZADO'}>
+                                    <CheckCircle size={14} />
+                                 </Button>
+                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500">
+                                    <Edit3 size={14} />
+                                 </Button>
+                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500" onClick={() => handleDeleteProject(p.id)}>
+                                    <Trash2 size={14} />
+                                 </Button>
+                              </div>
+                           </TableCell>
+                        </TableRow>
+                      ))}
+                   </TableBody>
+                </Table>
+             </Card>
+          </TabsContent>
+
           <TabsContent value="consolidation" className="space-y-6 outline-none">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                <div className="flex-1 w-full max-w-md space-y-1.5">
@@ -498,7 +618,6 @@ export default function InstitutionalModulePage() {
             )}
           </TabsContent>
 
-          {/* General Ledger Tab */}
           <TabsContent value="ledger" className="space-y-6 outline-none">
              <div className="flex justify-between items-center mb-2">
                 <h2 className="text-lg font-bold flex items-center gap-2">
@@ -540,7 +659,6 @@ export default function InstitutionalModulePage() {
              </Card>
           </TabsContent>
 
-          {/* Costs Tab (Enhanced) */}
           <TabsContent value="costs" className="space-y-6 outline-none">
              <div className="max-w-2xl mx-auto">
                 <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
@@ -571,9 +689,6 @@ export default function InstitutionalModulePage() {
                 </Card>
              </div>
           </TabsContent>
-          
-          {/* Projects and History tabs (Existing logic) */}
-          {/* ... */}
         </Tabs>
       </div>
 
@@ -652,42 +767,71 @@ export default function InstitutionalModulePage() {
         </div>
       </div>
 
-      {/* NEW PROJECT MODAL (Assume same as previous) */}
+      {/* NEW PROJECT MODAL */}
       <Dialog open={isNewProjectOpen} onOpenChange={setIsNewProjectOpen}>
         <DialogContent className="rounded-3xl max-w-4xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-card">
           <div className="grid grid-cols-1 lg:grid-cols-12 h-[90vh] lg:h-auto">
             <div className="lg:col-span-7 p-6 md:p-8 space-y-6 overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-black flex items-center gap-2">
+                <DialogTitle className="text-2xl font-black flex items-center gap-2 text-foreground">
                   <FilePlus className="text-blue-600" size={28} /> Apertura de Proyecto
                 </DialogTitle>
-                <DialogDescription>Gestión de licitaciones y ventas institucionales.</DialogDescription>
+                <DialogDescription className="text-muted-foreground">Gestión de licitaciones y ventas institucionales.</DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Nombre</Label><Input placeholder="Proyecto..." value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="h-10 bg-muted border-none rounded-xl" /></div>
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-muted-foreground">Nombre del Proyecto</Label><Input placeholder="Proyecto..." value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="h-10 bg-muted border-none rounded-xl" /></div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase">Cliente</Label>
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cliente Adjudicado</Label>
                   <Select value={newProject.customerId} onValueChange={v => setNewProject({...newProject, customerId: v})}>
                     <SelectTrigger className="h-10 bg-muted border-none rounded-xl"><SelectValue placeholder="Cliente..." /></SelectTrigger>
                     <SelectContent>{customers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Orden de Compra</Label><Input placeholder="OC-..." value={newProject.purchaseOrder} onChange={e => setNewProject({...newProject, purchaseOrder: e.target.value})} className="h-10 bg-muted border-none rounded-xl" /></div>
-                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Presupuesto ($)</Label><Input type="number" value={newProject.totalBudget} onChange={e => setNewProject({...newProject, totalBudget: e.target.value})} className="h-10 bg-muted border-none rounded-xl font-black text-blue-600" /></div>
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-muted-foreground">Orden de Compra / Contrato</Label><Input placeholder="OC-..." value={newProject.purchaseOrder} onChange={e => setNewProject({...newProject, purchaseOrder: e.target.value})} className="h-10 bg-muted border-none rounded-xl" /></div>
+                <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-muted-foreground">Presupuesto Adjudicado ($)</Label><Input type="number" value={newProject.totalBudget} onChange={e => setNewProject({...newProject, totalBudget: e.target.value})} className="h-10 bg-muted border-none rounded-xl font-black text-blue-600" /></div>
               </div>
-              <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Expediente (PDFs)</Label><input type="file" ref={docUploadRef} className="hidden" accept=".pdf" onChange={handleDocumentUpload} /><Button variant="outline" className="w-full rounded-xl border-dashed" onClick={() => docUploadRef.current?.click()}><Paperclip className="mr-2" /> Adjuntar Documentación Técnica</Button></div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Expediente (Documentos PDF)</Label>
+                <input type="file" ref={docUploadRef} className="hidden" accept=".pdf" onChange={handleDocumentUpload} />
+                <Button variant="outline" className="w-full h-12 rounded-xl border-dashed border-border" onClick={() => docUploadRef.current?.click()}>
+                   <Paperclip className="mr-2" /> Adjuntar Documentación Técnica
+                </Button>
+                {projectDocs.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {projectDocs.map((d, i) => (
+                      <div key={i} className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100">
+                         <span className="text-[10px] font-bold text-blue-700 truncate max-w-[200px]">{d.name}</span>
+                         <Badge className="bg-blue-100 text-blue-600 text-[8px]">{d.date}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="lg:col-span-5 bg-slate-50 dark:bg-slate-900/50 p-6 md:p-8 flex flex-col">
-               <h4 className="text-sm font-black uppercase mb-4">Suministros</h4>
-               <ScrollArea className="flex-1 bg-white/50 dark:bg-black/20 rounded-2xl p-4 border mb-4">
-                  {projectCart.map(item => (
-                    <div key={item.id} className="flex justify-between py-2 border-b border-border/50">
-                       <span className="text-[10px] font-bold">{item.quantity}x {item.name}</span>
-                       <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, true)}><Trash2 size={12}/></Button>
+            <div className="lg:col-span-5 bg-slate-50 dark:bg-slate-900/50 p-6 md:p-8 flex flex-col border-l">
+               <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-sm font-black uppercase text-foreground">Suministros Comprometidos</h4>
+                  <Badge variant="outline" className="text-[9px] font-black">{projectCart.length} Ítems</Badge>
+               </div>
+               <ScrollArea className="flex-1 bg-white dark:bg-black/20 rounded-2xl p-4 border border-border/50 mb-6">
+                  {projectCart.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground text-center py-10 italic">No hay suministros seleccionados en la oferta</p>
+                  ) : projectCart.map(item => (
+                    <div key={item.id} className="flex justify-between items-center py-2 border-b border-border/50">
+                       <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-foreground">{item.quantity}x {item.name}</span>
+                          <span className="text-[9px] text-muted-foreground">${item.price} c/u</span>
+                       </div>
+                       <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, true)} className="h-7 w-7 text-slate-300 hover:text-rose-500">
+                          <Trash2 size={12}/>
+                       </Button>
                     </div>
                   ))}
                </ScrollArea>
-               <Button className="w-full h-12 bg-blue-600 font-black rounded-xl" onClick={handleCreateProject} disabled={isProcessing}>ABRIR EXPEDIENTE</Button>
+               <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg" onClick={handleCreateProject} disabled={isProcessing}>
+                  {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <FilePlus className="mr-2" />}
+                  ABRIR EXPEDIENTE
+               </Button>
             </div>
           </div>
         </DialogContent>
