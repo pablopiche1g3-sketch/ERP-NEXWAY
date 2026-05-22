@@ -33,6 +33,26 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter } from 'next/navigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const GIROS_AUTORIZADOS = [
+  "Venta de partes, piezas y accesorios para vehículos automotores",
+  "Mantenimiento y reparación de vehículos automotores",
+  "Venta al por menor de productos de ferretería, pinturas y vidrio",
+  "Construcción de edificios residenciales",
+  "Venta al por menor de productos farmacéuticos y medicinales",
+  "Venta al por mayor de materias primas agropecuarias",
+  "Transporte de carga por carretera",
+  "Servicios de consultoría en gestión y administración",
+  "Actividades de arquitectura e ingeniería",
+  "Venta al por menor de artículos de uso doméstico",
+  "Servicios de limpieza general de edificios",
+  "Venta de comidas y bebidas en restaurantes",
+  "Servicios de contabilidad, teneduría de libros y auditoría",
+  "Alquiler de bienes inmuebles",
+  "Servicios de publicidad y marketing",
+  "Otros servicios n.c.p."
+];
 
 export default function CustomersPage() {
   const db = useFirestore();
@@ -58,11 +78,11 @@ export default function CustomersPage() {
   const handleCreateCustomer = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
-    if (!form.name || (activeTab === 'ccf' && (!form.nit || !form.nrc))) {
+    if (!form.name || (activeTab === 'ccf' && (!form.nit || !form.nrc || !form.giro))) {
       toast({ 
         variant: "destructive", 
         title: "Faltan campos", 
-        description: activeTab === 'cf' ? "El nombre es obligatorio." : "Nombre, NIT y NRC son obligatorios para Crédito Fiscal." 
+        description: activeTab === 'cf' ? "El nombre es obligatorio." : "Nombre, NIT, NRC y Giro son obligatorios para Crédito Fiscal." 
       });
       return;
     }
@@ -120,42 +140,42 @@ export default function CustomersPage() {
   }, [searchTerm, customers]);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full bg-white shadow-sm hover:bg-slate-100" 
+            className="rounded-full bg-white dark:bg-card shadow-sm hover:bg-slate-100 border" 
             onClick={() => router.push('/')}
           >
-            <ArrowLeft className="text-slate-600" size={20} />
+            <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Registro de Clientes</h1>
-            <p className="text-slate-500 text-sm">Gestión de carteras y datos tributarios</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-foreground">Registro de Clientes</h1>
+            <p className="text-slate-500 dark:text-muted-foreground text-sm">Gestión de carteras y datos tributarios</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-5 space-y-4">
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
-            <CardHeader className="bg-slate-900 text-white p-6">
+          <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden border">
+            <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-6">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Plus size={20} className="text-sky-400" />
                 Alta de Cliente
               </CardTitle>
-              <CardDescription className="text-slate-400">Seleccione el tipo de contribuyente</CardDescription>
+              <CardDescription className="text-slate-400 text-xs">Seleccione el tipo de contribuyente</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
               <Tabs defaultValue="cf" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-2 mb-6 bg-slate-100 rounded-xl p-1">
-                  <TabsTrigger value="cf" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <TabsList className="grid grid-cols-2 mb-6 bg-slate-100 dark:bg-muted rounded-xl p-1">
+                  <TabsTrigger value="cf" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs">
                     <User size={14} className="mr-2" />
                     Consumidor Final
                   </TabsTrigger>
-                  <TabsTrigger value="ccf" className="rounded-lg data-[state=active]:bg-sky-600 data-[state=active]:text-white data-[state=active]:shadow-sm">
+                  <TabsTrigger value="ccf" className="rounded-lg data-[state=active]:bg-sky-600 data-[state=active]:text-white data-[state=active]:shadow-sm text-xs">
                     <Building2 size={14} className="mr-2" />
                     Crédito Fiscal
                   </TabsTrigger>
@@ -163,7 +183,7 @@ export default function CustomersPage() {
 
                 <form onSubmit={handleCreateCustomer} className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
                       {activeTab === 'cf' ? 'Nombre Completo' : 'Nombre o Razón Social'}
                     </Label>
                     <div className="relative">
@@ -172,7 +192,7 @@ export default function CustomersPage() {
                         placeholder={activeTab === 'cf' ? "Ej. Juan Pérez" : "Ej. Industrias El Salvador S.A."}
                         value={form.name}
                         onChange={e => setForm({...form, name: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                        className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
                       />
                     </div>
                   </div>
@@ -180,26 +200,26 @@ export default function CustomersPage() {
                   {activeTab === 'ccf' && (
                     <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">NIT</Label>
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">NIT</Label>
                         <div className="relative">
                           <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                           <Input 
                             placeholder="0000-000000-000-0" 
                             value={form.nit}
                             onChange={e => setForm({...form, nit: e.target.value})}
-                            className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                            className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold"
                           />
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">NRC</Label>
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">NRC</Label>
                         <div className="relative">
                           <BadgeInfo className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                           <Input 
                             placeholder="Registro..." 
                             value={form.nrc}
                             onChange={e => setForm({...form, nrc: e.target.value})}
-                            className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                            className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold"
                           />
                         </div>
                       </div>
@@ -208,22 +228,28 @@ export default function CustomersPage() {
 
                   {activeTab === 'ccf' && (
                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Giro Comercial</Label>
-                      <div className="relative">
-                        <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                        <Input 
-                          placeholder="Venta de productos, servicios..." 
-                          value={form.giro}
-                          onChange={e => setForm({...form, giro: e.target.value})}
-                          className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
-                        />
-                      </div>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial Autorizado</Label>
+                      <Select value={form.giro} onValueChange={(val) => setForm({...form, giro: val})}>
+                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-[11px] font-bold">
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="text-slate-400" size={14} />
+                            <SelectValue placeholder="Seleccione giro de Hacienda..." />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent className="max-w-[400px]">
+                          {GIROS_AUTORIZADOS.map((giro, idx) => (
+                            <SelectItem key={idx} value={giro} className="text-[11px] py-3">
+                              {giro}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Correo Electrónico</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Correo Electrónico</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                         <Input 
@@ -231,38 +257,38 @@ export default function CustomersPage() {
                           placeholder="correo@ejemplo.com" 
                           value={form.email}
                           onChange={e => setForm({...form, email: e.target.value})}
-                          className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                          className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs"
                         />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Teléfono</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Teléfono</Label>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                         <Input 
                           placeholder="2222-0000" 
                           value={form.phone}
                           onChange={e => setForm({...form, phone: e.target.value})}
-                          className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                          className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Dirección</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dirección</Label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-3 text-slate-400" size={14} />
                       <textarea 
                         placeholder="Ubicación del cliente..."
                         value={form.address}
                         onChange={e => setForm({...form, address: e.target.value})}
-                        className="w-full min-h-[60px] pl-9 pt-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs focus:ring-2 focus:ring-sky-500/20 outline-none transition-all"
+                        className="w-full min-h-[60px] pl-9 pt-2.5 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs focus:ring-2 focus:ring-sky-500/20 outline-none transition-all dark:text-foreground"
                       />
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-700 rounded-xl font-bold text-white shadow-lg shadow-sky-200">
+                  <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-700 rounded-xl font-bold text-white shadow-lg shadow-sky-200 dark:shadow-sky-900/20">
                     <Users size={18} className="mr-2" />
                     Registrar en Cartera
                   </Button>
@@ -279,18 +305,18 @@ export default function CustomersPage() {
               placeholder="Buscar por nombre o NIT..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 bg-white border-none shadow-sm rounded-2xl"
+              className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
             />
           </div>
 
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+          <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden border">
             <ScrollArea className="h-[550px]">
               <Table>
-                <TableHeader className="bg-slate-50 sticky top-0 z-10">
+                <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="text-[10px] font-black uppercase px-6">Receptor</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Tipo</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Contacto</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase">Tipo / Giro</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-right">Contacto</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -304,31 +330,36 @@ export default function CustomersPage() {
                       </TableCell>
                     </TableRow>
                   ) : filteredCustomers.map((customer: any) => (
-                    <TableRow key={customer.id} className="hover:bg-slate-50/50">
+                    <TableRow key={customer.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/30">
                       <TableCell className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 text-xs">{customer.name}</span>
+                          <span className="font-bold text-slate-900 dark:text-foreground text-xs">{customer.name}</span>
                           <span className="text-[10px] font-mono text-slate-400">{customer.nit || 'Consumidor Final'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                          {customer.category || customer.type}
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className={`w-fit text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                            {customer.category || customer.type}
+                          </Badge>
+                          {customer.giro && (
+                            <span className="text-[9px] text-muted-foreground italic truncate max-w-[150px]">{customer.giro}</span>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
-                            <Phone size={10} className="text-slate-400" />
+                      <TableCell className="text-right px-6">
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-muted-foreground">
                             {customer.phone || 'N/A'}
+                            <Phone size={10} className="text-slate-400" />
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
-                            <Mail size={10} className="text-slate-400" />
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-muted-foreground">
                             {customer.email || 'N/A'}
+                            <Mail size={10} className="text-slate-400" />
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4">
                         <Button 
                           variant="ghost" 
                           size="icon" 
