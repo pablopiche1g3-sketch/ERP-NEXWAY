@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -37,7 +36,9 @@ import {
   CheckCircle,
   ListPlus,
   PackageSearch,
-  Mail
+  Mail,
+  PlusCircle,
+  ArrowDownCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -104,6 +105,28 @@ export default function InstitutionalModulePage() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Project Creation State
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [newProject, setNewProject] = useState({
+    name: '',
+    purchaseOrder: '',
+    totalBudget: '',
+    customerName: '',
+    items: [] as any[]
+  });
+  const [docFile, setDocFile] = useState<ProjectDocument | null>(null);
+
+  // Manual Cost State
+  const [manualCost, setManualCost] = useState({
+    supplier: '',
+    docNumber: '',
+    projectId: '',
+    items: [] as any[]
+  });
+  const [manualCostSku, setManualCostSku] = useState('');
+  const [manualCostQty, setManualCostQty] = useState<number | string>(1);
+  const [manualCostPrice, setManualCostPrice] = useState<number | string>('');
+
   // Calculations
   const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
 
@@ -146,7 +169,7 @@ export default function InstitutionalModulePage() {
       }
 
       for (const item of cart) {
-        const product = inventory.find((p: any) => p.id === item.id);
+        const product = inventory?.find((p: any) => p.id === item.id);
         if (product) {
           updateDoc(doc(db, 'inventory', item.id), { 
             quantity: Math.max(0, (product.quantity || 0) - item.quantity) 
@@ -168,11 +191,75 @@ export default function InstitutionalModulePage() {
     }
   };
 
+  const handleCreateProject = async () => {
+    if (!newProject.name || !newProject.totalBudget) {
+      toast({ variant: "destructive", title: "Datos incompletos" });
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await addDoc(projectsRef, {
+        ...newProject,
+        totalBudget: parseFloat(newProject.totalBudget as string),
+        status: 'EN CURSO',
+        documents: docFile ? [docFile] : [],
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Proyecto Aperturado", description: "Expediente listo para facturar." });
+      setIsProjectModalOpen(false);
+      setNewProject({ name: '', purchaseOrder: '', totalBudget: '', customerName: '', items: [] });
+      setDocFile(null);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al crear proyecto" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setDocFile({
+        name: file.name,
+        data: event.target?.result as string,
+        type: file.type,
+        date: new Date().toISOString()
+      });
+      toast({ title: "Archivo Cargado", description: "Documento adjunto al proyecto." });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddManualCost = async () => {
+    if (manualCost.items.length === 0 || !manualCost.projectId) {
+      toast({ variant: "destructive", title: "Faltan datos de costo" });
+      return;
+    }
+    setIsProcessing(true);
+    const total = manualCost.items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+    try {
+      await addDoc(purchasesRef, {
+        ...manualCost,
+        total,
+        date: new Date().toISOString().split('T')[0],
+        timestamp: new Date().toISOString()
+      });
+      toast({ title: "Costo Registrado", description: "El balance del proyecto ha sido actualizado." });
+      setManualCost({ supplier: '', docNumber: '', projectId: '', items: [] });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al registrar costo" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const filteredInventory = useMemo(() => {
     if (!inventory) return [];
     return inventory.filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+      (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [searchTerm, inventory]);
 
@@ -183,6 +270,15 @@ export default function InstitutionalModulePage() {
       (c.nit && c.nit.toLowerCase().includes(customerSearch.toLowerCase()))
     );
   }, [customerSearch, customers]);
+
+  // Ledger calculation
+  const ledgerMovements = useMemo(() => {
+    const moves = [
+      ...(allSales?.map(s => ({ ...s, type: 'VENTA', color: 'text-emerald-600' })) || []),
+      ...(allPurchases?.map(p => ({ ...p, type: 'COSTO', color: 'text-rose-600' })) || [])
+    ];
+    return moves.sort((a, b) => new Date(b.createdAt || b.timestamp).getTime() - new Date(a.createdAt || a.timestamp).getTime());
+  }, [allSales, allPurchases]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
@@ -206,6 +302,15 @@ export default function InstitutionalModulePage() {
             </TabsTrigger>
             <TabsTrigger value="projects" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
               <Briefcase size={14} className="mr-2"/> Proyectos
+            </TabsTrigger>
+            <TabsTrigger value="costs" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
+              <ArrowDownCircle size={14} className="mr-2"/> Cargar Costos
+            </TabsTrigger>
+            <TabsTrigger value="consolidation" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
+              <Scale size={14} className="mr-2"/> Consolidación
+            </TabsTrigger>
+            <TabsTrigger value="ledger" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
+              <BookOpen size={14} className="mr-2"/> Libro Mayor
             </TabsTrigger>
           </TabsList>
 
@@ -305,9 +410,236 @@ export default function InstitutionalModulePage() {
                 </div>
              </div>
           </TabsContent>
-          {/* Resto de pestañas permanecen iguales */}
+
+          <TabsContent value="projects" className="space-y-4 outline-none">
+            <div className="flex justify-between items-center">
+               <h3 className="text-lg font-bold">Expedientes de Licitación</h3>
+               <Button onClick={() => setIsProjectModalOpen(true)} className="bg-blue-600 rounded-xl font-bold">
+                  <PlusCircle size={16} className="mr-2" /> Aperturar Proyecto
+               </Button>
+            </div>
+            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+               <Table>
+                  <TableHeader className="bg-muted/50">
+                     <TableRow>
+                        <TableHead className="px-6 text-[10px] uppercase">Proyecto</TableHead>
+                        <TableHead className="text-[10px] uppercase">Orden Compra</TableHead>
+                        <TableHead className="text-right text-[10px] uppercase">Presupuesto</TableHead>
+                        <TableHead className="text-center text-[10px] uppercase">Estado</TableHead>
+                        <TableHead className="w-20"></TableHead>
+                     </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                     {projects?.map(p => (
+                        <TableRow key={p.id}>
+                           <TableCell className="px-6 py-4">
+                              <p className="font-bold text-xs">{p.name}</p>
+                              <p className="text-[9px] text-muted-foreground">{p.customerName}</p>
+                           </TableCell>
+                           <TableCell className="font-mono text-[10px]">{p.purchaseOrder || 'S/N'}</TableCell>
+                           <TableCell className="text-right font-black text-xs">${p.totalBudget?.toLocaleString()}</TableCell>
+                           <TableCell className="text-center">
+                              <Badge className={p.status === 'FINALIZADO' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}>
+                                 {p.status}
+                              </Badge>
+                           </TableCell>
+                           <TableCell>
+                              <div className="flex gap-1">
+                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Edit3 size={12}/></Button>
+                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" onClick={() => updateDoc(doc(db, 'institutional_projects', p.id), { status: 'FINALIZADO' })}><CheckCircle size={12}/></Button>
+                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500" onClick={() => deleteDoc(doc(db, 'institutional_projects', p.id))}><Trash2 size={12}/></Button>
+                              </div>
+                           </TableCell>
+                        </TableRow>
+                     ))}
+                  </TableBody>
+               </Table>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="costs" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
+             <div className="lg:col-span-4 space-y-4">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+                   <CardHeader className="bg-slate-900 text-white p-5 rounded-t-3xl">
+                      <CardTitle className="text-sm">Registro Manual de Costos</CardTitle>
+                   </CardHeader>
+                   <CardContent className="p-5 space-y-4">
+                      <div className="space-y-1">
+                         <Label className="text-[9px] font-bold uppercase">Proveedor</Label>
+                         <Input value={manualCost.supplier} onChange={e => setManualCost({...manualCost, supplier: e.target.value})} className="h-9 text-xs" />
+                      </div>
+                      <div className="space-y-1">
+                         <Label className="text-[9px] font-bold uppercase">No. Documento</Label>
+                         <Input value={manualCost.docNumber} onChange={e => setManualCost({...manualCost, docNumber: e.target.value})} className="h-9 text-xs" />
+                      </div>
+                      <div className="space-y-1">
+                         <Label className="text-[9px] font-bold uppercase">Asignar Proyecto</Label>
+                         <Select value={manualCost.projectId} onValueChange={v => setManualCost({...manualCost, projectId: v})}>
+                            <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Seleccione..." /></SelectTrigger>
+                            <SelectContent>{projects?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                         </Select>
+                      </div>
+                      <div className="pt-4 border-t space-y-2">
+                         <Label className="text-[9px] font-bold uppercase">Agregar Suministro</Label>
+                         <div className="grid grid-cols-3 gap-2">
+                            <Input placeholder="Cant" type="number" value={manualCostQty} onChange={e => setManualCostQty(e.target.value)} className="h-8 text-xs" />
+                            <Input placeholder="Costo" type="number" value={manualCostPrice} onChange={e => setManualCostPrice(e.target.value)} className="h-8 text-xs" />
+                            <Button size="sm" onClick={() => {
+                               setManualCost({
+                                  ...manualCost,
+                                  items: [...manualCost.items, { name: manualCostSku, quantity: parseFloat(manualCostQty as string), price: parseFloat(manualCostPrice as string) }]
+                               });
+                               setManualCostSku(''); setManualCostQty(1); setManualCostPrice('');
+                            }} className="h-8"><Plus size={14}/></Button>
+                         </div>
+                         <Input placeholder="Nombre/SKU..." value={manualCostSku} onChange={e => setManualCostSku(e.target.value)} className="h-8 text-xs" />
+                      </div>
+                      <Button className="w-full bg-emerald-600 rounded-xl font-bold mt-4" onClick={handleAddManualCost} disabled={isProcessing}>
+                         GUARDAR COSTO MANUAL
+                      </Button>
+                   </CardContent>
+                </Card>
+             </div>
+             <div className="lg:col-span-8">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-full">
+                   <CardHeader className="border-b p-5">
+                      <CardTitle className="text-sm">Detalle de Suministros (Factura Física)</CardTitle>
+                   </CardHeader>
+                   <CardContent className="p-0">
+                      <Table>
+                         <TableHeader>
+                            <TableRow>
+                               <TableHead>Cant</TableHead>
+                               <TableHead>Descripción</TableHead>
+                               <TableHead className="text-right">Costo</TableHead>
+                               <TableHead className="text-right">Subtotal</TableHead>
+                            </TableRow>
+                         </TableHeader>
+                         <TableBody>
+                            {manualCost.items.map((item, idx) => (
+                               <TableRow key={idx}>
+                                  <TableCell className="text-xs">{item.quantity}</TableCell>
+                                  <TableCell className="text-xs font-bold">{item.name}</TableCell>
+                                  <TableCell className="text-right text-xs">${item.price.toFixed(2)}</TableCell>
+                                  <TableCell className="text-right text-xs font-bold">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                               </TableRow>
+                            ))}
+                         </TableBody>
+                      </Table>
+                   </CardContent>
+                </Card>
+             </div>
+          </TabsContent>
+
+          <TabsContent value="consolidation" className="space-y-6 outline-none">
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="md:col-span-1 p-5 bg-card">
+                   <Label className="text-[10px] font-bold uppercase mb-2 block">Seleccionar Proyecto</Label>
+                   <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                      <SelectTrigger><SelectValue placeholder="Proyecto..." /></SelectTrigger>
+                      <SelectContent>{projects?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                   </Select>
+                   {selectedProjectId && (
+                     <Button className="w-full mt-6 bg-slate-900 font-bold" onClick={handlePrintReport}>
+                        <Printer size={16} className="mr-2" /> Reporte Margen
+                     </Button>
+                   )}
+                </Card>
+                <div className="md:col-span-3 space-y-4">
+                   <div className="grid grid-cols-3 gap-4">
+                      <Card className="p-5 bg-blue-600 text-white"><p className="text-[10px] opacity-60">Adjudicado</p><p className="text-2xl font-black">${projects?.find(p => p.id === selectedProjectId)?.totalBudget?.toLocaleString() || '0'}</p></Card>
+                      <Card className="p-5 bg-rose-600 text-white"><p className="text-[10px] opacity-60">Costos Directos</p><p className="text-2xl font-black">${allPurchases?.filter(p => p.projectId === selectedProjectId).reduce((acc, p) => acc + p.total, 0).toLocaleString() || '0'}</p></Card>
+                      <Card className="p-5 bg-emerald-600 text-white"><p className="text-[10px] opacity-60">Utilidad Bruta</p><p className="text-2xl font-black">${( (projects?.find(p => p.id === selectedProjectId)?.totalBudget || 0) - (allPurchases?.filter(p => p.projectId === selectedProjectId).reduce((acc, p) => acc + p.total, 0) || 0) ).toLocaleString()}</p></Card>
+                   </div>
+                   <Card className="border rounded-3xl overflow-hidden bg-white">
+                      <Table>
+                         <TableHeader className="bg-muted/50"><TableRow><TableHead>Documento</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Monto</TableHead></TableRow></TableHeader>
+                         <TableBody>
+                            {ledgerMovements.filter(m => m.projectId === selectedProjectId).map((m, idx) => (
+                               <TableRow key={idx}><TableCell className="text-xs font-bold">{m.docNumber}</TableCell><TableCell><Badge variant="outline">{m.type}</Badge></TableCell><TableCell className={`text-right font-black ${m.color}`}>${m.total?.toFixed(2)}</TableCell></TableRow>
+                            ))}
+                         </TableBody>
+                      </Table>
+                   </Card>
+                </div>
+             </div>
+          </TabsContent>
+
+          <TabsContent value="ledger" className="outline-none">
+             <Card className="border rounded-3xl bg-card overflow-hidden">
+                <Table>
+                   <TableHeader className="bg-muted/50"><TableRow><TableHead className="px-6">Fecha</TableHead><TableHead>Proyecto</TableHead><TableHead>Documento</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right px-6">Monto</TableHead></TableRow></TableHeader>
+                   <TableBody>
+                      {ledgerMovements.map((m, idx) => (
+                         <TableRow key={idx}>
+                            <TableCell className="px-6 text-xs text-muted-foreground">{new Date(m.createdAt || m.timestamp).toLocaleDateString()}</TableCell>
+                            <TableCell className="text-xs font-bold">{projects?.find(p => p.id === m.projectId)?.name || 'General'}</TableCell>
+                            <TableCell className="text-xs font-mono">{m.docNumber}</TableCell>
+                            <TableCell><Badge variant="outline">{m.type}</Badge></TableCell>
+                            <TableCell className={`text-right px-6 font-black ${m.color}`}>${m.total?.toFixed(2)}</TableCell>
+                         </TableRow>
+                      ))}
+                   </TableBody>
+                </Table>
+             </Card>
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* MODAL CREAR PROYECTO */}
+      <Dialog open={isProjectModalOpen} onOpenChange={setIsProjectModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-3xl">
+           <DialogHeader className="p-6 bg-slate-900 text-white">
+              <DialogTitle className="text-xl font-bold flex items-center gap-2"><Briefcase className="text-blue-400"/> Apertura de Expediente Institucional</DialogTitle>
+              <DialogDescription className="text-slate-400">Complete los datos de la Orden de Compra y suministros comprometidos.</DialogDescription>
+           </DialogHeader>
+           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                 <div className="space-y-4">
+                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Nombre del Proyecto</Label><Input value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="rounded-xl h-11" placeholder="Ej. Licitación MINED 2024..." /></div>
+                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">No. Orden de Compra</Label><Input value={newProject.purchaseOrder} onChange={e => setNewProject({...newProject, purchaseOrder: e.target.value})} className="rounded-xl h-11 font-mono" placeholder="OC-123456..." /></div>
+                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Monto Adjudicado ($)</Label><Input type="number" value={newProject.totalBudget} onChange={e => setNewProject({...newProject, totalBudget: e.target.value})} className="rounded-xl h-11 text-lg font-black text-blue-600" /></div>
+                    <div className="space-y-1.5">
+                       <Label className="text-[10px] font-bold uppercase">Subir Documentación (PDF)</Label>
+                       <div className="flex items-center gap-2">
+                          <Input type="file" accept=".pdf" onChange={handleFileUpload} className="h-10 p-1 text-xs" />
+                          {docFile && <Badge className="bg-emerald-500"><Paperclip size={10} className="mr-1"/> Cargado</Badge>}
+                       </div>
+                    </div>
+                 </div>
+                 <div className="space-y-4">
+                    <Label className="text-[10px] font-bold uppercase">Suministros Comprometidos</Label>
+                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} /><Input placeholder="Buscar en maestro..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 h-9 text-xs" /></div>
+                    <ScrollArea className="h-[250px] border rounded-2xl p-2 bg-muted/20">
+                       {filteredInventory.slice(0, 20).map(p => (
+                          <div key={p.id} onClick={() => setNewProject({...newProject, items: [...newProject.items, { ...p, quantity: 1 }]})} className="p-2 hover:bg-card cursor-pointer rounded-lg border-b last:border-0 flex justify-between items-center transition-colors">
+                             <div className="flex flex-col"><span className="text-[10px] font-bold leading-tight">{p.name}</span><span className="text-[8px] font-mono text-muted-foreground">{p.sku}</span></div>
+                             <PlusCircle size={14} className="text-blue-500" />
+                          </div>
+                       ))}
+                    </ScrollArea>
+                 </div>
+              </div>
+              <div className="border-t pt-4">
+                 <Label className="text-[10px] font-bold uppercase mb-2 block">Detalle de Oferta (Total: {newProject.items.length})</Label>
+                 <ScrollArea className="h-[150px] border rounded-2xl p-0">
+                    <Table>
+                       <TableBody>
+                          {newProject.items.map((item, idx) => (
+                             <TableRow key={idx}><TableCell className="font-bold text-xs">{item.name}</TableCell><TableCell className="text-right text-xs font-black">${item.price}</TableCell><TableCell className="w-10"><Button variant="ghost" size="icon" className="h-6 w-6 text-rose-500" onClick={() => setNewProject({...newProject, items: newProject.items.filter((_, i) => i !== idx)})}><Trash2 size={12}/></Button></TableCell></TableRow>
+                          ))}
+                       </TableBody>
+                    </Table>
+                 </ScrollArea>
+              </div>
+           </div>
+           <DialogFooter className="p-6 bg-slate-50 border-t">
+              <Button className="w-full h-12 bg-blue-600 rounded-xl font-bold shadow-lg" onClick={handleCreateProject} disabled={isProcessing}>
+                 {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />} FINALIZAR APERTURA
+              </Button>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

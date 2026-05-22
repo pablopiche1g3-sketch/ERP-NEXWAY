@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -97,12 +96,10 @@ export default function BillingPage() {
   const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
   const salesQuery = useMemo(() => collection(db, 'sales'), [db]);
   const customersQuery = useMemo(() => collection(db, 'customers'), [db]);
-  const internalExpensesRef = useMemo(() => collection(db, 'expenses'), [db]);
 
   const { data: inventory } = useCollection<any>(inventoryQuery);
   const { data: salesAll } = useCollection<any>(salesQuery);
   const { data: customers } = useCollection<any>(customersQuery);
-  const { data: globalExpenses } = useCollection<any>(internalExpensesRef);
 
   // Filters
   const filteredProducts = useMemo(() => {
@@ -189,7 +186,7 @@ export default function BillingPage() {
       .then(async (docRef) => {
         // Update Inventory
         for (const item of cart) {
-          const product = inventory.find((p: any) => p.id === item.id);
+          const product = inventory?.find((p: any) => p.id === item.id);
           if (product) {
             updateDoc(doc(db, 'inventory', item.id), { 
               quantity: Math.max(0, (product.quantity || 0) - item.quantity) 
