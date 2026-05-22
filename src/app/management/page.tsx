@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -21,7 +22,6 @@ import { useFirestore, useDoc } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ManagementPage() {
   const db = useFirestore();
@@ -29,20 +29,22 @@ export default function ManagementPage() {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [cashFloat, setCashFloat] = useState<string>('0');
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Referencias estables a documentos de configuración global
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
-  const { data: config, loading: loadingConfig } = useDoc<any>(configRef);
+  const { data: config } = useDoc<any>(configRef);
 
   const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
   const { data: cashConfig, loading: loadingCash } = useDoc<any>(cashConfigRef);
 
-  // Sincronizar el estado local con la base de datos cuando los datos lleguen
+  // Sincronizar el estado local solo la primera vez que se reciben datos
   useEffect(() => {
-    if (cashConfig?.cashFloat !== undefined) {
+    if (!isInitialized && cashConfig?.cashFloat !== undefined) {
       setCashFloat(cashConfig.cashFloat.toString());
+      setIsInitialized(true);
     }
-  }, [cashConfig]);
+  }, [cashConfig, isInitialized]);
 
   const handleToggleModule = async (moduleId: string, value: boolean) => {
     const newConfig = { ...config, [moduleId]: value };
@@ -58,13 +60,19 @@ export default function ManagementPage() {
   };
 
   const handleSaveCashFloat = async () => {
-    if (!cashFloat || isNaN(parseFloat(cashFloat))) return;
+    const val = parseFloat(cashFloat);
+    if (isNaN(val)) {
+      toast({ variant: "destructive", title: "Valor Inválido", description: "Ingrese un número válido para el fondo." });
+      return;
+    }
+    
     setIsSaving(true);
     try {
-      await setDoc(cashConfigRef, { cashFloat: parseFloat(cashFloat) || 0 }, { merge: true });
-      toast({ title: "Configuración Guardada", description: "El fondo base ha sido actualizado." });
+      await setDoc(cashConfigRef, { cashFloat: val }, { merge: true });
+      toast({ title: "Fondo Actualizado", description: `El monto de $${val.toFixed(2)} ha sido guardado.` });
+      setIsInitialized(true); // Evitar que el server sobreescriba lo que acabamos de poner
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Error al guardar el monto." });
+      toast({ variant: "destructive", title: "Error", description: "Error al guardar en la base de datos." });
     } finally {
       setIsSaving(false);
     }
@@ -101,58 +109,54 @@ export default function ManagementPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="border-none shadow-sm rounded-3xl bg-card overflow-hidden border">
             <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
                 <Coins className="text-blue-400" size={20} />
                 Fondo Base de Caja
               </CardTitle>
-              <CardDescription className="text-slate-400 text-xs">Monto inicial diario sugerido.</CardDescription>
+              <CardDescription className="text-slate-400 text-xs">Monto inicial para el arqueo diario.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
-              {loadingCash ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-12 w-full" />
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Establecer Monto ($)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+                  <Input 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={cashFloat}
+                    onChange={(e) => setCashFloat(e.target.value)}
+                    className="h-14 pl-12 text-2xl font-black bg-muted rounded-2xl border-none focus:ring-2 focus:ring-blue-500/20"
+                  />
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Monto ($)</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <Input 
-                      type="number" 
-                      placeholder="0.00" 
-                      value={cashFloat}
-                      onChange={(e) => setCashFloat(e.target.value)}
-                      className="h-12 pl-10 text-xl font-bold bg-muted rounded-xl border-none"
-                    />
-                  </div>
-                </div>
-              )}
+              </div>
               <Button 
                 onClick={handleSaveCashFloat} 
-                disabled={isSaving || loadingCash}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20"
+                disabled={isSaving}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
               >
                 {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={18} />}
-                Establecer Fondo
+                GUARDAR CONFIGURACIÓN
               </Button>
+              {loadingCash && !isInitialized && (
+                <p className="text-[10px] text-center text-muted-foreground animate-pulse">Sincronizando con la nube...</p>
+              )}
             </CardContent>
           </Card>
 
           <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20">
             <div className="flex items-center gap-2 text-blue-800 font-bold dark:text-blue-300">
               <AlertCircle size={20} />
-              <p className="text-sm uppercase tracking-tight">Nota de Control</p>
+              <p className="text-sm uppercase tracking-tight">Importante</p>
             </div>
             <p className="text-xs text-blue-700 leading-relaxed dark:text-blue-400">
-              El fondo base se utiliza para el cálculo automático de ventas reales en el **Arqueo de Caja**. Mantener un monto fijo ayuda a prevenir errores de cuadre.
+              El fondo base se utiliza para el cálculo automático de ventas reales en el **Arqueo de Caja**. Asegúrese de guardar el cambio para que el cajero vea el monto correcto al cerrar el día.
             </p>
           </div>
         </div>
 
         <Card className="border-none shadow-sm rounded-3xl bg-card overflow-hidden border">
           <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
               <ShieldCheck className="text-blue-400" size={20} />
               Estado de Módulos Operativos
             </CardTitle>
@@ -167,18 +171,12 @@ export default function ManagementPage() {
                     <p className="text-xs text-muted-foreground">{m.desc}</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    {loadingConfig ? (
-                      <Skeleton className="h-6 w-11 rounded-full" />
-                    ) : (
-                      <>
-                        {config?.[m.id] === false ? <Lock className="text-rose-500" size={16} /> : <Unlock className="text-emerald-500" size={16} />}
-                        <Switch 
-                          checked={config?.[m.id] !== false} 
-                          onCheckedChange={(val) => handleToggleModule(m.id, val)}
-                          disabled={isSaving}
-                        />
-                      </>
-                    )}
+                    {config?.[m.id] === false ? <Lock className="text-rose-500" size={16} /> : <Unlock className="text-emerald-500" size={16} />}
+                    <Switch 
+                      checked={config?.[m.id] !== false} 
+                      onCheckedChange={(val) => handleToggleModule(m.id, val)}
+                      disabled={isSaving}
+                    />
                   </div>
                 </div>
               ))}

@@ -100,6 +100,15 @@
         "mission": { "type": "string" }
       },
       "required": ["legalName", "nit", "nrc"]
+    },
+    "SystemConfig": {
+      "title": "System Configuration",
+      "description": "Global settings for modules and cash management.",
+      "type": "object",
+      "properties": {
+        "cashFloat": { "type": "number" },
+        "modules": { "type": "object" }
+      }
     }
   },
   "auth": {
@@ -137,6 +146,14 @@
     "/system/company_profile": {
       "schema": "#/backend/entities/CompanyProfile",
       "description": "The institution's corporate data."
+    },
+    "/system/cash_config": {
+      "schema": "#/backend/entities/SystemConfig",
+      "description": "Global cash management settings."
+    },
+    "/system/module_config": {
+      "schema": "object",
+      "description": "Status of operational modules."
     }
   }
 }
