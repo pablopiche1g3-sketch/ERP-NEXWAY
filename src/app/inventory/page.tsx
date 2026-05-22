@@ -420,7 +420,13 @@ export default function InventoryMasterPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="General">General</SelectItem>
-                          <SelectItem value="Repuestos">Repuestos</SelectItem>
+                          <SelectItem value="Ferretería">Ferretería</SelectItem>
+                          <SelectItem value="Fontanería">Fontanería</SelectItem>
+                          <SelectItem value="Electricidad">Electricidad</SelectItem>
+                          <SelectItem value="Herramientas">Herramientas</SelectItem>
+                          <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
+                          <SelectItem value="Automotriz">Automotriz</SelectItem>
+                          <SelectItem value="Repuestos de Vehículos">Repuestos de Vehículos</SelectItem>
                           <SelectItem value="Accesorios">Accesorios</SelectItem>
                           <SelectItem value="Lubricantes">Lubricantes</SelectItem>
                         </SelectContent>
