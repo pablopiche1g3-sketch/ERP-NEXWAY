@@ -11,7 +11,8 @@ import {
   Loader2,
   AlertCircle,
   Coins,
-  DollarSign
+  DollarSign,
+  Mail
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ export default function ManagementPage() {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [cashFloat, setCashFloat] = useState<string>('0');
+  const [catchAllEmail, setCatchAllEmail] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Referencias estables a documentos de configuración global
@@ -40,8 +42,9 @@ export default function ManagementPage() {
 
   // Sincronizar el estado local solo la primera vez que se reciben datos
   useEffect(() => {
-    if (!isInitialized && cashConfig?.cashFloat !== undefined) {
-      setCashFloat(cashConfig.cashFloat.toString());
+    if (!isInitialized && cashConfig) {
+      if (cashConfig.cashFloat !== undefined) setCashFloat(cashConfig.cashFloat.toString());
+      if (cashConfig.catchAllEmail !== undefined) setCatchAllEmail(cashConfig.catchAllEmail);
       setIsInitialized(true);
     }
   }, [cashConfig, isInitialized]);
@@ -59,7 +62,7 @@ export default function ManagementPage() {
     }
   };
 
-  const handleSaveCashFloat = async () => {
+  const handleSaveSystemConfig = async () => {
     const val = parseFloat(cashFloat);
     if (isNaN(val)) {
       toast({ variant: "destructive", title: "Valor Inválido", description: "Ingrese un número válido para el fondo." });
@@ -68,9 +71,12 @@ export default function ManagementPage() {
     
     setIsSaving(true);
     try {
-      await setDoc(cashConfigRef, { cashFloat: val }, { merge: true });
-      toast({ title: "Fondo Actualizado", description: `El monto de $${val.toFixed(2)} ha sido guardado.` });
-      setIsInitialized(true); // Evitar que el server sobreescriba lo que acabamos de poner
+      await setDoc(cashConfigRef, { 
+        cashFloat: val,
+        catchAllEmail: catchAllEmail.trim()
+      }, { merge: true });
+      toast({ title: "Configuración Actualizada", description: "Los ajustes globales han sido guardados." });
+      setIsInitialized(true);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Error al guardar en la base de datos." });
     } finally {
@@ -111,45 +117,60 @@ export default function ManagementPage() {
             <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
               <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
                 <Coins className="text-blue-400" size={20} />
-                Fondo Base de Caja
+                Ajustes Operativos
               </CardTitle>
-              <CardDescription className="text-slate-400 text-xs">Monto inicial para el arqueo diario.</CardDescription>
+              <CardDescription className="text-slate-400 text-xs">Fondo base y correo de respaldo para DTE.</CardDescription>
             </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Establecer Monto ($)</Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-                  <Input 
-                    type="number" 
-                    placeholder="0.00" 
-                    value={cashFloat}
-                    onChange={(e) => setCashFloat(e.target.value)}
-                    className="h-14 pl-12 text-2xl font-black bg-muted rounded-2xl border-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Fondo Base de Caja ($)</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                    <Input 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={cashFloat}
+                      onChange={(e) => setCashFloat(e.target.value)}
+                      className="h-12 pl-12 text-lg font-black bg-muted rounded-xl border-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Correo Bolsón (Catch-all)</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                    <Input 
+                      type="email" 
+                      placeholder="facturas@empresa.com" 
+                      value={catchAllEmail}
+                      onChange={(e) => setCatchAllEmail(e.target.value)}
+                      className="h-12 pl-12 text-sm font-bold bg-muted rounded-xl border-none"
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground italic">Recibirá copia de todos los DTEs emitidos.</p>
                 </div>
               </div>
+
               <Button 
-                onClick={handleSaveCashFloat} 
+                onClick={handleSaveSystemConfig} 
                 disabled={isSaving}
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
               >
                 {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={18} />}
-                GUARDAR CONFIGURACIÓN
+                GUARDAR AJUSTES
               </Button>
-              {loadingCash && !isInitialized && (
-                <p className="text-[10px] text-center text-muted-foreground animate-pulse">Sincronizando con la nube...</p>
-              )}
             </CardContent>
           </Card>
 
-          <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20">
+          <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20 h-fit">
             <div className="flex items-center gap-2 text-blue-800 font-bold dark:text-blue-300">
               <AlertCircle size={20} />
-              <p className="text-sm uppercase tracking-tight">Importante</p>
+              <p className="text-sm uppercase tracking-tight">Notificaciones DTE</p>
             </div>
             <p className="text-xs text-blue-700 leading-relaxed dark:text-blue-400">
-              El fondo base se utiliza para el cálculo automático de ventas reales en el **Arqueo de Caja**. Asegúrese de guardar el cambio para que el cajero vea el monto correcto al cerrar el día.
+              El correo bolsón es obligatorio para cumplir con la normativa de respaldo digital. Si un cliente no está registrado o no proporciona correo, el sistema enviará automáticamente el DTE a la dirección configurada arriba para su posterior entrega física o reenvío manual.
             </p>
           </div>
         </div>

@@ -116,6 +116,7 @@
       "type": "object",
       "properties": {
         "cashFloat": { "type": "number" },
+        "catchAllEmail": { "type": "string", "format": "email" },
         "modules": { "type": "object" }
       }
     },
