@@ -118,6 +118,23 @@
         "cashFloat": { "type": "number" },
         "modules": { "type": "object" }
       }
+    },
+    "DailyClosing": {
+      "title": "Daily Closing",
+      "description": "Snapshots of daily cash reconciliation.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "cashFloat": { "type": "number" },
+        "systemCashSales": { "type": "number" },
+        "physicalCashFound": { "type": "number" },
+        "expenses": { "type": "number" },
+        "difference": { "type": "number" },
+        "totalFacturado": { "type": "number" },
+        "denominations": { "type": "object" },
+        "closedBy": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -167,6 +184,10 @@
     "/system/module_config": {
       "schema": "object",
       "description": "Status of operational modules."
+    },
+    "/daily_closings": {
+      "schema": "#/backend/entities/DailyClosing",
+      "description": "Records of daily register closures."
     }
   }
 }

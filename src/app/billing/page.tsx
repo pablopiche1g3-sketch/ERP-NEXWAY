@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -40,7 +41,9 @@ import {
   MinusCircle,
   Info,
   CreditCard,
-  PlusCircle
+  PlusCircle,
+  Printer,
+  Lock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -382,7 +385,6 @@ export default function BillingPage() {
 
     addDoc(collection(db, 'adjustment_notes'), adjustmentData)
       .then(async () => {
-        // Lógica de reintegro si es crédito por devolución
         if (type === 'CREDITO' && reason === 'DEVOLUCION') {
           for (const item of selectedSaleForAdjustment.items || []) {
             const product = inventory?.find((p: any) => p.id === item.id);
@@ -413,9 +415,41 @@ export default function BillingPage() {
     );
   }, [adjustmentSearch, salesAll]);
 
+  // Daily Closing Functionality
+  const handleDailyClose = async () => {
+    if (!confirm('¿Confirma que desea realizar el cierre de caja de este día? Esta acción se guardará en el historial gerencial.')) return;
+    
+    setIsProcessing(true);
+    const closingData = {
+      date: new Date().toISOString().split('T')[0],
+      cashFloat: currentCashFloat,
+      systemCashSales: dailyClosingTotals.Efectivo,
+      physicalCashFound: physicalCashTotal,
+      expenses: totalExpensesToday,
+      difference: cashDifference,
+      totalFacturado: dailyClosingTotals.total,
+      denominations: denominations,
+      closedBy: userProfile?.fullName || 'Usuario ERP',
+      timestamp: new Date().toISOString()
+    };
+
+    addDoc(collection(db, 'daily_closings'), closingData)
+      .then(() => {
+        toast({ title: "Cierre Diario Exitoso", description: "El reporte ha sido archivado para gerencia." });
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'daily_closings', operation: 'create', requestResourceData: closingData }));
+      })
+      .finally(() => setIsProcessing(false));
+  };
+
+  const handlePrintReport = () => {
+    window.print();
+  };
+
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+    <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300 print:p-0">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 print:hidden">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-card shadow-sm border" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
@@ -437,7 +471,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto print:hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="facturacion" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
@@ -830,6 +864,23 @@ export default function BillingPage() {
                    </div>
                 </Card>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Button 
+                    className="h-12 md:h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-xl"
+                    onClick={handleDailyClose}
+                    disabled={isProcessing}
+                  >
+                    <Lock size={18} className="mr-2" /> CIERRE DE DÍA
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="h-12 md:h-14 rounded-2xl border-2 font-black shadow-md bg-card"
+                    onClick={handlePrintReport}
+                  >
+                    <Printer size={18} className="mr-2" /> IMPRIMIR REPORTES
+                  </Button>
+                </div>
+
                 <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
                    <CardHeader className="bg-muted/30 border-b px-4 md:px-6 py-3 md:py-4">
                       <CardTitle className="text-xs md:text-sm font-bold flex items-center gap-2 text-foreground">
@@ -855,7 +906,91 @@ export default function BillingPage() {
         </Tabs>
       </div>
 
-      {/* Modals con soporte responsivo */}
+      {/* REPORT PRINT VIEW - HIDDEN IN UI */}
+      <div className="hidden print:block p-8 space-y-8 bg-white text-black">
+        <div className="flex justify-between items-start border-b-2 border-black pb-4">
+          <div>
+            <h1 className="text-2xl font-black">REPORTE DE CIERRE DIARIO</h1>
+            <p className="text-sm font-bold">{new Date().toLocaleDateString()} - {new Date().toLocaleTimeString()}</p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-lg font-black uppercase">NexWay ERP</h2>
+            <p className="text-xs">Soporte Auditoría de Caja</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-4">
+            <h3 className="font-black border-b border-black text-sm uppercase">Resumen de Caja</h3>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between"><span>Fondo Base (Apertura):</span><span className="font-bold">${currentCashFloat.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Ventas Efectivo (Sistema):</span><span className="font-bold">${dailyClosingTotals.Efectivo.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Gastos del Día:</span><span className="font-bold">-${totalExpensesToday.toFixed(2)}</span></div>
+              <div className="flex justify-between border-t border-black pt-1"><span>Efectivo Teórico:</span><span className="font-bold">${expectedCashInDrawer.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Efectivo Real (Contado):</span><span className="font-bold">${physicalCashTotal.toFixed(2)}</span></div>
+              <div className="flex justify-between text-sm font-black border-t-2 border-black pt-2">
+                <span>DIFERENCIA:</span>
+                <span>{cashDifference >= 0 ? '+' : '-'}${Math.abs(cashDifference).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="font-black border-b border-black text-sm uppercase">Desglose de Monedas</h3>
+            <div className="grid grid-cols-2 gap-x-4 text-[10px]">
+              <div className="flex justify-between"><span>Billetes $100:</span><span>{denominations.b100}</span></div>
+              <div className="flex justify-between"><span>Billetes $50:</span><span>{denominations.b50}</span></div>
+              <div className="flex justify-between"><span>Billetes $20:</span><span>{denominations.b20}</span></div>
+              <div className="flex justify-between"><span>Billetes $10:</span><span>{denominations.b10}</span></div>
+              <div className="flex justify-between"><span>Billetes $5:</span><span>{denominations.b5}</span></div>
+              <div className="flex justify-between"><span>Billetes $1:</span><span>{denominations.b1}</span></div>
+              <div className="flex justify-between"><span>Monedas 0.25:</span><span>{denominations.c25}</span></div>
+              <div className="flex justify-between"><span>Monedas 0.10:</span><span>{denominations.c10}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="font-black border-b border-black text-sm uppercase">Detalle de Ventas del Día</h3>
+          <table className="w-full text-[9px] border-collapse">
+            <thead>
+              <tr className="border-b border-black">
+                <th className="text-left p-1">HORA</th>
+                <th className="text-left p-1">CLIENTE</th>
+                <th className="text-left p-1">DTE</th>
+                <th className="text-left p-1">MÉTODO</th>
+                <th className="text-right p-1">TOTAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {salesTodayList.map((sale: any) => (
+                <tr key={sale.id} className="border-b border-gray-100">
+                  <td className="p-1">{new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td className="p-1 font-bold">{sale.customer}</td>
+                  <td className="p-1">{sale.docType}</td>
+                  <td className="p-1">{sale.paymentMethod}</td>
+                  <td className="p-1 text-right font-bold">${sale.total.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex justify-end pt-2">
+            <p className="text-xs font-black">TOTAL FACTURADO HOY: ${dailyClosingTotals.total.toFixed(2)}</p>
+          </div>
+        </div>
+
+        <div className="pt-16 grid grid-cols-2 gap-20 text-center">
+          <div className="border-t border-black pt-2">
+            <p className="text-[10px] font-black uppercase">Firma Cajero</p>
+            <p className="text-[9px] opacity-60">{userProfile?.fullName || 'Usuario ERP'}</p>
+          </div>
+          <div className="border-t border-black pt-2">
+            <p className="text-[10px] font-black uppercase">Firma Gerencia / Auditoría</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
       <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
         <DialogContent className="rounded-[1.5rem] md:rounded-[2rem] max-w-[95vw] md:max-w-md p-4 md:p-8 bg-card border overflow-y-auto max-h-[90vh]">
           <DialogHeader className="mb-4 md:mb-6">
@@ -895,7 +1030,6 @@ export default function BillingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Expense Modal */}
       <Dialog open={isExpenseModalOpen} onOpenChange={setIsExpenseModalOpen}>
         <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm">
           <DialogHeader>
@@ -930,7 +1064,6 @@ export default function BillingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Correction Modal */}
       <Dialog open={isCorrectionOpen} onOpenChange={setIsCorrectionOpen}>
         <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm">
           <DialogHeader>
