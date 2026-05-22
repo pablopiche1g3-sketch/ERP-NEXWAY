@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -170,14 +171,12 @@ export default function InventoryMasterPage() {
         const json = JSON.parse(event.target?.result as string);
         let items: SupplierItem[] = [];
 
-        // Soporte Ministerio de Hacienda DTE V3 (cuerpoDocumento)
         if (json.cuerpoDocumento && Array.isArray(json.cuerpoDocumento)) {
           items = json.cuerpoDocumento.map((item: any) => ({
             code: item.codigo || item.sku || 'S/C',
             name: item.descripcion || item.nombre || 'Sin descripción'
           }));
         } 
-        // Soporte formato simple o array
         else if (Array.isArray(json)) {
           items = json.map((item: any) => ({
             code: item.codigo || item.code || item.sku || 'S/C',
@@ -386,7 +385,7 @@ export default function InventoryMasterPage() {
                             </p>
                          </div>
                          
-                         <input type="file" hide-file-input="true" ref={fileInputRef} className="hidden" accept=".json" onChange={handleJsonUpload} />
+                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleJsonUpload} />
                          <Button 
                             className="w-full h-12 md:h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl font-bold text-xs"
                             onClick={() => fileInputRef.current?.click()}
@@ -503,6 +502,57 @@ export default function InventoryMasterPage() {
               <div className="bg-blue-500/30 p-3 md:p-4 rounded-2xl border border-blue-400/30">
                 <p className="text-[9px] md:text-[11px] italic">"Formaliza este ingreso más tarde registrando la factura oficial en el módulo de Registro de Compra."</p>
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="config" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
+            <Card className="border-none shadow-sm rounded-3xl bg-white h-fit">
+              <CardHeader className="p-5 md:p-6">
+                <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+                  <Warehouse size={18} md-size={20} className="text-blue-600" /> Gestión de Bodegas
+                </CardTitle>
+                <CardDescription className="text-xs">Configure los puntos de almacenamiento físico</CardDescription>
+              </CardHeader>
+              <CardContent className="px-5 md:px-6 pb-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Ej. Bodega Central, Sucursal 1..." 
+                      value={warehouseName}
+                      onChange={e => setWarehouseName(e.target.value)}
+                      className="bg-slate-50 border-slate-200 h-10"
+                    />
+                    <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold">
+                      CREAR
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 block mb-3">Bodegas Registradas</Label>
+                  <div className="space-y-2">
+                    {warehouses?.length === 0 ? (
+                      <p className="text-[10px] text-slate-400 italic">No hay bodegas configuradas.</p>
+                    ) : warehouses?.map((wh: any) => (
+                      <div key={wh.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="text-xs font-bold text-slate-700">{wh.name}</span>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteWarehouse(wh.id)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center">
+              <Warehouse size={40} md-size={48} className="mb-4 text-blue-400" />
+              <h3 className="text-lg md:text-xl font-bold mb-2">Multibodega</h3>
+              <p className="text-slate-400 text-xs md:text-sm leading-relaxed mb-6">
+                Configure sus puntos de almacenamiento para llevar un control exacto de dónde se encuentra su mercadería. Estas bodegas aparecerán como destinos en el módulo de Registro de Compra y Traslados.
+              </p>
             </div>
           </TabsContent>
         </Tabs>

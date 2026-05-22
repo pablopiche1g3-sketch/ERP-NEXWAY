@@ -25,6 +25,15 @@
       },
       "required": ["name", "sku", "quantity"]
     },
+    "Warehouse": {
+      "title": "Warehouse",
+      "description": "Physical storage locations.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
     "Expense": {
       "title": "Internal Expense",
       "description": "Daily expenses or reimbursements from cash drawer.",
@@ -122,6 +131,10 @@
     "/inventory": {
       "schema": "#/backend/entities/InventoryItem",
       "description": "Global inventory list."
+    },
+    "/warehouses": {
+      "schema": "#/backend/entities/Warehouse",
+      "description": "Physical storage points."
     },
     "/expenses": {
       "schema": "#/backend/entities/Expense",
