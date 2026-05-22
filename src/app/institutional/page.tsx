@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -106,7 +107,7 @@ export default function InstitutionalModulePage() {
   });
   const [projectCart, setProjectCart] = useState<CartItem[]>([]);
   const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([]);
-  const [projectSearchTerm, setProjectSearchTerm] = useState('');
+  const [projectInventorySearch, setProjectInventorySearch] = useState('');
 
   // States for Consolidation
   const [consolidationProjectId, setConsolidationProjectId] = useState<string>('');
@@ -143,6 +144,14 @@ export default function InstitutionalModulePage() {
     );
   }, [searchTerm, inventory]);
 
+  const filteredInventoryForProject = useMemo(() => {
+    if (!inventory || !projectInventorySearch) return [];
+    return inventory.filter(p => 
+      p.name.toLowerCase().includes(projectInventorySearch.toLowerCase()) || 
+      p.sku.toLowerCase().includes(projectInventorySearch.toLowerCase())
+    ).slice(0, 10);
+  }, [projectInventorySearch, inventory]);
+
   const filteredCustomers = useMemo(() => {
     if (!customers) return [];
     return customers.filter(c => 
@@ -169,6 +178,10 @@ export default function InstitutionalModulePage() {
       }
       return [...prev, { id: product.id, sku: product.sku, name: product.name, price: product.price || 0, quantity: 1 }];
     });
+  };
+
+  const updateProjectCartItem = (id: string, field: 'quantity' | 'price', value: number) => {
+    setProjectCart(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
   const removeFromCart = (id: string, isProject = false) => {
@@ -243,6 +256,7 @@ export default function InstitutionalModulePage() {
       setNewProject({ name: '', description: '', customerId: '', purchaseOrder: '', totalBudget: '' });
       setProjectCart([]);
       setProjectDocs([]);
+      setProjectInventorySearch('');
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo crear el proyecto." });
     } finally {
@@ -326,14 +340,13 @@ export default function InstitutionalModulePage() {
   const filteredProjects = useMemo(() => {
     if (!projects) return [];
     return projects.filter(p => 
-      p.name.toLowerCase().includes(projectSearchTerm.toLowerCase()) || 
-      p.purchaseOrder?.toLowerCase().includes(projectSearchTerm.toLowerCase())
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.purchaseOrder?.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [projectSearchTerm, projects]);
+  }, [searchTerm, projects]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
-      {/* HEADER PRINT HIDDEN */}
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 print:hidden">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-card shadow-sm border" onClick={() => router.push('/')}>
@@ -458,7 +471,7 @@ export default function InstitutionalModulePage() {
              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="relative w-full md:w-80">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                   <Input placeholder="Buscar por OC o nombre..." value={projectSearchTerm} onChange={e => setProjectSearchTerm(e.target.value)} className="pl-10 h-10 bg-white dark:bg-card border-none rounded-xl shadow-sm" />
+                   <Input placeholder="Buscar por OC o nombre..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-10 bg-white dark:bg-card border-none rounded-xl shadow-sm" />
                 </div>
                 <Button className="w-full md:w-auto h-11 bg-blue-600 text-white font-bold rounded-xl shadow-lg" onClick={() => setIsNewProjectOpen(true)}>
                    <Plus size={18} className="mr-2" /> APERTURA DE EXPEDIENTE
@@ -692,92 +705,19 @@ export default function InstitutionalModulePage() {
         </Tabs>
       </div>
 
-      {/* CONSOLIDATION REPORT PRINT VIEW */}
-      <div className="hidden print:block p-10 bg-white text-black font-sans">
-        <div className="flex justify-between items-start border-b-4 border-black pb-6 mb-8">
-           <div>
-              <h1 className="text-3xl font-black uppercase">Reporte de Consolidación</h1>
-              <p className="text-sm font-bold">Proyecto: {selectedProjectData?.name}</p>
-              <p className="text-sm">Orden de Compra: {selectedProjectData?.purchaseOrder}</p>
-           </div>
-           <div className="text-right">
-              <h2 className="text-xl font-black">NexWay Institucional</h2>
-              <p className="text-xs">Fecha Reporte: {new Date().toLocaleDateString()}</p>
-           </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-6 mb-10">
-           <div className="p-4 border-2 border-black text-center">
-              <p className="text-[10px] font-black uppercase">Ingreso Bruto (Ventas)</p>
-              <p className="text-2xl font-black">${projectSummary?.totalSold.toLocaleString()}</p>
-           </div>
-           <div className="p-4 border-2 border-black text-center">
-              <p className="text-[10px] font-black uppercase">Costo Directo (Compras)</p>
-              <p className="text-2xl font-black">${projectSummary?.totalCost.toLocaleString()}</p>
-           </div>
-           <div className="p-4 bg-black text-white text-center">
-              <p className="text-[10px] font-black uppercase">Utilidad Neta</p>
-              <p className="text-2xl font-black">${projectSummary?.profit.toLocaleString()}</p>
-           </div>
-        </div>
-
-        <h3 className="font-black border-b-2 border-black text-sm uppercase mb-4">Análisis Comparativo de Movimientos</h3>
-        <table className="w-full text-[10px] border-collapse mb-10">
-           <thead>
-              <tr className="border-b-2 border-black">
-                 <th className="text-left p-2">TIPO</th>
-                 <th className="text-left p-2">DOCUMENTO</th>
-                 <th className="text-left p-2">DETALLE</th>
-                 <th className="text-right p-2">MONTO</th>
-              </tr>
-           </thead>
-           <tbody>
-              {projectSummary?.purchases.map((p: any) => (
-                <tr key={p.id} className="border-b border-gray-200">
-                   <td className="p-2 font-bold">COMPRA (COSTO)</td>
-                   <td className="p-2">{p.docNumber}</td>
-                   <td className="p-2">{p.items}</td>
-                   <td className="p-2 text-right">-${p.total.toFixed(2)}</td>
-                </tr>
-              ))}
-              {projectSummary?.sales.map((s: any) => (
-                <tr key={s.id} className="border-b border-gray-200">
-                   <td className="p-2 font-bold">VENTA (INGRESO)</td>
-                   <td className="p-2">{s.docNumber}</td>
-                   <td className="p-2">{s.concept || 'Suministro'}</td>
-                   <td className="p-2 text-right">+${s.total.toFixed(2)}</td>
-                </tr>
-              ))}
-           </tbody>
-           <tfoot>
-              <tr className="font-black text-base bg-gray-100">
-                 <td colSpan={3} className="p-2 text-right">RESULTADO FINAL:</td>
-                 <td className="p-2 text-right">${projectSummary?.profit.toFixed(2)}</td>
-              </tr>
-           </tfoot>
-        </table>
-
-        <div className="grid grid-cols-2 gap-20 text-center mt-20">
-           <div className="border-t border-black pt-2">
-              <p className="text-[10px] font-black uppercase">Responsable Institucional</p>
-           </div>
-           <div className="border-t border-black pt-2">
-              <p className="text-[10px] font-black uppercase">Gerencia Financiera / Auditoría</p>
-           </div>
-        </div>
-      </div>
-
       {/* NEW PROJECT MODAL */}
       <Dialog open={isNewProjectOpen} onOpenChange={setIsNewProjectOpen}>
-        <DialogContent className="rounded-3xl max-w-4xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-card">
-          <div className="grid grid-cols-1 lg:grid-cols-12 h-[90vh] lg:h-auto">
-            <div className="lg:col-span-7 p-6 md:p-8 space-y-6 overflow-y-auto">
+        <DialogContent className="rounded-3xl max-w-6xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-card">
+          <div className="grid grid-cols-1 lg:grid-cols-12 h-[90vh] lg:h-[80vh]">
+            {/* Left Section: Details */}
+            <div className="lg:col-span-6 p-6 md:p-8 space-y-6 overflow-y-auto border-r">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black flex items-center gap-2 text-foreground">
                   <FilePlus className="text-blue-600" size={28} /> Apertura de Proyecto
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground">Gestión de licitaciones y ventas institucionales.</DialogDescription>
               </DialogHeader>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-muted-foreground">Nombre del Proyecto</Label><Input placeholder="Proyecto..." value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="h-10 bg-muted border-none rounded-xl" /></div>
                 <div className="space-y-1.5">
@@ -790,11 +730,12 @@ export default function InstitutionalModulePage() {
                 <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-muted-foreground">Orden de Compra / Contrato</Label><Input placeholder="OC-..." value={newProject.purchaseOrder} onChange={e => setNewProject({...newProject, purchaseOrder: e.target.value})} className="h-10 bg-muted border-none rounded-xl" /></div>
                 <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-muted-foreground">Presupuesto Adjudicado ($)</Label><Input type="number" value={newProject.totalBudget} onChange={e => setNewProject({...newProject, totalBudget: e.target.value})} className="h-10 bg-muted border-none rounded-xl font-black text-blue-600" /></div>
               </div>
+
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Expediente (Documentos PDF)</Label>
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Documentos PDF de Respaldo</Label>
                 <input type="file" ref={docUploadRef} className="hidden" accept=".pdf" onChange={handleDocumentUpload} />
-                <Button variant="outline" className="w-full h-12 rounded-xl border-dashed border-border" onClick={() => docUploadRef.current?.click()}>
-                   <Paperclip className="mr-2" /> Adjuntar Documentación Técnica
+                <Button variant="outline" className="w-full h-10 rounded-xl border-dashed border-border" onClick={() => docUploadRef.current?.click()}>
+                   <Paperclip className="mr-2" size={14} /> Adjuntar Archivos
                 </Button>
                 {projectDocs.length > 0 && (
                   <div className="mt-2 space-y-2">
@@ -807,30 +748,108 @@ export default function InstitutionalModulePage() {
                   </div>
                 )}
               </div>
+
+              <div className="pt-4 border-t">
+                 <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-3 block">Buscar Suministros (Maestro)</Label>
+                 <div className="relative mb-4">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                   <Input 
+                     placeholder="Buscar por SKU o nombre..." 
+                     value={projectInventorySearch} 
+                     onChange={e => setProjectInventorySearch(e.target.value)} 
+                     className="h-10 pl-9 bg-muted border-none rounded-xl text-xs"
+                   />
+                 </div>
+                 <div className="grid grid-cols-1 gap-2">
+                    {filteredInventoryForProject.map(p => (
+                      <div key={p.id} onClick={() => addToCart(p, true)} className="flex items-center justify-between p-3 bg-card border rounded-xl hover:border-blue-500 cursor-pointer group transition-all">
+                         <div className="flex flex-col">
+                            <span className="text-[11px] font-bold">{p.name}</span>
+                            <span className="text-[9px] font-mono text-muted-foreground uppercase">{p.sku} • Stock: {p.quantity}</span>
+                         </div>
+                         <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full group-hover:bg-blue-500 group-hover:text-white">
+                           <Plus size={16} />
+                         </Button>
+                      </div>
+                    ))}
+                    {projectInventorySearch && filteredInventoryForProject.length === 0 && (
+                      <p className="text-[10px] text-muted-foreground text-center py-4">No se encontraron resultados.</p>
+                    )}
+                 </div>
+              </div>
             </div>
-            <div className="lg:col-span-5 bg-slate-50 dark:bg-slate-900/50 p-6 md:p-8 flex flex-col border-l">
+
+            {/* Right Section: Committed Supplies */}
+            <div className="lg:col-span-6 bg-slate-50 dark:bg-slate-900/50 p-6 md:p-8 flex flex-col h-full">
                <div className="flex justify-between items-center mb-4">
                   <h4 className="text-sm font-black uppercase text-foreground">Suministros Comprometidos</h4>
-                  <Badge variant="outline" className="text-[9px] font-black">{projectCart.length} Ítems</Badge>
+                  <Badge className="bg-blue-600 text-white text-[10px] font-black">{projectCart.length} Ítems</Badge>
                </div>
-               <ScrollArea className="flex-1 bg-white dark:bg-black/20 rounded-2xl p-4 border border-border/50 mb-6">
+               
+               <ScrollArea className="flex-1 bg-white dark:bg-black/20 rounded-2xl p-0 border border-border/50 mb-6">
                   {projectCart.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground text-center py-10 italic">No hay suministros seleccionados en la oferta</p>
-                  ) : projectCart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center py-2 border-b border-border/50">
-                       <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-foreground">{item.quantity}x {item.name}</span>
-                          <span className="text-[9px] text-muted-foreground">${item.price} c/u</span>
-                       </div>
-                       <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, true)} className="h-7 w-7 text-slate-300 hover:text-rose-500">
-                          <Trash2 size={12}/>
-                       </Button>
+                    <div className="flex flex-col items-center justify-center h-48 opacity-40">
+                       <ShoppingCart size={40} className="mb-2" />
+                       <p className="text-[10px] text-center font-bold px-10">Use el buscador lateral para agregar productos a este proyecto</p>
                     </div>
-                  ))}
+                  ) : (
+                    <Table>
+                       <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
+                          <TableRow>
+                             <TableHead className="text-[9px] uppercase font-black h-8 px-4">Producto</TableHead>
+                             <TableHead className="text-[9px] uppercase font-black h-8 text-center w-20">Cant</TableHead>
+                             <TableHead className="text-[9px] uppercase font-black h-8 text-right w-24">P. Adjudicado</TableHead>
+                             <TableHead className="h-8 w-8"></TableHead>
+                          </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                          {projectCart.map(item => (
+                            <TableRow key={item.id} className="border-b-border/50">
+                               <TableCell className="px-4 py-3">
+                                  <div className="flex flex-col">
+                                     <span className="text-[11px] font-bold leading-tight">{item.name}</span>
+                                     <span className="text-[9px] text-muted-foreground font-mono">{item.sku}</span>
+                                  </div>
+                               </TableCell>
+                               <TableCell className="px-1 text-center">
+                                  <Input 
+                                    type="number" 
+                                    value={item.quantity} 
+                                    onChange={e => updateProjectCartItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                    className="h-8 w-14 text-center font-bold text-xs bg-muted border-none p-0"
+                                  />
+                                </TableCell>
+                               <TableCell className="px-1 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                     <span className="text-[10px] font-bold">$</span>
+                                     <Input 
+                                       type="number" 
+                                       value={item.price} 
+                                       onChange={e => updateProjectCartItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                                       className="h-8 w-20 text-right font-black text-xs bg-muted border-none p-1 text-blue-600 dark:text-blue-400"
+                                     />
+                                  </div>
+                               </TableCell>
+                               <TableCell className="px-2">
+                                  <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, true)} className="h-7 w-7 text-muted-foreground hover:text-rose-500">
+                                     <Trash2 size={12}/>
+                                  </Button>
+                               </TableCell>
+                            </TableRow>
+                          ))}
+                       </TableBody>
+                    </Table>
+                  )}
                </ScrollArea>
-               <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg" onClick={handleCreateProject} disabled={isProcessing}>
+               
+               <div className="bg-slate-900 rounded-2xl p-4 text-white flex justify-between items-center mb-6">
+                  <span className="text-[10px] font-black uppercase opacity-60">Suma de Suministros</span>
+                  <span className="text-xl font-black text-blue-400">${projectTotalCart.toFixed(2)}</span>
+               </div>
+
+               <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl transition-all active:scale-95" onClick={handleCreateProject} disabled={isProcessing}>
                   {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <FilePlus className="mr-2" />}
-                  ABRIR EXPEDIENTE
+                  ABRIR EXPEDIENTE INSTITUCIONAL
                </Button>
             </div>
           </div>

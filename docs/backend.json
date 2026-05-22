@@ -145,7 +145,8 @@
         "purchaseOrder": { "type": "string" },
         "totalBudget": { "type": "number" },
         "status": { "type": "string" },
-        "customerName": { "type": "string" }
+        "customerName": { "type": "string" },
+        "items": { "type": "array", "description": "Productos comprometidos en la oferta." }
       }
     }
   },
