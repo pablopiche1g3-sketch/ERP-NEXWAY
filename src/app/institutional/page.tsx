@@ -34,7 +34,9 @@ import {
   BarChart3,
   Edit3,
   User,
-  CheckCircle
+  CheckCircle,
+  ListPlus,
+  PackageSearch
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -109,6 +111,13 @@ export default function InstitutionalModulePage() {
   const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([]);
   const [projectInventorySearch, setProjectInventorySearch] = useState('');
 
+  // States for Manual Costs
+  const [costMode, setCostMode] = useState<'import' | 'manual'>('import');
+  const [manualCostSupplier, setManualCostSupplier] = useState('');
+  const [manualCostDocNum, setManualCostDocNum] = useState('');
+  const [manualCostItems, setManualCostItems] = useState<CartItem[]>([]);
+  const [costInventorySearch, setCostInventorySearch] = useState('');
+
   // States for Consolidation
   const [consolidationProjectId, setConsolidationProjectId] = useState<string>('');
 
@@ -118,6 +127,7 @@ export default function InstitutionalModulePage() {
   // Calculations
   const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
   const projectTotalCart = useMemo(() => projectCart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [projectCart]);
+  const totalManualCost = useMemo(() => manualCostItems.reduce((acc, item) => acc + (item.price * item.quantity), 0), [manualCostItems]);
 
   // Consolidation Logic
   const selectedProjectData = useMemo(() => {
@@ -152,6 +162,14 @@ export default function InstitutionalModulePage() {
     ).slice(0, 10);
   }, [projectInventorySearch, inventory]);
 
+  const filteredInventoryForCost = useMemo(() => {
+    if (!inventory || !costInventorySearch) return [];
+    return inventory.filter(p => 
+      p.name.toLowerCase().includes(costInventorySearch.toLowerCase()) || 
+      p.sku.toLowerCase().includes(costInventorySearch.toLowerCase())
+    ).slice(0, 10);
+  }, [costInventorySearch, inventory]);
+
   const filteredCustomers = useMemo(() => {
     if (!customers) return [];
     return customers.filter(c => 
@@ -169,24 +187,31 @@ export default function InstitutionalModulePage() {
     return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [allSales, allPurchases]);
 
-  const addToCart = (product: any, isProject = false) => {
-    const targetSet = isProject ? setProjectCart : setCart;
-    targetSet(prev => {
+  const addToCart = (product: any, mode: 'billing' | 'project' | 'cost' = 'billing') => {
+    const update = (prev: CartItem[]) => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { id: product.id, sku: product.sku, name: product.name, price: product.price || 0, quantity: 1 }];
-    });
+    };
+
+    if (mode === 'billing') setCart(update);
+    if (mode === 'project') setProjectCart(update);
+    if (mode === 'cost') setManualCostItems(update);
   };
 
-  const updateProjectCartItem = (id: string, field: 'quantity' | 'price', value: number) => {
-    setProjectCart(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  const removeFromCart = (id: string, mode: 'billing' | 'project' | 'cost' = 'billing') => {
+    const update = (prev: CartItem[]) => prev.filter(item => item.id !== id);
+    if (mode === 'billing') setCart(update);
+    if (mode === 'project') setProjectCart(update);
+    if (mode === 'cost') setManualCostItems(update);
   };
 
-  const removeFromCart = (id: string, isProject = false) => {
-    const targetSet = isProject ? setProjectCart : setCart;
-    targetSet(prev => prev.filter(item => item.id !== id));
+  const updateCartItem = (id: string, field: 'quantity' | 'price', value: number, mode: 'project' | 'cost') => {
+    const update = (prev: CartItem[]) => prev.map(item => item.id === id ? { ...item, [field]: value } : item);
+    if (mode === 'project') setProjectCart(update);
+    if (mode === 'cost') setManualCostItems(update);
   };
   
   const handleFinalizeSale = async () => {
@@ -259,6 +284,34 @@ export default function InstitutionalModulePage() {
       setProjectInventorySearch('');
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo crear el proyecto." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSaveManualCost = async () => {
+    if (!selectedProjectId || !manualCostSupplier || !manualCostDocNum || manualCostItems.length === 0) {
+      toast({ variant: "destructive", title: "Faltan datos", description: "Complete proveedor, documento y al menos un ítem." });
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await addDoc(purchasesRef, {
+        projectId: selectedProjectId,
+        docNumber: manualCostDocNum,
+        supplier: manualCostSupplier,
+        total: totalManualCost,
+        items: manualCostItems.map((i: any) => `${i.quantity} ${i.name}`).join(', '),
+        detailItems: manualCostItems,
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Costo Registrado", description: "Se ha vinculado el costo al proyecto correctamente." });
+      setManualCostItems([]);
+      setManualCostSupplier('');
+      setManualCostDocNum('');
+      setSelectedProjectId('');
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al guardar" });
     } finally {
       setIsProcessing(false);
     }
@@ -396,7 +449,7 @@ export default function InstitutionalModulePage() {
                               <TableRow key={item.id}>
                                 <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
                                 <TableCell className="text-right font-black">${(item.price * item.quantity).toFixed(2)}</TableCell>
-                                <TableCell><Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}><Trash2 size={12}/></Button></TableCell>
+                                <TableCell><Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, 'billing')}><Trash2 size={12}/></Button></TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -454,7 +507,7 @@ export default function InstitutionalModulePage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                    {filteredInventory.slice(0, 12).map(p => (
-                     <div key={p.id} onClick={() => addToCart(p)} className="p-3 bg-white dark:bg-card rounded-xl border border-border hover:border-blue-500 cursor-pointer transition-all flex flex-col justify-between aspect-square">
+                     <div key={p.id} onClick={() => addToCart(p, 'billing')} className="p-3 bg-white dark:bg-card rounded-xl border border-border hover:border-blue-500 cursor-pointer transition-all flex flex-col justify-between aspect-square">
                         <p className="text-[9px] font-mono text-muted-foreground">{p.sku}</p>
                         <h4 className="text-[11px] font-bold leading-tight line-clamp-2 h-7">{p.name}</h4>
                         <div className="mt-2 pt-2 border-t flex justify-between items-center">
@@ -673,33 +726,134 @@ export default function InstitutionalModulePage() {
           </TabsContent>
 
           <TabsContent value="costs" className="space-y-6 outline-none">
-             <div className="max-w-2xl mx-auto">
-                <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
-                   <CardHeader className="bg-blue-600 text-white p-6">
-                      <CardTitle className="text-lg font-bold flex items-center gap-2"><FileUp size={20} /> Registrar Costo de Proyecto</CardTitle>
-                      <CardDescription className="text-blue-100">Vincule compras de suministros a un expediente abierto</CardDescription>
-                   </CardHeader>
-                   <CardContent className="p-8 space-y-6">
-                      <div className="space-y-4">
-                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-bold uppercase">Asignar a Proyecto</Label>
-                            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                               <SelectTrigger className="h-12 bg-muted border-none rounded-xl"><SelectValue placeholder="Seleccione proyecto..." /></SelectTrigger>
-                               <SelectContent>{projects?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                            </Select>
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-4 space-y-4">
+                   <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
+                      <CardHeader className="bg-blue-600 text-white p-5">
+                         <CardTitle className="text-base font-bold flex items-center gap-2"><FileUp size={18} /> Origen del Costo</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                         <div className="flex gap-2">
+                            <Button variant={costMode === 'import' ? 'default' : 'outline'} className="flex-1 rounded-xl h-12" onClick={() => setCostMode('import')}>
+                               <FileJson className="mr-2" size={16}/> DTE JSON
+                            </Button>
+                            <Button variant={costMode === 'manual' ? 'default' : 'outline'} className="flex-1 rounded-xl h-12" onClick={() => setCostMode('manual')}>
+                               <Edit3 className="mr-2" size={16}/> Manual
+                            </Button>
                          </div>
-                         <div className="border-2 border-dashed rounded-3xl p-10 flex flex-col items-center gap-4 bg-muted/20">
-                            <FileCode size={32} className="text-blue-600" />
-                            <div className="text-center">
-                               <p className="text-sm font-bold">Cargar DTE V3 de Proveedor</p>
-                               <p className="text-[10px] text-muted-foreground">Importación automática de montos y códigos</p>
+
+                         <div className="space-y-4">
+                            <div className="space-y-1.5">
+                               <Label className="text-[10px] font-black uppercase text-muted-foreground">Vincular a Proyecto</Label>
+                               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                                  <SelectTrigger className="h-10 bg-muted border-none rounded-xl"><SelectValue placeholder="Expediente..." /></SelectTrigger>
+                                  <SelectContent>{projects?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                               </Select>
                             </div>
-                            <input type="file" ref={purchaseFileInputRef} className="hidden" accept=".json" onChange={handleImportCost} />
-                            <Button variant="outline" className="rounded-xl border-blue-200" onClick={() => purchaseFileInputRef.current?.click()}>SELECCIONAR JSON</Button>
+
+                            {costMode === 'import' ? (
+                               <div className="border-2 border-dashed rounded-3xl p-8 flex flex-col items-center gap-4 bg-muted/20 animate-in fade-in">
+                                  <FileCode size={32} className="text-blue-600 opacity-60" />
+                                  <div className="text-center">
+                                     <p className="text-xs font-bold text-foreground">Importar DTE V3</p>
+                                     <p className="text-[10px] text-muted-foreground">Ministerio de Hacienda SV</p>
+                                  </div>
+                                  <input type="file" ref={purchaseFileInputRef} className="hidden" accept=".json" onChange={handleImportCost} />
+                                  <Button variant="outline" className="w-full rounded-xl border-blue-200" onClick={() => purchaseFileInputRef.current?.click()}>SELECCIONAR ARCHIVO</Button>
+                               </div>
+                            ) : (
+                               <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                  <div className="space-y-1.5">
+                                     <Label className="text-[10px] font-black uppercase text-muted-foreground">Proveedor del Suministro</Label>
+                                     <Input placeholder="Nombre..." value={manualCostSupplier} onChange={e => setManualCostSupplier(e.target.value)} className="h-10 bg-muted border-none rounded-xl" />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                     <Label className="text-[10px] font-black uppercase text-muted-foreground">No. Documento (Factura/CCF)</Label>
+                                     <Input placeholder="000-000..." value={manualCostDocNum} onChange={e => setManualCostDocNum(e.target.value)} className="h-10 bg-muted border-none rounded-xl" />
+                                  </div>
+                               </div>
+                            )}
+                         </div>
+                      </CardContent>
+                   </Card>
+                </div>
+
+                <div className="lg:col-span-8">
+                   {costMode === 'manual' ? (
+                      <div className="space-y-4">
+                         <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                            <CardHeader className="bg-slate-900 text-white p-4">
+                               <div className="flex justify-between items-center">
+                                  <CardTitle className="text-sm font-bold">Detalle de Costos Manuales</CardTitle>
+                                  <p className="text-lg font-black text-blue-400">${totalManualCost.toFixed(2)}</p>
+                               </div>
+                            </CardHeader>
+                            <ScrollArea className="h-[300px]">
+                               <Table>
+                                  <TableHeader className="bg-muted/30">
+                                     <TableRow>
+                                        <TableHead className="text-[10px] px-6">Producto</TableHead>
+                                        <TableHead className="text-[10px] text-center w-24">Cant.</TableHead>
+                                        <TableHead className="text-[10px] text-right w-28">P. Costo</TableHead>
+                                        <TableHead className="w-12"></TableHead>
+                                     </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                     {manualCostItems.length === 0 ? (
+                                        <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic text-xs">Busque productos para agregar al costo</TableCell></TableRow>
+                                     ) : manualCostItems.map(item => (
+                                        <TableRow key={item.id}>
+                                           <TableCell className="px-6">
+                                              <p className="font-bold text-xs">{item.name}</p>
+                                              <p className="text-[9px] font-mono text-muted-foreground">{item.sku}</p>
+                                           </TableCell>
+                                           <TableCell>
+                                              <Input type="number" value={item.quantity} onChange={e => updateCartItem(item.id, 'quantity', parseInt(e.target.value) || 1, 'cost')} className="h-8 text-center bg-muted border-none rounded-lg font-bold" />
+                                           </TableCell>
+                                           <TableCell className="text-right">
+                                              <div className="flex items-center justify-end gap-1">
+                                                 <span className="text-[10px]">$</span>
+                                                 <Input type="number" value={item.price} onChange={e => updateCartItem(item.id, 'price', parseFloat(e.target.value) || 0, 'cost')} className="h-8 text-right bg-muted border-none rounded-lg font-black text-emerald-600" />
+                                              </div>
+                                           </TableCell>
+                                           <TableCell>
+                                              <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, 'cost')}><Trash2 size={12}/></Button>
+                                           </TableCell>
+                                        </TableRow>
+                                     ))}
+                                  </TableBody>
+                               </Table>
+                            </ScrollArea>
+                         </Card>
+
+                         <div className="flex gap-4">
+                            <div className="relative flex-1">
+                               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                               <Input placeholder="Buscar en inventario..." value={costInventorySearch} onChange={e => setCostInventorySearch(e.target.value)} className="pl-10 h-12 bg-white dark:bg-card border-none rounded-2xl shadow-sm" />
+                               {filteredInventoryForCost.length > 0 && (
+                                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-card border rounded-2xl shadow-xl z-20 overflow-hidden">
+                                     {filteredInventoryForCost.map(p => (
+                                        <div key={p.id} onClick={() => { addToCart(p, 'cost'); setCostInventorySearch(''); }} className="p-3 hover:bg-muted cursor-pointer flex justify-between items-center border-b last:border-none">
+                                           <div className="flex flex-col"><span className="text-[11px] font-bold">{p.name}</span><span className="text-[9px] font-mono text-muted-foreground">{p.sku}</span></div>
+                                           <ListPlus size={16} className="text-blue-500" />
+                                        </div>
+                                     ))}
+                                  </div>
+                               )}
+                            </div>
+                            <Button className="h-12 px-8 bg-blue-600 text-white font-bold rounded-2xl shadow-lg" onClick={handleSaveManualCost} disabled={isProcessing}>
+                               {isProcessing ? <Loader2 className="animate-spin mr-2"/> : <CheckCircle className="mr-2"/>}
+                               FINALIZAR REGISTRO
+                            </Button>
                          </div>
                       </div>
-                   </CardContent>
-                </Card>
+                   ) : (
+                      <div className="py-20 text-center bg-white dark:bg-card rounded-[2.5rem] border-2 border-dashed border-border opacity-60">
+                         <FileJson size={48} className="mx-auto mb-4 text-blue-600 opacity-20" />
+                         <h2 className="text-lg font-bold text-muted-foreground">Use el panel lateral para cargar su archivo DTE</h2>
+                      </div>
+                   )}
+                </div>
              </div>
           </TabsContent>
         </Tabs>
@@ -762,7 +916,7 @@ export default function InstitutionalModulePage() {
                  </div>
                  <div className="grid grid-cols-1 gap-2">
                     {filteredInventoryForProject.map(p => (
-                      <div key={p.id} onClick={() => addToCart(p, true)} className="flex items-center justify-between p-3 bg-card border rounded-xl hover:border-blue-500 cursor-pointer group transition-all">
+                      <div key={p.id} onClick={() => addToCart(p, 'project')} className="flex items-center justify-between p-3 bg-card border rounded-xl hover:border-blue-500 cursor-pointer group transition-all">
                          <div className="flex flex-col">
                             <span className="text-[11px] font-bold">{p.name}</span>
                             <span className="text-[9px] font-mono text-muted-foreground uppercase">{p.sku} • Stock: {p.quantity}</span>
@@ -772,9 +926,6 @@ export default function InstitutionalModulePage() {
                          </Button>
                       </div>
                     ))}
-                    {projectInventorySearch && filteredInventoryForProject.length === 0 && (
-                      <p className="text-[10px] text-muted-foreground text-center py-4">No se encontraron resultados.</p>
-                    )}
                  </div>
               </div>
             </div>
@@ -815,7 +966,7 @@ export default function InstitutionalModulePage() {
                                   <Input 
                                     type="number" 
                                     value={item.quantity} 
-                                    onChange={e => updateProjectCartItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                    onChange={e => updateCartItem(item.id, 'quantity', parseInt(e.target.value) || 1, 'project')}
                                     className="h-8 w-14 text-center font-bold text-xs bg-muted border-none p-0"
                                   />
                                 </TableCell>
@@ -825,13 +976,13 @@ export default function InstitutionalModulePage() {
                                      <Input 
                                        type="number" 
                                        value={item.price} 
-                                       onChange={e => updateProjectCartItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                                       onChange={e => updateCartItem(item.id, 'price', parseFloat(e.target.value) || 0, 'project')}
                                        className="h-8 w-20 text-right font-black text-xs bg-muted border-none p-1 text-blue-600 dark:text-blue-400"
                                      />
                                   </div>
                                </TableCell>
                                <TableCell className="px-2">
-                                  <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, true)} className="h-7 w-7 text-muted-foreground hover:text-rose-500">
+                                  <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, 'project')} className="h-7 w-7 text-muted-foreground hover:text-rose-500">
                                      <Trash2 size={12}/>
                                   </Button>
                                </TableCell>
