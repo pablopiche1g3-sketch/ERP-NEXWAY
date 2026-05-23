@@ -149,6 +149,19 @@
         "customerName": { "type": "string" },
         "items": { "type": "array", "description": "Productos comprometidos en la oferta." }
       }
+    },
+    "AdjustmentNote": {
+      "title": "Adjustment Note",
+      "description": "Notas de crédito o débito.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["CREDITO", "DEBITO"] },
+        "refDoc": { "type": "string" },
+        "customerName": { "type": "string" },
+        "total": { "type": "number" },
+        "reason": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -214,6 +227,14 @@
     "/institutional_purchases": {
       "schema": "object",
       "description": "Egresos por costos de proyectos."
+    },
+    "/credit_notes": {
+      "schema": "#/backend/entities/AdjustmentNote",
+      "description": "Notas de Crédito emitidas."
+    },
+    "/debit_notes": {
+      "schema": "#/backend/entities/AdjustmentNote",
+      "description": "Notas de Débito emitidas."
     }
   }
 }

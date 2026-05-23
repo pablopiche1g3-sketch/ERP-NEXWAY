@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -23,8 +24,11 @@ import {
   Coins,
   DollarSign,
   TrendingDown,
+  TrendingUp,
   ArrowDownCircle,
-  FileText
+  FileText,
+  RotateCcw,
+  AlertCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +49,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { ModeToggle } from '@/components/mode-toggle';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
+import { Textarea } from '@/components/ui/textarea';
 
 interface CartItem {
   id: string;
@@ -75,6 +80,15 @@ export default function BillingPage() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   
+  // Adjustment States (Notas Crédito/Débito)
+  const [adjustmentForm, setAdjustmentForm] = useState({
+    refDoc: '',
+    customerName: '',
+    reason: '',
+    items: [] as CartItem[],
+    total: 0
+  });
+
   // Arqueo States
   const [cashDenominations, setCashDenominations] = useState<Record<string, number>>({
     '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
@@ -219,6 +233,67 @@ export default function BillingPage() {
       .finally(() => setIsProcessing(false));
   };
 
+  const handleProcessAdjustment = async (type: 'CREDITO' | 'DEBITO') => {
+    if (!adjustmentForm.refDoc || !adjustmentForm.reason || adjustmentForm.items.length === 0) {
+      toast({ variant: "destructive", title: "Faltan Datos", description: "Complete documento de referencia, motivo y productos." });
+      return;
+    }
+
+    setIsProcessing(true);
+    const collectionName = type === 'CREDITO' ? 'credit_notes' : 'debit_notes';
+    const totalAdjustment = adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+
+    const data = {
+      ...adjustmentForm,
+      type,
+      total: totalAdjustment,
+      timestamp: new Date().toISOString(),
+      status: 'EMITIDA'
+    };
+
+    try {
+      await addDoc(collection(db, collectionName), data);
+      
+      // Si es nota de crédito (devolución), reintegrar stock
+      if (type === 'CREDITO') {
+        for (const item of adjustmentForm.items) {
+          const product = inventory?.find((p: any) => p.sku === item.sku);
+          if (product) {
+            await updateDoc(doc(db, 'inventory', product.id), {
+              quantity: (product.quantity || 0) + item.quantity
+            });
+          }
+        }
+      }
+
+      toast({ 
+        title: `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida`, 
+        description: `Se procesó el ajuste por $${totalAdjustment.toFixed(2)}.` 
+      });
+      setAdjustmentForm({ refDoc: '', customerName: '', reason: '', items: [], total: 0 });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la nota." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const addAdjustmentItem = (product: any) => {
+    setAdjustmentForm(prev => {
+      const existing = prev.items.find(i => i.id === product.id);
+      if (existing) {
+        return {
+          ...prev,
+          items: prev.items.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
+        };
+      }
+      return {
+        ...prev,
+        items: [...prev.items, { id: product.id, name: product.name, sku: product.sku, price: product.price, quantity: 1 }]
+      };
+    });
+  };
+
   const addExpense = () => {
     const amt = parseFloat(expenseAmount);
     if (!expenseDesc || isNaN(amt)) return;
@@ -273,14 +348,20 @@ export default function BillingPage() {
 
       <div className="max-w-7xl mx-auto print:hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start">
-            <TabsTrigger value="facturacion" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+          <TabsList className="bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
+            <TabsTrigger value="facturacion" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
               <ShoppingCart size={14} className="mr-2" /> Venta
             </TabsTrigger>
-            <TabsTrigger value="historial" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="historial" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
               <History size={14} className="mr-2" /> Historial
             </TabsTrigger>
-            <TabsTrigger value="arqueo" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="nota_credito" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+              <RotateCcw size={14} className="mr-2" /> Nota Crédito
+            </TabsTrigger>
+            <TabsTrigger value="nota_debito" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+              <TrendingUp size={14} className="mr-2" /> Nota Débito
+            </TabsTrigger>
+            <TabsTrigger value="arqueo" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
               <Calculator size={14} className="mr-2" /> Arqueo / Cierre
             </TabsTrigger>
           </TabsList>
@@ -389,6 +470,146 @@ export default function BillingPage() {
                 ))}
               </div>
             </div>
+          </TabsContent>
+
+          {/* TAB NOTA CREDITO */}
+          <TabsContent value="nota_credito" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
+             <div className="lg:col-span-5 space-y-4">
+                <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-card border">
+                   <CardHeader className="bg-rose-700 text-white p-5">
+                      <CardTitle className="text-sm font-bold">Nota de Crédito (Ajuste)</CardTitle>
+                      <p className="text-4xl font-black">${adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
+                   </CardHeader>
+                   <CardContent className="p-0">
+                      <ScrollArea className="h-[300px]">
+                         <Table>
+                            <TableBody>
+                               {adjustmentForm.items.length === 0 ? (
+                                  <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground text-xs italic">Agregue ítems a descontar</TableCell></TableRow>
+                               ) : adjustmentForm.items.map((item, idx) => (
+                                  <TableRow key={idx}>
+                                     <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
+                                     <TableCell className="text-right font-black text-rose-600">-${(item.price * item.quantity).toFixed(2)}</TableCell>
+                                     <TableCell><Button variant="ghost" size="icon" onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}><Trash2 size={12}/></Button></TableCell>
+                                  </TableRow>
+                               ))}
+                            </TableBody>
+                         </Table>
+                      </ScrollArea>
+                   </CardContent>
+                </Card>
+                <Button 
+                  className="w-full h-16 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-lg shadow-xl"
+                  onClick={() => handleProcessAdjustment('CREDITO')}
+                  disabled={isProcessing || adjustmentForm.items.length === 0}
+                >
+                  {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <RotateCcw className="mr-2" />}
+                  EMITIR NOTA DE CRÉDITO
+                </Button>
+             </div>
+             <div className="lg:col-span-7 space-y-4">
+                <Card className="p-5 bg-card rounded-2xl border space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground">Documento Referencia</Label>
+                         <Input placeholder="FACT-001 / CCF-001" value={adjustmentForm.refDoc} onChange={e => setAdjustmentForm({...adjustmentForm, refDoc: e.target.value})} className="h-10 bg-muted border-none rounded-xl text-xs font-bold" />
+                      </div>
+                      <div className="space-y-1.5">
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground">Cliente</Label>
+                         <Input placeholder="Nombre del cliente..." value={adjustmentForm.customerName} onChange={e => setAdjustmentForm({...adjustmentForm, customerName: e.target.value})} className="h-10 bg-muted border-none rounded-xl text-xs font-bold" />
+                      </div>
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Motivo del Ajuste / Devolución</Label>
+                      <Textarea placeholder="Ej: Mercadería dañada, error en precio..." value={adjustmentForm.reason} onChange={e => setAdjustmentForm({...adjustmentForm, reason: e.target.value})} className="bg-muted border-none rounded-xl text-xs" />
+                   </div>
+                </Card>
+                <div className="relative">
+                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                   <Input placeholder="Buscar productos para devolución..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-card border shadow-sm rounded-2xl text-xs" />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                   {filteredProducts.slice(0, 8).map(p => (
+                      <div key={p.id} onClick={() => addAdjustmentItem(p)} className="bg-card p-3 rounded-2xl border hover:border-rose-500 cursor-pointer transition-all flex flex-col justify-between aspect-square group">
+                         <h3 className="text-[10px] font-bold leading-tight line-clamp-2">{p.name}</h3>
+                         <div className="mt-2 pt-2 border-t flex justify-between items-center">
+                            <span className="font-black text-rose-600">${p.price}</span>
+                            <PlusCircle size={14} className="text-rose-500" />
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
+          </TabsContent>
+
+          {/* TAB NOTA DEBITO */}
+          <TabsContent value="nota_debito" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
+             <div className="lg:col-span-5 space-y-4">
+                <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-card border">
+                   <CardHeader className="bg-amber-600 text-white p-5">
+                      <CardTitle className="text-sm font-bold">Nota de Débito (Cargo Extra)</CardTitle>
+                      <p className="text-4xl font-black">${adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
+                   </CardHeader>
+                   <CardContent className="p-0">
+                      <ScrollArea className="h-[300px]">
+                         <Table>
+                            <TableBody>
+                               {adjustmentForm.items.length === 0 ? (
+                                  <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground text-xs italic">Agregue conceptos de cargo</TableCell></TableRow>
+                               ) : adjustmentForm.items.map((item, idx) => (
+                                  <TableRow key={idx}>
+                                     <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
+                                     <TableCell className="text-right font-black text-amber-600">+${(item.price * item.quantity).toFixed(2)}</TableCell>
+                                     <TableCell><Button variant="ghost" size="icon" onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}><Trash2 size={12}/></Button></TableCell>
+                                  </TableRow>
+                               ))}
+                            </TableBody>
+                         </Table>
+                      </ScrollArea>
+                   </CardContent>
+                </Card>
+                <Button 
+                  className="w-full h-16 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-black text-lg shadow-xl"
+                  onClick={() => handleProcessAdjustment('DEBITO')}
+                  disabled={isProcessing || adjustmentForm.items.length === 0}
+                >
+                  {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <TrendingUp className="mr-2" />}
+                  EMITIR NOTA DE DÉBITO
+                </Button>
+             </div>
+             <div className="lg:col-span-7 space-y-4">
+                <Card className="p-5 bg-card rounded-2xl border space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground">Documento Referencia</Label>
+                         <Input placeholder="FACT-001 / CCF-001" value={adjustmentForm.refDoc} onChange={e => setAdjustmentForm({...adjustmentForm, refDoc: e.target.value})} className="h-10 bg-muted border-none rounded-xl text-xs font-bold" />
+                      </div>
+                      <div className="space-y-1.5">
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground">Cliente</Label>
+                         <Input placeholder="Nombre del cliente..." value={adjustmentForm.customerName} onChange={e => setAdjustmentForm({...adjustmentForm, customerName: e.target.value})} className="h-10 bg-muted border-none rounded-xl text-xs font-bold" />
+                      </div>
+                   </div>
+                   <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Razón del Cargo Adicional</Label>
+                      <Textarea placeholder="Ej: Intereses por mora, flete no cobrado, ajuste de precio..." value={adjustmentForm.reason} onChange={e => setAdjustmentForm({...adjustmentForm, reason: e.target.value})} className="bg-muted border-none rounded-xl text-xs" />
+                   </div>
+                </Card>
+                <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3">
+                   <AlertCircle className="text-amber-600 mt-0.5" size={16} />
+                   <p className="text-[10px] text-amber-700">Las notas de débito incrementan el valor del documento original. Asegúrese de que el concepto sea legalmente válido.</p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                   {filteredProducts.slice(0, 4).map(p => (
+                      <div key={p.id} onClick={() => addAdjustmentItem(p)} className="bg-card p-3 rounded-2xl border hover:border-amber-500 cursor-pointer transition-all flex flex-col justify-between aspect-square group">
+                         <h3 className="text-[10px] font-bold leading-tight line-clamp-2">{p.name}</h3>
+                         <div className="mt-2 pt-2 border-t flex justify-between items-center">
+                            <span className="font-black text-amber-600">${p.price}</span>
+                            <PlusCircle size={14} className="text-amber-500" />
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
           </TabsContent>
 
           {/* TAB HISTORIAL */}
