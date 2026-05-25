@@ -24,7 +24,10 @@ import {
   BookOpen,
   Percent,
   Eye,
-  FileSpreadsheet
+  FileSpreadsheet,
+  TrendingUp as GainIcon,
+  Activity,
+  Briefcase
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,13 +88,24 @@ export default function AccountingPage() {
   const expensesRef = useMemo(() => collection(db, 'expenses'), [db]);
   const journalRef = useMemo(() => collection(db, 'journal'), [db]);
   const purchasesRef = useMemo(() => collection(db, 'purchases'), [db]);
+  const inventoryRef = useMemo(() => collection(db, 'inventory'), [db]);
+
+  // Colecciones del Módulo Institucional / Proyectos (Ventas, Compras y Expedientes)
+  const instSalesRef = useMemo(() => collection(db, 'institutional_sales'), [db]);
+  const instPurchasesRef = useMemo(() => collection(db, 'institutional_purchases'), [db]);
+  const instProjectsRef = useMemo(() => collection(db, 'institutional_projects'), [db]);
 
   const { data: sales, loading: loadingSales } = useCollection<any>(salesRef);
   const { data: expenses, loading: loadingExpenses } = useCollection<any>(expensesRef);
   const { data: journal, loading: loadingJournal } = useCollection<any>(journalRef);
   const { data: purchases, loading: loadingPurchases } = useCollection<any>(purchasesRef);
+  const { data: inventory } = useCollection<any>(inventoryRef);
 
-  // Ajustes de Contabilidad Modular (Persistido en localStorage)
+  const { data: instSales } = useCollection<any>(instSalesRef);
+  const { data: instPurchases } = useCollection<any>(instPurchasesRef);
+  const { data: instProjects } = useCollection<any>(instProjectsRef);
+
+  // Ajustes de Contabilidad Modular
   const [settings, setSettings] = useState({
     taxProfile: 'Normal', // Normal, Gran Contribuyente, Exento
     accountingLevel: 'Simplificado', // Simplificado, Avanzado
@@ -102,10 +116,17 @@ export default function AccountingPage() {
   const [activeSubTab, setActiveSubTab] = useState<'movimientos' | 'catalogo'>('movimientos');
   const [activeTaxTab, setActiveTaxTab] = useState<'vcf' | 'vc' | 'compras'>('vcf');
   const [activeFormTab, setActiveFormTab] = useState<'f07' | 'f14'>('f07');
+  const [rentabilidadSubTab, setRentabilidadSubTab] = useState<'productos' | 'licitaciones'>('productos');
   
   // Filtro de fechas para Libros de IVA (Mes y Año actual)
   const [filterMonth, setFilterMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
   const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
+
+  // Búsqueda en rentabilidad
+  const [rentabilidadSearch, setRentabilidadSearch] = useState('');
+
+  // Selector de canal contable (Estándar vs. Institucional vs. Consolidado)
+  const [selectedChannel, setSelectedChannel] = useState<'consolidado' | 'estandar' | 'institucional'>('consolidado');
 
   useEffect(() => {
     const saved = localStorage.getItem('nexway_accounting_settings');
@@ -121,7 +142,7 @@ export default function AccountingPage() {
   const handleSaveSettings = (newSettings: typeof settings) => {
     setSettings(newSettings);
     localStorage.setItem('nexway_accounting_settings', JSON.stringify(newSettings));
-    toast({ title: "Configuración Actualizada", description: "Los parámetros contables y tributarios han sido guardados." });
+    toast({ title: "Configuración Actualizada", description: "Los parámetros contables han sido guardados." });
   };
 
   // Modales
@@ -129,7 +150,7 @@ export default function AccountingPage() {
   const [isAdvancedModalOpen, setIsAdvancedModalOpen] = useState(false);
   const [selectedAdvEntry, setSelectedAdvEntry] = useState<any>(null);
 
-  // Estado para Nuevo Asiento Simple (Simplificado)
+  // Estado para Nuevo Asiento Simple
   const [newEntry, setNewEntry] = useState({
     description: '',
     amount: '',
@@ -179,29 +200,45 @@ export default function AccountingPage() {
     }));
   };
 
-  // Cálculos Financieros Unificados (Soporta Simplificado y Avanzado)
-  const totalSales = useMemo(() => 
-    sales?.filter(s => s.status !== 'CANCELADA').reduce((acc, s) => acc + (s.total || 0), 0) || 0
-  , [sales]);
+  // --- INTEGRACIÓN DE INGRESOS Y EGRESOS POR CANAL (ESTÁNDAR vs INSTITUCIONAL vs CONSOLIDADO) ---
+  
+  // Suma de ventas filtrada por canal
+  const totalSales = useMemo(() => {
+    const stdSales = sales?.filter(s => s.status !== 'CANCELADA').reduce((acc, s) => acc + (s.total || 0), 0) || 0;
+    const instSalesSum = instSales?.filter(s => s.status !== 'CANCELADA').reduce((acc, s) => acc + (s.total || 0), 0) || 0;
+    if (selectedChannel === 'estandar') return stdSales;
+    if (selectedChannel === 'institucional') return instSalesSum;
+    return stdSales + instSalesSum;
+  }, [sales, instSales, selectedChannel]);
 
+  // Suma de gastos/costos filtrada por canal
   const totalExpensesSimplificado = useMemo(() => {
     const cashExpenses = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
     const purchaseExpenses = purchases?.filter(p => p.status === 'CERRADA').reduce((acc, p) => acc + (p.total || 0), 0) || 0;
+    const instPurchExpenses = instPurchases?.reduce((acc, p) => acc + (p.total || 0), 0) || 0;
     const manualExpenses = journal?.filter(j => j.type === 'Egreso').reduce((acc, j) => acc + (j.amount || 0), 0) || 0;
-    return cashExpenses + purchaseExpenses + manualExpenses;
-  }, [expenses, purchases, journal]);
 
-  const totalManualIncome = useMemo(() => 
-    journal?.filter(j => j.type === 'Ingreso').reduce((acc, j) => acc + (j.amount || 0), 0) || 0
-  , [journal]);
+    if (selectedChannel === 'estandar') {
+      return cashExpenses + purchaseExpenses + manualExpenses;
+    }
+    if (selectedChannel === 'institucional') {
+      return instPurchExpenses;
+    }
+    return cashExpenses + purchaseExpenses + instPurchExpenses + manualExpenses;
+  }, [expenses, purchases, instPurchases, journal, selectedChannel]);
 
-  // Sumas Contabilidad Avanzada desde el Libro Diario
+  const totalManualIncome = useMemo(() => {
+    if (selectedChannel === 'institucional') return 0;
+    return journal?.filter(j => j.type === 'Ingreso').reduce((acc, j) => acc + (j.amount || 0), 0) || 0;
+  }, [journal, selectedChannel]);
+
+  // Sumas de Contabilidad Avanzada desde el Libro Diario
   const totalAdvancedIncome = useMemo(() => {
     let sum = 0;
     journal?.filter(j => j.type === 'Avanzado').forEach(j => {
       j.lines?.forEach((l: any) => {
         if (l.accountCode?.startsWith('4')) {
-          sum += (l.credit || 0) - (l.debit || 0); // Créditos suman ingresos, débitos restan
+          sum += (l.credit || 0) - (l.debit || 0);
         }
       });
     });
@@ -213,31 +250,189 @@ export default function AccountingPage() {
     journal?.filter(j => j.type === 'Avanzado').forEach(j => {
       j.lines?.forEach((l: any) => {
         if (l.accountCode?.startsWith('5') || l.accountCode?.startsWith('6')) {
-          sum += (l.debit || 0) - (l.credit || 0); // Débitos suman gastos, créditos restan
+          sum += (l.debit || 0) - (l.credit || 0);
         }
       });
     });
     return sum;
   }, [journal]);
 
-  // Selección de Indicadores según Configuración del ERP
+  // Selección de Indicadores según Nivel de Configuración
   const activeIncome = useMemo(() => {
     if (settings.accountingLevel === 'Avanzado') {
+      if (selectedChannel !== 'consolidado') {
+        return totalSales + totalManualIncome;
+      }
       return totalAdvancedIncome > 0 ? totalAdvancedIncome : (totalSales + totalManualIncome);
     }
     return totalSales + totalManualIncome;
-  }, [settings.accountingLevel, totalAdvancedIncome, totalSales, totalManualIncome]);
+  }, [settings.accountingLevel, totalAdvancedIncome, totalSales, totalManualIncome, selectedChannel]);
 
   const activeExpenses = useMemo(() => {
     if (settings.accountingLevel === 'Avanzado') {
+      if (selectedChannel !== 'consolidado') {
+        return totalExpensesSimplificado;
+      }
       return totalAdvancedExpenses > 0 ? totalAdvancedExpenses : totalExpensesSimplificado;
     }
     return totalExpensesSimplificado;
-  }, [settings.accountingLevel, totalAdvancedExpenses, totalExpensesSimplificado]);
+  }, [settings.accountingLevel, totalAdvancedExpenses, totalExpensesSimplificado, selectedChannel]);
 
   const grossProfit = activeIncome - activeExpenses;
 
-  // Acciones en BD (Simplificado)
+  // --- CÁLCULO DE GANANCIAS POR COSTO DE PRODUCTO (GANADO O PERDIDO) ---
+  
+  const productProfitability = useMemo(() => {
+    if (!inventory) return [];
+    
+    // Diccionario temporal para consolidar estadísticas por producto
+    const stats: Record<string, {
+      sku: string;
+      name: string;
+      category: string;
+      qtySold: number;
+      revenue: number;
+      qtyPurchased: number;
+      totalCost: number;
+    }> = {};
+
+    // Inicializar diccionario con productos maestros
+    inventory.forEach(p => {
+      stats[p.sku] = {
+        sku: p.sku,
+        name: p.name,
+        category: p.category || 'General',
+        qtySold: 0,
+        revenue: 0,
+        qtyPurchased: 0,
+        totalCost: 0
+      };
+    });
+
+    // 1. Sumar ventas de caja estándar (solo si consolidado o estandar)
+    if (selectedChannel === 'consolidado' || selectedChannel === 'estandar') {
+      sales?.forEach(s => {
+        if (s.status === 'CANCELADA') return;
+        s.items?.forEach((item: any) => {
+          const sku = (item.sku || '').toUpperCase();
+          if (sku && stats[sku]) {
+            stats[sku].qtySold += item.quantity || 0;
+            stats[sku].revenue += (item.price * item.quantity) || 0;
+          }
+        });
+      });
+    }
+
+    // 2. Sumar ventas del canal Institucional/Proyectos (solo si consolidado o institucional)
+    if (selectedChannel === 'consolidado' || selectedChannel === 'institucional') {
+      instSales?.forEach(s => {
+        if (s.status === 'CANCELADA') return;
+        s.cartItems?.forEach((item: any) => {
+          const sku = (item.sku || '').toUpperCase();
+          if (sku && stats[sku]) {
+            stats[sku].qtySold += item.quantity || 0;
+            stats[sku].revenue += (item.price * item.quantity) || 0;
+          }
+        });
+      });
+    }
+
+    // 3. Sumar costos de Compras Estándar (solo si consolidado o estandar)
+    if (selectedChannel === 'consolidado' || selectedChannel === 'estandar') {
+      purchases?.forEach(p => {
+        if (p.status !== 'CERRADA') return;
+        p.items?.forEach((item: any) => {
+          const sku = (item.sku || '').toUpperCase();
+          if (sku && stats[sku]) {
+            stats[sku].qtyPurchased += item.quantity || 0;
+            stats[sku].totalCost += (item.cost * item.quantity) || 0;
+          }
+        });
+      });
+    }
+
+    // 4. Sumar costos de Compras Institucionales/Proyectos (solo si consolidado o institucional)
+    if (selectedChannel === 'consolidado' || selectedChannel === 'institucional') {
+      instPurchases?.forEach(p => {
+        p.items?.forEach((item: any) => {
+          // En compras institucionales, 'item.name' puede ser el SKU o el Nombre del producto.
+          const matched = inventory.find(inv => inv.sku === item.name || inv.name === item.name);
+          const sku = matched ? matched.sku : item.name?.toUpperCase();
+          if (sku && stats[sku]) {
+            stats[sku].qtyPurchased += item.quantity || 0;
+            stats[sku].totalCost += (item.price * item.quantity) || 0; // 'price' en compras de proyectos representa el costo
+          }
+        });
+      });
+    }
+
+    // 5. Formatear y calcular utilidades por producto (Gano/Perdió)
+    return Object.values(stats)
+      .filter(p => p.qtySold > 0) // Solo mostrar productos que han registrado ventas
+      .map(p => {
+        const avgSellingPrice = p.revenue / p.qtySold;
+        
+        // Costo promedio de compra. Si no hay compras registradas en Firestore, usar estimación razonable (60% del precio de venta maestro)
+        const masterProduct = inventory.find(inv => inv.sku === p.sku);
+        const fallbackCost = masterProduct ? (masterProduct.price * 0.6) : 0;
+        const avgCost = p.qtyPurchased > 0 ? (p.totalCost / p.qtyPurchased) : fallbackCost;
+
+        const profitPerUnit = avgSellingPrice - avgCost;
+        const totalProfit = p.qtySold * profitPerUnit;
+
+        return {
+          sku: p.sku,
+          name: p.name,
+          category: p.category,
+          qtySold: p.qtySold,
+          revenue: p.revenue,
+          avgSellingPrice,
+          avgCost,
+          profitPerUnit,
+          totalProfit
+        };
+      });
+  }, [inventory, sales, instSales, purchases, instPurchases, selectedChannel]);
+
+  // Filtrado de la tabla de rentabilidad por búsqueda de texto
+  const filteredProductProfitability = useMemo(() => {
+    return productProfitability.filter(p => 
+      p.sku.toLowerCase().includes(rentabilidadSearch.toLowerCase()) ||
+      p.name.toLowerCase().includes(rentabilidadSearch.toLowerCase()) ||
+      p.category.toLowerCase().includes(rentabilidadSearch.toLowerCase())
+    );
+  }, [productProfitability, rentabilidadSearch]);
+
+  // --- RENTABILIDAD POR PROYECTO DE LICITACIÓN ---
+  
+  const projectMargins = useMemo(() => {
+    if (!instProjects) return [];
+    return instProjects.map(p => {
+      const budget = p.totalBudget || 0;
+      
+      // Sumar los costos reales cargados a este proyecto en compras institucionales
+      const directCosts = instPurchases
+        ?.filter(purch => purch.projectId === p.id)
+        .reduce((acc, purch) => acc + (purch.total || 0), 0) || 0;
+
+      const netProfit = budget - directCosts;
+      const roi = directCosts > 0 ? (netProfit / directCosts) * 100 : 0;
+
+      return {
+        id: p.id,
+        name: p.name,
+        customerName: p.customerName || 'Cliente Institucional',
+        budget,
+        directCosts,
+        netProfit,
+        roi,
+        status: p.status
+      };
+    });
+  }, [instProjects, instPurchases]);
+
+  // --- BASE DE DATOS Y FLUJOS CONTABLES GENERALES ---
+
   const handleAddJournalEntry = async () => {
     if (!newEntry.description || !newEntry.amount) return;
     try {
@@ -245,7 +440,7 @@ export default function AccountingPage() {
         ...newEntry,
         amount: parseFloat(newEntry.amount),
         timestamp: new Date().toISOString(),
-        type: newEntry.type // Ingreso / Egreso
+        type: newEntry.type
       });
       toast({ title: "Asiento Registrado", description: "Movimiento simple guardado." });
       setNewEntry({ description: '', amount: '', type: 'Egreso', account: 'Gastos de Administración' });
@@ -255,7 +450,6 @@ export default function AccountingPage() {
     }
   };
 
-  // Acciones en BD (Avanzado de Doble Entrada)
   const handleAddAdvancedEntry = async () => {
     if (!isBalanced) {
       toast({ variant: "destructive", title: "Asiento Descuadrado", description: "El debe y el haber deben ser iguales." });
@@ -302,9 +496,8 @@ export default function AccountingPage() {
     }
   };
 
-  // --- REPORTES TRIBUTARIOS HACIENDA EL SALVADOR ---
+  // --- REPORTES FISCALES ---
 
-  // Ventas de Consumidor Final (CF) para el Mes Seleccionado
   const filteredSalesCF = useMemo(() => {
     if (!sales) return [];
     return sales.filter(s => {
@@ -317,7 +510,6 @@ export default function AccountingPage() {
     });
   }, [sales, filterMonth, filterYear]);
 
-  // Ventas a Contribuyentes (CCF) para el Mes Seleccionado
   const filteredSalesCCF = useMemo(() => {
     if (!sales) return [];
     return sales.filter(s => {
@@ -330,7 +522,6 @@ export default function AccountingPage() {
     });
   }, [sales, filterMonth, filterYear]);
 
-  // Compras y Costos para el Mes Seleccionado
   const filteredPurchases = useMemo(() => {
     if (!purchases) return [];
     return purchases.filter(p => {
@@ -342,7 +533,7 @@ export default function AccountingPage() {
     });
   }, [purchases, filterMonth, filterYear]);
 
-  // Totales Libros de IVA (Desglose del 13%)
+  // IVA Libros
   const libVcfTotal = filteredSalesCF.reduce((acc, s) => acc + (s.total || 0), 0);
   const libVcfIVA = libVcfTotal - (libVcfTotal / (1 + settings.ivaRate / 100));
   const libVcfNeto = libVcfTotal / (1 + settings.ivaRate / 100);
@@ -351,9 +542,7 @@ export default function AccountingPage() {
   const libVcIVA = libVcTotal - (libVcTotal / (1 + settings.ivaRate / 100));
   const libVcNeto = libVcTotal / (1 + settings.ivaRate / 100);
 
-  // Retención de IVA del 1% (Si el cliente es Gran Contribuyente o si la empresa aplica retención)
   const libVcRetenido = useMemo(() => {
-    // Si la venta es de más de $100 y aplica retención del 1%
     return filteredSalesCCF.reduce((acc, s) => {
       const net = s.total / (1 + settings.ivaRate / 100);
       if (net >= 100 && (settings.taxProfile === 'Gran Contribuyente' || s.isGranContribuyente)) {
@@ -376,16 +565,14 @@ export default function AccountingPage() {
     }, 0);
   }, [filteredPurchases, settings.taxProfile, settings.ivaRate]);
 
-  // Balance Fiscal F07
   const totalDebitFiscal = libVcfIVA + libVcIVA;
   const totalCreditFiscal = libComprasIVA;
   const f07TaxBalance = totalDebitFiscal - totalCreditFiscal;
 
-  // Balance Fiscal F14
   const f14PagoCuenta = activeIncome * (settings.pagoCuentaRate / 100);
   const f14Total = f14PagoCuenta + libVcRetenido;
 
-  // Función de Exportación a CSV
+  // Exportar anexo CSV
   const handleExportCSV = (type: 'vcf' | 'vc' | 'compras') => {
     let headers: string[] = [];
     let rows: string[][] = [];
@@ -469,11 +656,10 @@ export default function AccountingPage() {
                 {settings.accountingLevel === 'Avanzado' ? 'CONTABILIDAD COMPLETA' : 'CONTABILIDAD SIMPLIFICADA'}
               </Badge>
             </div>
-            <p className="text-slate-500 text-xs md:text-sm">Control fiscal salvadoreño, libro diario parametrizable y reportes del Ministerio de Hacienda</p>
+            <p className="text-slate-500 text-xs md:text-sm">Control fiscal salvadoreño, libro diario parametrizable, rentabilidad de productos y licitaciones</p>
           </div>
         </div>
         
-        {/* Acciones principales */}
         <div className="flex gap-2 w-full md:w-auto">
           {settings.accountingLevel === 'Avanzado' ? (
             <Button className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs h-10 font-bold shadow-md shadow-blue-200" onClick={() => setIsAdvancedModalOpen(true)}>
@@ -489,23 +675,63 @@ export default function AccountingPage() {
 
       <div className="max-w-7xl mx-auto space-y-6">
         
+        {/* Selector de Canal / Vista Contable */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 gap-4 transition-all duration-300">
+          <div className="space-y-1">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">Canal Contable de Evaluación</h3>
+            <p className="text-xs text-slate-500 leading-none">Filtre y compare las ventas e inventarios por canal de distribución.</p>
+          </div>
+          <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl w-full sm:w-auto">
+            <Button 
+              variant={selectedChannel === 'consolidado' ? 'default' : 'ghost'} 
+              size="sm" 
+              className={`flex-1 sm:flex-none rounded-xl text-xs h-9 font-bold px-4 transition-all duration-200 ${
+                selectedChannel === 'consolidado' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-950 dark:hover:text-white'
+              }`} 
+              onClick={() => setSelectedChannel('consolidado')}
+            >
+              Consolidado
+            </Button>
+            <Button 
+              variant={selectedChannel === 'estandar' ? 'default' : 'ghost'} 
+              size="sm" 
+              className={`flex-1 sm:flex-none rounded-xl text-xs h-9 font-bold px-4 transition-all duration-200 ${
+                selectedChannel === 'estandar' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-950 dark:hover:text-white'
+              }`} 
+              onClick={() => setSelectedChannel('estandar')}
+            >
+              Caja / Retail
+            </Button>
+            <Button 
+              variant={selectedChannel === 'institucional' ? 'default' : 'ghost'} 
+              size="sm" 
+              className={`flex-1 sm:flex-none rounded-xl text-xs h-9 font-bold px-4 transition-all duration-200 ${
+                selectedChannel === 'institucional' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-950 dark:hover:text-white'
+              }`} 
+              onClick={() => setSelectedChannel('institucional')}
+            >
+              Licitaciones / Proyectos
+            </Button>
+          </div>
+        </div>
+
         {/* KPI Panel */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <Card className="border-none shadow-sm rounded-3xl bg-white p-5">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><TrendingUp size={18} /></div>
-              <Badge variant="outline" className="text-[9px] text-emerald-600 bg-emerald-50/50 border-emerald-100">Ingresos</Badge>
+              <Badge variant="outline" className="text-[9px] text-emerald-600 bg-emerald-50/50 border-emerald-100">Unificado</Badge>
             </div>
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Ingresos Consolidados</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Ingresos Totales (ERP+Inst.)</p>
             <p className="text-2xl font-black text-slate-900">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
           <Card className="border-none shadow-sm rounded-3xl bg-white p-5">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-rose-50 text-rose-600 rounded-xl"><TrendingDown size={18} /></div>
-              <Badge variant="outline" className="text-[9px] text-rose-600 bg-rose-50/50 border-rose-100">Costos</Badge>
+              <Badge variant="outline" className="text-[9px] text-rose-600 bg-rose-50/50 border-rose-100">Consolidado</Badge>
             </div>
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Egresos / Compras</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Costos Totales (ERP+Inst.)</p>
             <p className="text-2xl font-black text-slate-900">${activeExpenses.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
@@ -514,7 +740,7 @@ export default function AccountingPage() {
               <div className="p-2 bg-white/10 rounded-xl"><Scale size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-white border-white/20 uppercase font-black">Utilidad</Badge>
             </div>
-            <p className="text-[10px] font-black uppercase opacity-75 tracking-wider">Margen Neto Estimado</p>
+            <p className="text-[10px] font-black uppercase opacity-75 tracking-wider">Margen Neto Global</p>
             <p className="text-2xl font-black">${grossProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
@@ -533,6 +759,9 @@ export default function AccountingPage() {
           <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
               <FileText size={14} className="mr-2"/> Libro Diario
+            </TabsTrigger>
+            <TabsTrigger value="rentabilidad" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+              <PieChart size={14} className="mr-2"/> Rentabilidad & Márgenes
             </TabsTrigger>
             <TabsTrigger value="libros_iva" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
               <BookOpen size={14} className="mr-2"/> Libros de IVA
@@ -589,7 +818,6 @@ export default function AccountingPage() {
                         </TableRow>
                       )}
                       
-                      {/* Render de Partidas de Doble Entrada y Movimientos Simples */}
                       {journal?.map((entry: any) => {
                         const isAdv = entry.type === 'Avanzado';
                         return (
@@ -636,7 +864,6 @@ export default function AccountingPage() {
                         );
                       })}
                       
-                      {/* Sincronización automática de ventas para flujo fácil */}
                       {settings.accountingLevel === 'Simplificado' && sales?.slice(0, 5).map((sale: any) => (
                         <TableRow key={sale.id} className="opacity-70 bg-slate-50/20">
                           <TableCell className="px-6 py-3 text-xs text-slate-400">{new Date(sale.timestamp).toLocaleDateString()}</TableCell>
@@ -698,9 +925,152 @@ export default function AccountingPage() {
             )}
           </TabsContent>
 
-          {/* TAB 2: LIBROS DE IVA DEL EL SALVADOR */}
+          {/* TAB 2: NUEVA PESTAÑA - RENTABILIDAD & GANANCIAS POR COSTO DE PRODUCTO Y LICITACIONES */}
+          <TabsContent value="rentabilidad" className="space-y-6 outline-none">
+            <div className="flex gap-2 bg-slate-100 p-1 rounded-xl w-fit">
+              <Button variant={rentabilidadSubTab === 'productos' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setRentabilidadSubTab('productos')}>
+                Rentabilidad por Producto (Ganado / Perdido)
+              </Button>
+              <Button variant={rentabilidadSubTab === 'licitaciones' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setRentabilidadSubTab('licitaciones')}>
+                Rentabilidad de Licitaciones (Proyectos Inst.)
+              </Button>
+            </div>
+
+            {rentabilidadSubTab === 'productos' ? (
+              // RENTABILIDAD POR PRODUCTO
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border">
+                  <div>
+                    <h3 className="font-black text-sm text-slate-900">Análisis de Ganancias por Costo de Suministro</h3>
+                    <p className="text-xs text-slate-500">Muestra cuánto se vendió cada producto, su costo unitario estimado/real y el margen de ganancia o pérdida total.</p>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <Input 
+                      placeholder="Filtrar por SKU o Nombre..." 
+                      value={rentabilidadSearch}
+                      onChange={e => setRentabilidadSearch(e.target.value)}
+                      className="pl-9 h-9 text-xs bg-slate-50 border-none rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-slate-50/70 border-b">
+                        <TableRow>
+                          <TableHead className="px-6 text-[10px] font-black uppercase text-slate-400 tracking-wider">SKU</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Producto</TableHead>
+                          <TableHead className="text-center text-[10px] font-black uppercase text-slate-400 tracking-wider">Cant. Vendida</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase text-slate-400 tracking-wider">P. Venta Prom.</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase text-slate-400 tracking-wider">Costo Prom.</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase text-slate-400 tracking-wider">Margen Un.</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase text-slate-400 tracking-wider">Rentabilidad Total</TableHead>
+                          <TableHead className="text-center text-[10px] font-black uppercase text-slate-400 tracking-wider">Estado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProductProfitability.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-16 text-slate-400 italic text-xs">
+                              No hay productos con historial de facturación para evaluar.
+                            </TableCell>
+                          </TableRow>
+                        ) : filteredProductProfitability.map((p) => {
+                          const isProfit = p.totalProfit >= 0;
+                          return (
+                            <TableRow key={p.sku} className="hover:bg-slate-50/50">
+                              <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600">{p.sku}</TableCell>
+                              <TableCell className="py-4 font-semibold text-xs text-slate-900">{p.name}</TableCell>
+                              <TableCell className="text-center py-4 font-bold text-xs text-slate-800">{p.qtySold} un.</TableCell>
+                              <TableCell className="text-right py-4 font-bold text-xs text-slate-950">${p.avgSellingPrice.toFixed(2)}</TableCell>
+                              <TableCell className="text-right py-4 font-bold text-xs text-slate-500">${p.avgCost.toFixed(2)}</TableCell>
+                              <TableCell className={`text-right py-4 font-black text-xs ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {isProfit ? '+' : ''}${p.profitPerUnit.toFixed(2)}
+                              </TableCell>
+                              <TableCell className={`text-right py-4 font-black text-xs ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                {isProfit ? '+' : ''}${p.totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                              </TableCell>
+                              <TableCell className="text-center py-4">
+                                <Badge className={`text-[8px] font-black uppercase h-5 ${
+                                  isProfit 
+                                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                                    : 'bg-rose-50 text-rose-600 border border-rose-200'
+                                }`}>
+                                  {isProfit ? 'GANANCIA ✅' : 'PÉRDIDA ❌'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </div>
+            ) : (
+              // RENTABILIDAD DE LICITACIONES
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="bg-white p-4 rounded-2xl border">
+                  <h3 className="font-black text-sm text-slate-900">Análisis Consolidado de Proyectos Institucionales</h3>
+                  <p className="text-xs text-slate-500">Muestra el monto total adjudicado (presupuesto), costos reales de suministros cargados y la ganancia neta líquida obtenida por Licitación.</p>
+                </div>
+
+                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-50/70">
+                      <TableRow>
+                        <TableHead className="px-6 text-[10px] font-black uppercase text-slate-400 tracking-wider">Proyecto / Expediente</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Cliente Corporativo</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-400 tracking-wider">Monto Adjudicado</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-400 tracking-wider">Costo de Suministros</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-400 tracking-wider">Ganancia Neta</TableHead>
+                        <TableHead className="text-center text-[10px] font-black uppercase text-slate-400 tracking-wider">Retorno (ROI)</TableHead>
+                        <TableHead className="text-center text-[10px] font-black uppercase text-slate-400 tracking-wider">Estado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {projectMargins.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-16 text-slate-400 italic text-xs">
+                            No hay proyectos institucionales aperturados en el sistema.
+                          </TableCell>
+                        </TableRow>
+                      ) : projectMargins.map((p) => {
+                        const isProfit = p.netProfit >= 0;
+                        return (
+                          <TableRow key={p.id} className="hover:bg-slate-50/50">
+                            <TableCell className="px-6 py-4">
+                              <span className="font-bold text-xs text-slate-900 block">{p.name}</span>
+                              <span className="text-[9px] text-slate-400 block font-mono">ID: {p.id?.slice(0, 8)}</span>
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold text-slate-700">{p.customerName}</TableCell>
+                            <TableCell className="text-right font-black text-xs text-slate-900">${p.budget.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                            <TableCell className="text-right font-bold text-xs text-rose-500">-${p.directCosts.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                            <TableCell className={`text-right font-black text-xs ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              ${p.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                            </TableCell>
+                            <TableCell className="text-center py-4 font-mono font-bold text-xs text-slate-700">
+                              {p.roi.toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge className={p.status === 'FINALIZADO' ? 'bg-emerald-100 text-emerald-600 text-[8px]' : 'bg-blue-100 text-blue-600 text-[8px]'}>
+                                {p.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* TAB 3: LIBROS DE IVA DEL EL SALVADOR */}
           <TabsContent value="libros_iva" className="space-y-6 outline-none">
-            {/* Controles del Libro de IVA */}
             <Card className="p-5 bg-white border-none shadow-sm rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
                 <div className="space-y-1">
@@ -732,7 +1102,6 @@ export default function AccountingPage() {
                 </div>
               </div>
 
-              {/* Botón de Exportar */}
               <Button onClick={() => handleExportCSV(activeTaxTab)} className="w-full md:w-auto bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-10 text-xs font-bold flex gap-2">
                 <FileSpreadsheet size={14} /> Exportar Libro a CSV
               </Button>
@@ -751,7 +1120,6 @@ export default function AccountingPage() {
                 </Button>
               </div>
 
-              {/* CONTENIDO SEGÚN LIBRO SELECCIONADO */}
               {activeTaxTab === 'vcf' && (
                 <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-6">
                   <div className="flex justify-between items-center mb-4 border-b pb-4">
@@ -941,7 +1309,7 @@ export default function AccountingPage() {
             </div>
           </TabsContent>
 
-          {/* TAB 3: FORMULARIOS DE HACIENDA (F07 y F14) */}
+          {/* TAB 4: FORMULARIOS DE HACIENDA */}
           <TabsContent value="mh_forms" className="space-y-6 outline-none">
             <div className="flex gap-2 bg-slate-100 p-1 rounded-xl w-fit">
               <Button variant={activeFormTab === 'f07' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveFormTab('f07')}>
@@ -953,7 +1321,7 @@ export default function AccountingPage() {
             </div>
 
             {activeFormTab === 'f07' ? (
-              // FORMULARIO F07 (IVA)
+              // FORMULARIO F07
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-2 border-none shadow-sm rounded-3xl bg-white p-6 md:p-8 space-y-6">
                   <div className="flex items-center justify-between border-b pb-4">
@@ -1023,7 +1391,7 @@ export default function AccountingPage() {
                 </div>
               </div>
             ) : (
-              // FORMULARIO F14 (PAGO A CUENTA)
+              // FORMULARIO F14
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-2 border-none shadow-sm rounded-3xl bg-white p-6 md:p-8 space-y-6">
                   <div className="flex items-center justify-between border-b pb-4">
@@ -1083,14 +1451,14 @@ export default function AccountingPage() {
             )}
           </TabsContent>
 
-          {/* TAB 4: ESTADO DE RESULTADOS (P&L) */}
+          {/* TAB 5: ESTADO DE RESULTADOS (P&L) */}
           <TabsContent value="pnl" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
               <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-6 md:p-8 space-y-6">
                 <h3 className="text-lg md:text-xl font-bold border-b pb-4">Estructura de Pérdidas y Ganancias (P&L)</h3>
                 <div className="space-y-4 md:space-y-6">
                   <div className="flex justify-between items-center text-xs md:text-sm">
-                    <span className="text-slate-500 font-bold uppercase text-[9px] md:text-[10px]">Ingresos de Operación (Ventas)</span>
+                    <span className="text-slate-500 font-bold uppercase text-[9px] md:text-[10px]">Ingresos de Operación (Ventas + Proyectos)</span>
                     <span className="font-black text-emerald-600">${totalSales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs md:text-sm">
@@ -1102,7 +1470,7 @@ export default function AccountingPage() {
                     <span className="font-black text-emerald-700 text-base md:text-lg">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs md:text-sm pt-2">
-                    <span className="text-slate-500 font-bold uppercase text-[9px] md:text-[10px]">Egresos de Caja y Gastos</span>
+                    <span className="text-slate-500 font-bold uppercase text-[9px] md:text-[10px]">Costos Totales (Compras + Suministros Proy.)</span>
                     <span className="font-black text-rose-500">-${activeExpenses.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between items-center text-lg md:text-xl font-black border-t border-slate-900 pt-4 md:pt-6 mt-4">
@@ -1150,7 +1518,7 @@ export default function AccountingPage() {
             </div>
           </TabsContent>
 
-          {/* TAB 5: AJUSTES CONTABLES DEL ERP CLIENTE (MODULARIZACIÓN) */}
+          {/* TAB 6: AJUSTES CONTABLES DEL ERP CLIENTE */}
           <TabsContent value="settings" className="outline-none">
             <Card className="border-none shadow-sm rounded-3xl bg-white p-6 md:p-8 space-y-8">
               <div>
@@ -1162,7 +1530,6 @@ export default function AccountingPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t pt-6">
                 
-                {/* Lado Izquierdo: Switches Modulares */}
                 <div className="space-y-6">
                   <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
                     <div className="space-y-1 max-w-[75%]">
@@ -1199,7 +1566,6 @@ export default function AccountingPage() {
                   </div>
                 </div>
 
-                {/* Lado Derecho: Tasas Tributarias Parametrizables */}
                 <div className="space-y-4 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
                   <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider mb-2">Tasas Tributarias Configurables</h4>
                   
@@ -1243,7 +1609,7 @@ export default function AccountingPage() {
         </Tabs>
       </div>
 
-      {/* --- MODAL NUEVO ASIENTO SIMPLE (SIMPLIFICADO) --- */}
+      {/* --- MODAL NUEVO ASIENTO SIMPLE --- */}
       <Dialog open={isJournalModalOpen} onOpenChange={setIsJournalModalOpen}>
         <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm">
           <DialogHeader>
@@ -1343,7 +1709,6 @@ export default function AccountingPage() {
               </div>
             </div>
 
-            {/* TABLA DE CARGOS Y ABONOS */}
             <div className="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/50">
               <div className="max-h-60 overflow-y-auto">
                 <Table>
@@ -1412,7 +1777,6 @@ export default function AccountingPage() {
                 </Table>
               </div>
 
-              {/* Botón Añadir Fila */}
               <div className="p-2 bg-slate-50 border-t border-slate-100">
                 <Button 
                   variant="outline" 
@@ -1425,7 +1789,6 @@ export default function AccountingPage() {
               </div>
             </div>
 
-            {/* Cuadre e Indicadores */}
             <div className="flex justify-between items-center p-3 rounded-2xl border text-xs font-bold bg-white">
               <div className="flex gap-4">
                 <div>
@@ -1464,7 +1827,7 @@ export default function AccountingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* --- DIALOG DETALLE PARTIDA AVANZADA (PREVIEW) --- */}
+      {/* --- DIALOG DETALLE PARTIDA AVANZADA --- */}
       <Dialog open={selectedAdvEntry !== null} onOpenChange={() => setSelectedAdvEntry(null)}>
         {selectedAdvEntry && (
           <DialogContent className="rounded-3xl max-w-md">
