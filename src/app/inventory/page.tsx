@@ -49,7 +49,9 @@ export default function InventoryMasterPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [companySearchTerm, setCompanySearchTerm] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState('Todas');
+  const [maestroSubTab, setMaestroSubTab] = useState<'catalogo' | 'empresas'>('catalogo');
   
   // Vinculación States
   const [supplierItems, setSupplierItems] = useState<SupplierItem[]>([]);
@@ -60,6 +62,13 @@ export default function InventoryMasterPage() {
     sku: '',
     name: '',
     category: 'General'
+  });
+
+  // Estado para el Mapeo de Códigos de Empresas
+  const [companyForm, setCompanyForm] = useState({
+    masterSku: '',
+    companyName: '',
+    companySku: ''
   });
 
   const [quickEntry, setQuickEntry] = useState({
@@ -73,11 +82,14 @@ export default function InventoryMasterPage() {
   const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
   const warehousesQuery = useMemo(() => collection(db, 'warehouses'), [db]);
   const mappingsQuery = useMemo(() => collection(db, 'supplier_mappings'), [db]);
+  const companyMappingsQuery = useMemo(() => collection(db, 'company_mappings'), [db]); // Nueva colección para códigos internos de empresas
 
   const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryQuery);
   const { data: warehouses } = useCollection<any>(warehousesQuery);
   const { data: savedMappings } = useCollection<any>(mappingsQuery);
+  const { data: companyMappings, loading: loadingCompMappings } = useCollection<any>(companyMappingsQuery);
 
+  // Crear Producto Maestro
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productForm.sku || !productForm.name) {
@@ -121,6 +133,44 @@ export default function InventoryMasterPage() {
       toast({ title: "Producto Eliminado" });
     } catch (e) {
       toast({ variant: "destructive", title: "Error al eliminar" });
+    }
+  };
+
+  // Crear Mapeo de Código Interno de Empresa Externa
+  const handleCreateCompanyMapping = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!companyForm.masterSku || !companyForm.companyName || !companyForm.companySku) {
+      toast({ variant: "destructive", title: "Campos Incompletos", description: "Todos los campos son requeridos." });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const selectedProduct = inventory?.find((p: any) => p.sku === companyForm.masterSku);
+      const data = {
+        masterSku: companyForm.masterSku,
+        productName: selectedProduct ? selectedProduct.name : 'Producto',
+        companyName: companyForm.companyName,
+        companySku: companyForm.companySku.toUpperCase(),
+        createdAt: new Date().toISOString()
+      };
+
+      await addDoc(companyMappingsQuery, data);
+      toast({ title: "Código de Empresa Asociado", description: "Se vinculó el código interno con éxito." });
+      setCompanyForm({ masterSku: '', companyName: '', companySku: '' });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo crear la vinculación." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCompanyMapping = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'company_mappings', id));
+      toast({ title: "Asociación Removida" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al eliminar la asociación" });
     }
   };
 
@@ -243,6 +293,16 @@ export default function InventoryMasterPage() {
     );
   }, [searchTerm, inventory]);
 
+  // Filtrar Códigos de Empresas Asociados
+  const filteredCompanyMappings = useMemo(() => {
+    if (!companyMappings) return [];
+    return companyMappings.filter(m => 
+      m.masterSku.toLowerCase().includes(companySearchTerm.toLowerCase()) || 
+      m.companyName.toLowerCase().includes(companySearchTerm.toLowerCase()) ||
+      m.companySku.toLowerCase().includes(companySearchTerm.toLowerCase())
+    );
+  }, [companySearchTerm, companyMappings]);
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex items-center justify-between">
@@ -250,18 +310,18 @@ export default function InventoryMasterPage() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full bg-white dark:bg-card shadow-sm hover:bg-slate-100 border" 
+            className="rounded-full bg-white dark:bg-card shadow-sm hover:bg-slate-100 border border-slate-150" 
             onClick={() => router.push('/')}
           >
             <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-foreground">Centro Logístico</h1>
-            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Administración de stock y bodegas</p>
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-foreground tracking-tight">Centro Logístico & Catálogo</h1>
+            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Administración de stock, códigos maestros de empresas y almacenes</p>
           </div>
         </div>
       </div>
-
+ 
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="existencia" className="space-y-6">
           <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border h-auto w-full justify-start overflow-x-auto no-scrollbar">
@@ -272,16 +332,17 @@ export default function InventoryMasterPage() {
               <Tag size={14} className="mr-2" /> Maestro
             </TabsTrigger>
             <TabsTrigger value="vinculacion" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <ArrowRightLeft size={14} className="mr-2" /> Vincular
+              <ArrowRightLeft size={14} className="mr-2" /> Vincular DTE
             </TabsTrigger>
             <TabsTrigger value="entradas" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <Zap size={14} className="mr-2" /> Entrada
+              <Zap size={14} className="mr-2" /> Entrada Rápida
             </TabsTrigger>
             <TabsTrigger value="config" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
               <Settings2 size={14} className="mr-2" /> Bodegas
             </TabsTrigger>
           </TabsList>
-
+ 
+          {/* TAB EXISTENCIAS */}
           <TabsContent value="existencia" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-1 space-y-4">
@@ -327,18 +388,18 @@ export default function InventoryMasterPage() {
                   </Select>
                 </div>
               </div>
-
+ 
               <div className="lg:col-span-3 space-y-4">
                 <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} md-size={18} />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input 
                     placeholder="Buscar existencia..." 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-10 md:pl-12 h-10 md:h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
+                    className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
                   />
                 </div>
-
+ 
                 <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
@@ -374,138 +435,298 @@ export default function InventoryMasterPage() {
               </div>
             </div>
           </TabsContent>
+ 
+          {/* TAB MAESTRO CON INTEGRACIÓN DE CÓDIGOS DE EMPRESAS */}
+          <TabsContent value="maestro" className="space-y-4 outline-none">
+            <div className="flex gap-2 bg-slate-100 dark:bg-muted p-1 rounded-xl w-fit">
+              <Button 
+                variant={maestroSubTab === 'catalogo' ? 'default' : 'ghost'} 
+                size="sm" 
+                className="rounded-lg text-xs h-8 font-bold"
+                onClick={() => setMaestroSubTab('catalogo')}
+              >
+                Catálogo Maestro de Productos
+              </Button>
+              <Button 
+                variant={maestroSubTab === 'empresas' ? 'default' : 'ghost'} 
+                size="sm" 
+                className="rounded-lg text-xs h-8 font-bold"
+                onClick={() => setMaestroSubTab('empresas')}
+              >
+                Códigos Internos de Empresas (Mapeo)
+              </Button>
+            </div>
 
-          <TabsContent value="maestro" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
-            <div className="lg:col-span-4 space-y-6">
-              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
-                <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <Plus className="text-blue-400" size={18} /> Registro de Códigos Autorizados
-                  </CardTitle>
-                  <CardDescription className="text-slate-400 text-xs">Añada productos al catálogo maestro del sistema.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  <form onSubmit={handleCreateProduct} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Código Interno (SKU)</Label>
-                      <div className="relative">
-                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                        <Input 
-                          placeholder="EJ: ACC-001" 
-                          value={productForm.sku}
-                          onChange={e => setProductForm({...productForm, sku: e.target.value.toUpperCase()})}
-                          className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl font-bold"
-                        />
-                      </div>
+            {maestroSubTab === 'catalogo' ? (
+              // CATÁLOGO MAESTRO (Existente mejorado)
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-4 space-y-6">
+                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                    <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Plus className="text-blue-400" size={18} /> Registro de Códigos Autorizados
+                      </CardTitle>
+                      <CardDescription className="text-slate-400 text-xs">Añada productos al catálogo maestro del sistema.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      <form onSubmit={handleCreateProduct} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Código Interno (SKU)</Label>
+                          <div className="relative">
+                            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <Input 
+                              placeholder="EJ: ACC-001" 
+                              value={productForm.sku}
+                              onChange={e => setProductForm({...productForm, sku: e.target.value.toUpperCase()})}
+                              className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl font-bold"
+                            />
+                          </div>
+                        </div>
+ 
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre del Producto</Label>
+                          <Input 
+                            placeholder="Descripción completa..." 
+                            value={productForm.name}
+                            onChange={e => setProductForm({...productForm, name: e.target.value})}
+                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl"
+                          />
+                        </div>
+ 
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría</Label>
+                          <Select 
+                            value={productForm.category} 
+                            onValueChange={(val) => setProductForm({...productForm, category: val})}
+                          >
+                            <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="General" className="text-xs">General</SelectItem>
+                              <SelectItem value="Ferretería" className="text-xs">Ferretería</SelectItem>
+                              <SelectItem value="Fontanería" className="text-xs">Fontanería</SelectItem>
+                              <SelectItem value="Electricidad" className="text-xs">Electricidad</SelectItem>
+                              <SelectItem value="Herramientas" className="text-xs">Herramientas</SelectItem>
+                              <SelectItem value="Mantenimiento" className="text-xs">Mantenimiento</SelectItem>
+                              <SelectItem value="Automotriz" className="text-xs">Automotriz</SelectItem>
+                              <SelectItem value="Repuestos de Vehículos" className="text-xs">Repuestos de Vehículos</SelectItem>
+                              <SelectItem value="Accesorios" className="text-xs">Accesorios</SelectItem>
+                              <SelectItem value="Lubricantes" className="text-xs">Lubricantes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+ 
+                        <Button 
+                          type="submit" 
+                          className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg text-xs"
+                          disabled={loading}
+                        >
+                          {loading ? <Loader2 className="animate-spin mr-2" /> : <Tag className="mr-2" size={16} />}
+                          AUTORIZAR CÓDIGO
+                        </Button>
+                      </form>
+                    </CardContent>
+                  </Card>
+ 
+                  <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-5 rounded-3xl space-y-2">
+                    <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-bold">
+                      <Info size={16} />
+                      <span className="text-xs uppercase tracking-tight">Catálogo Único</span>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre del Producto</Label>
-                      <Input 
-                        placeholder="Descripción completa..." 
-                        value={productForm.name}
-                        onChange={e => setProductForm({...productForm, name: e.target.value})}
-                        className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría</Label>
-                      <Select 
-                        value={productForm.category} 
-                        onValueChange={(val) => setProductForm({...productForm, category: val})}
-                      >
-                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="General">General</SelectItem>
-                          <SelectItem value="Ferretería">Ferretería</SelectItem>
-                          <SelectItem value="Fontanería">Fontanería</SelectItem>
-                          <SelectItem value="Electricidad">Electricidad</SelectItem>
-                          <SelectItem value="Herramientas">Herramientas</SelectItem>
-                          <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
-                          <SelectItem value="Automotriz">Automotriz</SelectItem>
-                          <SelectItem value="Repuestos de Vehículos">Repuestos de Vehículos</SelectItem>
-                          <SelectItem value="Accesorios">Accesorios</SelectItem>
-                          <SelectItem value="Lubricantes">Lubricantes</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Button 
-                      type="submit" 
-                      className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg"
-                      disabled={loading}
-                    >
-                      {loading ? <Loader2 className="animate-spin mr-2" /> : <Tag className="mr-2" size={18} />}
-                      AUTORIZAR CÓDIGO
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-
-              <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-5 rounded-3xl space-y-2">
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-bold">
-                  <Info size={16} />
-                  <span className="text-xs uppercase tracking-tight">Catálogo Único</span>
+                    <p className="text-[10px] md:text-xs text-blue-700 dark:text-blue-400 leading-relaxed font-medium">
+                      Todos los productos deben ser creados aquí primero. Los módulos de **Ventas**, **Compras** e **Institucional** solo reconocen códigos que ya existen en este Maestro.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[10px] md:text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
-                  Todos los productos deben ser creados aquí primero. Los módulos de **Ventas**, **Compras** e **Institucional** solo reconocen códigos que ya existen en este Maestro.
-                </p>
+ 
+                <div className="lg:col-span-8 space-y-4">
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <Input 
+                      placeholder="Buscar en el catálogo maestro..." 
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs"
+                    />
+                  </div>
+ 
+                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                    <ScrollArea className="h-[500px]">
+                      <Table>
+                        <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                          <TableRow>
+                            <TableHead className="px-6 text-[10px] font-black uppercase">SKU Autorizado</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase">Descripción</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase">Categoría</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loadingInv ? (
+                            <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Sincronizando catálogo...</TableCell></TableRow>
+                          ) : filteredItems.length === 0 ? (
+                            <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">No hay productos en el maestro.</TableCell></TableRow>
+                          ) : filteredItems.map((item) => (
+                            <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                              <TableCell className="px-6 py-4">
+                                <Badge variant="outline" className="font-mono font-black text-[10px] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-muted-foreground">
+                                  {item.sku}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">{item.name}</TableCell>
+                              <TableCell><Badge variant="secondary" className="text-[8px] font-bold uppercase">{item.category}</Badge></TableCell>
+                              <TableCell className="px-4">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteProduct(item.id)}>
+                                  <Trash2 size={14} />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </Card>
+                </div>
               </div>
-            </div>
+            ) : (
+              // CÓDIGOS INTERNOS DE EMPRESAS (Mapeo y Asociación)
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Formulario de Mapeo por Empresa */}
+                <div className="lg:col-span-4 space-y-6">
+                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                    <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Link2 className="text-blue-400" size={18} /> Mapeo de Código por Empresa
+                      </CardTitle>
+                      <CardDescription className="text-slate-400 text-xs">Asocie códigos internos específicos de tus clientes o proveedores a tu SKU maestro.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      <form onSubmit={handleCreateCompanyMapping} className="space-y-4">
+                        
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Seleccionar Producto Maestro</Label>
+                          <Select 
+                            value={companyForm.masterSku} 
+                            onValueChange={(val) => setCompanyForm({...companyForm, masterSku: val})}
+                          >
+                            <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                              <SelectValue placeholder="Seleccione SKU..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {inventory?.map(p => (
+                                <SelectItem key={p.id} value={p.sku} className="text-xs">
+                                  {p.sku} - {p.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-            <div className="lg:col-span-8 space-y-4">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  placeholder="Buscar en el catálogo maestro..." 
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl"
-                />
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre de la Empresa Externa</Label>
+                          <Input 
+                            placeholder="Ej. Cemento del Norte S.A..." 
+                            value={companyForm.companyName}
+                            onChange={e => setCompanyForm({...companyForm, companyName: e.target.value})}
+                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Código Interno de esa Empresa</Label>
+                          <div className="relative">
+                            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <Input 
+                              placeholder="Ej: COD-CEM-409" 
+                              value={companyForm.companySku}
+                              onChange={e => setCompanyForm({...companyForm, companySku: e.target.value})}
+                              className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        <Button 
+                          type="submit" 
+                          className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg text-xs"
+                          disabled={loading}
+                        >
+                          {loading ? <Loader2 className="animate-spin mr-2" /> : <Link2 className="mr-2" size={16} />}
+                          VINCULAR CÓDIGO INTERNO
+                        </Button>
+                      </form>
+                    </CardContent>
+                  </Card>
+
+                  <div className="bg-slate-900 text-white p-5 rounded-3xl space-y-2">
+                    <div className="flex items-center gap-2 text-blue-400 font-bold">
+                      <Info size={16} />
+                      <span className="text-xs uppercase tracking-tight">Utilidad Comercial</span>
+                    </div>
+                    <p className="text-[10px] md:text-xs text-slate-300 leading-relaxed font-medium">
+                      Esta herramienta facilita que el ERP sea multi-cliente. Si un cliente corporativo maneja un código diferente para tu producto, puedes mapearlo aquí para automatizar cotizaciones y créditos fiscales.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tabla de Códigos de Empresas */}
+                <div className="lg:col-span-8 space-y-4">
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <Input 
+                      placeholder="Buscar por Empresa, SKU Maestro o Código Interno..." 
+                      value={companySearchTerm}
+                      onChange={e => setCompanySearchTerm(e.target.value)}
+                      className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs"
+                    />
+                  </div>
+
+                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                    <ScrollArea className="h-[500px]">
+                      <Table>
+                        <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                          <TableRow>
+                            <TableHead className="px-6 text-[10px] font-black uppercase">SKU Maestro</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase">Empresa Externa</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase">Código Empresa</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loadingCompMappings ? (
+                            <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Leyendo vinculaciones...</TableCell></TableRow>
+                          ) : filteredCompanyMappings.length === 0 ? (
+                            <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400 italic text-xs">No hay vinculaciones de empresas registradas.</TableCell></TableRow>
+                          ) : filteredCompanyMappings.map((map) => (
+                            <TableRow key={map.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                              <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
+                                {map.masterSku}
+                              </TableCell>
+                              <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">{map.productName}</TableCell>
+                              <TableCell className="font-semibold text-xs text-slate-700 dark:text-foreground">{map.companyName}</TableCell>
+                              <TableCell>
+                                <Badge className="bg-blue-50 text-blue-700 border border-blue-150 font-mono font-black text-[10px]">
+                                  {map.companySku}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="px-4">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteCompanyMapping(map.id)}>
+                                  <Trash2 size={14} />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </Card>
+                </div>
               </div>
-
-              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
-                <ScrollArea className="h-[500px]">
-                  <Table>
-                    <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
-                      <TableRow>
-                        <TableHead className="px-6 text-[10px] font-black uppercase">SKU Autorizado</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Descripción</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Categoría</TableHead>
-                        <TableHead className="w-10"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loadingInv ? (
-                        <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Sincronizando catálogo...</TableCell></TableRow>
-                      ) : filteredItems.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">No hay productos en el maestro.</TableCell></TableRow>
-                      ) : filteredItems.map((item) => (
-                        <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
-                          <TableCell className="px-6 py-4">
-                            <Badge variant="outline" className="font-mono font-black text-[10px] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-muted-foreground">
-                              {item.sku}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">{item.name}</TableCell>
-                          <TableCell><Badge variant="secondary" className="text-[8px] font-bold uppercase">{item.category}</Badge></TableCell>
-                          <TableCell className="px-4">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteProduct(item.id)}>
-                              <Trash2 size={14} />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </Card>
-            </div>
+            )}
           </TabsContent>
-
+ 
+          {/* TAB VINCULAR DTE V3 */}
           <TabsContent value="vinculacion" className="space-y-6 outline-none">
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
                 <div className="lg:col-span-4 space-y-6">
@@ -529,26 +750,26 @@ export default function InventoryMasterPage() {
                          
                          <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleJsonUpload} />
                          <Button 
-                            className="w-full h-12 md:h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl font-bold text-xs"
+                            className="w-full h-12 md:h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl font-bold text-xs text-white"
                             onClick={() => fileInputRef.current?.click()}
                          >
-                            <FileJson className="mr-2" size={16} md-size={20} /> CARGAR DTE V3
+                            <FileJson className="mr-2" size={16} /> CARGAR DTE V3
                          </Button>
-
+ 
                          {supplierItems.length > 0 && (
                             <Button 
-                               className="w-full h-12 md:h-14 bg-emerald-600 hover:bg-emerald-700 rounded-2xl font-bold text-xs mt-2"
+                               className="w-full h-12 md:h-14 bg-emerald-600 hover:bg-emerald-700 rounded-2xl font-bold text-xs text-white mt-2"
                                onClick={saveMappings}
                                disabled={loading}
                             >
-                               {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={16} md-size={20} />}
+                               {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={16} />}
                                GUARDAR VINCULACIONES
                             </Button>
                          )}
                       </CardContent>
                    </Card>
                 </div>
-
+ 
                 <div className="lg:col-span-8">
                    <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
                       <div className="overflow-x-auto">
@@ -583,122 +804,124 @@ export default function InventoryMasterPage() {
                                              {inventory?.map((inv: any) => (
                                                 <SelectItem key={inv.id} value={inv.sku} className="text-[10px]">
                                                    {inv.sku} - {inv.name}
-                                                </SelectItem>
-                                             ))}
-                                          </SelectContent>
-                                       </Select>
-                                    </TableCell>
-                                 </TableRow>
-                              ))}
-                           </TableBody>
-                        </Table>
-                      </div>
-                   </Card>
-                </div>
-             </div>
-          </TabsContent>
-
-          <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
-              <CardHeader className="p-5 md:p-6">
-                <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
-                  <Zap size={18} md-size={20} className="text-amber-500" /> Entrada Rápida
-                </CardTitle>
-                <CardDescription className="text-xs">Ingreso inmediato sin factura de respaldo</CardDescription>
-              </CardHeader>
-              <CardContent className="px-5 md:px-6 pb-6">
-                <form onSubmit={handleQuickStockEntry} className="space-y-4 md:space-y-6">
-                  <div className="space-y-2">
-                    <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">SKU del Producto</Label>
-                    <Input 
-                      placeholder="SKU..." 
-                      value={quickEntry.sku}
-                      onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
-                      className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-base md:text-lg font-bold"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">Cantidad</Label>
-                    <Input 
-                      type="number"
-                      placeholder="0"
-                      value={quickEntry.quantity}
-                      onFocus={e => e.target.select()}
-                      onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
-                      className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-lg md:text-xl font-black text-blue-600 dark:text-blue-400"
-                    />
-                  </div>
-                  <Button className="w-full bg-slate-900 dark:bg-blue-600 h-12 md:h-14 rounded-2xl font-bold shadow-lg text-white text-xs md:text-sm">
-                    CARGAR STOCK
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <div className="bg-blue-600 dark:bg-blue-900/30 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center border border-blue-500/20">
-              <History size={40} md-size={48} className="mb-4 text-blue-200" />
-              <h3 className="text-lg md:text-xl font-bold mb-2">¿Emergencia de Stock?</h3>
-              <p className="text-blue-100 dark:text-blue-300 text-xs md:text-sm leading-relaxed mb-6">
-                Utiliza la entrada rápida para habilitar productos recién llegados que necesitan ser vendidos de inmediato antes de procesar la factura legal en Compras.
-              </p>
-              <div className="bg-blue-500/30 p-3 md:p-4 rounded-2xl border border-blue-400/30">
-                <p className="text-[9px] md:text-[11px] italic">"Formaliza este ingreso más tarde registrando la factura oficial en el módulo de Registro de Compra."</p>
+                                                 </SelectItem>
+                                              ))}
+                                           </SelectContent>
+                                        </Select>
+                                     </TableCell>
+                                  </TableRow>
+                               ))}
+                            </TableBody>
+                         </Table>
+                       </div>
+                    </Card>
+                 </div>
               </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="config" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
-              <CardHeader className="p-5 md:p-6">
-                <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
-                  <Warehouse size={18} md-size={20} className="text-blue-600" /> Gestión de Bodegas
-                </CardTitle>
-                <CardDescription className="text-xs">Configure los puntos de almacenamiento físico</CardDescription>
-              </CardHeader>
-              <CardContent className="px-5 md:px-6 pb-6 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Ej. Bodega Central, Sucursal 1..." 
-                      value={warehouseName}
-                      onChange={e => setWarehouseName(e.target.value)}
-                      className="bg-slate-50 dark:bg-muted border-none h-10"
-                    />
-                    <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold rounded-xl">
-                      CREAR
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 block mb-3">Bodegas Registradas</Label>
-                  <div className="space-y-2">
-                    {warehouses?.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 italic">No hay bodegas configuradas.</p>
-                    ) : warehouses?.map((wh: any) => (
-                      <div key={wh.id} className="flex justify-between items-center bg-slate-50 dark:bg-muted/30 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                        <span className="text-xs font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteWarehouse(wh.id)}>
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center border border-slate-800">
-              <Warehouse size={40} md-size={48} className="mb-4 text-blue-400" />
-              <h3 className="text-lg md:text-xl font-bold mb-2">Multibodega</h3>
-              <p className="text-slate-400 text-xs md:text-sm leading-relaxed mb-6">
-                Configure sus puntos de almacenamiento para llevar un control exacto de dónde se encuentra su mercadería. Estas bodegas aparecerán como destinos en el módulo de Registro de Compra y Traslados.
-              </p>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  );
+           </TabsContent>
+ 
+           {/* TAB ENTRADAS */}
+           <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
+             <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
+               <CardHeader className="p-5 md:p-6">
+                 <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+                   <Zap size={18} className="text-amber-500" /> Entrada Rápida
+                 </CardTitle>
+                 <CardDescription className="text-xs">Ingreso inmediato sin factura de respaldo</CardDescription>
+               </CardHeader>
+               <CardContent className="px-5 md:px-6 pb-6">
+                 <form onSubmit={handleQuickStockEntry} className="space-y-4 md:space-y-6">
+                   <div className="space-y-2">
+                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">SKU del Producto</Label>
+                     <Input 
+                       placeholder="SKU..." 
+                       value={quickEntry.sku}
+                       onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
+                       className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-base md:text-lg font-bold"
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">Cantidad</Label>
+                     <Input 
+                       type="number"
+                       placeholder="0"
+                       value={quickEntry.quantity}
+                       onFocus={e => e.target.select()}
+                       onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
+                       className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-lg md:text-xl font-black text-blue-600 dark:text-blue-400"
+                     />
+                   </div>
+                   <Button className="w-full bg-slate-900 dark:bg-blue-600 h-12 md:h-14 rounded-2xl font-bold shadow-lg text-white text-xs md:text-sm">
+                     CARGAR STOCK
+                   </Button>
+                 </form>
+               </CardContent>
+             </Card>
+ 
+             <div className="bg-blue-600 dark:bg-blue-900/30 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center border border-blue-500/20">
+               <History size={40} className="mb-4 text-blue-200" />
+               <h3 className="text-lg md:text-xl font-bold mb-2">¿Emergencia de Stock?</h3>
+               <p className="text-blue-100 dark:text-blue-300 text-xs md:text-sm leading-relaxed mb-6">
+                 Utiliza la entrada rápida para habilitar productos recién llegados que necesitan ser vendidos de inmediato antes de procesar la factura legal en Compras.
+               </p>
+               <div className="bg-blue-500/30 p-3 md:p-4 rounded-2xl border border-blue-400/30">
+                 <p className="text-[9px] md:text-[11px] italic">"Formaliza este ingreso más tarde registrando la factura oficial en el módulo de Registro de Compra."</p>
+               </div>
+             </div>
+           </TabsContent>
+ 
+           {/* TAB BODEGAS */}
+           <TabsContent value="config" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
+             <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
+               <CardHeader className="p-5 md:p-6">
+                 <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+                   <Warehouse size={18} className="text-blue-600" /> Gestión de Bodegas
+                 </CardTitle>
+                 <CardDescription className="text-xs">Configure los puntos de almacenamiento físico</CardDescription>
+               </CardHeader>
+               <CardContent className="px-5 md:px-6 pb-6 space-y-4">
+                 <div className="space-y-2">
+                   <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
+                   <div className="flex gap-2">
+                     <Input 
+                       placeholder="Ej. Bodega Central, Sucursal 1..." 
+                       value={warehouseName}
+                       onChange={e => setWarehouseName(e.target.value)}
+                       className="bg-slate-50 dark:bg-muted border-none h-10 text-xs"
+                     />
+                     <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold rounded-xl text-xs text-white">
+                       CREAR
+                     </Button>
+                   </div>
+                 </div>
+ 
+                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                   <Label className="text-[10px] font-black uppercase text-slate-400 block mb-3">Bodegas Registradas</Label>
+                   <div className="space-y-2">
+                     {warehouses?.length === 0 ? (
+                       <p className="text-[10px] text-slate-400 italic">No hay bodegas configuradas.</p>
+                     ) : warehouses?.map((wh: any) => (
+                       <div key={wh.id} className="flex justify-between items-center bg-slate-50 dark:bg-muted/30 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                         <span className="text-xs font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteWarehouse(wh.id)}>
+                           <Trash2 size={14} />
+                         </Button>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               </CardContent>
+             </Card>
+ 
+             <div className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center border border-slate-800">
+               <Warehouse size={40} className="mb-4 text-blue-400" />
+               <h3 className="text-lg md:text-xl font-bold mb-2">Multibodega</h3>
+               <p className="text-slate-400 text-xs md:text-sm leading-relaxed mb-6">
+                 Configure sus puntos de almacenamiento para llevar un control exacto de dónde se encuentra su mercadería. Estas bodegas aparecerán como destinos en el módulo de Registro de Compra y Traslados.
+               </p>
+             </div>
+           </TabsContent>
+         </Tabs>
+       </div>
+     </div>
+   );
 }
