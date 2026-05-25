@@ -190,12 +190,20 @@ export default function PurchasesPage() {
           const productRef = doc(db, 'inventory', item.id);
           const currentProduct = inventory?.find((p: any) => p.id === item.id);
           const currentQty = currentProduct?.quantity || 0;
+          const currentBodegas = currentProduct?.bodegas || {};
+          
+          // Sumar el stock a la bodega seleccionada para la compra
+          const updatedBodegas = {
+            ...currentBodegas,
+            [warehouse]: (currentBodegas[warehouse] || 0) + item.quantity
+          };
           
           updateDoc(productRef, {
-            quantity: currentQty + item.quantity
+            quantity: currentQty + item.quantity,
+            bodegas: updatedBodegas
           });
         }
-        toast({ title: "Compra Cerrada", description: "Stock actualizado y disponible para facturación." });
+        toast({ title: "Compra Cerrada", description: `Stock actualizado en la bodega '${warehouse}' de forma exitosa.` });
       } else {
         toast({ title: "Borrador Guardado", description: "La compra está pendiente. El stock NO ha sido afectado." });
       }

@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   Link2,
   Info,
-  Hash
+  Hash,
+  ArrowRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,6 +72,16 @@ export default function InventoryMasterPage() {
     companySku: ''
   });
 
+  // Estado para Vincular Producto a Bodega
+  const [linkForm, setLinkForm] = useState({
+    warehouseName: '',
+    productSku: '',
+    initialStock: '0'
+  });
+
+  // Estado para filtrar productos de Bodega en la pestaña Bodegas
+  const [selectedWhView, setSelectedWhView] = useState('Todas');
+
   const [quickEntry, setQuickEntry] = useState({
     sku: '',
     quantity: '' as string | number
@@ -82,7 +93,7 @@ export default function InventoryMasterPage() {
   const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
   const warehousesQuery = useMemo(() => collection(db, 'warehouses'), [db]);
   const mappingsQuery = useMemo(() => collection(db, 'supplier_mappings'), [db]);
-  const companyMappingsQuery = useMemo(() => collection(db, 'company_mappings'), [db]); // Nueva colección para códigos internos de empresas
+  const companyMappingsQuery = useMemo(() => collection(db, 'company_mappings'), [db]); 
 
   const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryQuery);
   const { data: warehouses } = useCollection<any>(warehousesQuery);
@@ -114,6 +125,7 @@ export default function InventoryMasterPage() {
         category: productForm.category,
         price: 0,
         quantity: 0,
+        bodegas: {}, // Inicializa el mapa de existencias por bodega
         createdAt: new Date().toISOString()
       };
 
@@ -174,6 +186,75 @@ export default function InventoryMasterPage() {
     }
   };
 
+  // Asignar y vincular un producto a una bodega con stock
+  const handleLinkProductToWarehouse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkForm.warehouseName || !linkForm.productSku) {
+      toast({ variant: "destructive", title: "Datos Incompletos", description: "Seleccione bodega y producto." });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const product = inventory?.find((p: any) => p.sku === linkForm.productSku);
+      if (!product) {
+        toast({ variant: "destructive", title: "No encontrado", description: "El producto no existe." });
+        setLoading(false);
+        return;
+      }
+
+      const productRef = doc(db, 'inventory', product.id);
+      const currentBodegas = product.bodegas || {};
+      const newStock = parseFloat(linkForm.initialStock) || 0;
+      
+      const updatedBodegas = {
+        ...currentBodegas,
+        [linkForm.warehouseName]: newStock
+      };
+
+      // Suma total de stock consolidado
+      const consolidatedQty = Object.values(updatedBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
+
+      await updateDoc(productRef, {
+        bodegas: updatedBodegas,
+        quantity: consolidatedQty
+      });
+
+      toast({ 
+        title: "Producto Vinculado a Bodega", 
+        description: `Se asignó el SKU ${linkForm.productSku} a la bodega '${linkForm.warehouseName}' con stock inicial de ${newStock} un.` 
+      });
+      setLinkForm({ ...linkForm, productSku: '', initialStock: '0' });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al vincular", description: "No se pudo actualizar el inventario." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnlinkProductFromWarehouse = async (productId: string, whName: string) => {
+    try {
+      const product = inventory?.find((p: any) => p.id === productId);
+      if (!product) return;
+
+      const productRef = doc(db, 'inventory', product.id);
+      const currentBodegas = { ...product.bodegas };
+      delete currentBodegas[whName]; // Remover la asociación de esa bodega
+
+      // Re-calcular total consolidado
+      const consolidatedQty = Object.values(currentBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
+
+      await updateDoc(productRef, {
+        bodegas: currentBodegas,
+        quantity: consolidatedQty
+      });
+
+      toast({ title: "Asociación Removida", description: `Se desvinculó el producto de la bodega ${whName}.` });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al desvincular" });
+    }
+  };
+
   const handleQuickStockEntry = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickEntry.sku || !quickEntry.quantity) {
@@ -188,16 +269,34 @@ export default function InventoryMasterPage() {
     }
 
     const productRef = doc(db, 'inventory', product.id);
-    const updateData = {
-      quantity: (product.quantity || 0) + (parseInt(quickEntry.quantity.toString()) || 0)
-    };
+    
+    // Si hay una bodega seleccionada que no es "Todas", sumarlo ahí, si no al stock general
+    const currentQty = product.quantity || 0;
+    const addedQty = parseInt(quickEntry.quantity.toString()) || 0;
+
+    let updateData: any = {};
+    if (selectedWarehouse !== 'Todas') {
+      const currentBodegas = product.bodegas || {};
+      const updatedBodegas = {
+        ...currentBodegas,
+        [selectedWarehouse]: (currentBodegas[selectedWarehouse] || 0) + addedQty
+      };
+      updateData = {
+        bodegas: updatedBodegas,
+        quantity: currentQty + addedQty
+      };
+    } else {
+      updateData = {
+        quantity: currentQty + addedQty
+      };
+    }
 
     updateDoc(productRef, updateData)
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: productRef.path, operation: 'update', requestResourceData: updateData }));
       });
 
-    toast({ title: "Stock Actualizado", description: `Se agregaron ${quickEntry.quantity} unidades a ${product.name}.` });
+    toast({ title: "Stock Actualizado", description: `Se agregaron ${quickEntry.quantity} unidades.` });
     setQuickEntry({ sku: '', quantity: '' });
   };
 
@@ -285,13 +384,20 @@ export default function InventoryMasterPage() {
     }
   };
 
+  // Filtrado de existencias considerando la Bodega Seleccionada
   const filteredItems = useMemo(() => {
     if (!inventory) return [];
-    return inventory.filter(item => 
+    
+    // Si se selecciona una bodega, filtrar los productos que están vinculados a ella
+    const whFiltered = selectedWarehouse === 'Todas' 
+      ? inventory 
+      : inventory.filter(item => item.bodegas && selectedWarehouse in item.bodegas);
+
+    return whFiltered.filter(item => 
       item.sku.toLowerCase().includes(searchTerm.toLowerCase()) || 
       item.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm, inventory]);
+  }, [searchTerm, inventory, selectedWarehouse]);
 
   // Filtrar Códigos de Empresas Asociados
   const filteredCompanyMappings = useMemo(() => {
@@ -302,6 +408,13 @@ export default function InventoryMasterPage() {
       m.companySku.toLowerCase().includes(companySearchTerm.toLowerCase())
     );
   }, [companySearchTerm, companyMappings]);
+
+  // Filtrar productos vinculados a la Bodega en la sección de consulta de la pestaña Bodegas
+  const productsInSelectedWarehouse = useMemo(() => {
+    if (!inventory) return [];
+    if (selectedWhView === 'Todas') return inventory;
+    return inventory.filter(item => item.bodegas && selectedWhView in item.bodegas);
+  }, [inventory, selectedWhView]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
@@ -317,7 +430,7 @@ export default function InventoryMasterPage() {
           </Button>
           <div>
             <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-foreground tracking-tight">Centro Logístico & Catálogo</h1>
-            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Administración de stock, códigos maestros de empresas y almacenes</p>
+            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Administración de stock por bodega, códigos maestros de empresas y almacenes</p>
           </div>
         </div>
       </div>
@@ -342,30 +455,30 @@ export default function InventoryMasterPage() {
             </TabsTrigger>
           </TabsList>
  
-          {/* TAB EXISTENCIAS */}
+          {/* TAB EXISTENCIAS CON FILTRO DE STOCK POR BODEGA */}
           <TabsContent value="existencia" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-1 space-y-4">
                 <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border h-fit hidden lg:block">
                   <CardHeader>
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Warehouse size={18} className="text-blue-600" /> Bodega
+                      <Warehouse size={18} className="text-blue-600" /> Bodega de Consulta
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0 pb-4">
                     <div className="px-4 space-y-1">
                       <Button 
                         variant={selectedWarehouse === 'Todas' ? 'default' : 'ghost'} 
-                        className="w-full justify-start rounded-xl h-10 text-xs font-bold"
+                        className="w-full justify-start rounded-xl h-10 text-xs font-bold animate-in fade-in"
                         onClick={() => setSelectedWarehouse('Todas')}
                       >
-                        Todas
+                        Consolidado (Todas)
                       </Button>
                       {warehouses?.map((wh: any) => (
                         <Button 
                           key={wh.id}
                           variant={selectedWarehouse === wh.name ? 'default' : 'ghost'} 
-                          className="w-full justify-start rounded-xl h-10 text-xs font-bold"
+                          className="w-full justify-start rounded-xl h-10 text-xs font-bold truncate"
                           onClick={() => setSelectedWarehouse(wh.name)}
                         >
                           {wh.name}
@@ -380,7 +493,7 @@ export default function InventoryMasterPage() {
                       <SelectValue placeholder="Filtrar por bodega" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Todas">Todas las Bodegas</SelectItem>
+                      <SelectItem value="Todas">Consolidado (Todas)</SelectItem>
                       {warehouses?.map((wh: any) => (
                         <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
                       ))}
@@ -393,7 +506,7 @@ export default function InventoryMasterPage() {
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input 
-                    placeholder="Buscar existencia..." 
+                    placeholder={selectedWarehouse === 'Todas' ? "Buscar en stock consolidado..." : `Buscar existencias en '${selectedWarehouse}'...`} 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
@@ -407,27 +520,40 @@ export default function InventoryMasterPage() {
                         <TableRow>
                           <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">SKU</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase">Producto</TableHead>
-                          <TableHead className="text-center text-[10px] font-bold uppercase">Stock</TableHead>
+                          <TableHead className="text-center text-[10px] font-bold uppercase">Stock en Bodega</TableHead>
                           <TableHead className="text-right text-[10px] font-bold uppercase px-4 md:px-6">Precio</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {loadingInv ? (
                           <TableRow><TableCell colSpan={4} className="text-center py-12 text-xs">Cargando...</TableCell></TableRow>
-                        ) : filteredItems?.map((item) => (
-                          <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30 transition-colors">
-                            <TableCell className="px-4 md:px-6 font-mono font-bold text-slate-600 dark:text-muted-foreground text-[10px] md:text-[11px] whitespace-nowrap">{item.sku}</TableCell>
-                            <TableCell className="font-bold text-slate-900 dark:text-foreground text-[10px] md:text-xs min-w-[120px]">{item.name}</TableCell>
-                            <TableCell className="text-center">
-                              <Badge className={`font-black text-[9px] h-5 ${item.quantity <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
-                                {item.quantity} un.
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right px-4 md:px-6 font-bold text-slate-900 dark:text-foreground text-[10px] md:text-xs whitespace-nowrap">
-                              ${(item.price || 0).toFixed(2)}
+                        ) : filteredItems.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-16 text-slate-400 italic text-xs">
+                              {selectedWarehouse === 'Todas' 
+                                ? 'No se encontraron productos en el inventario.' 
+                                : `No hay productos asignados a la bodega '${selectedWarehouse}' todavía.`}
                             </TableCell>
                           </TableRow>
-                        ))}
+                        ) : filteredItems?.map((item) => {
+                          const stockToShow = selectedWarehouse === 'Todas' 
+                            ? item.quantity 
+                            : (item.bodegas?.[selectedWarehouse] || 0);
+                          return (
+                            <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30 transition-colors">
+                              <TableCell className="px-4 md:px-6 font-mono font-bold text-slate-600 dark:text-muted-foreground text-[10px] md:text-[11px] whitespace-nowrap">{item.sku}</TableCell>
+                              <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs min-w-[120px]">{item.name}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge className={`font-black text-[9px] h-5 ${stockToShow <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
+                                  {stockToShow} un.
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right px-4 md:px-6 font-bold text-slate-900 dark:text-foreground text-xs whitespace-nowrap">
+                                ${(item.price || 0).toFixed(2)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -458,7 +584,7 @@ export default function InventoryMasterPage() {
             </div>
 
             {maestroSubTab === 'catalogo' ? (
-              // CATÁLOGO MAESTRO (Existente mejorado)
+              // CATÁLOGO MAESTRO
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
                   <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
@@ -478,7 +604,7 @@ export default function InventoryMasterPage() {
                               placeholder="EJ: ACC-001" 
                               value={productForm.sku}
                               onChange={e => setProductForm({...productForm, sku: e.target.value.toUpperCase()})}
-                              className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl font-bold"
+                              className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl font-bold text-xs"
                             />
                           </div>
                         </div>
@@ -489,7 +615,7 @@ export default function InventoryMasterPage() {
                             placeholder="Descripción completa..." 
                             value={productForm.name}
                             onChange={e => setProductForm({...productForm, name: e.target.value})}
-                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl"
+                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs"
                           />
                         </div>
  
@@ -590,9 +716,8 @@ export default function InventoryMasterPage() {
                 </div>
               </div>
             ) : (
-              // CÓDIGOS INTERNOS DE EMPRESAS (Mapeo y Asociación)
+              // CÓDIGOS INTERNOS DE EMPRESAS
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Formulario de Mapeo por Empresa */}
                 <div className="lg:col-span-4 space-y-6">
                   <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
@@ -603,7 +728,6 @@ export default function InventoryMasterPage() {
                     </CardHeader>
                     <CardContent className="p-6 space-y-4">
                       <form onSubmit={handleCreateCompanyMapping} className="space-y-4">
-                        
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Seleccionar Producto Maestro</Label>
                           <Select 
@@ -669,7 +793,6 @@ export default function InventoryMasterPage() {
                   </div>
                 </div>
 
-                {/* Tabla de Códigos de Empresas */}
                 <div className="lg:col-span-8 space-y-4">
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -824,9 +947,9 @@ export default function InventoryMasterPage() {
              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
                <CardHeader className="p-5 md:p-6">
                  <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
-                   <Zap size={18} className="text-amber-500" /> Entrada Rápida
+                   <Zap size={18} className="text-amber-500" /> Entrada Rápida de Stock
                  </CardTitle>
-                 <CardDescription className="text-xs">Ingreso inmediato sin factura de respaldo</CardDescription>
+                 <CardDescription className="text-xs">Ingreso inmediato al inventario maestro. Si seleccionas una bodega arriba, afectará a esa bodega.</CardDescription>
                </CardHeader>
                <CardContent className="px-5 md:px-6 pb-6">
                  <form onSubmit={handleQuickStockEntry} className="space-y-4 md:space-y-6">
@@ -836,20 +959,26 @@ export default function InventoryMasterPage() {
                        placeholder="SKU..." 
                        value={quickEntry.sku}
                        onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
-                       className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-base md:text-lg font-bold"
+                       className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-base md:text-lg font-bold text-xs"
                      />
                    </div>
                    <div className="space-y-2">
-                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">Cantidad</Label>
+                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">Cantidad a Agregar</Label>
                      <Input 
                        type="number"
                        placeholder="0"
                        value={quickEntry.quantity}
                        onFocus={e => e.target.select()}
                        onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
-                       className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-lg md:text-xl font-black text-blue-600 dark:text-blue-400"
+                       className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-lg font-black text-blue-600 dark:text-blue-400"
                      />
                    </div>
+                   {selectedWarehouse !== 'Todas' && (
+                     <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 text-xs rounded-xl flex items-center gap-2">
+                       <Warehouse size={14} />
+                       <span>El stock se agregará a la bodega: <strong>{selectedWarehouse}</strong></span>
+                     </div>
+                   )}
                    <Button className="w-full bg-slate-900 dark:bg-blue-600 h-12 md:h-14 rounded-2xl font-bold shadow-lg text-white text-xs md:text-sm">
                      CARGAR STOCK
                    </Button>
@@ -869,55 +998,196 @@ export default function InventoryMasterPage() {
              </div>
            </TabsContent>
  
-           {/* TAB BODEGAS */}
-           <TabsContent value="config" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-             <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
-               <CardHeader className="p-5 md:p-6">
-                 <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
-                   <Warehouse size={18} className="text-blue-600" /> Gestión de Bodegas
-                 </CardTitle>
-                 <CardDescription className="text-xs">Configure los puntos de almacenamiento físico</CardDescription>
-               </CardHeader>
-               <CardContent className="px-5 md:px-6 pb-6 space-y-4">
-                 <div className="space-y-2">
-                   <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
-                   <div className="flex gap-2">
-                     <Input 
-                       placeholder="Ej. Bodega Central, Sucursal 1..." 
-                       value={warehouseName}
-                       onChange={e => setWarehouseName(e.target.value)}
-                       className="bg-slate-50 dark:bg-muted border-none h-10 text-xs"
-                     />
-                     <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold rounded-xl text-xs text-white">
-                       CREAR
-                     </Button>
-                   </div>
-                 </div>
- 
-                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                   <Label className="text-[10px] font-black uppercase text-slate-400 block mb-3">Bodegas Registradas</Label>
-                   <div className="space-y-2">
-                     {warehouses?.length === 0 ? (
-                       <p className="text-[10px] text-slate-400 italic">No hay bodegas configuradas.</p>
-                     ) : warehouses?.map((wh: any) => (
-                       <div key={wh.id} className="flex justify-between items-center bg-slate-50 dark:bg-muted/30 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                         <span className="text-xs font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteWarehouse(wh.id)}>
-                           <Trash2 size={14} />
+           {/* TAB BODEGAS CON GESTIÓN, ASOCIACIÓN Y VISTA DE STOCK */}
+           <TabsContent value="config" className="space-y-6 outline-none">
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               
+               {/* Columna Izquierda: Crear Bodega y Vincular Producto */}
+               <div className="lg:col-span-4 space-y-6">
+                 {/* Tarjeta 1: Crear Bodega */}
+                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
+                   <CardHeader className="p-5">
+                     <CardTitle className="text-sm font-bold flex items-center gap-2">
+                       <Warehouse size={16} className="text-blue-600" /> Crear Almacén / Bodega
+                     </CardTitle>
+                     <CardDescription className="text-xs">Configure puntos de almacenamiento físico.</CardDescription>
+                   </CardHeader>
+                   <CardContent className="p-5 pt-0 space-y-4">
+                     <div className="space-y-2">
+                       <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
+                       <div className="flex gap-2">
+                         <Input 
+                           placeholder="Ej. Sucursal Santa Tecla..." 
+                           value={warehouseName}
+                           onChange={e => setWarehouseName(e.target.value)}
+                           className="bg-slate-50 dark:bg-muted border-none h-10 text-xs font-bold"
+                         />
+                         <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold rounded-xl text-xs text-white">
+                           CREAR
                          </Button>
                        </div>
-                     ))}
-                   </div>
-                 </div>
-               </CardContent>
-             </Card>
+                     </div>
  
-             <div className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center border border-slate-800">
-               <Warehouse size={40} className="mb-4 text-blue-400" />
-               <h3 className="text-lg md:text-xl font-bold mb-2">Multibodega</h3>
-               <p className="text-slate-400 text-xs md:text-sm leading-relaxed mb-6">
-                 Configure sus puntos de almacenamiento para llevar un control exacto de dónde se encuentra su mercadería. Estas bodegas aparecerán como destinos en el módulo de Registro de Compra y Traslados.
-               </p>
+                     <div className="pt-2">
+                       <Label className="text-[9px] font-black uppercase text-slate-400 block mb-2">Bodegas Activas</Label>
+                       <div className="space-y-1">
+                         {warehouses?.length === 0 ? (
+                           <p className="text-[9px] text-slate-400 italic">No hay bodegas configuradas.</p>
+                         ) : warehouses?.map((wh: any) => (
+                           <div key={wh.id} className="flex justify-between items-center bg-slate-50 dark:bg-muted/30 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                             <span className="text-[11px] font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
+                             <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-rose-500 rounded-md" onClick={() => handleDeleteWarehouse(wh.id)}>
+                               <Trash2 size={12} />
+                             </Button>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   </CardContent>
+                 </Card>
+
+                 {/* Tarjeta 2: Vincular Producto a Bodega */}
+                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
+                   <CardHeader className="p-5">
+                     <CardTitle className="text-sm font-bold flex items-center gap-2">
+                       <Link2 size={16} className="text-blue-600" /> Vincular Producto a Bodega
+                     </CardTitle>
+                     <CardDescription className="text-xs">Establezca que un producto de tu catálogo pertenece a una bodega.</CardDescription>
+                   </CardHeader>
+                   <CardContent className="p-5 pt-0">
+                     <form onSubmit={handleLinkProductToWarehouse} className="space-y-4">
+                       <div className="space-y-1.5">
+                         <Label className="text-[9px] font-bold uppercase text-slate-400">Seleccionar Bodega</Label>
+                         <Select 
+                           value={linkForm.warehouseName}
+                           onValueChange={(val) => setLinkForm({ ...linkForm, warehouseName: val })}
+                         >
+                           <SelectTrigger className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                             <SelectValue placeholder="Seleccione..." />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {warehouses?.map(w => (
+                               <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
+
+                       <div className="space-y-1.5">
+                         <Label className="text-[9px] font-bold uppercase text-slate-400">Seleccionar Producto</Label>
+                         <Select 
+                           value={linkForm.productSku}
+                           onValueChange={(val) => setLinkForm({ ...linkForm, productSku: val })}
+                         >
+                           <SelectTrigger className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                             <SelectValue placeholder="Seleccione SKU..." />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {inventory?.map(p => (
+                               <SelectItem key={p.id} value={p.sku} className="text-xs">{p.sku} - {p.name}</SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
+
+                       <div className="space-y-1.5">
+                         <Label className="text-[9px] font-bold uppercase text-slate-400">Stock Inicial en esta Bodega</Label>
+                         <Input 
+                           type="number"
+                           value={linkForm.initialStock}
+                           onChange={e => setLinkForm({ ...linkForm, initialStock: e.target.value })}
+                           className="bg-slate-50 dark:bg-muted border-none h-10 text-xs font-black text-blue-600 dark:text-blue-400"
+                         />
+                       </div>
+
+                       <Button 
+                         type="submit" 
+                         className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs"
+                         disabled={loading}
+                       >
+                         {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={14} />}
+                         ASIGNAR A BODEGA
+                       </Button>
+                     </form>
+                   </CardContent>
+                 </Card>
+               </div>
+
+               {/* Columna Derecha: Vista de Productos por Bodega */}
+               <div className="lg:col-span-8 space-y-4">
+                 <Card className="p-4 bg-white dark:bg-card border shadow-sm rounded-3xl flex justify-between items-center">
+                   <div className="space-y-1">
+                     <Label className="text-[9px] font-black uppercase text-slate-400">Ver Productos en Bodega</Label>
+                     <Select value={selectedWhView} onValueChange={setSelectedWhView}>
+                       <SelectTrigger className="w-52 h-9 text-xs rounded-xl bg-slate-50 dark:bg-muted border-none font-bold">
+                         <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="Todas" className="text-xs">Consolidado (Todas)</SelectItem>
+                         {warehouses?.map(w => (
+                           <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                   <div className="text-right">
+                     <span className="text-[10px] font-black uppercase text-slate-400 block">Total Ítems en esta Vista</span>
+                     <Badge className="bg-blue-600 text-white font-bold h-6 text-xs">{productsInSelectedWarehouse.length} productos</Badge>
+                   </div>
+                 </Card>
+
+                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                   <ScrollArea className="h-[480px]">
+                     <Table>
+                       <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                         <TableRow>
+                           <TableHead className="px-6 text-[10px] font-black uppercase">SKU</TableHead>
+                           <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
+                           <TableHead className="text-center text-[10px] font-black uppercase">Stock Bodega</TableHead>
+                           <TableHead className="w-10"></TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                         {productsInSelectedWarehouse.length === 0 ? (
+                           <TableRow>
+                             <TableCell colSpan={4} className="text-center py-24 text-slate-400 italic text-xs">
+                               No hay productos asignados a la bodega '{selectedWhView}'.
+                             </TableCell>
+                           </TableRow>
+                         ) : productsInSelectedWarehouse.map((item) => {
+                           const qtyInWh = selectedWhView === 'Todas' ? item.quantity : (item.bodegas?.[selectedWhView] || 0);
+                           return (
+                             <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                               <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
+                                 {item.sku}
+                               </TableCell>
+                               <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">{item.name}</TableCell>
+                               <TableCell className="text-center">
+                                 <Badge className={`font-black text-[10px] h-6 ${qtyInWh <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
+                                   {qtyInWh} un.
+                                 </Badge>
+                               </TableCell>
+                               <TableCell className="px-4">
+                                 {selectedWhView !== 'Todas' && (
+                                   <Button 
+                                     variant="ghost" 
+                                     size="icon" 
+                                     className="h-8 w-8 text-slate-300 hover:text-rose-500 rounded-md" 
+                                     onClick={() => handleUnlinkProductFromWarehouse(item.id, selectedWhView)}
+                                   >
+                                     <Trash2 size={13} />
+                                   </Button>
+                                 )}
+                               </TableCell>
+                             </TableRow>
+                           );
+                         })}
+                       </TableBody>
+                     </Table>
+                   </ScrollArea>
+                 </Card>
+               </div>
+
              </div>
            </TabsContent>
          </Tabs>
