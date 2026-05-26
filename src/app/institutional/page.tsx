@@ -232,6 +232,10 @@ export default function InstitutionalModulePage() {
     reader.readAsDataURL(file);
   };
 
+  const handlePrintReport = () => {
+    window.print();
+  };
+
   const handleAddManualCost = async () => {
     if (manualCost.items.length === 0 || !manualCost.projectId) {
       toast({ variant: "destructive", title: "Faltan datos de costo" });
