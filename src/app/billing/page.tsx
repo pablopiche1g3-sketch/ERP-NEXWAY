@@ -59,7 +59,8 @@ interface CartItem {
   quantity: number;
 }
 
-type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito';
+type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito' | 'Cheque';
+
 
 export default function BillingPage() {
   const db = useFirestore();
@@ -97,6 +98,13 @@ export default function BillingPage() {
   const [expenses, setExpenses] = useState<{description: string, amount: number}[]>([]);
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
+
+  // Physical counts for other payment methods
+  const [physicalCard, setPhysicalCard] = useState<number>(0);
+  const [physicalTransfer, setPhysicalTransfer] = useState<number>(0);
+  const [physicalCredit, setPhysicalCredit] = useState<number>(0);
+  const [physicalCheck, setPhysicalCheck] = useState<number>(0);
+
 
   // Checkout Modal States
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -138,6 +146,26 @@ export default function BillingPage() {
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
   , [salesAll]);
 
+  const systemCardSales = useMemo(() => 
+    salesAll?.filter(s => s.paymentMethod === 'Tarjeta' && s.status !== 'CANCELADA')
+      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+  , [salesAll]);
+
+  const systemTransferSales = useMemo(() => 
+    salesAll?.filter(s => s.paymentMethod === 'Transferencia' && s.status !== 'CANCELADA')
+      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+  , [salesAll]);
+
+  const systemCreditSales = useMemo(() => 
+    salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status !== 'CANCELADA')
+      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+  , [salesAll]);
+
+  const systemCheckSales = useMemo(() => 
+    salesAll?.filter(s => s.paymentMethod === 'Cheque' && s.status !== 'CANCELADA')
+      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+  , [salesAll]);
+
   const totalPhysicalCash = useMemo(() => 
     Object.entries(cashDenominations).reduce((acc, [den, qty]) => acc + (parseFloat(den) * qty), 0)
   , [cashDenominations]);
@@ -149,6 +177,12 @@ export default function BillingPage() {
   const cashDifference = useMemo(() => 
     totalPhysicalCash - (systemCashSales + (cashConfig?.cashFloat || 0) - totalExpenses)
   , [totalPhysicalCash, systemCashSales, cashConfig, totalExpenses]);
+
+  const cardDifference = useMemo(() => physicalCard - systemCardSales, [physicalCard, systemCardSales]);
+  const transferDifference = useMemo(() => physicalTransfer - systemTransferSales, [physicalTransfer, systemTransferSales]);
+  const creditDifference = useMemo(() => physicalCredit - systemCreditSales, [physicalCredit, systemCreditSales]);
+  const checkDifference = useMemo(() => physicalCheck - systemCheckSales, [physicalCheck, systemCheckSales]);
+
 
   // Cart Functions
   const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
@@ -308,13 +342,37 @@ export default function BillingPage() {
       date: new Date().toISOString().split('T')[0],
       timestamp: new Date().toISOString(),
       cashFloat: cashConfig?.cashFloat || 0,
+      
+      // Cash details
       systemCashSales,
       physicalCashFound: totalPhysicalCash,
       expenses: totalExpenses,
       difference: cashDifference,
+      denominations: cashDenominations,
+
+      // Card details
+      systemCardSales,
+      physicalCardFound: physicalCard,
+      cardDifference,
+
+      // Check details
+      systemCheckSales,
+      physicalCheckFound: physicalCheck,
+      checkDifference,
+
+      // Transfer details
+      systemTransferSales,
+      physicalTransferFound: physicalTransfer,
+      transferDifference,
+
+      // Credit details
+      systemCreditSales,
+      physicalCreditFound: physicalCredit,
+      creditDifference,
+
       closedBy: user?.email || 'Admin',
-      denominations: cashDenominations
     };
+
 
     try {
       await addDoc(collection(db, 'daily_closings'), closingData);
@@ -395,12 +453,15 @@ export default function BillingPage() {
                   </ScrollArea>
                   <div className="p-4 bg-muted/20 border-t space-y-3">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground">Método de Pago</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                       <Button variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Efectivo')} className="h-9 text-[9px] font-bold rounded-xl px-1">
                         <Wallet size={12} className="mr-1" /> Efectivo
                       </Button>
                       <Button variant={paymentMethod === 'Tarjeta' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Tarjeta')} className="h-9 text-[9px] font-bold rounded-xl px-1">
                         <CardIcon size={12} className="mr-1" /> Tarjeta
+                      </Button>
+                      <Button variant={paymentMethod === 'Cheque' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Cheque')} className="h-9 text-[9px] font-bold rounded-xl px-1">
+                        <FileText size={12} className="mr-1" /> Cheque
                       </Button>
                       <Button variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Transferencia')} className="h-9 text-[9px] font-bold rounded-xl px-1">
                         <Landmark size={12} className="mr-1" /> Transf.
@@ -410,6 +471,7 @@ export default function BillingPage() {
                       </Button>
                     </div>
                   </div>
+
                 </CardContent>
               </Card>
               <Button className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl" onClick={handleOpenCheckout} disabled={cart.length === 0}>
@@ -690,7 +752,110 @@ export default function BillingPage() {
                   </Card>
                 </div>
 
+                {/* Conciliación de Otros Medios de Pago */}
+                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border">
+                  <CardHeader className="bg-slate-900 text-white p-4">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <CardIcon size={18} className="text-blue-400" /> Conciliación de Otros Medios de Pago
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <Table>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow>
+                          <TableHead className="text-[10px] uppercase font-bold">Medio de Pago</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-bold">Ventas Sistema</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-bold w-36">Físico / Comprobantes</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-bold">Diferencia</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="font-bold text-xs flex items-center gap-2">
+                            <CardIcon size={14} className="text-blue-500" /> Tarjeta
+                          </TableCell>
+                          <TableCell className="text-right font-black text-xs">${systemCardSales.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <Input 
+                              type="number" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto" 
+                              value={physicalCard || ''} 
+                              placeholder="0.00"
+                              onFocus={e => e.target.select()}
+                              onChange={e => setPhysicalCard(parseFloat(e.target.value) || 0)} 
+                            />
+                          </TableCell>
+                          <TableCell className={`text-right font-black text-xs ${cardDifference < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            ${cardDifference.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                        
+                        <TableRow>
+                          <TableCell className="font-bold text-xs flex items-center gap-2">
+                            <FileText size={14} className="text-purple-500" /> Cheque
+                          </TableCell>
+                          <TableCell className="text-right font-black text-xs">${systemCheckSales.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <Input 
+                              type="number" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto" 
+                              value={physicalCheck || ''} 
+                              placeholder="0.00"
+                              onFocus={e => e.target.select()}
+                              onChange={e => setPhysicalCheck(parseFloat(e.target.value) || 0)} 
+                            />
+                          </TableCell>
+                          <TableCell className={`text-right font-black text-xs ${checkDifference < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            ${checkDifference.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+
+                        <TableRow>
+                          <TableCell className="font-bold text-xs flex items-center gap-2">
+                            <Landmark size={14} className="text-amber-500" /> Transferencia
+                          </TableCell>
+                          <TableCell className="text-right font-black text-xs">${systemTransferSales.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <Input 
+                              type="number" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto" 
+                              value={physicalTransfer || ''} 
+                              placeholder="0.00"
+                              onFocus={e => e.target.select()}
+                              onChange={e => setPhysicalTransfer(parseFloat(e.target.value) || 0)} 
+                            />
+                          </TableCell>
+                          <TableCell className={`text-right font-black text-xs ${transferDifference < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            ${transferDifference.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+
+                        <TableRow>
+                          <TableCell className="font-bold text-xs flex items-center gap-2">
+                            <Receipt size={14} className="text-teal-500" /> Crédito
+                          </TableCell>
+                          <TableCell className="text-right font-black text-xs">${systemCreditSales.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <Input 
+                              type="number" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto" 
+                              value={physicalCredit || ''} 
+                              placeholder="0.00"
+                              onFocus={e => e.target.select()}
+                              onChange={e => setPhysicalCredit(parseFloat(e.target.value) || 0)} 
+                            />
+                          </TableCell>
+                          <TableCell className={`text-right font-black text-xs ${creditDifference < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            ${creditDifference.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
                   <Card className="border shadow-sm rounded-3xl bg-card">
                     <CardHeader className="p-5 border-b">
                       <CardTitle className="text-sm font-bold flex items-center gap-2"><TrendingDown size={18} className="text-rose-500" /> Gastos de Caja</CardTitle>
@@ -767,6 +932,46 @@ export default function BillingPage() {
               </div>
            </div>
         </div>
+
+        <div className="space-y-4">
+            <h2 className="text-lg font-black border-b pb-2 uppercase text-blue-800">Otros Medios de Pago</h2>
+            <Table className="border text-xs">
+               <TableHeader>
+                  <TableRow className="bg-gray-100">
+                     <TableHead className="font-bold text-black">Medio de Pago</TableHead>
+                     <TableHead className="text-right font-bold text-black">Ventas Sistema</TableHead>
+                     <TableHead className="text-right font-bold text-black">Físico / Comprobantes</TableHead>
+                     <TableHead className="text-right font-bold text-black">Diferencia</TableHead>
+                  </TableRow>
+               </TableHeader>
+               <TableBody>
+                  <TableRow>
+                     <TableCell className="font-bold">Tarjeta</TableCell>
+                     <TableCell className="text-right font-mono">${systemCardSales.toFixed(2)}</TableCell>
+                     <TableCell className="text-right font-mono">${physicalCard.toFixed(2)}</TableCell>
+                     <TableCell className={`text-right font-black font-mono ${cardDifference < 0 ? 'text-red-600' : 'text-green-600'}`}>${cardDifference.toFixed(2)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                     <TableCell className="font-bold">Cheque</TableCell>
+                     <TableCell className="text-right font-mono">${systemCheckSales.toFixed(2)}</TableCell>
+                     <TableCell className="text-right font-mono">${physicalCheck.toFixed(2)}</TableCell>
+                     <TableCell className={`text-right font-black font-mono ${checkDifference < 0 ? 'text-red-600' : 'text-green-600'}`}>${checkDifference.toFixed(2)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                     <TableCell className="font-bold">Transferencia</TableCell>
+                     <TableCell className="text-right font-mono">${systemTransferSales.toFixed(2)}</TableCell>
+                     <TableCell className="text-right font-mono">${physicalTransfer.toFixed(2)}</TableCell>
+                     <TableCell className={`text-right font-black font-mono ${transferDifference < 0 ? 'text-red-600' : 'text-green-600'}`}>${transferDifference.toFixed(2)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                     <TableCell className="font-bold">Crédito</TableCell>
+                     <TableCell className="text-right font-mono">${systemCreditSales.toFixed(2)}</TableCell>
+                     <TableCell className="text-right font-mono">${physicalCredit.toFixed(2)}</TableCell>
+                     <TableCell className={`text-right font-black font-mono ${creditDifference < 0 ? 'text-red-600' : 'text-green-600'}`}>${creditDifference.toFixed(2)}</TableCell>
+                  </TableRow>
+               </TableBody>
+            </Table>
+         </div>
 
         <div className="space-y-4">
            <h2 className="text-lg font-black border-b pb-2 uppercase text-blue-800">Historial de Ventas del Día</h2>
