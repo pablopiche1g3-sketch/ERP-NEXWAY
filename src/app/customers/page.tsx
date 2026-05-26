@@ -10,6 +10,17 @@ import {
   Mail, 
   Phone, 
   MapPin, 
+'use client';
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  Users, 
+  ArrowLeft, 
+  Search, 
+  Trash2, 
+  Mail, 
+  Phone, 
+  MapPin, 
   Hash, 
   BadgeInfo, 
   Building2, 
@@ -18,7 +29,8 @@ import {
   UserCheck,
   Loader2,
   Plus,
-  Pencil
+  Pencil,
+  Lock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,7 +82,8 @@ export default function CustomersPage() {
     phone: '',
     address: '',
     is_authorized_credit: false,
-    credit_limit: '0.00'
+    credit_limit: '0.00',
+    credit_days: '30'
   });
 
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
@@ -88,14 +101,33 @@ export default function CustomersPage() {
     type: 'Individual',
     category: 'Consumidor Final',
     is_authorized_credit: false,
-    credit_limit: '0.00'
+    credit_limit: '0.00',
+    credit_days: '30'
   });
 
-  // Estados para datos cargados desde Supabase
+  // Estados para Modal de Autorización
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [pendingAuthAction, setPendingAuthAction] = useState<'create' | 'edit' | null>(null);
+
+  const handleAuthorizeAttempt = (e: React.FormEvent) => {
+    e.preventDefault();
+    const masterPassword = process.env.NEXT_PUBLIC_ADMIN_PIN || '123456';
+    if (authPassword === masterPassword) {
+      if (pendingAuthAction === 'create') setForm({...form, is_authorized_credit: true});
+      else if (pendingAuthAction === 'edit') setEditForm({...editForm, is_authorized_credit: true});
+      setAuthModalOpen(false);
+      setAuthPassword('');
+      setAuthError('');
+    } else {
+      setAuthError('Contraseña incorrecta. Contacte a gerencia.');
+    }
+  };
+
   const [customers, setCustomers] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Función para cargar los clientes desde Supabase
   const loadCustomersData = async () => {
     try {
       setLoadingData(true);
@@ -107,18 +139,17 @@ export default function CustomersPage() {
       if (error) throw error;
       setCustomers(data || []);
     } catch (err: any) {
-      console.error('Error al cargar clientes desde Supabase:', err);
+      console.error('Error al cargar clientes:', err);
       toast({
         variant: 'destructive',
         title: 'Error de Conexión',
-        description: 'No se pudo cargar la cartera de clientes de Supabase.'
+        description: 'No se pudo cargar la cartera de clientes.'
       });
     } finally {
       setLoadingData(false);
     }
   };
 
-  // Cargar clientes en el montaje
   useEffect(() => {
     loadCustomersData();
   }, []);
@@ -130,7 +161,7 @@ export default function CustomersPage() {
       toast({ 
         variant: "destructive", 
         title: "Faltan campos", 
-        description: activeTab === 'cf' ? "El nombre es obligatorio." : "Nombre, NIT, NRC y Giro son obligatorios para Crédito Fiscal." 
+        description: activeTab === 'cf' ? "El nombre es obligatorio." : "Nombre, NIT, NRC y Giro son obligatorios." 
       });
       return;
     }
@@ -149,7 +180,8 @@ export default function CustomersPage() {
           type: activeTab === 'cf' ? 'Individual' : 'Empresa',
           category: activeTab === 'cf' ? 'Consumidor Final' : 'Crédito Fiscal',
           is_authorized_credit: form.is_authorized_credit,
-          credit_limit: parseFloat(form.credit_limit) || 0.00
+          credit_limit: parseFloat(form.credit_limit) || 0.00,
+          credit_days: parseInt(form.credit_days) || 0
         });
 
       if (error) throw error;
@@ -164,7 +196,8 @@ export default function CustomersPage() {
         phone: '',
         address: '',
         is_authorized_credit: false,
-        credit_limit: '0.00'
+        credit_limit: '0.00',
+        credit_days: '30'
       });
       await loadCustomersData();
     } catch (err: any) {
@@ -194,7 +227,8 @@ export default function CustomersPage() {
           type: editForm.type,
           category: editForm.category,
           is_authorized_credit: editForm.is_authorized_credit,
-          credit_limit: parseFloat(editForm.credit_limit) || 0.00
+          credit_limit: parseFloat(editForm.credit_limit) || 0.00,
+          credit_days: parseInt(editForm.credit_days) || 0
         })
         .eq('id', editForm.id);
 
@@ -237,7 +271,7 @@ export default function CustomersPage() {
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
-<div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
@@ -280,9 +314,7 @@ export default function CustomersPage() {
 
                 <form onSubmit={handleCreateCustomer} className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                      {activeTab === 'cf' ? 'Nombre Completo' : 'Nombre o Razón Social'}
-                    </Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre Completo</Label>
                     <div className="relative">
                       <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                       <Input 
@@ -325,96 +357,66 @@ export default function CustomersPage() {
 
                   {activeTab === 'ccf' && (
                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial Autorizado</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial</Label>
                       <Select value={form.giro} onValueChange={(val) => setForm({...form, giro: val})}>
                         <SelectTrigger className="h-11 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[11px] font-bold text-slate-800 dark:text-white">
                           <div className="flex items-center gap-2">
                             <Briefcase className="text-slate-400" size={14} />
-                            <SelectValue placeholder="Seleccione giro de Hacienda..." />
+                            <SelectValue placeholder="Seleccione giro..." />
                           </div>
                         </SelectTrigger>
-                        <SelectContent className="max-w-[400px] bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-800 dark:text-white">
+                        <SelectContent className="max-w-[400px] bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
                           {GIROS_AUTORIZADOS.map((giro, idx) => (
-                            <SelectItem key={idx} value={giro} className="text-[11px] py-3 text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">
-                              {giro}
-                            </SelectItem>
+                            <SelectItem key={idx} value={giro} className="text-[11px] py-3 text-slate-800 dark:text-white">{giro}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Correo Electrónico</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                        <Input 
-                          type="email"
-                          placeholder="correo@ejemplo.com" 
-                          value={form.email}
-                          onChange={e => setForm({...form, email: e.target.value})}
-                          className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
-                        />
-                      </div>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Correo</Label>
+                      <Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Teléfono</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                        <Input 
-                          placeholder="2222-0000" 
-                          value={form.phone}
-                          onChange={e => setForm({...form, phone: e.target.value})}
-                          className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
-                        />
-                      </div>
+                      <Input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white" />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dirección</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-3 text-slate-400" size={14} />
-                      <textarea 
-                        placeholder="Ubicación del cliente..."
-                        value={form.address}
-                        onChange={e => setForm({...form, address: e.target.value})}
-                        className="w-full min-h-[60px] pl-9 pt-2.5 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs outline-none transition-all text-slate-800 dark:text-white"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Sección de Control de Crédito Premium */}
                   <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
                     <h4 className="text-[10px] font-black uppercase text-indigo-600 dark:text-sky-400 tracking-widest flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-sky-400"></span> Control de Crédito (Gerencia)
+                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-sky-400"></span> Control de Crédito
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                      <div className="flex items-center justify-between p-2 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none">
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">¿Autorizar Crédito?</span>
+                      <div className="flex items-center justify-between p-2 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">¿Autorizar?</span>
                         <Switch 
                           checked={form.is_authorized_credit}
-                          onCheckedChange={val => setForm({...form, is_authorized_credit: val})}
+                          onCheckedChange={val => {
+                            if (val) {
+                              setPendingAuthAction('create');
+                              setAuthModalOpen(true);
+                            } else {
+                              setForm({...form, is_authorized_credit: false});
+                            }
+                          }}
                         />
                       </div>
                       
                       <div className="space-y-1">
-                        <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Límite Autorizado ($)</Label>
-                        <Input 
-                          type="number" 
-                          placeholder="0.00" 
-                          value={form.credit_limit}
-                          onChange={e => setForm({...form, credit_limit: e.target.value})}
-                          disabled={!form.is_authorized_credit}
-                          className="h-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-indigo-600 dark:text-sky-400 disabled:opacity-50"
-                        />
+                        <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Límite ($)</Label>
+                        <Input type="number" value={form.credit_limit} onChange={e => setForm({...form, credit_limit: e.target.value})} disabled={!form.is_authorized_credit} className="h-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-indigo-600 dark:text-sky-400 disabled:opacity-50" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Días</Label>
+                        <Input type="number" value={form.credit_days} onChange={e => setForm({...form, credit_days: e.target.value})} disabled={!form.is_authorized_credit} className="h-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-indigo-600 dark:text-sky-400 disabled:opacity-50" />
                       </div>
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 dark:bg-sky-600 dark:hover:bg-sky-500 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20 dark:shadow-sky-500/20 transition-all">
-                    <Users size={18} className="mr-2" />
+                  <Button type="submit" className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 dark:bg-sky-600 dark:hover:bg-sky-500 rounded-xl font-bold text-white shadow-lg transition-all">
                     Registrar en Cartera
                   </Button>
                 </form>
@@ -437,97 +439,64 @@ export default function CustomersPage() {
           <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border-white/10 shadow-sm rounded-2xl overflow-hidden">
             <ScrollArea className="h-[550px]">
               <Table>
-                <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 border-b border-slate-200 dark:border-white/10 shadow-sm">
+                <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 border-b border-slate-200 dark:border-white/10">
                   <TableRow>
                     <TableHead className="text-[10px] font-black uppercase px-6 text-slate-700 dark:text-white">Receptor</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-700 dark:text-white">Tipo / Giro</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-right text-slate-700 dark:text-white">Contacto</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-700 dark:text-white">Datos</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loadingData ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Sincronizando datos...</TableCell></TableRow>
-                  ) : filteredCustomers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">
-                        No hay clientes registrados en la cartera.
-                      </TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={3} className="text-center py-20"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
                   ) : filteredCustomers.map((customer: any) => (
                     <TableRow key={customer.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-100 dark:border-white/5">
                       <TableCell className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-800 dark:text-white text-xs">{customer.name}</span>
-                          <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{customer.nit || 'Consumidor Final'}</span>
+                          <span className="text-[10px] font-mono text-slate-500">{customer.nit || 'Consumidor Final'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex gap-1.5 items-center flex-wrap">
-                            <Badge variant="outline" className={`text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-500/20 text-sky-400 border-sky-500/30' : 'bg-white/10 text-slate-300 border-white/10'}`}>
-                              {customer.category || customer.type}
+                        <div className="flex gap-1.5 items-center flex-wrap">
+                          <Badge variant="outline" className={`text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-500/20 text-sky-400' : 'bg-white/10 text-slate-300'}`}>
+                            {customer.category}
+                          </Badge>
+                          {customer.is_authorized_credit ? (
+                            <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[8px] font-black uppercase">
+                              CRED: ${parseFloat(customer.credit_limit || 0).toFixed(2)} | {customer.credit_days || 0} DÍAS
                             </Badge>
-                            {customer.is_authorized_credit ? (
-                              <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[8px] font-black uppercase">
-                                CRÉDITO AUT: ${(parseFloat(customer.credit_limit) || 0).toFixed(2)}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-400 border-white/10">
-                                SIN CRÉDITO
-                              </Badge>
-                            )}
-                          </div>
-                          {customer.giro && (
-                            <span className="text-[9px] text-slate-400 italic truncate max-w-[150px]">{customer.giro}</span>
-                          )}
+                          ) : null}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right px-6">
-                        <div className="flex flex-col items-end gap-0.5">
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
-                            {customer.phone || 'N/A'}
-                            <Phone size={10} className="text-slate-500" />
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
-                            {customer.email || 'N/A'}
-                            <Mail size={10} className="text-slate-500" />
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4">
-                        <div className="flex items-center gap-1 justify-end">
+                      <TableCell>
+                        <div className="flex gap-1">
                           <Button 
                             variant="ghost" 
                             size="icon" 
                             onClick={() => {
-                              setEditingCustomer(customer);
                               setEditForm({
                                 id: customer.id,
-                                name: customer.name || '',
+                                name: customer.name,
                                 nit: customer.nit || '',
                                 nrc: customer.nrc || '',
                                 giro: customer.giro || '',
                                 email: customer.email || '',
                                 phone: customer.phone || '',
                                 address: customer.address || '',
-                                type: customer.type || 'Individual',
-                                category: customer.category || 'Consumidor Final',
+                                type: customer.type,
+                                category: customer.category,
                                 is_authorized_credit: !!customer.is_authorized_credit,
-                                credit_limit: (customer.credit_limit || 0.00).toString()
+                                credit_limit: (customer.credit_limit || 0).toString(),
+                                credit_days: (customer.credit_days || 30).toString()
                               });
                               setIsEditOpen(true);
                             }}
-                            className="h-8 w-8 text-slate-400 hover:text-indigo-600 dark:hover:text-sky-400 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg"
+                            className="h-8 w-8"
                           >
                             <Pencil size={13} />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => handleDeleteCustomer(customer.id)}
-                            className="h-8 w-8 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-white/10 rounded-lg"
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteCustomer(customer.id)} className="h-8 w-8 text-rose-500">
                             <Trash2 size={13} />
                           </Button>
                         </div>
@@ -541,165 +510,73 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Diálogo de Edición de Cliente Premium */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden p-6 max-h-[90vh] flex flex-col shadow-2xl">
-          <DialogHeader className="pb-4 border-b border-slate-200 dark:border-white/10">
-            <DialogTitle className="flex items-center gap-2 text-slate-800 dark:text-white text-lg font-black uppercase tracking-tight">
-              <Pencil className="text-indigo-600 dark:text-sky-500" size={20} />
-              Editar Cliente
-            </DialogTitle>
-            <DialogDescription className="text-slate-500 dark:text-slate-400 text-xs text-left">
-              Actualice los datos comerciales y de crédito de la cuenta seleccionada.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdateCustomer} className="flex-1 overflow-y-auto my-4 pr-1 space-y-4 no-scrollbar">
+        <DialogContent className="max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+          <form onSubmit={handleUpdateCustomer} className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre completo / Razón Social</Label>
-              <Input 
-                value={editForm.name}
-                onChange={e => setEditForm({...editForm, name: e.target.value})}
-                className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
-                required
-              />
+              <Label className="text-[10px] font-black uppercase text-slate-400">Nombre</Label>
+              <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl" />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</Label>
-                <Select value={editForm.type} onValueChange={val => setEditForm({...editForm, type: val})}>
-                  <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
-                    <SelectItem value="Individual" className="text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">Individual</SelectItem>
-                    <SelectItem value="Empresa" className="text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">Empresa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría</Label>
-                <Select value={editForm.category} onValueChange={val => setEditForm({...editForm, category: val})}>
-                  <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
-                    <SelectItem value="Consumidor Final" className="text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">Consumidor Final</SelectItem>
-                    <SelectItem value="Crédito Fiscal" className="text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">Crédito Fiscal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {editForm.category === 'Crédito Fiscal' && (
-              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">NIT</Label>
-                  <Input 
-                    placeholder="NIT..." 
-                    value={editForm.nit}
-                    onChange={e => setEditForm({...editForm, nit: e.target.value})}
-                    className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">NRC</Label>
-                  <Input 
-                    placeholder="NRC..." 
-                    value={editForm.nrc}
-                    onChange={e => setEditForm({...editForm, nrc: e.target.value})}
-                    className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-white"
-                  />
-                </div>
-              </div>
-            )}
-
-            {editForm.category === 'Crédito Fiscal' && (
-              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial</Label>
-                <Select value={editForm.giro} onValueChange={val => setEditForm({...editForm, giro: val})}>
-                  <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="max-w-[400px] bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
-                    {GIROS_AUTORIZADOS.map((giro, idx) => (
-                      <SelectItem key={idx} value={giro} className="text-[11px] py-2 text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">{giro}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Correo Electrónico</Label>
-                <Input 
-                  type="email" 
-                  value={editForm.email}
-                  onChange={e => setEditForm({...editForm, email: e.target.value})}
-                  className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Teléfono</Label>
-                <Input 
-                  value={editForm.phone}
-                  onChange={e => setEditForm({...editForm, phone: e.target.value})}
-                  className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dirección</Label>
-              <textarea 
-                placeholder="Dirección..."
-                value={editForm.address}
-                onChange={e => setEditForm({...editForm, address: e.target.value})}
-                className="w-full min-h-[50px] p-2.5 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs outline-none transition-all text-slate-800 dark:text-white"
-              />
-            </div>
-
-            {/* Crédito */}
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
-              <h4 className="text-[10px] font-black uppercase text-indigo-600 dark:text-sky-400 tracking-widest flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-sky-500"></span> Control de Crédito
-              </h4>
+              <h4 className="text-[10px] font-black uppercase text-indigo-600 dark:text-sky-400">Control de Crédito</h4>
               <div className="grid grid-cols-2 gap-4 items-center">
-                <div className="flex items-center justify-between p-2 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none">
+                <div className="flex items-center justify-between p-2 bg-white dark:bg-white/5 rounded-xl border border-slate-200 col-span-2 md:col-span-1">
                   <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">¿Autorizar?</span>
                   <Switch 
                     checked={editForm.is_authorized_credit}
-                    onCheckedChange={val => setEditForm({...editForm, is_authorized_credit: val})}
+                    onCheckedChange={val => {
+                      if (val) {
+                        setPendingAuthAction('edit');
+                        setAuthModalOpen(true);
+                      } else {
+                        setEditForm({...editForm, is_authorized_credit: false});
+                      }
+                    }}
                   />
                 </div>
-                
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Límite ($)</Label>
-                  <Input 
-                    type="number" 
-                    value={editForm.credit_limit}
-                    onChange={e => setEditForm({...editForm, credit_limit: e.target.value})}
-                    disabled={!editForm.is_authorized_credit}
-                    className="h-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-indigo-600 dark:text-sky-400 disabled:opacity-50"
-                  />
+                  <Label className="text-[9px] font-black uppercase">Límite ($)</Label>
+                  <Input type="number" value={editForm.credit_limit} onChange={e => setEditForm({...editForm, credit_limit: e.target.value})} disabled={!editForm.is_authorized_credit} className="h-9 bg-white/5 rounded-xl" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase">Días</Label>
+                  <Input type="number" value={editForm.credit_days} onChange={e => setEditForm({...editForm, credit_days: e.target.value})} disabled={!editForm.is_authorized_credit} className="h-9 bg-white/5 rounded-xl" />
                 </div>
               </div>
             </div>
+            <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl">Guardar Cambios</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            <div className="flex justify-end pt-2 gap-2 border-t border-slate-200 dark:border-white/10">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setIsEditOpen(false)}
-                className="rounded-xl text-xs text-slate-600 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSavingEdit}
-                className="bg-indigo-600 hover:bg-indigo-700 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl text-xs px-5 shadow-md shadow-indigo-500/20 dark:shadow-sky-500/20"
-              >
-                {isSavingEdit ? <Loader2 className="animate-spin mr-1" size={14} /> : null}
-                Guardar Cambios
-              </Button>
-            </div>
+      <Dialog open={authModalOpen} onOpenChange={(open) => {
+        if (!open) {
+          setAuthModalOpen(false);
+          setAuthPassword('');
+          setAuthError('');
+        }
+      }}>
+        <DialogContent className="max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800 dark:text-white text-lg font-black uppercase">
+              <Lock className="text-indigo-600 dark:text-sky-500" size={20} />
+              Autorización
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAuthorizeAttempt} className="space-y-4">
+            <Input 
+              type="password"
+              placeholder="••••••••"
+              value={authPassword}
+              onChange={e => setAuthPassword(e.target.value)}
+              className="h-12 text-center text-lg tracking-[0.5em] bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl"
+              autoFocus
+            />
+            {authError && <p className="text-[10px] text-rose-500 font-bold text-center">{authError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setAuthModalOpen(false)} className="rounded-xl flex-1 text-xs">Cancelar</Button>
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 rounded-xl flex-1 text-xs">Autorizar</Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
