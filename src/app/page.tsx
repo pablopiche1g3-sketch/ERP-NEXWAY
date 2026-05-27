@@ -13,7 +13,8 @@ import {
   CalendarClock,
   LayoutDashboard,
   Building,
-  BarChart3
+  BarChart3,
+  ClipboardList
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
@@ -38,7 +39,8 @@ export default function Home() {
     quedan: true,
     management: true,
     institutional: true,
-    accounting: true
+    accounting: true,
+    orders: true
   };
 
   return (
@@ -119,6 +121,16 @@ export default function Home() {
               iconBg="bg-indigo-600"
               title="Traslados"
               description="Movimiento entre bodegas"
+            />
+          </Link>
+        )}
+        {modules.orders && (
+          <Link href="/orders">
+            <ModuleCard 
+              icon={<ClipboardList className="text-white" size={24} />}
+              iconBg="bg-violet-600"
+              title="Pedidos"
+              description="Órdenes internas y proveedores"
             />
           </Link>
         )}
