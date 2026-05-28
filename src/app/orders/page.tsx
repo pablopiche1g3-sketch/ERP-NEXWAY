@@ -101,7 +101,7 @@ export default function OrdersPage() {
   const [extItemName, setExtItemName] = useState('');
   const [extIsManual, setExtIsManual] = useState(false);
   const [extSupplierEmail, setExtSupplierEmail] = useState('');
-  const [extFromEmail, setExtFromEmail] = useState('saladventastecnicolor@gmail.com');
+  const [extFromEmail, setExtFromEmail] = useState('pablopiche1g3@gmail.com');
   const [extAuthorizedBy, setExtAuthorizedBy] = useState('JULIO NEFTALI CAÑAS ZELAYA');
   const [extDigitizedBy, setExtDigitizedBy] = useState('RENE LANGLOIS 74503973');
   const [extSupplierPhone, setExtSupplierPhone] = useState('');
@@ -230,7 +230,7 @@ export default function OrdersPage() {
         'Teléfono', 
         order.supplierPhone || '', 
         'DESDE EL CORREO ELECTRONICO', 
-        order.fromEmail || 'saladventastecnicolor@gmail.com'
+        order.fromEmail || 'pablopiche1g3@gmail.com'
       ]);
       
       // Fila 5: Encabezados de Tabla
@@ -697,7 +697,7 @@ export default function OrdersPage() {
       setExtDestWh('');
       if (!extConfigLocked) {
         setExtSupplierEmail('');
-        setExtFromEmail('saladventastecnicolor@gmail.com');
+        setExtFromEmail('pablopiche1g3@gmail.com');
         setExtAuthorizedBy('JULIO NEFTALI CAÑAS ZELAYA');
         setExtDigitizedBy('RENE LANGLOIS 74503973');
         setExtSupplierPhone('');
@@ -1785,7 +1785,7 @@ export default function OrdersPage() {
                     {previewType === 'externo' && (
                       <div className="text-[9px] text-slate-400 font-bold mt-2 space-y-0.5 text-right select-none">
                         <div>ENVIAR AL CORREO: <span className="text-indigo-600 font-mono">{selectedOrderForPreview.supplierEmail || 'sac.es2@swdeca.com'}</span></div>
-                        <div>DESDE EL CORREO: <span className="text-slate-600 font-mono">{selectedOrderForPreview.fromEmail || 'saladventastecnicolor@gmail.com'}</span></div>
+                        <div>DESDE EL CORREO: <span className="text-slate-600 font-mono">{selectedOrderForPreview.fromEmail || 'pablopiche1g3@gmail.com'}</span></div>
                       </div>
                     )}
                   </div>

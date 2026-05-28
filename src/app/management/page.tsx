@@ -249,7 +249,7 @@ export default function ManagementPage() {
                       <Select 
                         value={usr.role || 'pedidos'} 
                         onValueChange={(val) => handleChangeRole(usr.id, val)}
-                        disabled={isSaving || usr.email === 'saladventastecnicolor@gmail.com'}
+                        disabled={isSaving || usr.email === 'pablopiche1g3@gmail.com'}
                       >
                         <SelectTrigger className="w-[200px] h-10 bg-muted border-none rounded-xl text-xs font-bold">
                           <SelectValue />
