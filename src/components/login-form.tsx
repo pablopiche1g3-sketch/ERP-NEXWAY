@@ -52,7 +52,7 @@ export default function LoginForm() {
     setAuthError(null)
     
     const email = values.email.toLowerCase()
-    const password = values.password.length === 5 ? values.password + "0" : values.password
+    const password = values.password
 
     try {
       await signInWithEmailAndPassword(auth, email, password)
