@@ -52,7 +52,7 @@ export default function LoginForm() {
     setIsLoading(true)
     setAuthError(null)
     
-    const email = `${values.username.toLowerCase()}@nexway.erp`
+    const email = values.username.includes('@') ? values.username.toLowerCase() : `${values.username.toLowerCase()}@nexway.erp`
     const password = values.password.length === 5 ? values.password + "0" : values.password
 
     try {

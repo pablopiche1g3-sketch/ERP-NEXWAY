@@ -12,17 +12,19 @@ import {
   AlertCircle,
   Coins,
   DollarSign,
-  Mail
+  Mail,
+  Users
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { useFirestore, useDoc } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useFirestore, useDoc, useCollection, collection, doc } from '@/firebase';
+import { setDoc, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ManagementPage() {
   const db = useFirestore();
@@ -32,6 +34,9 @@ export default function ManagementPage() {
   const [cashFloat, setCashFloat] = useState<string>('0');
   const [catchAllEmail, setCatchAllEmail] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
+
+  const usersQuery = useMemo(() => query(collection(db, 'users')), [db]);
+  const { data: usersList, loading: loadingUsers } = useCollection<any>(usersQuery);
 
   // Referencias estables a documentos de configuración global
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
@@ -57,6 +62,19 @@ export default function ManagementPage() {
       toast({ title: "Módulo Actualizado", description: `Estado cambiado exitosamente.` });
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleChangeRole = async (userId: string, newRole: string) => {
+    setIsSaving(true);
+    try {
+      const userRef = doc(db, 'users', userId);
+      await setDoc(userRef, { role: newRole }, { merge: true });
+      toast({ title: "Rol de Usuario Actualizado", description: `El usuario ahora tiene el rol de ${newRole === 'admin' ? 'Administrador' : 'Solo Pedidos'}.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el rol de usuario." });
     } finally {
       setIsSaving(false);
     }
@@ -202,6 +220,55 @@ export default function ManagementPage() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Gestor de Roles y Usuarios */}
+        <Card className="border-none shadow-sm rounded-3xl bg-card overflow-hidden border">
+          <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+            <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+              <Users className="text-violet-400" size={20} />
+              Gestión de Usuarios y Roles
+            </CardTitle>
+            <CardDescription className="text-slate-400 text-xs">Asigne roles de acceso para controlar los módulos visibles.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loadingUsers ? (
+              <div className="p-6 flex items-center justify-center">
+                <Loader2 className="animate-spin text-violet-600 animate-pulse" />
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {usersList.map((usr: any) => (
+                  <div key={usr.id} className="p-6 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-bold text-foreground">{usr.email || 'Usuario sin correo'}</Label>
+                      <p className="text-[10px] text-muted-foreground font-mono">UID: {usr.uid || usr.id}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Select 
+                        value={usr.role || 'pedidos'} 
+                        onValueChange={(val) => handleChangeRole(usr.id, val)}
+                        disabled={isSaving || usr.email === 'saladventastecnicolor@gmail.com'}
+                      >
+                        <SelectTrigger className="w-[200px] h-10 bg-muted border-none rounded-xl text-xs font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Administrador (Todos)</SelectItem>
+                          <SelectItem value="pedidos">Solo Pedidos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ))}
+                {usersList.length === 0 && (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    No hay otros usuarios registrados en el sistema.
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

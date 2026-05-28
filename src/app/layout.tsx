@@ -4,6 +4,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ClientAuthGate } from '@/components/ClientAuthGate';
 
 export const metadata: Metadata = {
   title: 'NexWay ERP',
@@ -31,7 +32,9 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <FirebaseErrorListener />
-            {children}
+            <ClientAuthGate>
+              {children}
+            </ClientAuthGate>
             <Toaster />
           </ThemeProvider>
         </FirebaseClientProvider>

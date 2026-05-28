@@ -34,8 +34,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, useUser, getTenantName, collection, doc } from '@/firebase';
+import { addDoc, updateDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -107,6 +107,8 @@ export default function OrdersPage() {
   const [extSupplierPhone, setExtSupplierPhone] = useState('');
   const [extConfigLocked, setExtConfigLocked] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const { isAdmin } = useUser();
+  const activeTenant = getTenantName();
   const [extItemQuote, setExtItemQuote] = useState('');
   const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
   const [externalSearchFilter, setExternalSearchFilter] = useState('');
@@ -791,7 +793,7 @@ export default function OrdersPage() {
       {/* HEADER PRINCIPAL */}
       <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          {!isStandalone && (
+          {!isStandalone && isAdmin && (
             <Button 
               variant="ghost" 
               size="icon" 
@@ -802,7 +804,24 @@ export default function OrdersPage() {
             </Button>
           )}
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-foreground tracking-tight">Centro de Requisición & Pedidos</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-foreground tracking-tight">Centro de Requisición & Pedidos</h1>
+              {activeTenant && (
+                <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full text-amber-600 dark:text-amber-400 text-[10px] font-bold shadow-sm animate-pulse">
+                  <span>CLIENTE: {activeTenant.toUpperCase()}</span>
+                  <button 
+                    onClick={() => {
+                      window.localStorage.removeItem('nexway_tenant');
+                      window.location.reload();
+                    }}
+                    className="ml-1 hover:text-amber-800 dark:hover:text-amber-200 transition-colors font-bold text-[10px]"
+                    title="Volver a base principal"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
             <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Gestión de órdenes de pedidos internas entre tiendas y externas con proveedores</p>
           </div>
         </div>
