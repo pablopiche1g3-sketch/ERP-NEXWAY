@@ -36,7 +36,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useCollection, useUser, getTenantName, collection, doc } from '@/firebase';
-import { addDoc, updateDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { addDoc, updateDoc, query, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -375,30 +375,41 @@ export default function OrdersPage() {
     let skippedCount = 0;
 
     try {
-      for (const item of bulkCodes) {
-        const exists = inventory?.some((p: any) => p.sku === item.sku);
-        if (!exists) {
-          await addDoc(collection(db, 'inventory'), {
-            sku: item.sku,
-            name: item.name,
-            category: 'General',
-            price: 0,
-            quantity: 0,
-            bodegas: {},
-            createdAt: new Date().toISOString()
-          });
-          createdCount++;
-        } else {
-          skippedCount++;
+      // Chunk the array into sizes of 500 (Firestore batch limit)
+      const chunkSize = 500;
+      for (let i = 0; i < bulkCodes.length; i += chunkSize) {
+        const chunk = bulkCodes.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        
+        for (const item of chunk) {
+          const exists = inventory?.some((p: any) => p.sku === item.sku);
+          if (!exists) {
+            // Using auto-id reference
+            const newDocRef = doc(collection(db, 'inventory'));
+            batch.set(newDocRef, {
+              sku: item.sku,
+              name: item.name,
+              category: 'General',
+              price: 0,
+              quantity: 0,
+              bodegas: {},
+              createdAt: new Date().toISOString()
+            });
+            createdCount++;
+          } else {
+            skippedCount++;
+          }
         }
+        await batch.commit();
       }
 
       toast({ 
         title: "Importación Exitosa", 
-        description: `Se registraron ${createdCount} códigos nuevos en el catálogo. Se omitieron ${skippedCount} códigos que ya existían.` 
+        description: `Se registraron ${createdCount} códigos nuevos rápidamente. Se omitieron ${skippedCount} códigos que ya existían.` 
       });
       setBulkCodes([]);
     } catch (err) {
+      console.error(err);
       toast({ variant: "destructive", title: "Error", description: "Ocurrió un error al registrar los códigos en la base de datos." });
     } finally {
       setBulkLoading(false);
