@@ -1,11 +1,10 @@
-
 "use client"
 
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { ShieldCheck, Loader2, Info, AlertCircle, User } from "lucide-react"
+import { ShieldCheck, Loader2, AlertCircle, Mail, Lock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { signInWithEmailAndPassword } from "firebase/auth"
 
@@ -25,8 +24,8 @@ import { useAuth } from "@/firebase"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
-  username: z.string().min(2, {
-    message: "El usuario debe tener al menos 2 caracteres.",
+  email: z.string().email({
+    message: "Por favor, ingresa un correo electrónico válido.",
   }),
   password: z.string().min(5, {
     message: "La contraseña debe tener al menos 5 caracteres.",
@@ -43,7 +42,7 @@ export default function LoginForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   })
@@ -52,23 +51,22 @@ export default function LoginForm() {
     setIsLoading(true)
     setAuthError(null)
     
-    const email = values.username.includes('@') ? values.username.toLowerCase() : `${values.username.toLowerCase()}@nexway.erp`
+    const email = values.email.toLowerCase()
     const password = values.password.length === 5 ? values.password + "0" : values.password
 
     try {
       await signInWithEmailAndPassword(auth, email, password)
       toast({
         title: "Acceso exitoso",
-        description: `Bienvenido, ${values.username}.`,
+        description: `Bienvenido al sistema.`,
       })
-      // Redirigir directamente a la raíz para evitar bucles de historial con /dashboard
       router.push("/")
     } catch (error: any) {
       console.error(error)
-      let message = "Usuario o contraseña incorrectos."
+      let message = "Correo o contraseña incorrectos."
       
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        message = "El usuario no existe o la contraseña es incorrecta."
+        message = "El correo electrónico no está registrado o la contraseña es incorrecta."
       }
       
       setAuthError(message)
@@ -80,11 +78,6 @@ export default function LoginForm() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleDemoAccess = () => {
-    form.setValue("username", "admin")
-    form.setValue("password", "12345")
   }
 
   return (
@@ -109,44 +102,26 @@ export default function LoginForm() {
             <AlertTitle className="font-bold">Error</AlertTitle>
             <AlertDescription className="text-xs">
               {authError}
-              <div className="mt-2 font-semibold">
-                Tip: En Firebase crea el usuario "admin@nexway.erp" con clave "123450".
-              </div>
             </AlertDescription>
           </Alert>
         )}
-
-        <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-3">
-          <Info className="w-5 h-5 text-blue-600 mt-0.5" />
-          <div className="text-xs text-blue-700">
-            <p className="font-bold mb-1">Acceso Rápido:</p>
-            <p>Usuario: <strong>admin</strong></p>
-            <p>Clave: <strong>12345</strong></p>
-            <button 
-              type="button"
-              onClick={handleDemoAccess}
-              className="mt-2 text-blue-800 font-bold hover:underline"
-            >
-              Completar ahora
-            </button>
-          </div>
-        </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="username"
+              name="email"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
-                    Nombre de Usuario
+                    Correo Electrónico
                   </FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <Input 
-                        placeholder="ej. admin" 
+                        type="email"
+                        placeholder="ejemplo@correo.com" 
                         {...field} 
                         className="pl-10 bg-slate-50 border-slate-100 h-12 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl px-4 text-slate-900 transition-all"
                       />
@@ -165,12 +140,15 @@ export default function LoginForm() {
                     Contraseña
                   </FormLabel>
                   <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="•••••"
-                      {...field}
-                      className="bg-slate-50 border-slate-100 h-12 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl px-4 text-slate-900 transition-all"
-                    />
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Input
+                        type="password"
+                        placeholder="•••••"
+                        {...field}
+                        className="pl-10 bg-slate-50 border-slate-100 h-12 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl px-4 text-slate-900 transition-all"
+                      />
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
