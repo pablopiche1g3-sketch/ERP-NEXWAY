@@ -17,9 +17,11 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useFirestore, useDoc, useUser, getTenantName, doc } from '@/firebase';
 import { ModeToggle } from '@/components/mode-toggle';
+import { LogOut } from 'lucide-react';
 
 export default function Home() {
   const db = useFirestore();
@@ -68,7 +70,21 @@ export default function Home() {
             </div>
           )}
         </div>
-        <ModeToggle />
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={async () => {
+              const { getAuth, signOut } = await import('firebase/auth');
+              const auth = getAuth();
+              await signOut(auth);
+            }}
+            title="Cerrar sesión"
+          >
+            <LogOut size={20} className="text-muted-foreground" />
+          </Button>
+          <ModeToggle />
+        </div>
       </div>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">

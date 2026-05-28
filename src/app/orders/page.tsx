@@ -26,7 +26,8 @@ import {
   UploadCloud,
   Lock,
   Unlock,
-  Mail
+  Mail,
+  LogOut
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -825,7 +826,21 @@ export default function OrdersPage() {
             <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Gestión de órdenes de pedidos internas entre tiendas y externas con proveedores</p>
           </div>
         </div>
-        <ModeToggle />
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={async () => {
+              const { getAuth, signOut } = await import('firebase/auth');
+              const auth = getAuth();
+              await signOut(auth);
+            }}
+            title="Cerrar sesión"
+          >
+            <LogOut size={20} className="text-muted-foreground" />
+          </Button>
+          <ModeToggle />
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto">
