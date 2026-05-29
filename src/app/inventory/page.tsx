@@ -383,7 +383,18 @@ export default function InventoryMasterPage() {
           importedCount++;
         }
         
-        await batch.commit();
+        try {
+          await Promise.race([
+            batch.commit(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+          ]);
+        } catch (err: any) {
+          if (err.message === 'timeout') {
+            console.warn('La importación masiva se guardó localmente en caché debido a conexión offline.');
+          } else {
+            throw err;
+          }
+        }
         setBulkImportProgress(Math.min(100, Math.round(((i + chunk.length) / bulkRows.length) * 100)));
       }
       

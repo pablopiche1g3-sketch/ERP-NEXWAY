@@ -400,7 +400,18 @@ export default function OrdersPage() {
             skippedCount++;
           }
         }
-        await batch.commit();
+        try {
+          await Promise.race([
+            batch.commit(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+          ]);
+        } catch (err: any) {
+          if (err.message === 'timeout') {
+            console.warn('El registro masivo se guardó localmente en caché debido a conexión offline.');
+          } else {
+            throw err;
+          }
+        }
       }
 
       toast({ 

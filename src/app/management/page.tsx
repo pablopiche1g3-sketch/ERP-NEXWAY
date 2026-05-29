@@ -86,10 +86,17 @@ export default function ManagementPage() {
     setIsSaving(true);
     try {
       const userRef = doc(db, 'users', userId);
-      await setDoc(userRef, { role: newRole }, { merge: true });
+      await Promise.race([
+        setDoc(userRef, { role: newRole }, { merge: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+      ]);
       toast({ title: "Rol de Usuario Actualizado", description: `El usuario ahora tiene el rol de ${ROLE_NAMES[newRole] || newRole}.` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el rol de usuario." });
+    } catch (error: any) {
+      if (error.message === 'timeout') {
+        toast({ title: "Guardado en Caché", description: `Cambio registrado localmente. Se aplicará al volver a estar en línea.` });
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el rol de usuario." });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -99,10 +106,17 @@ export default function ManagementPage() {
     setIsSaving(true);
     try {
       const userRef = doc(db, 'users', userId);
-      await deleteDoc(userRef);
+      await Promise.race([
+        deleteDoc(userRef),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+      ]);
       toast({ title: "Asignación Revocada", description: `Se ha revocado el acceso de ${email}.` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo revocar el acceso." });
+    } catch (error: any) {
+      if (error.message === 'timeout') {
+        toast({ title: "Eliminado en Caché", description: `Eliminación registrada localmente. Se aplicará al volver a estar en línea.` });
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo revocar el acceso." });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -127,7 +141,10 @@ export default function ManagementPage() {
       
       if (existingUser) {
         const userRef = doc(db, 'users', existingUser.id);
-        await setDoc(userRef, { role: preAssignRole }, { merge: true });
+        await Promise.race([
+          setDoc(userRef, { role: preAssignRole }, { merge: true }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+        ]);
         toast({ 
           title: "Usuario Actualizado", 
           description: `El usuario ya estaba registrado. Se actualizó su rol a ${ROLE_NAMES[preAssignRole]}.` 
@@ -135,21 +152,29 @@ export default function ManagementPage() {
       } else {
         const docId = 'email:' + emailToAssign;
         const userRef = doc(db, 'users', docId);
-        await setDoc(userRef, {
-          email: emailToAssign,
-          role: preAssignRole,
-          isPreassigned: true,
-          createdAt: new Date().toISOString()
-        });
+        await Promise.race([
+          setDoc(userRef, {
+            email: emailToAssign,
+            role: preAssignRole,
+            isPreassigned: true,
+            createdAt: new Date().toISOString()
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+        ]);
         toast({ 
           title: "Rol Pre-asignado", 
           description: `El correo ${emailToAssign} fue pre-asignado como ${ROLE_NAMES[preAssignRole]} exitosamente.` 
         });
       }
       setPreAssignEmail('');
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo pre-asignar el rol." });
+    } catch (error: any) {
+      if (error.message === 'timeout') {
+        toast({ title: "Guardado en Caché", description: `Asignación registrada localmente. Se sincronizará al estar en línea.` });
+        setPreAssignEmail('');
+      } else {
+        console.error(error);
+        toast({ variant: "destructive", title: "Error", description: "No se pudo pre-asignar el rol." });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -164,14 +189,22 @@ export default function ManagementPage() {
     
     setIsSaving(true);
     try {
-      await setDoc(cashConfigRef, { 
-        cashFloat: val,
-        catchAllEmail: catchAllEmail.trim()
-      }, { merge: true });
+      await Promise.race([
+        setDoc(cashConfigRef, { 
+          cashFloat: val,
+          catchAllEmail: catchAllEmail.trim()
+        }, { merge: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+      ]);
       toast({ title: "Configuración Actualizada", description: "Los ajustes globales han sido guardados." });
       setIsInitialized(true);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Error al guardar en la base de datos." });
+    } catch (error: any) {
+      if (error.message === 'timeout') {
+        toast({ title: "Ajustes Guardados (Caché)", description: "Configuración registrada localmente en la caché." });
+        setIsInitialized(true);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Error al guardar en la base de datos." });
+      }
     } finally {
       setIsSaving(false);
     }
