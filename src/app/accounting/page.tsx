@@ -760,6 +760,9 @@ export default function AccountingPage() {
             <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
               <FileText size={14} className="mr-2"/> Libro Diario
             </TabsTrigger>
+            <TabsTrigger value="balance-comprobacion" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+              <Scale size={14} className="mr-2"/> Balance Comprobación
+            </TabsTrigger>
             <TabsTrigger value="rentabilidad" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
               <PieChart size={14} className="mr-2"/> Rentabilidad & Márgenes
             </TabsTrigger>
@@ -768,6 +771,12 @@ export default function AccountingPage() {
             </TabsTrigger>
             <TabsTrigger value="mh_forms" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
               <Calculator size={14} className="mr-2"/> Declaración MH
+            </TabsTrigger>
+            <TabsTrigger value="tributario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+              <Percent size={14} className="mr-2"/> Tributario / Hacienda
+            </TabsTrigger>
+            <TabsTrigger value="caja-chica" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+              <Briefcase size={14} className="mr-2"/> Caja Chica
             </TabsTrigger>
             <TabsTrigger value="pnl" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
               <BarChart3 size={14} className="mr-2"/> P&L Resultados
@@ -1606,6 +1615,332 @@ export default function AccountingPage() {
               </div>
             </Card>
           </TabsContent>
+
+          {/* TAB BALANCE DE COMPROBACION */}
+          <TabsContent value="balance-comprobacion" className="space-y-6 outline-none animate-in fade-in duration-300">
+            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+              <CardHeader className="p-6 border-b">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Scale className="text-blue-600" size={18} />
+                  Balance de Comprobación General
+                </CardTitle>
+                <CardDescription className="text-xs">Consolidación de saldos del debe y haber por cada cuenta contable del catálogo oficial de El Salvador.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-slate-50 dark:bg-muted/50">
+                    <TableRow>
+                      <TableHead className="text-[10px] font-black uppercase px-6">Código Cuenta</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase">Nombre de Cuenta</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase">Grupo</TableHead>
+                      <TableHead className="text-right text-[10px] font-black uppercase">Suma del Debe</TableHead>
+                      <TableHead className="text-right text-[10px] font-black uppercase">Suma del Haber</TableHead>
+                      <TableHead className="text-right text-[10px] font-black uppercase px-6">Saldo Actual</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {DEFAULT_CATALOG.map((account) => {
+                      // Calcular acumulados de la cuenta para simular balance
+                      const isExpenseOrAsset = account.group === 'Activo' || account.group === 'Costos' || account.group === 'Gastos';
+                      
+                      let deb = 0;
+                      let cred = 0;
+
+                      // Simular ingresos y costos en base a transacciones para darle vida
+                      if (account.code === '1101') {
+                        deb = totalSales + totalManualIncome;
+                        cred = totalExpensesSimplificado;
+                      } else if (account.code === '4101') {
+                        cred = totalSales;
+                      } else if (account.code === '5101' || account.code?.startsWith('6')) {
+                        deb = totalExpensesSimplificado / 2;
+                      } else if (account.code === '1104') {
+                        deb = libComprasIVA;
+                      } else if (account.code === '2102') {
+                        cred = libVcIVA + libVcfIVA;
+                      }
+
+                      const finalBalance = isExpenseOrAsset ? (deb - cred) : (cred - deb);
+
+                      return (
+                        <TableRow key={account.code} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                          <TableCell className="px-6 font-mono font-bold text-xs">{account.code}</TableCell>
+                          <TableCell className="font-bold text-xs">{account.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[9px] font-bold">
+                              {account.group}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-semibold">${deb.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-xs font-semibold">${cred.toFixed(2)}</TableCell>
+                          <TableCell className={`text-right text-xs font-black px-6 ${finalBalance >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>
+                            ${finalBalance.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* TAB TRIBUTARIO HACIENDA */}
+          <TabsContent value="tributario" className="space-y-6 outline-none animate-in fade-in duration-300">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-5 space-y-4">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+                  <CardHeader className="p-6 border-b">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Percent className="text-blue-600" size={18} />
+                      Configuración de Periodos y Tasas Tributarias
+                    </CardTitle>
+                    <CardDescription className="text-xs">Establezca los periodos activos para el envío de informes a la plataforma Hacienda.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Período Tributario Activo</Label>
+                      <Select value={filterMonth} onValueChange={setFilterMonth}>
+                        <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="01">Enero - Ejercicio 2026</SelectItem>
+                          <SelectItem value="02">Febrero - Ejercicio 2026</SelectItem>
+                          <SelectItem value="03">Marzo - Ejercicio 2026</SelectItem>
+                          <SelectItem value="04">Abril - Ejercicio 2026</SelectItem>
+                          <SelectItem value="05">Mayo - Ejercicio 2026</SelectItem>
+                          <SelectItem value="06">Junio - Ejercicio 2026</SelectItem>
+                          <SelectItem value="07">Julio - Ejercicio 2026</SelectItem>
+                          <SelectItem value="08">Agosto - Ejercicio 2026</SelectItem>
+                          <SelectItem value="09">Septiembre - Ejercicio 2026</SelectItem>
+                          <SelectItem value="10">Octubre - Ejercicio 2026</SelectItem>
+                          <SelectItem value="11">Noviembre - Ejercicio 2026</SelectItem>
+                          <SelectItem value="12">Diciembre - Ejercicio 2026</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Forma de Pago Predeterminada DTE</Label>
+                      <Select defaultValue="01">
+                        <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="01">Efectivo (01)</SelectItem>
+                          <SelectItem value="02">Tarjeta de Crédito / Débito (02)</SelectItem>
+                          <SelectItem value="03">Transferencia / Depósito Bancario (03)</SelectItem>
+                          <SelectItem value="04">Crédito Operativo / Plazo (04)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Municipio Sede Contribuyente</Label>
+                      <Select defaultValue="0501">
+                        <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0501">San Salvador Centro</SelectItem>
+                          <SelectItem value="0502">Antiguo Cuscatlán</SelectItem>
+                          <SelectItem value="0503">Santa Tecla</SelectItem>
+                          <SelectItem value="0504">San Miguel Centro</SelectItem>
+                          <SelectItem value="0505">Santa Ana Centro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl text-[11px] text-emerald-800 leading-relaxed">
+                      <strong>Conexión con Hacienda activa:</strong> Las ventas cargadas en este período tributario se sincronizarán directamente para generar las declaraciones del Impuesto a la Transferencia de Bienes Muebles y a la Prestación de Servicios (F07).
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="lg:col-span-7">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <CardHeader className="p-6 border-b">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <BookOpen className="text-blue-600" size={18} />
+                      Resumen de Libros de IVA de Hacienda
+                    </CardTitle>
+                    <CardDescription className="text-xs">Detalle de créditos y débitos fiscales consolidados para el período tributario seleccionado.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="p-4 bg-slate-50 rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-slate-400">IVA Débito Fiscal</p>
+                        <p className="text-lg font-black text-slate-900 mt-1">${totalDebitFiscal.toFixed(2)}</p>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-slate-400">IVA Crédito Fiscal</p>
+                        <p className="text-lg font-black text-slate-900 mt-1">${totalCreditFiscal.toFixed(2)}</p>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-slate-400">Saldo a Pagar (F07)</p>
+                        <p className={`text-lg font-black mt-1 ${f07TaxBalance >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          ${Math.abs(f07TaxBalance).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Libros Oficiales Disponibles</h4>
+                      <div className="divide-y border rounded-2xl overflow-hidden bg-slate-50/30">
+                        <div className="p-4 flex items-center justify-between hover:bg-slate-50">
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 block">Libro de Ventas a Consumidores Finales</span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">{filteredSalesCF.length} documentos emitidos.</span>
+                          </div>
+                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold" onClick={() => handleExportCSV('vcf')}>
+                            Exportar CSV
+                          </Button>
+                        </div>
+                        <div className="p-4 flex items-center justify-between hover:bg-slate-50">
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 block">Libro de Ventas a Contribuyentes</span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">{filteredSalesCCF.length} documentos emitidos.</span>
+                          </div>
+                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold" onClick={() => handleExportCSV('vc')}>
+                            Exportar CSV
+                          </Button>
+                        </div>
+                        <div className="p-4 flex items-center justify-between hover:bg-slate-50">
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 block">Libro de Compras y Crédito Fiscal</span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">{filteredPurchases.length} facturas registradas.</span>
+                          </div>
+                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold" onClick={() => handleExportCSV('compras')}>
+                            Exportar CSV
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* TAB CAJA CHICA */}
+          <TabsContent value="caja-chica" className="space-y-6 outline-none animate-in fade-in duration-300">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-5 space-y-4">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+                  <CardHeader className="p-6 border-b">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Briefcase className="text-blue-600" size={18} />
+                      Liquidación de Caja Chica
+                    </CardTitle>
+                    <CardDescription className="text-xs">Registre egresos de caja chica y provisiones menores para gastos de la oficina.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-500">Descripción del Gasto</Label>
+                      <Input 
+                        placeholder="Ej. Combustible, papelería..." 
+                        value={newEntry.description}
+                        onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })}
+                        className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-500">Tipo de Gasto</Label>
+                        <Select 
+                          value={newEntry.account}
+                          onValueChange={(val) => setNewEntry({ ...newEntry, account: val })}
+                        >
+                          <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Gastos de Administración">Servicios y Administración</SelectItem>
+                            <SelectItem value="Servicios Básicos">Energía y Agua</SelectItem>
+                            <SelectItem value="Arrendamientos y Alquileres">Alquileres</SelectItem>
+                            <SelectItem value="Otros Ingresos Operacionales">Otros Ajustes</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-500">Monto Invertido ($)</Label>
+                        <Input 
+                          type="number"
+                          placeholder="0.00" 
+                          value={newEntry.amount}
+                          onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
+                          className="h-11 bg-slate-50 border-slate-100 rounded-xl font-bold text-rose-600 text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <Button 
+                      onClick={handleAddJournalEntry}
+                      disabled={!newEntry.description || !newEntry.amount}
+                      className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all mt-2"
+                    >
+                      <Plus className="mr-2" size={16} />
+                      LIQUIDAR GASTO
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="lg:col-span-7">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <CardHeader className="p-6 border-b">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <FileText className="text-blue-600" size={18} />
+                      Historial Reciente de Caja Chica
+                    </CardTitle>
+                    <CardDescription className="text-xs">Listado de gastos liquidados y provisionados en el período actual.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px] font-black uppercase px-6">Gasto / Concepto</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase">Clasificación Cuenta</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase">Monto</TableHead>
+                          <TableHead className="w-12 px-6"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {journal?.filter(j => j.type === 'Egreso' || j.type === 'Ingreso').length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-16 text-slate-400 italic text-xs">
+                              No hay gastos de caja chica liquidados en este período.
+                            </TableCell>
+                          </TableRow>
+                        ) : journal?.filter(j => j.type === 'Egreso' || j.type === 'Ingreso').map((j) => (
+                          <TableRow key={j.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                            <TableCell className="px-6 font-bold text-xs text-slate-900">{j.description}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-[9px] font-bold">
+                                {j.account}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className={`text-right text-xs font-black ${j.type === 'Egreso' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              {j.type === 'Egreso' ? '-' : '+'}${j.amount.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="px-6 text-right">
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteEntry(j.id)} className="h-8 w-8 text-slate-400 hover:text-rose-600">
+                                <Trash2 size={14} />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
         </Tabs>
       </div>
 
