@@ -13,7 +13,8 @@ import {
   Coins,
   DollarSign,
   Mail,
-  Users
+  Users,
+  Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc, useCollection, collection, doc } from '@/firebase';
-import { setDoc, query } from 'firebase/firestore';
+import { setDoc, query, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,6 +35,8 @@ export default function ManagementPage() {
   const [cashFloat, setCashFloat] = useState<string>('0');
   const [catchAllEmail, setCatchAllEmail] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [preAssignEmail, setPreAssignEmail] = useState('');
+  const [preAssignRole, setPreAssignRole] = useState('vendedor');
 
   const usersQuery = useMemo(() => query(collection(db, 'users')), [db]);
   const { data: usersList, loading: loadingUsers } = useCollection<any>(usersQuery);
@@ -67,14 +70,86 @@ export default function ManagementPage() {
     }
   };
 
+  const ROLE_NAMES: Record<string, string> = {
+    admin: 'Administrador / Gerente',
+    gerencia: 'Gerencia',
+    encargado: 'Encargado',
+    sub_encargado: 'Sub Encargado',
+    cajero: 'Cajero',
+    vendedor: 'Vendedor',
+    bodeguero: 'Bodeguero',
+    motociclista: 'Motociclista',
+    pedidos: 'Solo Pedidos',
+  };
+
   const handleChangeRole = async (userId: string, newRole: string) => {
     setIsSaving(true);
     try {
       const userRef = doc(db, 'users', userId);
       await setDoc(userRef, { role: newRole }, { merge: true });
-      toast({ title: "Rol de Usuario Actualizado", description: `El usuario ahora tiene el rol de ${newRole === 'admin' ? 'Administrador' : 'Solo Pedidos'}.` });
+      toast({ title: "Rol de Usuario Actualizado", description: `El usuario ahora tiene el rol de ${ROLE_NAMES[newRole] || newRole}.` });
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el rol de usuario." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRevokeRole = async (userId: string, email: string) => {
+    setIsSaving(true);
+    try {
+      const userRef = doc(db, 'users', userId);
+      await deleteDoc(userRef);
+      toast({ title: "Asignación Revocada", description: `Se ha revocado el acceso de ${email}.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo revocar el acceso." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePreAssignRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailToAssign = preAssignEmail.trim().toLowerCase();
+    if (!emailToAssign) {
+      toast({ variant: "destructive", title: "Campo requerido", description: "Por favor ingrese un correo electrónico." });
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailToAssign)) {
+      toast({ variant: "destructive", title: "Formato inválido", description: "Ingrese un correo electrónico válido." });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const existingUser = usersList?.find((usr: any) => usr.email?.toLowerCase() === emailToAssign);
+      
+      if (existingUser) {
+        const userRef = doc(db, 'users', existingUser.id);
+        await setDoc(userRef, { role: preAssignRole }, { merge: true });
+        toast({ 
+          title: "Usuario Actualizado", 
+          description: `El usuario ya estaba registrado. Se actualizó su rol a ${ROLE_NAMES[preAssignRole]}.` 
+        });
+      } else {
+        const docId = 'email:' + emailToAssign;
+        const userRef = doc(db, 'users', docId);
+        await setDoc(userRef, {
+          email: emailToAssign,
+          role: preAssignRole,
+          isPreassigned: true,
+          createdAt: new Date().toISOString()
+        });
+        toast({ 
+          title: "Rol Pre-asignado", 
+          description: `El correo ${emailToAssign} fue pre-asignado como ${ROLE_NAMES[preAssignRole]} exitosamente.` 
+        });
+      }
+      setPreAssignEmail('');
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo pre-asignar el rol." });
     } finally {
       setIsSaving(false);
     }
@@ -233,35 +308,120 @@ export default function ManagementPage() {
             <CardDescription className="text-slate-400 text-xs">Asigne roles de acceso para controlar los módulos visibles.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
+            {/* Formulario de pre-asignación */}
+            <div className="p-6 bg-slate-50 dark:bg-slate-900/30 border-b border-border">
+              <form onSubmit={handlePreAssignRole} className="flex flex-col sm:flex-row items-end gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pre-asignar Acceso por Correo</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                    <Input 
+                      type="email" 
+                      placeholder="correo@empleado.com" 
+                      value={preAssignEmail}
+                      onChange={(e) => setPreAssignEmail(e.target.value)}
+                      className="h-10 pl-10 text-xs font-bold bg-background rounded-xl border-border"
+                    />
+                  </div>
+                </div>
+
+                <div className="w-full sm:w-[200px] space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Rol del Puesto</Label>
+                  <Select 
+                    value={preAssignRole} 
+                    onValueChange={setPreAssignRole}
+                  >
+                    <SelectTrigger className="w-full h-10 bg-background border-border rounded-xl text-xs font-bold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gerencia">Gerencia</SelectItem>
+                      <SelectItem value="encargado">Encargado</SelectItem>
+                      <SelectItem value="sub_encargado">Sub Encargado</SelectItem>
+                      <SelectItem value="cajero">Cajero</SelectItem>
+                      <SelectItem value="vendedor">Vendedor</SelectItem>
+                      <SelectItem value="bodeguero">Bodeguero</SelectItem>
+                      <SelectItem value="motociclista">Motociclista</SelectItem>
+                      <SelectItem value="pedidos">Solo Pedidos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  disabled={isSaving}
+                  className="w-full sm:w-auto h-10 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20 px-6"
+                >
+                  {isSaving ? <Loader2 className="animate-spin" size={16} /> : "+ ASIGNAR"}
+                </Button>
+              </form>
+            </div>
+
             {loadingUsers ? (
               <div className="p-6 flex items-center justify-center">
                 <Loader2 className="animate-spin text-violet-600 animate-pulse" />
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {usersList.map((usr: any) => (
-                  <div key={usr.id} className="p-6 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                    <div className="space-y-1">
-                      <Label className="text-sm font-bold text-foreground">{usr.email || 'Usuario sin correo'}</Label>
-                      <p className="text-[10px] text-muted-foreground font-mono">UID: {usr.uid || usr.id}</p>
+                {usersList.map((usr: any) => {
+                  const isPreassigned = usr.isPreassigned || usr.id.startsWith('email:');
+                  return (
+                    <div key={usr.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Label className="text-sm font-bold text-foreground">{usr.email || 'Usuario sin correo'}</Label>
+                          {isPreassigned ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              Pre-asignado (Pendiente)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              Registrado
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          {isPreassigned ? 'ID Pre: ' + usr.id : 'UID: ' + (usr.uid || usr.id)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Select 
+                          value={usr.role || 'pedidos'} 
+                          onValueChange={(val) => handleChangeRole(usr.id, val)}
+                          disabled={isSaving || usr.email === 'pablopiche1g3@gmail.com' || usr.email === 'pinturas.tecnicolorsw@gmail.com'}
+                        >
+                          <SelectTrigger className="w-[180px] h-10 bg-muted border-none rounded-xl text-xs font-bold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Administrador / Gerente</SelectItem>
+                            <SelectItem value="gerencia">Gerencia</SelectItem>
+                            <SelectItem value="encargado">Encargado</SelectItem>
+                            <SelectItem value="sub_encargado">Sub Encargado</SelectItem>
+                            <SelectItem value="cajero">Cajero</SelectItem>
+                            <SelectItem value="vendedor">Vendedor</SelectItem>
+                            <SelectItem value="bodeguero">Bodeguero</SelectItem>
+                            <SelectItem value="motociclista">Motociclista</SelectItem>
+                            <SelectItem value="pedidos">Solo Pedidos</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {usr.email !== 'pablopiche1g3@gmail.com' && usr.email !== 'pinturas.tecnicolorsw@gmail.com' && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleRevokeRole(usr.id, usr.email)}
+                            disabled={isSaving}
+                            className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl h-10 w-10 flex items-center justify-center"
+                            title="Revocar acceso / eliminar pre-asignación"
+                          >
+                            <Trash2 size={18} />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Select 
-                        value={usr.role || 'pedidos'} 
-                        onValueChange={(val) => handleChangeRole(usr.id, val)}
-                        disabled={isSaving || usr.email === 'pablopiche1g3@gmail.com'}
-                      >
-                        <SelectTrigger className="w-[200px] h-10 bg-muted border-none rounded-xl text-xs font-bold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Administrador (Todos)</SelectItem>
-                          <SelectItem value="pedidos">Solo Pedidos</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {usersList.length === 0 && (
                   <div className="p-6 text-center text-sm text-muted-foreground">
                     No hay otros usuarios registrados en el sistema.

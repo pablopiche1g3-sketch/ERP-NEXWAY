@@ -19,7 +19,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useFirestore, useDoc, useUser, getTenantName, doc } from '@/firebase';
+import { useFirestore, useDoc, useUser, getTenantName, doc, ROLE_PERMISSIONS } from '@/firebase';
 import { ModeToggle } from '@/components/mode-toggle';
 import { LogOut } from 'lucide-react';
 
@@ -27,11 +27,26 @@ export default function Home() {
   const db = useFirestore();
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
   const { data: config } = useDoc<any>(configRef);
-  const { isAdmin } = useUser();
+  const { role, isAdmin } = useUser();
   const activeTenant = getTenantName();
 
+  const modulesList = [
+    { id: 'billing', title: 'Facturación', description: 'Ventas y Estado de Cuenta', path: '/billing', iconBg: 'bg-blue-600', icon: <ShoppingCart className="text-white" size={24} /> },
+    { id: 'purchases', title: 'Registro de Compra', description: 'Entrada de mercadería', path: '/purchases', iconBg: 'bg-emerald-600', icon: <Truck className="text-white" size={24} /> },
+    { id: 'accounting', title: 'Contabilidad', description: 'Resultados, P&L e IVA', path: '/accounting', iconBg: 'bg-slate-900', icon: <BarChart3 className="text-white" size={24} /> },
+    { id: 'suppliers', title: 'Proveedores', description: 'Registro de suministrantes', path: '/suppliers', iconBg: 'bg-emerald-800', icon: <Building2 className="text-white" size={24} /> },
+    { id: 'quedan', title: 'Gestión de Quedan', description: 'Programación de pagos', path: '/quedan', iconBg: 'bg-purple-600', icon: <CalendarClock className="text-white" size={24} /> },
+    { id: 'quotations', title: 'Cotización', description: 'Presupuestos para clientes', path: '/quotations', iconBg: 'bg-orange-500', icon: <FileText className="text-white" size={24} /> },
+    { id: 'transfers', title: 'Traslados', description: 'Movimiento entre bodegas', path: '/transfers', iconBg: 'bg-indigo-600', icon: <ArrowLeftRight className="text-white" size={24} /> },
+    { id: 'orders', title: 'Pedidos', description: 'Órdenes internas y proveedores', path: '/orders', iconBg: 'bg-violet-600', icon: <ClipboardList className="text-white" size={24} /> },
+    { id: 'customers', title: 'Registro de Cliente', description: 'Contribuyentes y CF', path: '/customers', iconBg: 'bg-sky-500', icon: <Users className="text-white" size={24} /> },
+    { id: 'inventory', title: 'Inventario', description: 'Códigos y Stock', path: '/inventory', iconBg: 'bg-rose-500', icon: <Package className="text-white" size={24} /> },
+    { id: 'institutional', title: 'Institucional', description: 'Licitaciones y Proyectos', path: '/institutional', iconBg: 'bg-blue-400', icon: <Building className="text-white" size={24} /> },
+    { id: 'management', title: 'Gerencia', description: 'Control de Permisos', path: '/management', iconBg: 'bg-slate-700', icon: <ShieldCheck className="text-white" size={24} /> },
+  ];
+
   // Valores por defecto si no hay configuración
-  const modules = config || {
+  const activeModulesConfig = config || {
     billing: true,
     purchases: true,
     suppliers: true,
@@ -45,6 +60,18 @@ export default function Home() {
     management: true,
     orders: true
   };
+
+  const visibleModules = modulesList.filter((m) => {
+    // 1. Verificar permisos por rol
+    const userRole = role || 'pedidos';
+    const isUserAdmin = userRole === 'admin' || userRole === 'gerencia';
+    const hasRolePermission = isUserAdmin || (ROLE_PERMISSIONS[userRole] && ROLE_PERMISSIONS[userRole].includes(m.id));
+    if (!hasRolePermission) return false;
+
+    // 2. Verificar configuración de módulos activos en sistema
+    const isModuleEnabled = activeModulesConfig[m.id] !== false;
+    return isModuleEnabled;
+  });
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-12 lg:p-16">
@@ -88,138 +115,20 @@ export default function Home() {
       </div>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {!isAdmin ? (
-          <Link href="/orders">
+        {visibleModules.map((m) => (
+          <Link key={m.id} href={m.path}>
             <ModuleCard 
-              icon={<ClipboardList className="text-white" size={24} />}
-              iconBg="bg-violet-600"
-              title="Pedidos"
-              description="Órdenes internas y proveedores"
+              icon={m.icon}
+              iconBg={m.iconBg}
+              title={m.title}
+              description={m.description}
             />
           </Link>
-        ) : (
-          <>
-            {modules.billing && (
-              <Link href="/billing">
-                <ModuleCard 
-                  icon={<ShoppingCart className="text-white" size={24} />}
-                  iconBg="bg-blue-600"
-                  title="Facturación"
-                  description="Ventas y Estado de Cuenta"
-                />
-              </Link>
-            )}
-        {modules.purchases && (
-          <Link href="/purchases">
-            <ModuleCard 
-              icon={<Truck className="text-white" size={24} />}
-              iconBg="bg-emerald-600"
-              title="Registro de Compra"
-              description="Entrada de mercadería"
-            />
-          </Link>
-        )}
-        {modules.accounting && (
-          <Link href="/accounting">
-            <ModuleCard 
-              icon={<BarChart3 className="text-white" size={24} />}
-              iconBg="bg-slate-900"
-              title="Contabilidad"
-              description="Resultados, P&L e IVA"
-            />
-          </Link>
-        )}
-        {modules.suppliers && (
-          <Link href="/suppliers">
-            <ModuleCard 
-              icon={<Building2 className="text-white" size={24} />}
-              iconBg="bg-emerald-800"
-              title="Proveedores"
-              description="Registro de suministrantes"
-            />
-          </Link>
-        )}
-        {modules.quedan && (
-          <Link href="/quedan">
-            <ModuleCard 
-              icon={<CalendarClock className="text-white" size={24} />}
-              iconBg="bg-purple-600"
-              title="Gestión de Quedan"
-              description="Programación de pagos"
-            />
-          </Link>
-        )}
-        {modules.quotations && (
-          <Link href="/quotations">
-            <ModuleCard 
-              icon={<FileText className="text-white" size={24} />}
-              iconBg="bg-orange-500"
-              title="Cotización"
-              description="Presupuestos para clientes"
-            />
-          </Link>
-        )}
-        {modules.transfers && (
-          <Link href="/transfers">
-            <ModuleCard 
-              icon={<ArrowLeftRight className="text-white" size={24} />}
-              iconBg="bg-indigo-600"
-              title="Traslados"
-              description="Movimiento entre bodegas"
-            />
-          </Link>
-        )}
-        {modules.orders && (
-          <Link href="/orders">
-            <ModuleCard 
-              icon={<ClipboardList className="text-white" size={24} />}
-              iconBg="bg-violet-600"
-              title="Pedidos"
-              description="Órdenes internas y proveedores"
-            />
-          </Link>
-        )}
-        {modules.customers && (
-          <Link href="/customers">
-            <ModuleCard 
-              icon={<Users className="text-white" size={24} />}
-              iconBg="bg-sky-500"
-              title="Registro de Cliente"
-              description="Contribuyentes y CF"
-            />
-          </Link>
-        )}
-        {modules.inventory && (
-          <Link href="/inventory">
-            <ModuleCard 
-              icon={<Package className="text-white" size={24} />}
-              iconBg="bg-rose-500"
-              title="Inventario"
-              description="Códigos y Stock"
-            />
-          </Link>
-        )}
-        {modules.institutional && (
-          <Link href="/institutional">
-            <ModuleCard 
-              icon={<Building className="text-white" size={24} />}
-              iconBg="bg-blue-400"
-              title="Institucional"
-              description="Licitaciones y Proyectos"
-            />
-          </Link>
-        )}
-        {modules.management && (
-          <Link href="/management">
-            <ModuleCard 
-              icon={<ShieldCheck className="text-white" size={24} />}
-              iconBg="bg-slate-700"
-              title="Gerencia"
-              description="Control de Permisos"
-            />
-          </Link>
-        )}
-          </>
+        ))}
+        {visibleModules.length === 0 && (
+          <div className="col-span-full text-center py-12">
+            <p className="text-muted-foreground text-sm">No tienes permisos para acceder a ningún módulo. Contacta a un administrador.</p>
+          </div>
         )}
       </div>
     </div>

@@ -65,7 +65,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -307,63 +307,89 @@ export default function InventoryMasterPage() {
     let errorCount = 0;
     
     try {
-      for (let i = 0; i < bulkRows.length; i++) {
-        const row = bulkRows[i];
-        const rawSku = String(row[columnMapping.sku] || '').trim().toUpperCase();
-        const rawName = String(row[columnMapping.name] || '').trim();
+      // Obtener los nombres de todas las bodegas activas en el sistema para inicializarlas
+      const whNames = warehouses?.map((w: any) => w.name) || [];
+      
+      // Segmentar el lote de filas en sub-lotes de 500 (límite de Firestore)
+      const chunkSize = 500;
+      for (let i = 0; i < bulkRows.length; i += chunkSize) {
+        const chunk = bulkRows.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
         
-        if (!rawSku || !rawName) {
-          errorCount++;
-          continue;
-        }
-        
-        const rawCategory = columnMapping.category ? String(row[columnMapping.category] || '').trim() : 'General';
-        const rawPrice = columnMapping.price ? parseFloat(row[columnMapping.price]) || 0 : 0;
-        const rawStock = columnMapping.stock ? parseFloat(row[columnMapping.stock]) || 0 : 0;
-        
-        const existing = inventory?.find((p: any) => p.sku === rawSku);
-        
-        const bodegasData: Record<string, number> = {};
-        if (selectedImportWarehouse !== 'Ninguna' && rawStock > 0) {
-          bodegasData[selectedImportWarehouse] = rawStock;
-        }
-        
-        if (existing) {
-          const existingBodegas = existing.bodegas || {};
-          let updatedBodegas = { ...existingBodegas };
+        for (const row of chunk) {
+          const rawSku = String(row[columnMapping.sku] || '').trim().toUpperCase();
+          const rawName = String(row[columnMapping.name] || '').trim();
           
-          if (selectedImportWarehouse !== 'Ninguna') {
-            updatedBodegas[selectedImportWarehouse] = (updatedBodegas[selectedImportWarehouse] || 0) + rawStock;
+          if (!rawSku || !rawName) {
+            errorCount++;
+            continue;
           }
           
-          const consolidatedQty = Object.values(updatedBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
+          const rawCategory = columnMapping.category ? String(row[columnMapping.category] || '').trim() : 'General';
+          const rawPrice = columnMapping.price ? parseFloat(row[columnMapping.price]) || 0 : 0;
+          const rawStock = columnMapping.stock ? parseFloat(row[columnMapping.stock]) || 0 : 0;
           
-          const productRef = doc(db, 'inventory', existing.id);
-          await updateDoc(productRef, {
-            bodegas: updatedBodegas,
-            quantity: consolidatedQty,
-            price: rawPrice > 0 ? rawPrice : (existing.price || 0)
-          });
-        } else {
-          const data = {
-            sku: rawSku,
-            name: rawName,
-            category: rawCategory || 'General',
-            price: rawPrice,
-            quantity: rawStock,
-            bodegas: bodegasData,
-            createdAt: new Date().toISOString()
-          };
-          await addDoc(inventoryQuery, data);
+          const existing = inventory?.find((p: any) => p.sku === rawSku);
+          
+          if (existing) {
+            const existingBodegas = existing.bodegas || {};
+            const updatedBodegas = { ...existingBodegas };
+            
+            // Asegurar que todas las bodegas activas existan en el mapa de este producto
+            whNames.forEach(wh => {
+              if (updatedBodegas[wh] === undefined) {
+                updatedBodegas[wh] = 0;
+              }
+            });
+            
+            // Asignar y sumar existencias a la bodega de importación
+            if (selectedImportWarehouse !== 'Ninguna') {
+              updatedBodegas[selectedImportWarehouse] = (updatedBodegas[selectedImportWarehouse] || 0) + rawStock;
+            }
+            
+            const consolidatedQty = Object.values(updatedBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
+            
+            const productRef = doc(db, 'inventory', existing.id);
+            batch.update(productRef, {
+              bodegas: updatedBodegas,
+              quantity: consolidatedQty,
+              price: rawPrice > 0 ? rawPrice : (existing.price || 0)
+            });
+          } else {
+            const bodegasData: Record<string, number> = {};
+            // Inicializar todas las bodegas en 0 para mantener catálogo uniforme
+            whNames.forEach(wh => {
+              bodegasData[wh] = 0;
+            });
+            
+            // Asignar existencias a la bodega seleccionada
+            if (selectedImportWarehouse !== 'Ninguna') {
+              bodegasData[selectedImportWarehouse] = rawStock;
+            }
+            
+            const consolidatedQty = Object.values(bodegasData).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
+            
+            const newDocRef = doc(collection(db, 'inventory'));
+            batch.set(newDocRef, {
+              sku: rawSku,
+              name: rawName,
+              category: rawCategory || 'General',
+              price: rawPrice,
+              quantity: consolidatedQty,
+              bodegas: bodegasData,
+              createdAt: new Date().toISOString()
+            });
+          }
+          importedCount++;
         }
         
-        importedCount++;
-        setBulkImportProgress(Math.round(((i + 1) / bulkRows.length) * 100));
+        await batch.commit();
+        setBulkImportProgress(Math.min(100, Math.round(((i + chunk.length) / bulkRows.length) * 100)));
       }
       
       toast({
         title: "Carga Masiva Completada",
-        description: `Se procesaron exitosamente ${importedCount} productos.`
+        description: `Se procesaron exitosamente ${importedCount} productos y se asignaron a todas las bodegas con stock inicial cargado.`
       });
       
       setBulkFile(null);
@@ -371,7 +397,8 @@ export default function InventoryMasterPage() {
       setBulkRows([]);
       if (bulkFileInputRef.current) bulkFileInputRef.current.value = '';
     } catch (err) {
-      toast({ variant: "destructive", title: "Error en la importación", description: "Ocurrió un error al procesar el lote." });
+      console.error(err);
+      toast({ variant: "destructive", title: "Error en la importación", description: "Ocurrió un error al procesar el lote en la base de datos." });
     } finally {
       setBulkImporting(false);
       setBulkImportProgress(0);

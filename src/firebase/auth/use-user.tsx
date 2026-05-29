@@ -3,8 +3,48 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { useAuth, useFirestore } from '../provider';
+
+export const ROLE_PERMISSIONS: Record<string, string[]> = {
+  admin: [
+    'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
+    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management'
+  ],
+  gerencia: [
+    'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
+    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management'
+  ],
+  encargado: [
+    'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
+    'transfers', 'orders', 'customers', 'inventory', 'institutional'
+  ],
+  sub_encargado: [
+    'purchases', 'suppliers', 'quotations', 'transfers', 'orders', 'customers', 'inventory'
+  ],
+  bodeguero: [
+    'inventory', 'transfers', 'orders'
+  ],
+  cajero: [
+    'billing', 'orders', 'customers'
+  ],
+  vendedor: [
+    'billing', 'quotations', 'orders', 'customers'
+  ],
+  motociclista: [
+    'transfers', 'orders'
+  ],
+  pedidos: [
+    'orders'
+  ]
+};
+
+export function hasPermission(role: string | null | undefined, moduleId: string): boolean {
+  if (!role) return false;
+  if (role === 'admin' || role === 'gerencia') return true;
+  const allowed = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS['pedidos'];
+  return allowed.includes(moduleId);
+}
 
 interface UserContextType {
   user: User | null;
@@ -65,7 +105,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           setRole(currentRole);
         } else {
           // Auto-seed
-          const defaultRole = isAdminEmail ? 'admin' : 'pedidos';
+          let defaultRole = isAdminEmail ? 'admin' : 'pedidos';
+
+          if (currUser.email) {
+            try {
+              const preassignedDocRef = doc(db, 'users', 'email:' + currUser.email.toLowerCase());
+              const preassignedSnap = await getDoc(preassignedDocRef);
+              if (preassignedSnap.exists()) {
+                const preassignedData = preassignedSnap.data();
+                if (preassignedData && preassignedData.role) {
+                  defaultRole = preassignedData.role;
+                }
+                // Delete the preassigned temporary document
+                await deleteDoc(preassignedDocRef);
+              }
+            } catch (err) {
+              console.error('Error checking pre-assigned role:', err);
+            }
+          }
+
           await setDoc(userDocRef, {
             uid: currUser.uid,
             email: currUser.email,
@@ -90,7 +148,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
   }, [auth, db]);
 
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'gerencia';
 
   return (
     <UserContext.Provider value={{ user, role, isAdmin, loading }}>

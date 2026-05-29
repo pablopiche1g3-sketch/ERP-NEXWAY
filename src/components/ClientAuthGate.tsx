@@ -1,9 +1,24 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useUser } from '@/firebase';
+import { useUser, ROLE_PERMISSIONS } from '@/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+
+const ROUTE_TO_MODULE: Record<string, string> = {
+  '/billing': 'billing',
+  '/accounting': 'accounting',
+  '/purchases': 'purchases',
+  '/suppliers': 'suppliers',
+  '/quedan': 'quedan',
+  '/quotations': 'quotations',
+  '/transfers': 'transfers',
+  '/orders': 'orders',
+  '/customers': 'customers',
+  '/inventory': 'inventory',
+  '/institutional': 'institutional',
+  '/management': 'management',
+};
 
 export function ClientAuthGate({ children }: { children: React.ReactNode }) {
   const { user, role, isAdmin, loading } = useUser();
@@ -21,9 +36,21 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     }
 
     // Role-based route gating
-    // If not admin, the only allowed pages are / and /orders.
-    if (!isAdmin && pathname !== '/' && pathname !== '/orders' && pathname !== '/login') {
-      router.push('/');
+    if (pathname !== '/' && pathname !== '/login') {
+      const matchingRoute = Object.keys(ROUTE_TO_MODULE).find(route => 
+        pathname === route || pathname.startsWith(route + '/')
+      );
+      const moduleId = matchingRoute ? ROUTE_TO_MODULE[matchingRoute] : null;
+
+      if (moduleId) {
+        if (!isAdmin && (!role || !ROLE_PERMISSIONS[role]?.includes(moduleId))) {
+          router.push('/');
+        }
+      } else {
+        if (!isAdmin) {
+          router.push('/');
+        }
+      }
     }
   }, [user, role, isAdmin, loading, pathname, router]);
 
@@ -46,8 +73,16 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     return null; // Will redirect in useEffect
   }
 
-  if (!isAdmin && pathname !== '/' && pathname !== '/orders') {
-    return null; // Will redirect in useEffect
+  // Double render gate check for non-admin on forbidden subpaths or modules
+  if (pathname !== '/' && pathname !== '/login' && !isAdmin) {
+    const matchingRoute = Object.keys(ROUTE_TO_MODULE).find(route => 
+      pathname === route || pathname.startsWith(route + '/')
+    );
+    const moduleId = matchingRoute ? ROUTE_TO_MODULE[matchingRoute] : null;
+
+    if (!moduleId || (!role || !ROLE_PERMISSIONS[role]?.includes(moduleId))) {
+      return null; // Will redirect in useEffect
+    }
   }
 
   return <>{children}</>;
