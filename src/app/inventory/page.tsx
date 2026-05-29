@@ -22,7 +22,9 @@ import {
   Hash,
   ArrowRight,
   Upload,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ClipboardList,
+  Save
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -759,6 +761,12 @@ export default function InventoryMasterPage() {
             </TabsTrigger>
             <TabsTrigger value="maestro" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
               <Tag size={14} className="mr-2" /> Maestro
+            </TabsTrigger>
+            <TabsTrigger value="kardex" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <History size={14} className="mr-2" /> Kardex de Almacén
+            </TabsTrigger>
+            <TabsTrigger value="toma-fisica" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <ClipboardList size={14} className="mr-2" /> Toma Física
             </TabsTrigger>
             <TabsTrigger value="carga-masiva" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
               <FileSpreadsheet size={14} className="mr-2" /> Carga Masiva (Excel)
@@ -1754,6 +1762,250 @@ export default function InventoryMasterPage() {
                         </TableBody>
                       </Table>
                     </ScrollArea>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* TAB KARDEX DE ALMACEN */}
+            <TabsContent value="kardex" className="space-y-6 outline-none animate-in fade-in duration-300">
+              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+                <CardHeader className="p-6 border-b">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <History className="text-blue-600" size={18} />
+                    Kardex del Inventario (Historial de Movimientos)
+                  </CardTitle>
+                  <CardDescription className="text-xs">Consulte las transacciones de entrada, salida y ajustes de stock en tiempo real.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="p-6 flex gap-4 border-b">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <Input 
+                        placeholder="Buscar por SKU o descripción..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 h-11 bg-slate-50 border-slate-100 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  <Table>
+                    <TableHeader className="bg-slate-50 dark:bg-muted/50">
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase px-6">Fecha</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Código SKU</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Tipo Movimiento</TableHead>
+                        <TableHead className="text-center text-[10px] font-black uppercase">Cantidad</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase">Stock Consolidado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs">
+                            No se encontraron registros de inventario para este filtro.
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredItems.map((item: any) => (
+                        <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                          <TableCell className="px-6 text-[11px] font-mono text-slate-400">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleString('es-SV') : new Date().toLocaleString('es-SV')}
+                          </TableCell>
+                          <TableCell className="font-mono font-bold text-xs text-slate-700 dark:text-foreground">{item.sku}</TableCell>
+                          <TableCell className="font-bold text-xs">{item.name}</TableCell>
+                          <TableCell>
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[9px] font-bold">
+                              CARGA INICIAL / INGRESO
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center font-bold text-emerald-600 text-xs">+{item.quantity || 0}</TableCell>
+                          <TableCell className="text-right font-black text-xs px-6">${(item.price || 0).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* TAB TOMA FISICA */}
+            <TabsContent value="toma-fisica" className="space-y-6 outline-none animate-in fade-in duration-300">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-5 space-y-4">
+                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+                    <CardHeader className="p-6 border-b">
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        <ClipboardList className="text-blue-600" size={18} />
+                        Registro de Toma Física
+                      </CardTitle>
+                      <CardDescription className="text-xs">Realice ajustes y corrección de stock tras inventarios físicos.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Bodega de Ajuste</Label>
+                        <Select 
+                          value={linkForm.warehouseName}
+                          onValueChange={(val) => setLinkForm({ ...linkForm, warehouseName: val })}
+                        >
+                          <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                            <SelectValue placeholder="Seleccione bodega..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {warehouses?.map((wh: any) => (
+                              <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Seleccionar Producto (SKU)</Label>
+                        <Select 
+                          value={linkForm.productSku}
+                          onValueChange={(val) => {
+                            const prod = inventory?.find((p: any) => p.sku === val);
+                            const systemStock = prod?.quantity || 0;
+                            setLinkForm({ 
+                              ...linkForm, 
+                              productSku: val,
+                              initialStock: systemStock.toString()
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                            <SelectValue placeholder="Seleccione producto..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {inventory?.map((p: any) => (
+                              <SelectItem key={p.id} value={p.sku}>{p.sku} - {p.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Stock Sistema</Label>
+                          <Input 
+                            type="number" 
+                            disabled 
+                            value={linkForm.productSku ? (inventory?.find((p: any) => p.sku === linkForm.productSku)?.quantity || 0) : 0}
+                            className="h-11 bg-slate-100 rounded-xl font-bold border-none"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Conteo Físico</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            value={linkForm.initialStock}
+                            onChange={(e) => setLinkForm({ ...linkForm, initialStock: e.target.value })}
+                            className="h-11 bg-slate-50 border-slate-100 rounded-xl font-black text-blue-600 text-lg"
+                          />
+                        </div>
+                      </div>
+
+                      {linkForm.productSku && (
+                        <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl text-xs space-y-2 animate-in fade-in slide-in-from-top-2">
+                          <div className="flex justify-between font-bold">
+                            <span className="text-slate-500">Diferencia de Ajuste:</span>
+                            {(() => {
+                              const sys = inventory?.find((p: any) => p.sku === linkForm.productSku)?.quantity || 0;
+                              const count = parseFloat(linkForm.initialStock) || 0;
+                              const diff = count - sys;
+                              return (
+                                <span className={diff === 0 ? 'text-slate-700' : diff > 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                                  {diff > 0 ? `+${diff}` : diff} unidades
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          <p className="text-[10px] text-slate-400 italic">El stock consolidado del producto y su bodega seleccionada se ajustarán automáticamente al valor del conteo físico al guardar.</p>
+                        </div>
+                      )}
+
+                      <Button 
+                        onClick={handleLinkProductToWarehouse}
+                        disabled={loading || !linkForm.warehouseName || !linkForm.productSku}
+                        className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all mt-2"
+                      >
+                        {loading ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
+                        APLICAR TOMA FÍSICA
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="lg:col-span-7">
+                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                    <CardHeader className="p-6 border-b">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Warehouse className="text-blue-600" size={18} />
+                        Consulta General de Bodegas
+                      </CardTitle>
+                      <CardDescription className="text-xs">Vea la distribución de existencias físicas en sus diferentes almacenes.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="p-4 border-b flex items-center gap-4 bg-slate-50 dark:bg-muted/10">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Filtrar por Bodega:</span>
+                        <Select value={selectedWhView} onValueChange={setSelectedWhView}>
+                          <SelectTrigger className="w-[180px] h-9 bg-white dark:bg-slate-900 border-slate-200 text-xs font-bold rounded-lg shadow-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Todas">Todas las Bodegas</SelectItem>
+                            {warehouses?.map((w: any) => (
+                              <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-[10px] font-black uppercase px-6">Código SKU</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase">Nombre</TableHead>
+                            <TableHead className="text-center text-[10px] font-black uppercase">Stock Bodega</TableHead>
+                            <TableHead className="text-right text-[10px] font-black uppercase px-6">Acción</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {productsInSelectedWarehouse.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center py-16 text-slate-400 italic text-xs">
+                                No hay productos asignados a esta bodega.
+                              </TableCell>
+                            </TableRow>
+                          ) : productsInSelectedWarehouse.map((p: any) => {
+                            const whQty = selectedWhView === 'Todas' ? (p.quantity || 0) : (p.bodegas?.[selectedWhView] || 0);
+                            return (
+                              <TableRow key={p.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                                <TableCell className="px-6 font-mono font-bold text-xs">{p.sku}</TableCell>
+                                <TableCell className="font-bold text-xs">{p.name}</TableCell>
+                                <TableCell className="text-center">
+                                  <Badge className={whQty > 0 ? 'bg-blue-50 text-blue-700' : 'bg-rose-50 text-rose-700'}>
+                                    {whQty} unidades
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right px-6">
+                                  {selectedWhView !== 'Todas' && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-[10px]"
+                                      onClick={() => handleUnlinkProductFromWarehouse(p.id, selectedWhView)}
+                                    >
+                                      Remover de Bodega
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
                   </Card>
                 </div>
               </div>
