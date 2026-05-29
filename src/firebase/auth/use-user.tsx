@@ -119,8 +119,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 // Delete the preassigned temporary document
                 await deleteDoc(preassignedDocRef);
               }
-            } catch (err) {
-              console.error('Error checking pre-assigned role:', err);
+            } catch (err: any) {
+              if (err.message?.includes('offline') || err.code === 'unavailable') {
+                console.warn('Error checking pre-assigned role (client is offline):', err);
+              } else {
+                console.error('Error checking pre-assigned role:', err);
+              }
             }
           }
 
@@ -134,7 +138,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
         setLoading(false);
       }, (error) => {
-        console.error('Error fetching user role:', error);
+        if (error.message?.includes('offline') || error.code === 'unavailable') {
+          console.warn('Firestore is offline, using fallback role:', error);
+        } else {
+          console.error('Error fetching user role:', error);
+        }
         // Fallback based on email if document access fails
         const defaultRole = isAdminEmail ? 'admin' : 'pedidos';
         setRole(defaultRole);
