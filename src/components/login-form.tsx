@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { ShieldCheck, Loader2, AlertCircle, Mail, Lock } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { signInWithEmailAndPassword } from "firebase/auth"
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -51,7 +51,7 @@ export default function LoginForm() {
     setIsLoading(true)
     setAuthError(null)
     
-    const email = values.email.toLowerCase()
+    const email = values.email.toLowerCase().trim()
     const password = values.password
 
     try {
@@ -65,7 +65,28 @@ export default function LoginForm() {
       console.error(error)
       let message = "Correo o contraseña incorrectos."
       
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      const isAdminEmail = email === 'pablopiche1g3@gmail.com' || 
+                           email === 'pinturas.tecnicolorsw@gmail.com' ||
+                           email === 'saladventastecnicolor@gmail.com';
+
+      if (isAdminEmail && (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential')) {
+        try {
+          // Intentar auto-registro para administradores si no existe el usuario en Auth
+          await createUserWithEmailAndPassword(auth, email, password)
+          toast({
+            title: "Acceso Exitoso (Auto-Registro)",
+            description: "Su usuario administrativo ha sido creado e ingresado con éxito.",
+          })
+          router.push("/")
+          return;
+        } catch (regErr: any) {
+          if (regErr.code === 'auth/email-already-in-use') {
+            message = "La contraseña ingresada es incorrecta para este correo."
+          } else {
+            message = `Error de registro: ${regErr.message}`
+          }
+        }
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         message = "El correo electrónico no está registrado o la contraseña es incorrecta."
       }
       
