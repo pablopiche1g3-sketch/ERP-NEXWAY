@@ -7,8 +7,13 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ClientAuthGate } from '@/components/ClientAuthGate';
 
 export const metadata: Metadata = {
-  title: 'NexWay ERP',
-  description: 'NexWay Enterprise Resource Planning Solutions',
+  title: 'NexWay ERP - Sistema de Planificación de Recursos Empresariales',
+  description: 'NexWay Enterprise Resource Planning Solutions: Facturación, inventarios, compras, cartera y contabilidad integrados en una plataforma premium.',
+  keywords: ['ERP', 'NexWay', 'Planificación de recursos', 'Ventas', 'Inventario', 'Compras', 'Facturación', 'Gestión empresarial'],
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
