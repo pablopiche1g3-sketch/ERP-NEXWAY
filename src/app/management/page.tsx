@@ -421,7 +421,10 @@ export default function ManagementPage() {
                         <Select 
                           value={usr.role || 'pedidos'} 
                           onValueChange={(val) => handleChangeRole(usr.id, val)}
-                          disabled={isSaving || usr.email === 'pablopiche1g3@gmail.com' || usr.email === 'pinturas.tecnicolorsw@gmail.com'}
+                          disabled={isSaving || 
+                                    usr.email === 'pablopiche1g3@gmail.com' || 
+                                    usr.email === 'pinturas.tecnicolorsw@gmail.com' ||
+                                    usr.email === 'saladventastecnicolor@gmail.com'}
                         >
                           <SelectTrigger className="w-[180px] h-10 bg-muted border-none rounded-xl text-xs font-bold">
                             <SelectValue />
@@ -439,7 +442,9 @@ export default function ManagementPage() {
                           </SelectContent>
                         </Select>
 
-                        {usr.email !== 'pablopiche1g3@gmail.com' && usr.email !== 'pinturas.tecnicolorsw@gmail.com' && (
+                        {usr.email !== 'pablopiche1g3@gmail.com' && 
+                         usr.email !== 'pinturas.tecnicolorsw@gmail.com' && 
+                         usr.email !== 'saladventastecnicolor@gmail.com' && (
                           <Button 
                             variant="ghost" 
                             size="icon"

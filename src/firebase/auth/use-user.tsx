@@ -85,7 +85,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       setUser(currUser);
 
-      const isAdminEmail = currUser.email?.toLowerCase() === 'pablopiche1g3@gmail.com' || currUser.email?.toLowerCase() === 'pinturas.tecnicolorsw@gmail.com';
+      const isAdminEmail = currUser.email?.toLowerCase() === 'pablopiche1g3@gmail.com' || 
+                           currUser.email?.toLowerCase() === 'pinturas.tecnicolorsw@gmail.com' ||
+                           currUser.email?.toLowerCase() === 'saladventastecnicolor@gmail.com';
 
       // Listen to role reactively from /users/{uid}
       const userDocRef = doc(db, 'users', currUser.uid);
