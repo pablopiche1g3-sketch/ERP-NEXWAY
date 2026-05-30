@@ -139,6 +139,14 @@ export default function BillingPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [journalPayments, setJournalPayments] = useState<any[]>([]);
+
+  // Estados para nuevo abono
+  const [selectedSaleForAbono, setSelectedSaleForAbono] = useState<any | null>(null);
+  const [abonoAmount, setAbonoAmount] = useState<string>('');
+  const [abonoPaymentMethod, setAbonoPaymentMethod] = useState<string>('Efectivo');
+  const [abonoNotes, setAbonoNotes] = useState<string>('');
+  const [isRegisteringAbono, setIsRegisteringAbono] = useState<boolean>(false);
 
   // Función para cargar todos los datos requeridos de forma reactiva
   const loadBillingData = async () => {
@@ -170,6 +178,14 @@ export default function BillingPage() {
         paymentMethod: s.payment_method || 'Efectivo',
         customer: s.customer_name || 'Consumidor Final'
       })));
+
+      // Cargar abonos realizados registrados en el diario contable
+      const { data: jData } = await supabase
+        .from('journal')
+        .select('*')
+        .eq('type', 'Ingreso')
+        .like('description', 'Abono a Crédito [%');
+      setJournalPayments(jData || []);
 
       // Cargar catálogo de inventario maestro y stock
       const { data: invData } = await supabase.from('inventory').select('*').order('sku');
@@ -216,6 +232,68 @@ export default function BillingPage() {
   useEffect(() => {
     loadBillingData();
   }, []);
+
+  const handleRegisterAbono = async () => {
+    if (!selectedSaleForAbono || !abonoAmount || parseFloat(abonoAmount) <= 0) {
+      toast({ variant: "destructive", title: "Datos inválidos", description: "Ingrese un monto válido." });
+      return;
+    }
+
+    const amt = parseFloat(abonoAmount);
+    const saleTotal = selectedSaleForAbono.total;
+    
+    const prevPaid = journalPayments
+      ?.filter(j => j.description.includes(`[${selectedSaleForAbono.correlative}]`))
+      .reduce((sum, j) => sum + (parseFloat(j.amount) || 0), 0) || 0;
+      
+    const currentBalance = saleTotal - prevPaid;
+
+    if (amt > currentBalance + 0.01) {
+      toast({ 
+        variant: "destructive", 
+        title: "Monto Excedido", 
+        description: `El abono de $${amt.toFixed(2)} supera el saldo pendiente de $${currentBalance.toFixed(2)}.` 
+      });
+      return;
+    }
+
+    setIsRegisteringAbono(true);
+    try {
+      const { error: journalErr } = await supabase
+        .from('journal')
+        .insert({
+          description: `Abono a Crédito [${selectedSaleForAbono.correlative}] - Cliente: ${selectedSaleForAbono.customer}`,
+          type: 'Ingreso',
+          amount: amt
+        });
+
+      if (journalErr) throw journalErr;
+
+      const newBalance = currentBalance - amt;
+      if (newBalance <= 0.01) {
+        const { error: saleUpdateErr } = await supabase
+          .from('sales')
+          .update({ status: 'ACTIVA' })
+          .eq('id', selectedSaleForAbono.id);
+
+        if (saleUpdateErr) throw saleUpdateErr;
+        
+        toast({ title: "¡Crédito Cancelado!", description: `La factura ${selectedSaleForAbono.correlative} ha sido pagada en su totalidad.` });
+      } else {
+        toast({ title: "Abono Registrado", description: `Se abonó $${amt.toFixed(2)} a la factura ${selectedSaleForAbono.correlative}. Saldo restante: $${newBalance.toFixed(2)}.` });
+      }
+
+      setSelectedSaleForAbono(null);
+      setAbonoAmount('');
+      setAbonoNotes('');
+      await loadBillingData();
+    } catch (err: any) {
+      console.error('Error al registrar abono:', err);
+      toast({ variant: "destructive", title: "Error al registrar", description: err.message || "Ocurrió un error inesperado." });
+    } finally {
+      setIsRegisteringAbono(false);
+    }
+  };
 
   // Filters
   const filteredProducts = useMemo(() => {
@@ -555,6 +633,9 @@ export default function BillingPage() {
             </TabsTrigger>
             <TabsTrigger value="arqueo" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
               <Calculator size={14} className="mr-2" /> Arqueo / Cierre
+            </TabsTrigger>
+            <TabsTrigger value="creditos" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+              <Wallet size={14} className="mr-2" /> Créditos / Abonos
             </TabsTrigger>
           </TabsList>
 
@@ -1172,6 +1253,135 @@ export default function BillingPage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* TAB CRÉDITOS / ABONOS */}
+          <TabsContent value="creditos" className="space-y-6 outline-none">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
+              {/* Cuentas por Cobrar / Ventas al Crédito */}
+              <div className="lg:col-span-8 space-y-4">
+                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border-slate-100 dark:border-border">
+                  <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-black flex items-center gap-2">
+                        <Wallet size={18} className="text-indigo-400" /> Cuentas por Cobrar (Créditos Activos)
+                      </CardTitle>
+                      <CardDescription className="text-[10px] text-slate-300 dark:text-muted-foreground mt-1">
+                        Consulte las ventas otorgadas al crédito y registre los abonos parciales de sus clientes.
+                      </CardDescription>
+                    </div>
+                    <Badge variant="outline" className="border-indigo-500 text-indigo-400 bg-indigo-950/20 font-black text-xs px-3 py-1">
+                      Pendientes: {salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE').length || 0}
+                    </Badge>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader className="bg-slate-50 dark:bg-muted/40">
+                          <TableRow className="border-b dark:border-border">
+                            <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-500 dark:text-muted-foreground">Factura / Correlativo</TableHead>
+                            <TableHead className="text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Cliente</TableHead>
+                            <TableHead className="text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Fecha Venta</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Total Venta</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Total Abonado</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Saldo Pendiente</TableHead>
+                            <TableHead className="w-24 py-3 px-6"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE').length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center py-16 text-slate-400 italic text-xs">
+                                🎉 No hay créditos pendientes de pago. ¡Todas las cuentas están al día!
+                              </TableCell>
+                            </TableRow>
+                          ) : salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE').map(s => {
+                            const totalAbonado = journalPayments
+                              ?.filter(j => j.description.includes(`[${s.correlative}]`))
+                              .reduce((sum, j) => sum + (parseFloat(j.amount) || 0), 0) || 0;
+                            
+                            const saldoPendiente = s.total - totalAbonado;
+
+                            return (
+                              <TableRow key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
+                                <TableCell className="font-mono font-bold text-xs px-6 py-4 text-slate-900 dark:text-foreground">
+                                  {s.correlative}
+                                </TableCell>
+                                <TableCell className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                                  {s.customer}
+                                </TableCell>
+                                <TableCell className="text-xs text-slate-500 dark:text-muted-foreground">
+                                  {new Date(s.timestamp).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell className="text-right font-bold text-xs text-slate-900 dark:text-foreground">
+                                  ${s.total.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-right font-black text-xs text-emerald-600 dark:text-emerald-400">
+                                  ${totalAbonado.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-right font-black text-xs text-rose-600 dark:text-rose-400">
+                                  ${saldoPendiente.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="px-6 text-right py-3">
+                                  <Button 
+                                    onClick={() => {
+                                      setSelectedSaleForAbono(s);
+                                      setAbonoAmount('');
+                                    }} 
+                                    className="h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3 flex items-center gap-1 active:scale-95 transition-all shadow-sm shadow-indigo-500/10 border-none"
+                                  >
+                                    <Coins size={12} />
+                                    Abonar
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Historial de Abonos Recientes */}
+              <div className="lg:col-span-4 space-y-4">
+                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border-slate-100 dark:border-border">
+                  <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-4 border-b dark:border-border flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <History size={16} className="text-emerald-400" /> Abonos Recientes
+                      </CardTitle>
+                      <CardDescription className="text-[10px] text-slate-300 dark:text-muted-foreground mt-1">Historial de abonos registrados el día de hoy.</CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[400px]">
+                      {journalPayments.length === 0 ? (
+                        <div className="text-center py-20 text-xs text-slate-400 italic">No hay abonos registrados recientemente.</div>
+                      ) : journalPayments.map(j => (
+                        <div key={j.id} className="p-4 border-b border-slate-50 dark:border-border/30 last:border-0 hover:bg-slate-50/50 dark:hover:bg-muted/10 transition-all flex flex-col gap-1.5">
+                          <div className="flex justify-between items-start">
+                            <span className="text-[10px] font-black text-slate-900 dark:text-foreground line-clamp-2 pr-2">
+                              {j.description}
+                            </span>
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                              +${parseFloat(j.amount).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-[9px] text-slate-400 dark:text-muted-foreground">
+                            <span>{new Date(j.created_at).toLocaleDateString()} a las {new Date(j.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            <Badge variant="outline" className="text-[8px] h-4 py-0 font-bold bg-slate-50 dark:bg-muted text-slate-500">Ingreso Caja</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -1330,6 +1540,98 @@ export default function BillingPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog>
+
+      {/* DIALOG DE REGISTRO DE ABONO */}
+      <Dialog open={selectedSaleForAbono !== null} onOpenChange={(open) => !open && setSelectedSaleForAbono(null)}>
+        {selectedSaleForAbono && (() => {
+          const totalAbonado = journalPayments
+            ?.filter(j => j.description.includes(`[${selectedSaleForAbono.correlative}]`))
+            .reduce((sum, j) => sum + (parseFloat(j.amount) || 0), 0) || 0;
+          
+          const saldoPendiente = selectedSaleForAbono.total - totalAbonado;
+
+          return (
+            <DialogContent className="rounded-3xl max-w-md p-6 bg-card border shadow-2xl border-slate-100 dark:border-border">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-black flex items-center gap-2 text-slate-900 dark:text-foreground">
+                  <Coins size={20} className="text-indigo-600 dark:text-indigo-400" /> Registrar Abono a Crédito
+                </DialogTitle>
+                <DialogDescription className="text-xs dark:text-muted-foreground">
+                  Factura: <strong>{selectedSaleForAbono.correlative}</strong> | Cliente: <strong>{selectedSaleForAbono.customer}</strong>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-xl">
+                    <span className="text-[9px] font-black uppercase text-slate-400 block">Total de Venta</span>
+                    <span className="text-sm font-black text-slate-950 dark:text-foreground">${selectedSaleForAbono.total.toFixed(2)}</span>
+                  </div>
+                  <div className="p-3 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 rounded-xl">
+                    <span className="text-[9px] font-black uppercase text-rose-500 block">Saldo Pendiente</span>
+                    <span className="text-sm font-black text-rose-600 dark:text-rose-400">${saldoPendiente.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Monto del Abono ($)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={abonoAmount}
+                    onChange={e => setAbonoAmount(e.target.value)}
+                    className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl font-black text-emerald-600 dark:text-emerald-400"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Método de Pago</Label>
+                  <Select value={abonoPaymentMethod} onValueChange={setAbonoPaymentMethod}>
+                    <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Efectivo">Efectivo</SelectItem>
+                      <SelectItem value="Tarjeta">Tarjeta de Crédito / Débito</SelectItem>
+                      <SelectItem value="Transferencia">Transferencia Bancaria</SelectItem>
+                      <SelectItem value="Cheque">Cheque</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Notas del Abono</Label>
+                  <Textarea 
+                    placeholder="Referencia de pago, detalles..." 
+                    value={abonoNotes}
+                    onChange={e => setAbonoNotes(e.target.value)}
+                    className="bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs text-foreground"
+                    rows={2}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <div className="flex gap-3 w-full">
+                  <Button 
+                    variant="outline"
+                    className="flex-1 h-11 rounded-xl text-xs font-bold border-slate-200 dark:border-border text-foreground bg-white dark:bg-card" 
+                    onClick={() => setSelectedSaleForAbono(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    className="flex-1 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg shadow-indigo-500/20 active:scale-95 transition-all border-none" 
+                    onClick={handleRegisterAbono}
+                    disabled={isRegisteringAbono || !abonoAmount}
+                  >
+                    {isRegisteringAbono ? <Loader2 className="animate-spin mr-1.5" size={12} /> : null}
+                    Registrar Abono
+                  </Button>
+                </div>
+              </DialogFooter>
+            </DialogContent>
+          );
+        })()}
       </Dialog>
     </div>
   );
