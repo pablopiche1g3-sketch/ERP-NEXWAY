@@ -35,8 +35,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useFirestore, useCollection, useUser, getTenantName, collection, doc } from '@/firebase';
-import { addDoc, updateDoc, query, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useUser, getTenantName } from '@/firebase';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,24 +55,105 @@ interface OrderItem {
 }
 
 export default function OrdersPage() {
-  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'interno' | 'externo' | 'cargar-codigos'>('interno');
   const [loading, setLoading] = useState(false);
 
-  // Consultas Estables de Colecciones
-  const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
-  const warehousesQuery = useMemo(() => collection(db, 'warehouses'), [db]);
-  const suppliersQuery = useMemo(() => collection(db, 'suppliers'), [db]);
-  const internalOrdersQuery = useMemo(() => collection(db, 'internal_orders'), [db]);
-  const supplierOrdersQuery = useMemo(() => collection(db, 'supplier_orders'), [db]);
+  // Estados locales para datos de Supabase
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [loadingInv, setLoadingInv] = useState(true);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [internalOrders, setInternalOrders] = useState<any[]>([]);
+  const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
 
-  const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryQuery);
-  const { data: warehouses } = useCollection<any>(warehousesQuery);
-  const { data: suppliers } = useCollection<any>(suppliersQuery);
-  const { data: internalOrders } = useCollection<any>(internalOrdersQuery);
-  const { data: supplierOrders } = useCollection<any>(supplierOrdersQuery);
+  const loadData = async () => {
+    try {
+      setLoadingInv(true);
+      // 1. Cargar bodegas
+      const { data: whData } = await supabase.from('warehouses').select('*').order('name');
+      setWarehouses(whData || []);
+
+      // 2. Cargar proveedores
+      const { data: supData } = await supabase.from('suppliers').select('*').order('name');
+      setSuppliers(supData || []);
+
+      // 3. Cargar pedidos internos
+      const { data: intData } = await supabase.from('internal_orders').select('*').order('created_at', { ascending: false });
+      setInternalOrders((intData || []).map(o => ({
+        id: o.id,
+        code: o.code,
+        sourceWarehouse: o.source_warehouse,
+        destinationWarehouse: o.destination_warehouse,
+        requestedBy: o.requested_by,
+        items: o.items,
+        status: o.status,
+        createdAt: o.created_at
+      })));
+
+      // 4. Cargar pedidos a proveedores
+      const { data: extData } = await supabase.from('supplier_orders').select('*').order('created_at', { ascending: false });
+      setSupplierOrders((extData || []).map(o => ({
+        id: o.id,
+        code: o.code,
+        supplier: o.supplier_name,
+        destinationWarehouse: o.destination_warehouse,
+        requestedBy: o.requested_by,
+        items: o.items,
+        total: parseFloat(o.total) || 0,
+        status: o.status,
+        createdAt: o.created_at,
+        supplierEmail: o.supplier_email,
+        fromEmail: o.from_email,
+        authorizedBy: o.authorized_by,
+        digitizedBy: o.digitized_by,
+        supplierPhone: o.supplier_phone
+      })));
+
+      // 5. Cargar inventario y stock relacional
+      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
+      const { data: stockData } = await supabase.from('inventory_stock').select('*');
+
+      const whMap: Record<string, string> = {};
+      (whData || []).forEach(w => {
+        whMap[w.id] = w.name;
+      });
+
+      const mappedInventory = (invData || []).map(item => {
+        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
+        const bodegasMap: Record<string, number> = {};
+        itemStocks.forEach(s => {
+          const whName = whMap[s.warehouse_id];
+          if (whName) {
+            bodegasMap[whName] = parseFloat(s.quantity) || 0;
+          }
+        });
+
+        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
+
+        return {
+          id: item.sku,
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          price: parseFloat(item.price) || 0,
+          quantity: totalQty,
+          bodegas: bodegasMap
+        };
+      });
+
+      setInventory(mappedInventory);
+    } catch (e) {
+      console.error("Error cargando datos en pedidos:", e);
+    } finally {
+      setLoadingInv(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   // --- BULK CODES UPLOAD STATES ---
   const [bulkCodes, setBulkCodes] = useState<{ sku: string; name: string }[]>([]);
@@ -375,41 +456,41 @@ export default function OrdersPage() {
     let skippedCount = 0;
 
     try {
-      // Chunk the array into sizes of 500 (Firestore batch limit)
-      const chunkSize = 500;
-      for (let i = 0; i < bulkCodes.length; i += chunkSize) {
-        const chunk = bulkCodes.slice(i, i + chunkSize);
-        const batch = writeBatch(db);
-        
-        for (const item of chunk) {
-          const exists = inventory?.some((p: any) => p.sku === item.sku);
-          if (!exists) {
-            // Using auto-id reference
-            const newDocRef = doc(collection(db, 'inventory'));
-            batch.set(newDocRef, {
-              sku: item.sku,
-              name: item.name,
-              category: 'General',
-              price: 0,
-              quantity: 0,
-              bodegas: {},
-              createdAt: new Date().toISOString()
-            });
-            createdCount++;
-          } else {
-            skippedCount++;
-          }
+      const itemsToInsert: any[] = [];
+      const stockToInsert: any[] = [];
+
+      for (const item of bulkCodes) {
+        const exists = inventory?.some((p: any) => p.sku === item.sku);
+        if (!exists) {
+          itemsToInsert.push({
+            sku: item.sku,
+            name: item.name,
+            category: 'General',
+            price: 0
+          });
+          createdCount++;
+        } else {
+          skippedCount++;
         }
-        try {
-          await Promise.race([
-            batch.commit(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
-          ]);
-        } catch (err: any) {
-          if (err.message === 'timeout') {
-            console.warn('El registro masivo se guardó localmente en caché debido a conexión offline.');
-          } else {
-            throw err;
+      }
+
+      if (itemsToInsert.length > 0) {
+        const { error } = await supabase.from('inventory').insert(itemsToInsert);
+        if (error) throw error;
+
+        // Crear existencias iniciales en 0 para cada bodega para los nuevos productos
+        if (warehouses && warehouses.length > 0) {
+          for (const newItem of itemsToInsert) {
+            for (const wh of warehouses) {
+              stockToInsert.push({
+                sku: newItem.sku,
+                warehouse_id: wh.id,
+                quantity: 0
+              });
+            }
+          }
+          if (stockToInsert.length > 0) {
+            await supabase.from('inventory_stock').insert(stockToInsert);
           }
         }
       }
@@ -419,6 +500,7 @@ export default function OrdersPage() {
         description: `Se registraron ${createdCount} códigos nuevos rápidamente. Se omitieron ${skippedCount} códigos que ya existían.` 
       });
       setBulkCodes([]);
+      await loadData();
     } catch (err) {
       console.error(err);
       toast({ variant: "destructive", title: "Error", description: "Ocurrió un error al registrar los códigos en la base de datos." });
@@ -495,27 +577,41 @@ export default function OrdersPage() {
       for (const item of intItems) {
         const exists = inventory?.some((p: any) => p.sku === item.sku);
         if (!exists) {
-          await addDoc(collection(db, 'inventory'), {
+          await supabase.from('inventory').insert({
             sku: item.sku,
             name: item.name,
             category: 'General',
-            price: 0,
-            quantity: 0,
-            bodegas: {},
-            createdAt: new Date().toISOString()
+            price: 0
           });
+          
+          const whOrigen = warehouses.find(w => w.name === intSourceWh);
+          const whDestino = warehouses.find(w => w.name === intDestWh);
+          
+          if (whOrigen) {
+            await supabase.from('inventory_stock').insert({
+              sku: item.sku,
+              warehouse_id: whOrigen.id,
+              quantity: 0
+            });
+          }
+          if (whDestino) {
+            await supabase.from('inventory_stock').insert({
+              sku: item.sku,
+              warehouse_id: whDestino.id,
+              quantity: 0
+            });
+          }
         }
       }
 
       const orderCode = `REQ-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-      await addDoc(internalOrdersQuery, {
+      await supabase.from('internal_orders').insert({
         code: orderCode,
-        sourceWarehouse: intSourceWh,
-        destinationWarehouse: intDestWh,
-        requestedBy: intRequestedBy,
+        source_warehouse: intSourceWh,
+        destination_warehouse: intDestWh,
+        requested_by: intRequestedBy,
         items: intItems,
-        status: 'PENDIENTE',
-        createdAt: new Date().toISOString()
+        status: 'PENDIENTE'
       });
 
       toast({ title: "Requisición Enviada", description: `Se ha registrado el pedido ${orderCode} de forma exitosa y se han integrado los códigos al sistema.` });
@@ -523,7 +619,9 @@ export default function OrdersPage() {
       setIntRequestedBy('');
       setIntSourceWh('');
       setIntDestWh('');
+      await loadData();
     } catch (err) {
+      console.error(err);
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el pedido interno." });
     } finally {
       setLoading(false);
@@ -533,43 +631,60 @@ export default function OrdersPage() {
   const handleUpdateInternalStatus = async (orderId: string, currentStatus: string, nextStatus: 'DESPACHADO' | 'RECIBIDO') => {
     setLoading(true);
     try {
-      const orderRef = doc(db, 'internal_orders', orderId);
       const order = internalOrders.find((o: any) => o.id === orderId);
 
       if (nextStatus === 'RECIBIDO') {
         // --- PROCESAR LOGICA DE INVENTARIO MULTIBODEGA ---
         // 1. Restar stock de la bodega origen
         // 2. Sumar stock en la bodega destino
+        const whOrigen = warehouses.find(w => w.name === order.sourceWarehouse);
+        const whDestino = warehouses.find(w => w.name === order.destinationWarehouse);
+
+        if (!whOrigen || !whDestino) {
+          toast({ variant: "destructive", title: "Error de bodegas", description: "No se encontraron las bodegas de origen o destino." });
+          setLoading(false);
+          return;
+        }
+
         for (const item of order.items) {
-          const product = inventory.find((p: any) => p.sku === item.sku);
-          if (product) {
-            const productRef = doc(db, 'inventory', product.id);
-            const currentBodegas = product.bodegas || {};
-            
-            const sourceStock = currentBodegas[order.sourceWarehouse] || 0;
-            const destStock = currentBodegas[order.destinationWarehouse] || 0;
+          // Restar stock de origen
+          const { data: stockOrig } = await supabase
+            .from('inventory_stock')
+            .select('*')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', whOrigen.id)
+            .maybeSingle();
 
-            const updatedBodegas = {
-              ...currentBodegas,
-              [order.sourceWarehouse]: Math.max(0, sourceStock - item.quantity),
-              [order.destinationWarehouse]: destStock + item.quantity
-            };
+          const currentOrigQty = stockOrig ? parseFloat(stockOrig.quantity) || 0 : 0;
+          await supabase.from('inventory_stock').upsert({
+            sku: item.sku,
+            warehouse_id: whOrigen.id,
+            quantity: Math.max(0, currentOrigQty - item.quantity)
+          }, { onConflict: 'sku,warehouse_id' });
 
-            // Calcular nuevo total consolidado
-            const consolidatedQty = Object.values(updatedBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
+          // Sumar stock de destino
+          const { data: stockDest } = await supabase
+            .from('inventory_stock')
+            .select('*')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', whDestino.id)
+            .maybeSingle();
 
-            await updateDoc(productRef, {
-              bodegas: updatedBodegas,
-              quantity: consolidatedQty
-            });
-          }
+          const currentDestQty = stockDest ? parseFloat(stockDest.quantity) || 0 : 0;
+          await supabase.from('inventory_stock').upsert({
+            sku: item.sku,
+            warehouse_id: whDestino.id,
+            quantity: currentDestQty + item.quantity
+          }, { onConflict: 'sku,warehouse_id' });
         }
         toast({ title: "Inventario Actualizado", description: "Se ha transferido el stock físico entre las bodegas." });
       }
 
-      await updateDoc(orderRef, { status: nextStatus, updatedAt: new Date().toISOString() });
+      await supabase.from('internal_orders').update({ status: nextStatus }).eq('id', orderId);
       toast({ title: "Estado Actualizado", description: `El pedido ha sido marcado como ${nextStatus}.` });
+      await loadData();
     } catch (err) {
+      console.error(err);
       toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado de la requisición." });
     } finally {
       setLoading(false);
@@ -578,8 +693,9 @@ export default function OrdersPage() {
 
   const handleDeleteInternalOrder = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'internal_orders', id));
+      await supabase.from('internal_orders').delete().eq('id', id);
       toast({ title: "Pedido Eliminado" });
+      await loadData();
     } catch (err) {
       toast({ variant: "destructive", title: "Error al eliminar" });
     }
@@ -682,35 +798,40 @@ export default function OrdersPage() {
       for (const item of extItems) {
         const exists = inventory?.some((p: any) => p.sku === item.sku);
         if (!exists) {
-          await addDoc(collection(db, 'inventory'), {
+          await supabase.from('inventory').insert({
             sku: item.sku,
             name: item.name,
             category: 'General',
-            price: item.cost || 0,
-            quantity: 0,
-            bodegas: {},
-            createdAt: new Date().toISOString()
+            price: parseFloat(item.cost as any) || 0
           });
+          
+          const whDestino = warehouses.find(w => w.name === extDestWh);
+          if (whDestino) {
+            await supabase.from('inventory_stock').insert({
+              sku: item.sku,
+              warehouse_id: whDestino.id,
+              quantity: 0
+            });
+          }
         }
       }
 
       const orderCode = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
       const totalAmount = extItems.reduce((acc, item) => acc + ((item.cost || 0) * item.quantity), 0);
 
-      await addDoc(supplierOrdersQuery, {
+      await supabase.from('supplier_orders').insert({
         code: orderCode,
-        supplier: extSupplier,
-        destinationWarehouse: extDestWh,
-        requestedBy: extRequestedBy,
+        supplier_name: extSupplier,
+        destination_warehouse: extDestWh,
+        requested_by: extRequestedBy,
         items: extItems,
         total: totalAmount,
         status: 'SOLICITADO',
-        createdAt: new Date().toISOString(),
-        supplierEmail: extSupplierEmail,
-        fromEmail: extFromEmail,
-        authorizedBy: extAuthorizedBy,
-        digitizedBy: extDigitizedBy,
-        supplierPhone: extSupplierPhone
+        supplier_email: extSupplierEmail,
+        from_email: extFromEmail,
+        authorized_by: extAuthorizedBy,
+        digitized_by: extDigitizedBy,
+        supplier_phone: extSupplierPhone
       });
 
       toast({ title: "Orden de Pedido Creada", description: `Se registró la orden ${orderCode} de forma exitosa y se han integrado los nuevos códigos al sistema.` });
@@ -725,7 +846,9 @@ export default function OrdersPage() {
         setExtDigitizedBy('RENE LANGLOIS 74503973');
         setExtSupplierPhone('');
       }
+      await loadData();
     } catch (err) {
+      console.error(err);
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el pedido externo." });
     } finally {
       setLoading(false);
@@ -735,38 +858,45 @@ export default function OrdersPage() {
   const handleUpdateSupplierOrderStatus = async (orderId: string, nextStatus: 'RECIBIDO' | 'SOLICITADO') => {
     setLoading(true);
     try {
-      const orderRef = doc(db, 'supplier_orders', orderId);
       const order = supplierOrders.find((o: any) => o.id === orderId);
 
       if (nextStatus === 'RECIBIDO') {
         // --- INGRESO DE STOCK AUTOMÁTICO ---
+        const whDestino = warehouses.find(w => w.name === order.destinationWarehouse);
+        if (!whDestino) {
+          toast({ variant: "destructive", title: "Error de bodega", description: "No se encontró la bodega de destino." });
+          setLoading(false);
+          return;
+        }
+
         for (const item of order.items) {
-          const product = inventory.find((p: any) => p.sku === item.sku);
-          if (product) {
-            const productRef = doc(db, 'inventory', product.id);
-            const currentBodegas = product.bodegas || {};
-            
-            const updatedBodegas = {
-              ...currentBodegas,
-              [order.destinationWarehouse]: (currentBodegas[order.destinationWarehouse] || 0) + item.quantity
-            };
+          const { data: stockDest } = await supabase
+            .from('inventory_stock')
+            .select('*')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', whDestino.id)
+            .maybeSingle();
 
-            // Calcular nuevo total consolidado
-            const consolidatedQty = Object.values(updatedBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
+          const currentDestQty = stockDest ? parseFloat(stockDest.quantity) || 0 : 0;
+          await supabase.from('inventory_stock').upsert({
+            sku: item.sku,
+            warehouse_id: whDestino.id,
+            quantity: currentDestQty + item.quantity
+          }, { onConflict: 'sku,warehouse_id' });
 
-            await updateDoc(productRef, {
-              bodegas: updatedBodegas,
-              quantity: consolidatedQty,
-              price: item.cost && item.cost > 0 ? item.cost : product.price // Actualizar precio con el nuevo costo si aplica
-            });
+          // Actualizar precio con el nuevo costo si aplica
+          if (item.cost && item.cost > 0) {
+            await supabase.from('inventory').update({ price: item.cost }).eq('sku', item.sku);
           }
         }
         toast({ title: "Mercadería Recibida", description: `El stock se ha ingresado con éxito a la bodega '${order.destinationWarehouse}'.` });
       }
 
-      await updateDoc(orderRef, { status: nextStatus, updatedAt: new Date().toISOString() });
+      await supabase.from('supplier_orders').update({ status: nextStatus }).eq('id', orderId);
       toast({ title: "Estado Actualizado", description: `La orden ha sido marcada como ${nextStatus}.` });
+      await loadData();
     } catch (err) {
+      console.error(err);
       toast({ variant: "destructive", title: "Error", description: "No se pudo completar la orden de compra." });
     } finally {
       setLoading(false);
@@ -775,8 +905,9 @@ export default function OrdersPage() {
 
   const handleDeleteSupplierOrder = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'supplier_orders', id));
+      await supabase.from('supplier_orders').delete().eq('id', id);
       toast({ title: "Orden Eliminada" });
+      await loadData();
     } catch (err) {
       toast({ variant: "destructive", title: "Error al eliminar" });
     }

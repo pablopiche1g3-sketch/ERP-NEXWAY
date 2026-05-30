@@ -24,12 +24,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 interface QuoteItem {
   id: string;
@@ -40,7 +40,6 @@ interface QuoteItem {
 }
 
 export default function QuotationsPage() {
-  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,9 +49,33 @@ export default function QuotationsPage() {
   const [customerNit, setCustomerNit] = useState('');
   const [customerNrc, setCustomerNrc] = useState('');
 
-  // Sincronización estable de inventario maestro
-  const inventoryRef = useMemo(() => collection(db, 'inventory'), [db]);
-  const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryRef);
+  // Sincronización de catálogo maestro desde Supabase
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [loadingInv, setLoadingInv] = useState(true);
+
+  const loadInventory = async () => {
+    try {
+      setLoadingInv(true);
+      const { data, error } = await supabase.from('inventory').select('*').order('sku');
+      if (error) throw error;
+      setInventory((data || []).map(p => ({
+        id: p.sku,
+        sku: p.sku,
+        name: p.name,
+        category: p.category,
+        price: parseFloat(p.price) || 0
+      })));
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo sincronizar el catálogo de inventario." });
+    } finally {
+      setLoadingInv(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInventory();
+  }, []);
 
   const filteredProducts = useMemo(() => {
     if (!inventory) return [];

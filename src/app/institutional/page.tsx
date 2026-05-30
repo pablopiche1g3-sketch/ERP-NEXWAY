@@ -49,13 +49,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import { useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
+import { useEffect } from 'react';
 
 interface CartItem {
   id: string;
@@ -73,25 +73,120 @@ interface ProjectDocument {
 }
 
 export default function InstitutionalModulePage() {
-  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   
-  // Data Fetching
-  const projectsRef = useMemo(() => collection(db, 'institutional_projects'), [db]);
-  const customersRef = useMemo(() => collection(db, 'customers'), [db]);
-  const inventoryRef = useMemo(() => collection(db, 'inventory'), [db]);
-  const salesRef = useMemo(() => collection(db, 'institutional_sales'), [db]);
-  const purchasesRef = useMemo(() => collection(db, 'institutional_purchases'), [db]);
-  
-  const { data: projects, loading: loadingProjects } = useCollection<any>(projectsRef);
-  const { data: customers } = useCollection<any>(customersRef);
-  const { data: inventory } = useCollection<any>(inventoryRef);
-  const { data: allSales } = useCollection<any>(salesRef);
-  const { data: allPurchases } = useCollection<any>(purchasesRef);
+  // Supabase Data States
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [allSales, setAllSales] = useState<any[]>([]);
+  const [allPurchases, setAllPurchases] = useState<any[]>([]);
+  const [cashConfig, setCashConfig] = useState<any>({ cashFloat: 100, catchAllEmail: 'pablopiche1g3@gmail.com' });
 
-  const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
-  const { data: cashConfig } = useDoc<any>(cashConfigRef);
+  const loadData = async () => {
+    try {
+      setLoadingProjects(true);
+      // 1. Cargar proyectos institucionales
+      const { data: projData } = await supabase.from('institutional_projects').select('*').order('created_at', { ascending: false });
+      setProjects((projData || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        purchaseOrder: p.purchase_order,
+        totalBudget: parseFloat(p.total_budget) || 0,
+        customerName: p.customer_name,
+        items: p.items,
+        status: p.status,
+        documents: p.documents,
+        createdAt: p.created_at
+      })));
+
+      // 2. Cargar clientes
+      const { data: custData } = await supabase.from('customers').select('*').order('name');
+      setCustomers(custData || []);
+
+      // 3. Cargar ventas institucionales
+      const { data: salesData } = await supabase.from('institutional_sales').select('*').order('created_at', { ascending: false });
+      setAllSales((salesData || []).map(s => ({
+        id: s.id,
+        projectId: s.project_id,
+        docNumber: s.doc_number,
+        total: parseFloat(s.total) || 0,
+        date: s.date,
+        items: s.items,
+        cartItems: s.cart_items,
+        concept: s.concept,
+        customerName: s.customer_name,
+        customerEmail: s.customer_email,
+        status: s.status,
+        createdAt: s.created_at
+      })));
+
+      // 4. Cargar compras/costos institucionales
+      const { data: purchData } = await supabase.from('institutional_purchases').select('*').order('created_at', { ascending: false });
+      setAllPurchases((purchData || []).map(p => ({
+        id: p.id,
+        projectId: p.project_id,
+        supplier: p.supplier,
+        docNumber: p.doc_number,
+        items: p.items,
+        total: parseFloat(p.total) || 0,
+        date: p.date,
+        createdAt: p.created_at
+      })));
+
+      // 5. Cargar configuración
+      const { data: confData } = await supabase.from('system_config').select('*').eq('key', 'cash_config').maybeSingle();
+      if (confData && confData.value) {
+        setCashConfig(confData.value);
+      }
+
+      // 6. Cargar catálogo de inventario maestro y stock consolidado por bodega
+      const { data: whData } = await supabase.from('warehouses').select('*');
+      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
+      const { data: stockData } = await supabase.from('inventory_stock').select('*');
+
+      const whMap: Record<string, string> = {};
+      (whData || []).forEach(w => {
+        whMap[w.id] = w.name;
+      });
+
+      const mappedInventory = (invData || []).map(item => {
+        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
+        const bodegasMap: Record<string, number> = {};
+        itemStocks.forEach(s => {
+          const whName = whMap[s.warehouse_id];
+          if (whName) {
+            bodegasMap[whName] = parseFloat(s.quantity) || 0;
+          }
+        });
+
+        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
+
+        return {
+          id: item.sku,
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          price: parseFloat(item.price) || 0,
+          quantity: totalQty,
+          bodegas: bodegasMap
+        };
+      });
+
+      setInventory(mappedInventory);
+
+    } catch (e) {
+      console.error("Error al cargar datos en institucional:", e);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   // States
   const [activeTab, setActiveTab] = useState('billing');
@@ -141,19 +236,26 @@ export default function InstitutionalModulePage() {
         ? `${billingConcept} (Detalle oculto)`
         : cart.map(i => `${i.quantity} ${i.name} @ $${i.price}`).join(', ');
 
-      const saleRef = await addDoc(salesRef, {
-        projectId: selectedProjectId || null,
-        docNumber,
+      const saleData = {
+        project_id: selectedProjectId || null,
+        doc_number: docNumber,
         total: totalCart,
         date: new Date().toISOString().split('T')[0],
         items: finalItemsDetail,
-        cartItems: cart,
+        cart_items: cart,
         concept: billingConcept || null,
-        customerName,
-        customerEmail,
-        status: 'COMPLETADA',
-        createdAt: new Date().toISOString()
-      });
+        customer_name: customerName,
+        customer_email: customerEmail || null,
+        status: 'COMPLETADA'
+      };
+
+      const { data: newSale, error: saleErr } = await supabase
+        .from('institutional_sales')
+        .insert(saleData)
+        .select()
+        .single();
+
+      if (saleErr) throw saleErr;
 
       // Notificar por correo
       const targetEmail = customerEmail || cashConfig?.catchAllEmail;
@@ -162,18 +264,31 @@ export default function InstitutionalModulePage() {
           recipientEmail: targetEmail,
           customerName,
           docType: 'Factura Institucional',
-          docNumber: docNumber || saleRef.id,
+          docNumber: docNumber || newSale.id,
           total: totalCart,
           items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price }))
         });
       }
 
-      for (const item of cart) {
-        const product = inventory?.find((p: any) => p.id === item.id);
-        if (product) {
-          updateDoc(doc(db, 'inventory', item.id), { 
-            quantity: Math.max(0, (product.quantity || 0) - item.quantity) 
-          });
+      // Descontar inventario de Supabase relacional
+      const { data: whList } = await supabase.from('warehouses').select('*');
+      const defaultWh = whList?.[0]; // Usar la primera bodega disponible
+
+      if (defaultWh) {
+        for (const item of cart) {
+          const { data: stockItem } = await supabase
+            .from('inventory_stock')
+            .select('*')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', defaultWh.id)
+            .maybeSingle();
+
+          const currentQty = stockItem ? parseFloat(stockItem.quantity) || 0 : 0;
+          await supabase.from('inventory_stock').upsert({
+            sku: item.sku,
+            warehouse_id: defaultWh.id,
+            quantity: Math.max(0, currentQty - item.quantity)
+          }, { onConflict: 'sku,warehouse_id' });
         }
       }
 
@@ -184,7 +299,9 @@ export default function InstitutionalModulePage() {
       setCustomerName('');
       setCustomerEmail('');
       setSelectedProjectId('');
+      await loadData();
     } catch (e) {
+      console.error(e);
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la venta." });
     } finally {
       setIsProcessing(false);
@@ -198,18 +315,25 @@ export default function InstitutionalModulePage() {
     }
     setIsProcessing(true);
     try {
-      await addDoc(projectsRef, {
-        ...newProject,
-        totalBudget: parseFloat(newProject.totalBudget as string),
+      const { error } = await supabase.from('institutional_projects').insert({
+        name: newProject.name,
+        purchase_order: newProject.purchaseOrder || null,
+        total_budget: parseFloat(newProject.totalBudget as string),
+        customer_name: newProject.customerName || null,
+        items: newProject.items,
         status: 'EN CURSO',
-        documents: docFile ? [docFile] : [],
-        createdAt: new Date().toISOString()
+        documents: docFile ? [docFile] : []
       });
+
+      if (error) throw error;
+
       toast({ title: "Proyecto Aperturado", description: "Expediente listo para facturar." });
       setIsProjectModalOpen(false);
       setNewProject({ name: '', purchaseOrder: '', totalBudget: '', customerName: '', items: [] });
       setDocFile(null);
+      await loadData();
     } catch (e) {
+      console.error(e);
       toast({ variant: "destructive", title: "Error al crear proyecto" });
     } finally {
       setIsProcessing(false);
@@ -244,15 +368,22 @@ export default function InstitutionalModulePage() {
     setIsProcessing(true);
     const total = manualCost.items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
     try {
-      await addDoc(purchasesRef, {
-        ...manualCost,
+      const { error } = await supabase.from('institutional_purchases').insert({
+        project_id: manualCost.projectId,
+        supplier: manualCost.supplier || null,
+        doc_number: manualCost.docNumber || null,
+        items: manualCost.items,
         total,
-        date: new Date().toISOString().split('T')[0],
-        timestamp: new Date().toISOString()
+        date: new Date().toISOString().split('T')[0]
       });
+
+      if (error) throw error;
+
       toast({ title: "Costo Registrado", description: "El balance del proyecto ha sido actualizado." });
       setManualCost({ supplier: '', docNumber: '', projectId: '', items: [] });
+      await loadData();
     } catch (e) {
+      console.error(e);
       toast({ variant: "destructive", title: "Error al registrar costo" });
     } finally {
       setIsProcessing(false);
@@ -450,8 +581,24 @@ export default function InstitutionalModulePage() {
                            <TableCell>
                               <div className="flex gap-1">
                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Edit3 size={12}/></Button>
-                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" onClick={() => updateDoc(doc(db, 'institutional_projects', p.id), { status: 'FINALIZADO' })}><CheckCircle size={12}/></Button>
-                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500" onClick={() => deleteDoc(doc(db, 'institutional_projects', p.id))}><Trash2 size={12}/></Button>
+                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" onClick={async () => {
+                                    try {
+                                       await supabase.from('institutional_projects').update({ status: 'FINALIZADO' }).eq('id', p.id);
+                                       toast({ title: "Proyecto Finalizado" });
+                                       await loadData();
+                                    } catch (err) {
+                                       toast({ variant: "destructive", title: "Error al finalizar proyecto" });
+                                    }
+                                 }}><CheckCircle size={12}/></Button>
+                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500" onClick={async () => {
+                                    try {
+                                       await supabase.from('institutional_projects').delete().eq('id', p.id);
+                                       toast({ title: "Proyecto Eliminado" });
+                                       await loadData();
+                                    } catch (err) {
+                                       toast({ variant: "destructive", title: "Error al eliminar" });
+                                    }
+                                 }}><Trash2 size={12}/></Button>
                               </div>
                            </TableCell>
                         </TableRow>

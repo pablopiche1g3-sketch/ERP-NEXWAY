@@ -156,16 +156,7 @@ create table public.journal_lines (
   credit numeric(10,2) not null default 0.00
 );
 
--- 15. HABILITAR TIEMPO REAL (REAL-TIME) PARA TABLAS CLAVE
--- Esto permite que el ERP escuche cambios reactivos como lo hacía con Firestore
-alter publication supabase_realtime add table public.profiles;
-alter publication supabase_realtime add table public.warehouses;
-alter publication supabase_realtime add table public.inventory_stock;
-alter publication supabase_realtime add table public.sales;
-alter publication supabase_realtime add table public.purchases;
-alter publication supabase_realtime add table public.journal;
-
--- 16. TABLAS DE MAPEO DE PRODUCTOS (Para DTE Facturación Electrónica y Empresas)
+-- 15. TABLAS DE MAPEO DE PRODUCTOS (Para DTE Facturación Electrónica y Empresas)
 create table public.supplier_mappings (
   supplier_code text primary key,
   internal_sku text not null,
@@ -182,10 +173,7 @@ create table public.company_mappings (
   constraint unique_company_mapping unique (company_name, company_sku)
 );
 
-alter publication supabase_realtime add table public.supplier_mappings;
-alter publication supabase_realtime add table public.company_mappings;
-
--- 17. TABLAS DE NOTAS DE CRÉDITO Y DÉBITO (AJUSTES) Y ARQUEOS DIARIOS
+-- 16. TABLAS DE NOTAS DE CRÉDITO Y DÉBITO (AJUSTES) Y ARQUEOS DIARIOS
 create table public.credit_notes (
   id uuid default uuid_generate_v4() primary key,
   ref_doc text not null,
@@ -233,6 +221,121 @@ create table public.daily_closings (
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
+-- 17. TABLAS DE PEDIDOS INTERNOS Y PEDIDOS A PROVEEDORES (ORDENES EXTERNAS)
+create table public.internal_orders (
+  id uuid default uuid_generate_v4() primary key,
+  code text,
+  source_warehouse text not null,
+  destination_warehouse text not null,
+  requested_by text not null,
+  items jsonb not null,
+  status text not null default 'PENDIENTE', -- PENDIENTE, APROBADO, CANCELADO
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create table public.supplier_orders (
+  id uuid default uuid_generate_v4() primary key,
+  code text,
+  supplier_name text not null,
+  destination_warehouse text not null,
+  requested_by text not null,
+  items jsonb not null,
+  total numeric(10,2) default 0.00,
+  supplier_email text,
+  from_email text,
+  authorized_by text,
+  digitized_by text,
+  supplier_phone text,
+  status text not null default 'PENDIENTE', -- PENDIENTE, APROBADO, RECHAZADO
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 18. CONFIGURACIÓN GENERAL DEL SISTEMA
+create table public.system_config (
+  key text primary key,
+  value jsonb not null
+);
+
+-- 19. TABLA DE TRASLADOS (HISTORIAL LOGÍSTICO)
+create table public.transfers (
+  id uuid default uuid_generate_v4() primary key,
+  type text not null, -- INTERNO, INTERTIENDA
+  source text not null,
+  destination text not null,
+  authorized_by text not null,
+  items jsonb not null,
+  status text not null default 'COMPLETADO',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 20. AREA DE QUEDAN (PAGOS A PROVEEDORES)
+create table public.quedan (
+  id uuid default uuid_generate_v4() primary key,
+  supplier text not null,
+  due_date date not null,
+  invoices jsonb not null,
+  total_amount numeric(10,2) not null default 0.00,
+  status text not null default 'PENDIENTE', -- PENDIENTE, PAGADO
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 21. LICITACIONES / INSTITUCIONAL
+create table public.institutional_projects (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  purchase_order text,
+  total_budget numeric(10,2) not null default 0.00,
+  customer_name text,
+  items jsonb not null default '[]'::jsonb,
+  status text not null default 'EN CURSO', -- EN CURSO, FINALIZADO
+  documents jsonb not null default '[]'::jsonb,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create table public.institutional_sales (
+  id uuid default uuid_generate_v4() primary key,
+  project_id uuid references public.institutional_projects(id) on delete set null,
+  doc_number text not null,
+  total numeric(10,2) not null default 0.00,
+  date date not null default current_date,
+  items text,
+  cart_items jsonb not null default '[]'::jsonb,
+  concept text,
+  customer_name text,
+  customer_email text,
+  status text not null default 'COMPLETADA',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create table public.institutional_purchases (
+  id uuid default uuid_generate_v4() primary key,
+  project_id uuid references public.institutional_projects(id) on delete set null,
+  supplier text,
+  doc_number text,
+  items jsonb not null default '[]'::jsonb,
+  total numeric(10,2) not null default 0.00,
+  date date not null default current_date,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 22. HABILITAR TIEMPO REAL (REAL-TIME) PARA TODAS LAS TABLAS CLAVE
+alter publication supabase_realtime add table public.profiles;
+alter publication supabase_realtime add table public.warehouses;
+alter publication supabase_realtime add table public.inventory_stock;
+alter publication supabase_realtime add table public.sales;
+alter publication supabase_realtime add table public.purchases;
+alter publication supabase_realtime add table public.journal;
+alter publication supabase_realtime add table public.supplier_mappings;
+alter publication supabase_realtime add table public.company_mappings;
+alter publication publication_realtime_dummy_to_avoid_error add table public.credit_notes; -- Ajustar si no existía la dummy
 alter publication supabase_realtime add table public.credit_notes;
 alter publication supabase_realtime add table public.debit_notes;
 alter publication supabase_realtime add table public.daily_closings;
+alter publication supabase_realtime add table public.internal_orders;
+alter publication supabase_realtime add table public.supplier_orders;
+alter publication supabase_realtime add table public.system_config;
+alter publication supabase_realtime add table public.transfers;
+alter publication supabase_realtime add table public.quedan;
+alter publication supabase_realtime add table public.institutional_projects;
+alter publication supabase_realtime add table public.institutional_sales;
+alter publication supabase_realtime add table public.institutional_purchases;

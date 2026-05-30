@@ -25,13 +25,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 interface TransferItem {
   id: string;
@@ -41,7 +41,6 @@ interface TransferItem {
 }
 
 export default function TransfersPage() {
-  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('nuevo');
@@ -56,14 +55,80 @@ export default function TransfersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<TransferItem[]>([]);
 
-  // Data Fetching
-  const inventoryRef = useMemo(() => collection(db, 'inventory'), [db]);
-  const warehousesRef = useMemo(() => collection(db, 'warehouses'), [db]);
-  const transfersRef = useMemo(() => collection(db, 'transfers'), [db]);
+  // Estados de datos
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [loadingInv, setLoadingInv] = useState(true);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [transfers, setTransfers] = useState<any[]>([]);
 
-  const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryRef);
-  const { data: warehouses } = useCollection<any>(warehousesRef);
-  const { data: transfers } = useCollection<any>(transfersRef);
+  const loadData = async () => {
+    try {
+      setLoadingInv(true);
+      
+      // 1. Cargar bodegas
+      const { data: whData } = await supabase.from('warehouses').select('*').order('name');
+      setWarehouses(whData || []);
+
+      // 2. Cargar traslados
+      const { data: trData } = await supabase.from('transfers').select('*').order('created_at', { ascending: false });
+      setTransfers((trData || []).map(t => ({
+        id: t.id,
+        type: t.type,
+        source: t.source,
+        destination: t.destination,
+        authorizedBy: t.authorized_by,
+        items: t.items,
+        timestamp: t.created_at,
+        status: t.status
+      })));
+
+      // 3. Cargar catálogo de inventario maestro y stock consolidado por bodega
+      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
+      const { data: stockData } = await supabase.from('inventory_stock').select('*');
+
+      const whMap: Record<string, string> = {};
+      (whData || []).forEach(w => {
+        whMap[w.id] = w.name;
+      });
+
+      const mappedInventory = (invData || []).map(item => {
+        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
+        const bodegasMap: Record<string, number> = {};
+        itemStocks.forEach(s => {
+          const whName = whMap[s.warehouse_id];
+          if (whName) {
+            bodegasMap[whName] = parseFloat(s.quantity) || 0;
+          }
+        });
+
+        // En Traslados, la cantidad global del producto para la lista del catálogo
+        // se puede ver reflejada como el total consolidado o el stock de la bodega origen seleccionada.
+        // Para que sea útil en el front-end de traslados, mostraremos la cantidad global consolidada.
+        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
+
+        return {
+          id: item.sku,
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          price: parseFloat(item.price) || 0,
+          quantity: totalQty,
+          bodegas: bodegasMap
+        };
+      });
+
+      setInventory(mappedInventory);
+
+    } catch (e) {
+      console.error("Error al cargar datos en traslados:", e);
+    } finally {
+      setLoadingInv(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredInventory = useMemo(() => {
     if (!inventory) return [];
@@ -108,31 +173,60 @@ export default function TransfersPage() {
 
     setIsProcessing(true);
     try {
+      // 1. Guardar el registro de traslado en public.transfers
       const transferData = {
         type: transferType,
         source: sourceWarehouse,
         destination: transferType === 'INTERNO' ? destinationWarehouse : destinationStore,
-        authorizedBy,
+        authorized_by: authorizedBy,
         items: cart,
-        timestamp: new Date().toISOString(),
         status: 'COMPLETADO'
       };
 
-      await addDoc(transfersRef, transferData);
+      const { error: insertErr } = await supabase.from('transfers').insert(transferData);
+      if (insertErr) throw insertErr;
 
-      // Actualizar Inventario (Lógica simplificada para el prototipo)
+      // 2. Lógica de Inventario Multibodega
+      const whOrigen = warehouses.find(w => w.name === sourceWarehouse);
+      const whDestino = transferType === 'INTERNO' ? warehouses.find(w => w.name === destinationWarehouse) : null;
+
+      if (!whOrigen) {
+        toast({ variant: "destructive", title: "Error", description: "No se encontró la bodega de origen." });
+        setIsProcessing(false);
+        return;
+      }
+
       for (const item of cart) {
-        const product = inventory.find((p: any) => p.id === item.id);
-        if (product) {
-          const productRef = doc(db, 'inventory', item.id);
-          // En un traslado interno se asume que el stock global no cambia, 
-          // pero en un sistema multi-bodega real se descontaría de una y sumaría a otra.
-          // Para este MVP, si es Intertienda, descontamos del stock local.
-          if (transferType === 'INTERTIENDA') {
-            await updateDoc(productRef, {
-              quantity: Math.max(0, (product.quantity || 0) - item.quantity)
-            });
-          }
+        // Restar de bodega origen
+        const { data: stockOrig } = await supabase
+          .from('inventory_stock')
+          .select('*')
+          .eq('sku', item.sku)
+          .eq('warehouse_id', whOrigen.id)
+          .maybeSingle();
+
+        const currentOrigQty = stockOrig ? parseFloat(stockOrig.quantity) || 0 : 0;
+        await supabase.from('inventory_stock').upsert({
+          sku: item.sku,
+          warehouse_id: whOrigen.id,
+          quantity: Math.max(0, currentOrigQty - item.quantity)
+        }, { onConflict: 'sku,warehouse_id' });
+
+        // Sumar a bodega de destino si es traslado interno
+        if (transferType === 'INTERNO' && whDestino) {
+          const { data: stockDest } = await supabase
+            .from('inventory_stock')
+            .select('*')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', whDestino.id)
+            .maybeSingle();
+
+          const currentDestQty = stockDest ? parseFloat(stockDest.quantity) || 0 : 0;
+          await supabase.from('inventory_stock').upsert({
+            sku: item.sku,
+            warehouse_id: whDestino.id,
+            quantity: currentDestQty + item.quantity
+          }, { onConflict: 'sku,warehouse_id' });
         }
       }
 
@@ -142,7 +236,9 @@ export default function TransfersPage() {
       setDestinationWarehouse('');
       setDestinationStore('');
       setAuthorizedBy('');
+      await loadData();
     } catch (e) {
+      console.error(e);
       toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el traslado." });
     } finally {
       setIsProcessing(false);

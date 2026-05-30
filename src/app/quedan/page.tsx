@@ -23,8 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,7 +35,6 @@ interface InvoiceItem {
 }
 
 export default function QuedanPage() {
-  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,8 +49,34 @@ export default function QuedanPage() {
   const [currentInvoiceNum, setCurrentInvoiceNum] = useState('');
   const [currentInvoiceAmount, setCurrentInvoiceAmount] = useState<string | number>('');
 
-  const quedanRef = useMemo(() => collection(db, 'quedan'), [db]);
-  const { data: quedans, loading } = useCollection<any>(quedanRef);
+  const [quedans, setQuedans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.from('quedan').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      setQuedans((data || []).map(q => ({
+        id: q.id,
+        supplier: q.supplier,
+        dueDate: q.due_date,
+        invoices: q.invoices,
+        totalAmount: parseFloat(q.total_amount) || 0,
+        status: q.status,
+        createdAt: q.created_at
+      })));
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo sincronizar el historial de Quedan." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const addInvoiceToList = () => {
     if (!currentInvoiceNum || !currentInvoiceAmount) {
@@ -93,20 +117,22 @@ export default function QuedanPage() {
     setIsSaving(true);
     const data = {
       supplier,
-      dueDate,
+      due_date: dueDate,
       invoices,
-      totalAmount,
-      status: 'PENDIENTE',
-      createdAt: new Date().toISOString()
+      total_amount: totalAmount,
+      status: 'PENDIENTE'
     };
 
     try {
-      await addDoc(quedanRef, data);
+      const { error } = await supabase.from('quedan').insert(data);
+      if (error) throw error;
       toast({ title: "Quedan Generado", description: `Compromiso de $${totalAmount.toFixed(2)} registrado.` });
       setSupplier('');
       setDueDate('');
       setInvoices([]);
+      await loadData();
     } catch (error) {
+      console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el Quedan." });
     } finally {
       setIsSaving(false);
@@ -115,8 +141,14 @@ export default function QuedanPage() {
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'PENDIENTE' ? 'PAGADO' : 'PENDIENTE';
-    await updateDoc(doc(db, 'quedan', id), { status: nextStatus });
-    toast({ title: "Estado Actualizado", description: `El Quedan ahora figura como ${nextStatus}.` });
+    try {
+      const { error } = await supabase.from('quedan').update({ status: nextStatus }).eq('id', id);
+      if (error) throw error;
+      toast({ title: "Estado Actualizado", description: `El Quedan ahora figura como ${nextStatus}.` });
+      await loadData();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado." });
+    }
   };
 
   const filteredQuedans = useMemo(() => {
@@ -328,7 +360,16 @@ export default function QuedanPage() {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          onClick={() => deleteDoc(doc(db, 'quedan', q.id))} 
+                          onClick={async () => {
+                            try {
+                              const { error } = await supabase.from('quedan').delete().eq('id', q.id);
+                              if (error) throw error;
+                              toast({ title: "Quedan Eliminado" });
+                              await loadData();
+                            } catch (e) {
+                              toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el Quedan." });
+                            }
+                          }} 
                           className="h-8 w-8 text-slate-200 hover:text-rose-500"
                         >
                           <Trash2 size={14} />

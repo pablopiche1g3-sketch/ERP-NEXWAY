@@ -21,14 +21,12 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { useFirestore, useDoc, useCollection, collection, doc } from '@/firebase';
-import { setDoc, query, deleteDoc } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ManagementPage() {
-  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -38,32 +36,93 @@ export default function ManagementPage() {
   const [preAssignEmail, setPreAssignEmail] = useState('');
   const [preAssignRole, setPreAssignRole] = useState('vendedor');
 
-  const usersQuery = useMemo(() => query(collection(db, 'users')), [db]);
-  const { data: usersList, loading: loadingUsers } = useCollection<any>(usersQuery);
+  // Estados de datos
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [config, setConfig] = useState<any>({
+    inventory: true,
+    accounting: true,
+    customers: true,
+    suppliers: true,
+    purchases: true,
+    billing: true,
+    orders: true,
+    transfers: true,
+    quotations: true,
+    quedan: true,
+    institutional: true,
+    management: true
+  });
 
-  // Referencias estables a documentos de configuración global
-  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
-  const { data: config } = useDoc<any>(configRef);
+  const loadData = async () => {
+    try {
+      setLoadingUsers(true);
+      
+      // 1. Cargar usuarios/perfiles reales de Supabase
+      const { data: profsData, error: profsErr } = await supabase.from('profiles').select('*').order('email');
+      if (profsErr) throw profsErr;
 
-  const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
-  const { data: cashConfig, loading: loadingCash } = useDoc<any>(cashConfigRef);
+      // 2. Cargar roles preasignados
+      const { data: preConf } = await supabase.from('system_config').select('*').eq('key', 'preassigned_roles').maybeSingle();
+      const preassignedMap = preConf?.value || {};
 
-  // Sincronizar el estado local solo la primera vez que se reciben datos
-  useEffect(() => {
-    if (!isInitialized && cashConfig) {
-      if (cashConfig.cashFloat !== undefined) setCashFloat(cashConfig.cashFloat.toString());
-      if (cashConfig.catchAllEmail !== undefined) setCatchAllEmail(cashConfig.catchAllEmail);
-      setIsInitialized(true);
+      const consolidatedUsers = (profsData || []).map(p => ({
+        id: p.id,
+        email: p.email,
+        role: p.role,
+        isPreassigned: false,
+        createdAt: p.created_at
+      }));
+
+      Object.keys(preassignedMap).forEach(email => {
+        if (!consolidatedUsers.some(u => u.email?.toLowerCase() === email.toLowerCase())) {
+          consolidatedUsers.push({
+            id: 'preassigned:' + email,
+            email: email,
+            role: preassignedMap[email],
+            isPreassigned: true,
+            createdAt: new Date().toISOString()
+          });
+        }
+      });
+
+      setUsersList(consolidatedUsers);
+
+      // 3. Cargar configuración de módulos
+      const { data: modConf, error: modErr } = await supabase.from('system_config').select('*').eq('key', 'module_config').maybeSingle();
+      if (modConf && modConf.value) {
+        setConfig(modConf.value);
+      }
+
+      // 4. Cargar configuración de caja
+      const { data: cashConf, error: cashErr } = await supabase.from('system_config').select('*').eq('key', 'cash_config').maybeSingle();
+      if (cashConf && cashConf.value) {
+        setCashFloat(cashConf.value.cashFloat?.toString() || '0');
+        setCatchAllEmail(cashConf.value.catchAllEmail || '');
+      }
+
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar las configuraciones." });
+    } finally {
+      setLoadingUsers(false);
     }
-  }, [cashConfig, isInitialized]);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleToggleModule = async (moduleId: string, value: boolean) => {
     const newConfig = { ...config, [moduleId]: value };
     setIsSaving(true);
     try {
-      await setDoc(configRef, newConfig, { merge: true });
+      const { error } = await supabase.from('system_config').upsert({ key: 'module_config', value: newConfig });
+      if (error) throw error;
+      setConfig(newConfig);
       toast({ title: "Módulo Actualizado", description: `Estado cambiado exitosamente.` });
     } catch (error) {
+      console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar." });
     } finally {
       setIsSaving(false);
@@ -85,18 +144,13 @@ export default function ManagementPage() {
   const handleChangeRole = async (userId: string, newRole: string) => {
     setIsSaving(true);
     try {
-      const userRef = doc(db, 'users', userId);
-      await Promise.race([
-        setDoc(userRef, { role: newRole }, { merge: true }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
-      ]);
+      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+      if (error) throw error;
       toast({ title: "Rol de Usuario Actualizado", description: `El usuario ahora tiene el rol de ${ROLE_NAMES[newRole] || newRole}.` });
+      await loadData();
     } catch (error: any) {
-      if (error.message === 'timeout') {
-        toast({ title: "Guardado en Caché", description: `Cambio registrado localmente. Se aplicará al volver a estar en línea.` });
-      } else {
-        toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el rol de usuario." });
-      }
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el rol de usuario." });
     } finally {
       setIsSaving(false);
     }
@@ -105,18 +159,27 @@ export default function ManagementPage() {
   const handleRevokeRole = async (userId: string, email: string) => {
     setIsSaving(true);
     try {
-      const userRef = doc(db, 'users', userId);
-      await Promise.race([
-        deleteDoc(userRef),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
-      ]);
-      toast({ title: "Asignación Revocada", description: `Se ha revocado el acceso de ${email}.` });
-    } catch (error: any) {
-      if (error.message === 'timeout') {
-        toast({ title: "Eliminado en Caché", description: `Eliminación registrada localmente. Se aplicará al volver a estar en línea.` });
+      if (userId.startsWith('preassigned:')) {
+        // Eliminar del mapa de preassigned_roles en system_config
+        const { data: preConf } = await supabase.from('system_config').select('*').eq('key', 'preassigned_roles').maybeSingle();
+        const currentPreassigned = preConf?.value || {};
+        const cleanEmail = userId.replace('preassigned:', '');
+        
+        // Eliminar llave
+        delete currentPreassigned[cleanEmail];
+        
+        const { error } = await supabase.from('system_config').upsert({ key: 'preassigned_roles', value: currentPreassigned });
+        if (error) throw error;
       } else {
-        toast({ variant: "destructive", title: "Error", description: "No se pudo revocar el acceso." });
+        // Eliminar de profiles
+        const { error } = await supabase.from('profiles').delete().eq('id', userId);
+        if (error) throw error;
       }
+      toast({ title: "Asignación Revocada", description: `Se ha revocado el acceso de ${email}.` });
+      await loadData();
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo revocar el acceso." });
     } finally {
       setIsSaving(false);
     }
@@ -140,41 +203,29 @@ export default function ManagementPage() {
       const existingUser = usersList?.find((usr: any) => usr.email?.toLowerCase() === emailToAssign);
       
       if (existingUser) {
-        const userRef = doc(db, 'users', existingUser.id);
-        await Promise.race([
-          setDoc(userRef, { role: preAssignRole }, { merge: true }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
-        ]);
+        const { error } = await supabase.from('profiles').update({ role: preAssignRole }).eq('id', existingUser.id);
+        if (error) throw error;
         toast({ 
           title: "Usuario Actualizado", 
           description: `El usuario ya estaba registrado. Se actualizó su rol a ${ROLE_NAMES[preAssignRole]}.` 
         });
       } else {
-        const docId = 'email:' + emailToAssign;
-        const userRef = doc(db, 'users', docId);
-        await Promise.race([
-          setDoc(userRef, {
-            email: emailToAssign,
-            role: preAssignRole,
-            isPreassigned: true,
-            createdAt: new Date().toISOString()
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
-        ]);
+        // Preasignar en public.system_config para evitar violaciones de llave foránea en profiles
+        const { data: preConf } = await supabase.from('system_config').select('*').eq('key', 'preassigned_roles').maybeSingle();
+        const currentPreassigned = preConf?.value || {};
+        const updatedPreassigned = { ...currentPreassigned, [emailToAssign]: preAssignRole };
+        await supabase.from('system_config').upsert({ key: 'preassigned_roles', value: updatedPreassigned });
+
         toast({ 
           title: "Rol Pre-asignado", 
           description: `El correo ${emailToAssign} fue pre-asignado como ${ROLE_NAMES[preAssignRole]} exitosamente.` 
         });
       }
       setPreAssignEmail('');
+      await loadData();
     } catch (error: any) {
-      if (error.message === 'timeout') {
-        toast({ title: "Guardado en Caché", description: `Asignación registrada localmente. Se sincronizará al estar en línea.` });
-        setPreAssignEmail('');
-      } else {
-        console.error(error);
-        toast({ variant: "destructive", title: "Error", description: "No se pudo pre-asignar el rol." });
-      }
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo pre-asignar el rol." });
     } finally {
       setIsSaving(false);
     }
@@ -189,22 +240,20 @@ export default function ManagementPage() {
     
     setIsSaving(true);
     try {
-      await Promise.race([
-        setDoc(cashConfigRef, { 
+      const { error } = await supabase.from('system_config').upsert({
+        key: 'cash_config',
+        value: {
           cashFloat: val,
           catchAllEmail: catchAllEmail.trim()
-        }, { merge: true }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
-      ]);
+        }
+      });
+      if (error) throw error;
       toast({ title: "Configuración Actualizada", description: "Los ajustes globales han sido guardados." });
       setIsInitialized(true);
+      await loadData();
     } catch (error: any) {
-      if (error.message === 'timeout') {
-        toast({ title: "Ajustes Guardados (Caché)", description: "Configuración registrada localmente en la caché." });
-        setIsInitialized(true);
-      } else {
-        toast({ variant: "destructive", title: "Error", description: "Error al guardar en la base de datos." });
-      }
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Error al guardar en la base de datos." });
     } finally {
       setIsSaving(false);
     }
