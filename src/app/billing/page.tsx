@@ -42,6 +42,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
@@ -111,17 +112,90 @@ export default function BillingPage() {
   const [paymentReference, setPaymentReference] = useState('');
   const [cashReceived, setCashReceived] = useState<string>('');
 
-  // Data Fetching
-  const cashConfigRef = useMemo(() => doc(db, 'system', 'cash_config'), [db]);
-  const { data: cashConfig } = useDoc<any>(cashConfigRef);
+  // Estados para datos cargados desde Supabase
+  const [cashConfig, setCashConfig] = useState<any>({ cashFloat: 100 });
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [salesAll, setSalesAll] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
-  const salesQuery = useMemo(() => collection(db, 'sales'), [db]);
-  const customersQuery = useMemo(() => collection(db, 'customers'), [db]);
+  // Función para cargar todos los datos requeridos de forma reactiva
+  const loadBillingData = async () => {
+    try {
+      setLoadingData(true);
 
-  const { data: inventory } = useCollection<any>(inventoryQuery);
-  const { data: salesAll } = useCollection<any>(salesQuery);
-  const { data: customers } = useCollection<any>(customersQuery);
+      // Cargar clientes
+      const { data: custData } = await supabase.from('customers').select('*').order('name');
+      setCustomers(custData || []);
+
+      // Cargar bodegas
+      const { data: whData } = await supabase.from('warehouses').select('*').order('name');
+      setWarehouses(whData || []);
+
+      // Cargar ventas realizadas
+      const { data: salesData } = await supabase
+        .from('sales')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      setSalesAll((salesData || []).map(s => ({
+        id: s.id,
+        correlative: s.correlative,
+        docType: s.doc_type,
+        customerId: s.customer_id,
+        total: parseFloat(s.total) || 0,
+        status: s.status,
+        timestamp: s.created_at,
+        paymentMethod: s.payment_method || 'Efectivo',
+        customer: s.customer_name || 'Consumidor Final'
+      })));
+
+      // Cargar catálogo de inventario maestro y stock
+      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
+      const { data: stockData } = await supabase.from('inventory_stock').select('*');
+
+      const whMap: Record<string, string> = {};
+      (whData || []).forEach(w => {
+        whMap[w.id] = w.name;
+      });
+
+      const mappedInventory = (invData || []).map(item => {
+        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
+        const bodegasMap: Record<string, number> = {};
+        itemStocks.forEach(s => {
+          const whName = whMap[s.warehouse_id];
+          if (whName) {
+            bodegasMap[whName] = parseFloat(s.quantity) || 0;
+          }
+        });
+
+        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
+
+        return {
+          id: item.sku,
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          price: parseFloat(item.price) || 0,
+          quantity: totalQty,
+          bodegas: bodegasMap
+        };
+      });
+
+      setInventory(mappedInventory);
+
+    } catch (e: any) {
+      console.error('Error al cargar datos en facturación:', e);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    loadBillingData();
+  }, []);
 
   // Filters
   const filteredProducts = useMemo(() => {
@@ -219,52 +293,89 @@ export default function BillingPage() {
     }
 
     setIsProcessing(true);
-    const saleData = {
-      items: cart,
-      total: totalCart,
-      timestamp: new Date().toISOString(),
-      docType,
-      paymentMethod,
-      paymentReference: paymentMethod === 'Efectivo' ? `Efectivo: $${parseFloat(cashReceived).toFixed(2)}` : paymentReference,
-      status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'COMPLETADA',
-      customer: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
-    };
+    const correlative = `${docType}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    addDoc(collection(db, 'sales'), saleData)
-      .then(async (docRef) => {
-        // Update Inventory
+    try {
+      const selectedCust = customers.find(c => c.name === customerName);
+
+      // 1. Insert into public.sales
+      const { data: insertedSale, error: saleErr } = await supabase
+        .from('sales')
+        .insert({
+          correlative,
+          doc_type: docType,
+          customer_id: selectedCust ? selectedCust.id : null,
+          total: totalCart,
+          status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA',
+          payment_method: paymentMethod,
+          customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF')
+        })
+        .select()
+        .single();
+
+      if (saleErr) throw saleErr;
+
+      // 2. Insert items into public.sales_items
+      const itemsToInsert = cart.map(item => ({
+        sale_id: insertedSale.id,
+        sku: item.sku,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.quantity * item.price
+      }));
+
+      const { error: itemsErr } = await supabase
+        .from('sales_items')
+        .insert(itemsToInsert);
+
+      if (itemsErr) throw itemsErr;
+
+      // 3. Update Inventory Stock (subtract purchased quantity)
+      if (warehouses.length > 0) {
+        const defaultWh = warehouses[0]; // Bodega Central o primera bodega
         for (const item of cart) {
-          const product = inventory?.find((p: any) => p.id === item.id);
-          if (product) {
-            updateDoc(doc(db, 'inventory', item.id), { 
-              quantity: Math.max(0, (product.quantity || 0) - item.quantity) 
+          const product = inventory.find(p => p.sku === item.sku);
+          const currentStock = product ? (product.bodegas[defaultWh.name] || 0) : 0;
+          const newQty = Math.max(0, currentStock - item.quantity);
+
+          await supabase
+            .from('inventory_stock')
+            .upsert({
+              sku: item.sku,
+              warehouse_id: defaultWh.id,
+              quantity: newQty
+            }, {
+              onConflict: 'sku,warehouse_id'
             });
-          }
         }
+      }
 
-        // Send DTE Email
-        const targetEmail = customerEmail || cashConfig?.catchAllEmail;
-        if (targetEmail) {
-          sendDteEmail({
-            recipientEmail: targetEmail,
-            customerName: saleData.customer,
-            docType: saleData.docType,
-            docNumber: docRef.id,
-            total: saleData.total,
-            items: saleData.items.map(i => ({ name: i.name, quantity: i.quantity, price: i.price }))
-          });
-        }
+      // Send DTE Email
+      const targetEmail = customerEmail || cashConfig?.catchAllEmail;
+      if (targetEmail) {
+        sendDteEmail({
+          recipientEmail: targetEmail,
+          customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+          docType: docType,
+          docNumber: correlative,
+          total: totalCart,
+          items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price }))
+        });
+      }
 
-        toast({ title: "Venta Exitosa", description: "DTE enviado por correo." });
-        setCart([]);
-        setCustomerName('');
-        setCustomerEmail('');
-        setIsCheckoutOpen(false);
-      })
-      .catch((err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'sales', operation: 'create', requestResourceData: saleData }));
-      })
-      .finally(() => setIsProcessing(false));
+      toast({ title: "Venta Exitosa", description: "DTE enviado por correo." });
+      setCart([]);
+      setCustomerName('');
+      setCustomerEmail('');
+      setIsCheckoutOpen(false);
+      await loadBillingData();
+
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al procesar venta", description: err.message });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleProcessAdjustment = async (type: 'CREDITO' | 'DEBITO') => {
@@ -274,28 +385,41 @@ export default function BillingPage() {
     }
 
     setIsProcessing(true);
-    const collectionName = type === 'CREDITO' ? 'credit_notes' : 'debit_notes';
+    const table_name = type === 'CREDITO' ? 'credit_notes' : 'debit_notes';
     const totalAdjustment = adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
 
-    const data = {
-      ...adjustmentForm,
-      type,
-      total: totalAdjustment,
-      timestamp: new Date().toISOString(),
-      status: 'EMITIDA'
-    };
-
     try {
-      await addDoc(collection(db, collectionName), data);
+      const { error } = await supabase
+        .from(table_name)
+        .insert({
+          ref_doc: adjustmentForm.refDoc,
+          customer_name: adjustmentForm.customerName || 'Cliente General',
+          reason: adjustmentForm.reason,
+          items: adjustmentForm.items,
+          total: totalAdjustment,
+          status: 'EMITIDA'
+        });
+
+      if (error) throw error;
       
-      // Si es nota de crédito (devolución), reintegrar stock
-      if (type === 'CREDITO') {
+      // Si es nota de crédito (devolución), reintegrar stock en la primera bodega
+      if (type === 'CREDITO' && warehouses.length > 0) {
+        const defaultWh = warehouses[0];
         for (const item of adjustmentForm.items) {
           const product = inventory?.find((p: any) => p.sku === item.sku);
           if (product) {
-            await updateDoc(doc(db, 'inventory', product.id), {
-              quantity: (product.quantity || 0) + item.quantity
-            });
+            const currentStock = product.bodegas[defaultWh.name] || 0;
+            const newQty = currentStock + item.quantity;
+
+            await supabase
+              .from('inventory_stock')
+              .upsert({
+                sku: item.sku,
+                warehouse_id: defaultWh.id,
+                quantity: newQty
+              }, {
+                onConflict: 'sku,warehouse_id'
+              });
           }
         }
       }
@@ -305,8 +429,9 @@ export default function BillingPage() {
         description: `Se procesó el ajuste por $${totalAdjustment.toFixed(2)}.` 
       });
       setAdjustmentForm({ refDoc: '', customerName: '', reason: '', items: [], total: 0 });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la nota." });
+      await loadBillingData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "No se pudo registrar la nota." });
     } finally {
       setIsProcessing(false);
     }
@@ -338,47 +463,36 @@ export default function BillingPage() {
 
   const handleDayClosing = async () => {
     setIsProcessing(true);
-    const closingData = {
-      date: new Date().toISOString().split('T')[0],
-      timestamp: new Date().toISOString(),
-      cashFloat: cashConfig?.cashFloat || 0,
-      
-      // Cash details
-      systemCashSales,
-      physicalCashFound: totalPhysicalCash,
-      expenses: totalExpenses,
-      difference: cashDifference,
-      denominations: cashDenominations,
-
-      // Card details
-      systemCardSales,
-      physicalCardFound: physicalCard,
-      cardDifference,
-
-      // Check details
-      systemCheckSales,
-      physicalCheckFound: physicalCheck,
-      checkDifference,
-
-      // Transfer details
-      systemTransferSales,
-      physicalTransferFound: physicalTransfer,
-      transferDifference,
-
-      // Credit details
-      systemCreditSales,
-      physicalCreditFound: physicalCredit,
-      creditDifference,
-
-      closedBy: user?.email || 'Admin',
-    };
-
-
     try {
-      await addDoc(collection(db, 'daily_closings'), closingData);
+      const { error } = await supabase
+        .from('daily_closings')
+        .insert({
+          date: new Date().toISOString().split('T')[0],
+          cash_float: cashConfig?.cashFloat || 0,
+          system_cash_sales: systemCashSales,
+          physical_cash_found: totalPhysicalCash,
+          expenses: totalExpenses,
+          difference: cashDifference,
+          denominations: cashDenominations,
+          system_card_sales: systemCardSales,
+          physical_card_found: physicalCard,
+          card_difference: cardDifference,
+          system_check_sales: systemCheckSales,
+          physical_check_found: physicalCheck,
+          check_difference: checkDifference,
+          system_transfer_sales: systemTransferSales,
+          physical_transfer_found: physicalTransfer,
+          transfer_difference: transferDifference,
+          system_credit_sales: systemCreditSales,
+          physical_credit_found: physicalCredit,
+          credit_difference: creditDifference,
+          closed_by: user?.email || 'Admin'
+        });
+
+      if (error) throw error;
       toast({ title: "Cierre de Día Guardado", description: "El arqueo ha sido formalizado." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al guardar cierre" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error al guardar cierre", description: e.message });
     } finally {
       setIsProcessing(false);
     }

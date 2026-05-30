@@ -123,6 +123,8 @@ create table public.sales (
   customer_id uuid references public.customers(id) on delete set null,
   total numeric(10,2) not null default 0.00,
   status text not null default 'ACTIVA', -- ACTIVA, CANCELADA
+  payment_method text,
+  customer_name text,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
@@ -182,3 +184,55 @@ create table public.company_mappings (
 
 alter publication supabase_realtime add table public.supplier_mappings;
 alter publication supabase_realtime add table public.company_mappings;
+
+-- 17. TABLAS DE NOTAS DE CRÉDITO Y DÉBITO (AJUSTES) Y ARQUEOS DIARIOS
+create table public.credit_notes (
+  id uuid default uuid_generate_v4() primary key,
+  ref_doc text not null,
+  customer_name text not null,
+  reason text not null,
+  items jsonb not null,
+  total numeric(10,2) not null default 0.00,
+  status text not null default 'EMITIDA',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create table public.debit_notes (
+  id uuid default uuid_generate_v4() primary key,
+  ref_doc text not null,
+  customer_name text not null,
+  reason text not null,
+  items jsonb not null,
+  total numeric(10,2) not null default 0.00,
+  status text not null default 'EMITIDA',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create table public.daily_closings (
+  id uuid default uuid_generate_v4() primary key,
+  date date not null,
+  cash_float numeric(10,2) not null default 0.00,
+  system_cash_sales numeric(10,2) not null default 0.00,
+  physical_cash_found numeric(10,2) not null default 0.00,
+  expenses numeric(10,2) not null default 0.00,
+  difference numeric(10,2) not null default 0.00,
+  denominations jsonb not null,
+  system_card_sales numeric(10,2) not null default 0.00,
+  physical_card_found numeric(10,2) not null default 0.00,
+  card_difference numeric(10,2) not null default 0.00,
+  system_check_sales numeric(10,2) not null default 0.00,
+  physical_check_found numeric(10,2) not null default 0.00,
+  check_difference numeric(10,2) not null default 0.00,
+  system_transfer_sales numeric(10,2) not null default 0.00,
+  physical_transfer_found numeric(10,2) not null default 0.00,
+  transfer_difference numeric(10,2) not null default 0.00,
+  system_credit_sales numeric(10,2) not null default 0.00,
+  physical_credit_found numeric(10,2) not null default 0.00,
+  credit_difference numeric(10,2) not null default 0.00,
+  closed_by text not null,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+alter publication supabase_realtime add table public.credit_notes;
+alter publication supabase_realtime add table public.debit_notes;
+alter publication supabase_realtime add table public.daily_closings;
