@@ -102,9 +102,13 @@ export default function ManagementPage() {
         setCatchAllEmail(cashConf.value.catchAllEmail || '');
       }
 
-    } catch (e) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar las configuraciones." });
+    } catch (e: any) {
+      console.error('Error al cargar datos de gerencia:', e);
+      toast({ 
+        variant: "destructive", 
+        title: "Error de Carga", 
+        description: e.message || e.details || "No se pudieron cargar las configuraciones." 
+      });
     } finally {
       setLoadingUsers(false);
     }
@@ -122,9 +126,13 @@ export default function ManagementPage() {
       if (error) throw error;
       setConfig(newConfig);
       toast({ title: "Módulo Actualizado", description: `Estado cambiado exitosamente.` });
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar." });
+    } catch (error: any) {
+      console.error('Error al cambiar estado de módulo:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al actualizar", 
+        description: error.message || error.details || "No se pudo actualizar." 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -150,8 +158,12 @@ export default function ManagementPage() {
       toast({ title: "Rol de Usuario Actualizado", description: `El usuario ahora tiene el rol de ${ROLE_NAMES[newRole] || newRole}.` });
       await loadData();
     } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el rol de usuario." });
+      console.error('Error al actualizar rol de usuario:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al cambiar rol", 
+        description: error.message || error.details || "No se pudo actualizar el rol de usuario." 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -179,8 +191,12 @@ export default function ManagementPage() {
       toast({ title: "Asignación Revocada", description: `Se ha revocado el acceso de ${email}.` });
       await loadData();
     } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo revocar el acceso." });
+      console.error('Error al revocar acceso:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al revocar", 
+        description: error.message || error.details || "No se pudo revocar el acceso." 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -225,8 +241,12 @@ export default function ManagementPage() {
       setPreAssignEmail('');
       await loadData();
     } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo pre-asignar el rol." });
+      console.error('Error al preasignar rol:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al preasignar", 
+        description: error.message || error.details || "No se pudo pre-asignar el rol." 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -253,8 +273,12 @@ export default function ManagementPage() {
       setIsInitialized(true);
       await loadData();
     } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "Error al guardar en la base de datos." });
+      console.error('Error al guardar ajustes globales:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al guardar", 
+        description: error.message || error.details || "Error al guardar en la base de datos." 
+      });
     } finally {
       setIsSaving(false);
     }
