@@ -772,21 +772,21 @@ export default function AccountingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-6 transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
       {/* Header */}
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm border border-slate-100" onClick={() => router.push('/')}>
-            <ArrowLeft className="text-slate-600" size={20} />
+          <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-muted" onClick={() => router.push('/')}>
+            <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl md:text-2xl font-black text-slate-900 font-headline tracking-tight">Finanzas & Contabilidad</h1>
-              <Badge variant="secondary" className="bg-blue-50 text-blue-700 text-[9px] font-bold border border-blue-100 px-2 h-5">
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-foreground font-headline tracking-tight">Finanzas & Contabilidad</h1>
+              <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 text-[9px] font-bold border border-blue-100 dark:border-blue-900/50 px-2 h-5">
                 {settings.accountingLevel === 'Avanzado' ? 'CONTABILIDAD COMPLETA' : 'CONTABILIDAD SIMPLIFICADA'}
               </Badge>
             </div>
-            <p className="text-slate-500 text-xs md:text-sm">Control fiscal salvadoreño, libro diario parametrizable, rentabilidad de productos y licitaciones</p>
+            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Control fiscal salvadoreño, libro diario parametrizable, rentabilidad de productos y licitaciones</p>
           </div>
         </div>
         
@@ -806,17 +806,17 @@ export default function AccountingPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Selector de Canal / Vista Contable */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 gap-4 transition-all duration-300">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-card p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-border gap-4 transition-all duration-300">
           <div className="space-y-1">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">Canal Contable de Evaluación</h3>
-            <p className="text-xs text-slate-500 leading-none">Filtre y compare las ventas e inventarios por canal de distribución.</p>
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 dark:text-muted-foreground">Canal Contable de Evaluación</h3>
+            <p className="text-xs text-slate-500 dark:text-muted-foreground leading-none">Filtre y compare las ventas e inventarios por canal de distribución.</p>
           </div>
           <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl w-full sm:w-auto">
             <Button 
               variant={selectedChannel === 'consolidado' ? 'default' : 'ghost'} 
               size="sm" 
               className={`flex-1 sm:flex-none rounded-xl text-xs h-9 font-bold px-4 transition-all duration-200 ${
-                selectedChannel === 'consolidado' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-950 dark:hover:text-white'
+                selectedChannel === 'consolidado' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
               }`} 
               onClick={() => setSelectedChannel('consolidado')}
             >
@@ -826,7 +826,7 @@ export default function AccountingPage() {
               variant={selectedChannel === 'estandar' ? 'default' : 'ghost'} 
               size="sm" 
               className={`flex-1 sm:flex-none rounded-xl text-xs h-9 font-bold px-4 transition-all duration-200 ${
-                selectedChannel === 'estandar' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-950 dark:hover:text-white'
+                selectedChannel === 'estandar' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
               }`} 
               onClick={() => setSelectedChannel('estandar')}
             >
@@ -836,7 +836,7 @@ export default function AccountingPage() {
               variant={selectedChannel === 'institucional' ? 'default' : 'ghost'} 
               size="sm" 
               className={`flex-1 sm:flex-none rounded-xl text-xs h-9 font-bold px-4 transition-all duration-200 ${
-                selectedChannel === 'institucional' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-950 dark:hover:text-white'
+                selectedChannel === 'institucional' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
               }`} 
               onClick={() => setSelectedChannel('institucional')}
             >
@@ -847,25 +847,25 @@ export default function AccountingPage() {
 
         {/* KPI Panel */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <Card className="border-none shadow-sm rounded-3xl bg-white p-5">
+          <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border p-5">
             <div className="flex justify-between items-start mb-4">
-              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><TrendingUp size={18} /></div>
-              <Badge variant="outline" className="text-[9px] text-emerald-600 bg-emerald-50/50 border-emerald-100">Unificado</Badge>
+              <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-xl"><TrendingUp size={18} /></div>
+              <Badge variant="outline" className="text-[9px] text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/50">Unificado</Badge>
             </div>
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Ingresos Totales (ERP+Inst.)</p>
-            <p className="text-2xl font-black text-slate-900">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Ingresos Totales (ERP+Inst.)</p>
+            <p className="text-2xl font-black text-slate-900 dark:text-foreground">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
-          <Card className="border-none shadow-sm rounded-3xl bg-white p-5">
+          <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border p-5">
             <div className="flex justify-between items-start mb-4">
-              <div className="p-2 bg-rose-50 text-rose-600 rounded-xl"><TrendingDown size={18} /></div>
-              <Badge variant="outline" className="text-[9px] text-rose-600 bg-rose-50/50 border-rose-100">Consolidado</Badge>
+              <div className="p-2 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 rounded-xl"><TrendingDown size={18} /></div>
+              <Badge variant="outline" className="text-[9px] text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/50">Consolidado</Badge>
             </div>
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Costos Totales (ERP+Inst.)</p>
-            <p className="text-2xl font-black text-slate-900">${activeExpenses.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Costos Totales (ERP+Inst.)</p>
+            <p className="text-2xl font-black text-slate-900 dark:text-foreground">${activeExpenses.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
-          <Card className={`border-none shadow-sm rounded-3xl p-5 text-white ${grossProfit >= 0 ? 'bg-blue-600 shadow-lg shadow-blue-100' : 'bg-rose-600 shadow-lg shadow-rose-100'}`}>
+          <Card className={`border shadow-sm rounded-3xl p-5 text-white ${grossProfit >= 0 ? 'bg-blue-600 dark:bg-blue-900/90 shadow-lg border-blue-600 dark:border-blue-800' : 'bg-rose-600 dark:bg-rose-900/90 shadow-lg border-rose-600 dark:border-rose-800'}`}>
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-white/10 rounded-xl"><Scale size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-white border-white/20 uppercase font-black">Utilidad</Badge>
@@ -874,7 +874,7 @@ export default function AccountingPage() {
             <p className="text-2xl font-black">${grossProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
-          <Card className="border-none shadow-sm rounded-3xl bg-slate-900 p-5 text-white">
+          <Card className="border shadow-sm rounded-3xl bg-slate-900 dark:bg-slate-950 border-slate-800 dark:border-border p-5 text-white">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-white/10 rounded-xl"><Percent size={18} className="text-blue-400" /></div>
               <Badge variant="outline" className="text-[9px] text-blue-400 border-blue-800 bg-blue-950/20">{settings.ivaRate}% IVA</Badge>
@@ -886,40 +886,39 @@ export default function AccountingPage() {
 
         {/* MÓDULO PRINCIPAL CON PESTAÑAS */}
         <Tabs defaultValue="diario" className="space-y-6">
-          <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
-            <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+          <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-border flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
+            <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <FileText size={14} className="mr-2"/> Libro Diario
             </TabsTrigger>
-            <TabsTrigger value="balance-comprobacion" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="balance-comprobacion" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <Scale size={14} className="mr-2"/> Balance Comprobación
             </TabsTrigger>
-            <TabsTrigger value="rentabilidad" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="rentabilidad" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <PieChart size={14} className="mr-2"/> Rentabilidad & Márgenes
             </TabsTrigger>
-            <TabsTrigger value="libros_iva" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="libros_iva" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <BookOpen size={14} className="mr-2"/> Libros de IVA
             </TabsTrigger>
-            <TabsTrigger value="mh_forms" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="mh_forms" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <Calculator size={14} className="mr-2"/> Declaración MH
             </TabsTrigger>
-            <TabsTrigger value="tributario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="tributario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <Percent size={14} className="mr-2"/> Tributario / Hacienda
             </TabsTrigger>
-            <TabsTrigger value="caja-chica" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="caja-chica" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <Briefcase size={14} className="mr-2"/> Caja Chica
             </TabsTrigger>
-            <TabsTrigger value="pnl" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="pnl" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <BarChart3 size={14} className="mr-2"/> P&L Resultados
             </TabsTrigger>
-            <TabsTrigger value="settings" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm">
+            <TabsTrigger value="settings" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
               <Settings size={14} className="mr-2"/> Ajustes ERP
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB 1: LIBRO DIARIO / CATÁLOGO */}
           <TabsContent value="diario" className="space-y-4 outline-none">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
+              <div className="flex gap-2 bg-slate-100 dark:bg-muted p-1 rounded-xl">
                 <Button variant={activeSubTab === 'movimientos' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveSubTab('movimientos')}>
                   Movimientos Contables
                 </Button>
@@ -931,16 +930,16 @@ export default function AccountingPage() {
               {activeSubTab === 'movimientos' && (
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                  <Input placeholder="Buscar en el diario..." className="pl-9 h-9 text-xs bg-white rounded-xl border-slate-200" />
+                  <Input placeholder="Buscar en el diario..." className="pl-9 h-9 text-xs bg-white dark:bg-card rounded-xl border-slate-200 dark:border-border text-foreground" />
                 </div>
               )}
             </div>
 
             {activeSubTab === 'movimientos' ? (
-              <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden border border-slate-100">
+              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden border-slate-100 dark:border-border">
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader className="bg-slate-50/70 border-b border-slate-100">
+                    <TableHeader className="bg-slate-50/70 dark:bg-muted/50 border-b border-slate-100 dark:border-border">
                       <TableRow>
                         <TableHead className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-wider">Fecha</TableHead>
                         <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Concepto / Cuenta</TableHead>
@@ -953,7 +952,7 @@ export default function AccountingPage() {
                     <TableBody>
                       {journal?.length === 0 && sales?.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 text-xs italic">No hay partidas ni movimientos contables registrados.</TableCell>
+                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 dark:text-muted-foreground text-xs italic">No hay partidas ni movimientos contables registrados.</TableCell>
                         </TableRow>
                       )}
                       
@@ -961,39 +960,39 @@ export default function AccountingPage() {
                         const isAdv = entry.type === 'Avanzado';
                         return (
                           <React.Fragment key={entry.id}>
-                            <TableRow className="bg-white hover:bg-slate-50/50">
-                              <TableCell className="px-6 py-4 text-xs font-medium text-slate-500 whitespace-nowrap">
+                            <TableRow className="bg-white dark:bg-card hover:bg-slate-50/50 dark:hover:bg-muted/20">
+                              <TableCell className="px-6 py-4 text-xs font-medium text-slate-500 dark:text-muted-foreground whitespace-nowrap">
                                 {new Date(entry.timestamp).toLocaleDateString()}
                               </TableCell>
                               <TableCell className="py-4">
-                                <span className="font-bold text-xs text-slate-900 block">{entry.description}</span>
+                                <span className="font-bold text-xs text-slate-900 dark:text-foreground block">{entry.description}</span>
                                 {isAdv && (
                                   <span className="text-[9px] text-blue-500 font-bold block mt-0.5">Partida Diario de Doble Entrada</span>
                                 )}
                               </TableCell>
                               <TableCell className="py-4">
                                 <Badge variant="outline" className={`text-[9px] font-black h-5 uppercase px-2 ${
-                                  entry.type === 'Ingreso' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                  entry.type === 'Egreso' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                  'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                  entry.type === 'Ingreso' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/50' :
+                                  entry.type === 'Egreso' ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/50' :
+                                  'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/50'
                                 }`}>
                                   {isAdv ? 'Partida' : entry.type}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="py-4 font-black text-xs text-slate-900">
+                              <TableCell className="py-4 font-black text-xs text-slate-900 dark:text-foreground">
                                 {!isAdv ? (entry.type === 'Ingreso' ? `$${entry.amount.toFixed(2)}` : '-') : `$${entry.amount.toFixed(2)}`}
                               </TableCell>
-                              <TableCell className="py-4 font-black text-xs text-slate-900">
+                              <TableCell className="py-4 font-black text-xs text-slate-900 dark:text-foreground">
                                 {!isAdv ? (entry.type === 'Egreso' ? `$${entry.amount.toFixed(2)}` : '-') : `$${entry.amount.toFixed(2)}`}
                               </TableCell>
                               <TableCell className="py-4 text-right px-6">
                                 <div className="flex gap-1 justify-end">
                                   {isAdv && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-500" onClick={() => setSelectedAdvEntry(entry)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-muted-foreground hover:text-blue-500" onClick={() => setSelectedAdvEntry(entry)}>
                                       <Eye size={13} />
                                     </Button>
                                   )}
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" onClick={() => handleDeleteEntry(entry.id)}>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-muted-foreground hover:text-rose-600" onClick={() => handleDeleteEntry(entry.id)}>
                                     <Trash2 size={13} />
                                   </Button>
                                 </div>
@@ -1004,15 +1003,15 @@ export default function AccountingPage() {
                       })}
                       
                       {settings.accountingLevel === 'Simplificado' && sales?.slice(0, 5).map((sale: any) => (
-                        <TableRow key={sale.id} className="opacity-70 bg-slate-50/20">
-                          <TableCell className="px-6 py-3 text-xs text-slate-400">{new Date(sale.timestamp).toLocaleDateString()}</TableCell>
+                        <TableRow key={sale.id} className="opacity-70 bg-slate-50/20 dark:bg-slate-950/20">
+                          <TableCell className="px-6 py-3 text-xs text-slate-400 dark:text-muted-foreground">{new Date(sale.timestamp).toLocaleDateString()}</TableCell>
                           <TableCell className="py-3">
-                            <span className="text-xs italic text-slate-500 block">Venta DTE: {sale.customer}</span>
-                            <span className="text-[9px] text-slate-400 font-bold block mt-0.5">Sincronizado de Ventas ({sale.docType})</span>
+                            <span className="text-xs italic text-slate-500 dark:text-muted-foreground block">Venta DTE: {sale.customer}</span>
+                            <span className="text-[9px] text-slate-400 dark:text-muted-foreground font-bold block mt-0.5">Sincronizado de Ventas ({sale.docType})</span>
                           </TableCell>
-                          <TableCell className="py-3"><Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-600 border-blue-100 h-4">AUTOMÁTICO</Badge></TableCell>
-                          <TableCell className="py-3 font-black text-xs text-emerald-600">+${sale.total.toFixed(2)}</TableCell>
-                          <TableCell className="py-3 text-slate-400">-</TableCell>
+                          <TableCell className="py-3"><Badge variant="outline" className="text-[8px] bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/50 h-4">AUTOMÁTICO</Badge></TableCell>
+                          <TableCell className="py-3 font-black text-xs text-emerald-600 dark:text-emerald-400">+${sale.total.toFixed(2)}</TableCell>
+                          <TableCell className="py-3 text-slate-400 dark:text-muted-foreground">-</TableCell>
                           <TableCell></TableCell>
                         </TableRow>
                       ))}
@@ -1022,14 +1021,14 @@ export default function AccountingPage() {
               </Card>
             ) : (
               // CATÁLOGO DE CUENTAS
-              <Card className="border-none shadow-sm rounded-3xl bg-white p-6 border border-slate-100">
+              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card p-6 border-slate-100 dark:border-border">
                 <div className="mb-4">
-                  <h3 className="font-bold text-slate-900 text-sm">Estructura del Catálogo de Cuentas</h3>
-                  <p className="text-slate-500 text-xs">Cuentas contables organizadas según el esquema estándar del Ministerio de Hacienda de El Salvador.</p>
+                  <h3 className="font-bold text-slate-900 dark:text-foreground text-sm">Estructura del Catálogo de Cuentas</h3>
+                  <p className="text-slate-500 dark:text-muted-foreground text-xs">Cuentas contables organizadas según el esquema estándar del Ministerio de Hacienda de El Salvador.</p>
                 </div>
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader className="bg-slate-50">
+                    <TableHeader className="bg-slate-50 dark:bg-muted/50">
                       <TableRow>
                         <TableHead className="w-32 text-[10px] font-black uppercase text-slate-400">Código</TableHead>
                         <TableHead className="text-[10px] font-black uppercase text-slate-400">Nombre de la Cuenta</TableHead>
@@ -1039,21 +1038,21 @@ export default function AccountingPage() {
                     </TableHeader>
                     <TableBody>
                       {DEFAULT_CATALOG.map((acc) => (
-                        <TableRow key={acc.code} className="hover:bg-slate-50/50">
-                          <TableCell className="font-mono text-xs font-bold text-slate-600">{acc.code}</TableCell>
-                          <TableCell className="text-xs font-semibold text-slate-900">{acc.name}</TableCell>
+                        <TableRow key={acc.code} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
+                          <TableCell className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400">{acc.code}</TableCell>
+                          <TableCell className="text-xs font-semibold text-slate-900 dark:text-foreground">{acc.name}</TableCell>
                           <TableCell>
                             <Badge className={`text-[8px] font-black uppercase h-5 ${
-                              acc.group === 'Activo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                              acc.group === 'Pasivo' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                              acc.group === 'Patrimonio' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                              acc.group === 'Ingresos' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                              acc.group === 'Costos' ? 'bg-orange-50 text-orange-700 border-orange-100' :
-                              'bg-rose-50 text-rose-700 border-rose-100'
+                              acc.group === 'Activo' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50' :
+                              acc.group === 'Pasivo' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50' :
+                              acc.group === 'Patrimonio' ? 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50' :
+                              acc.group === 'Ingresos' ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50' :
+                              acc.group === 'Costos' ? 'bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border border-orange-100 dark:border-orange-900/50' :
+                              'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50'
                             }`}>{acc.group}</Badge>
                           </TableCell>
                           <TableCell className="text-center">
-                            <Badge className="bg-slate-100 text-slate-600 text-[8px] font-bold">Activa</Badge>
+                            <Badge className="bg-slate-100 dark:bg-muted text-slate-600 dark:text-slate-400 text-[8px] font-bold">Activa</Badge>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1066,7 +1065,7 @@ export default function AccountingPage() {
 
           {/* TAB 2: NUEVA PESTAÑA - RENTABILIDAD & GANANCIAS POR COSTO DE PRODUCTO Y LICITACIONES */}
           <TabsContent value="rentabilidad" className="space-y-6 outline-none">
-            <div className="flex gap-2 bg-slate-100 p-1 rounded-xl w-fit">
+            <div className="flex gap-2 bg-slate-100 dark:bg-muted p-1 rounded-xl w-fit">
               <Button variant={rentabilidadSubTab === 'productos' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setRentabilidadSubTab('productos')}>
                 Rentabilidad por Producto (Ganado / Perdido)
               </Button>
@@ -1078,10 +1077,10 @@ export default function AccountingPage() {
             {rentabilidadSubTab === 'productos' ? (
               // RENTABILIDAD POR PRODUCTO
               <div className="space-y-4 animate-in fade-in duration-300">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-card p-4 rounded-2xl border border-slate-100 dark:border-border">
                   <div>
-                    <h3 className="font-black text-sm text-slate-900">Análisis de Ganancias por Costo de Suministro</h3>
-                    <p className="text-xs text-slate-500">Muestra cuánto se vendió cada producto, su costo unitario estimado/real y el margen de ganancia o pérdida total.</p>
+                    <h3 className="font-black text-sm text-slate-900 dark:text-foreground">Análisis de Ganancias por Costo de Suministro</h3>
+                    <p className="text-xs text-slate-500 dark:text-muted-foreground">Muestra cuánto se vendió cada producto, su costo unitario estimado/real y el margen de ganancia o pérdida total.</p>
                   </div>
                   <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -1089,15 +1088,15 @@ export default function AccountingPage() {
                       placeholder="Filtrar por SKU o Nombre..." 
                       value={rentabilidadSearch}
                       onChange={e => setRentabilidadSearch(e.target.value)}
-                      className="pl-9 h-9 text-xs bg-slate-50 border-none rounded-xl"
+                      className="pl-9 h-9 text-xs bg-slate-50 dark:bg-muted border-none rounded-xl text-foreground"
                     />
                   </div>
                 </div>
 
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader className="bg-slate-50/70 border-b">
+                      <TableHeader className="bg-slate-50/70 dark:bg-muted/50 border-b border-slate-100 dark:border-border">
                         <TableRow>
                           <TableHead className="px-6 text-[10px] font-black uppercase text-slate-400 tracking-wider">SKU</TableHead>
                           <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Producto</TableHead>
@@ -1119,23 +1118,23 @@ export default function AccountingPage() {
                         ) : filteredProductProfitability.map((p) => {
                           const isProfit = p.totalProfit >= 0;
                           return (
-                            <TableRow key={p.sku} className="hover:bg-slate-50/50">
-                              <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600">{p.sku}</TableCell>
-                              <TableCell className="py-4 font-semibold text-xs text-slate-900">{p.name}</TableCell>
-                              <TableCell className="text-center py-4 font-bold text-xs text-slate-800">{p.qtySold} un.</TableCell>
-                              <TableCell className="text-right py-4 font-bold text-xs text-slate-950">${p.avgSellingPrice.toFixed(2)}</TableCell>
-                              <TableCell className="text-right py-4 font-bold text-xs text-slate-500">${p.avgCost.toFixed(2)}</TableCell>
-                              <TableCell className={`text-right py-4 font-black text-xs ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            <TableRow key={p.sku} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
+                              <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-slate-400">{p.sku}</TableCell>
+                              <TableCell className="py-4 font-semibold text-xs text-slate-900 dark:text-foreground">{p.name}</TableCell>
+                              <TableCell className="text-center py-4 font-bold text-xs text-slate-800 dark:text-slate-300">{p.qtySold} un.</TableCell>
+                              <TableCell className="text-right py-4 font-bold text-xs text-slate-950 dark:text-foreground">${p.avgSellingPrice.toFixed(2)}</TableCell>
+                              <TableCell className="text-right py-4 font-bold text-xs text-slate-500 dark:text-muted-foreground">${p.avgCost.toFixed(2)}</TableCell>
+                              <TableCell className={`text-right py-4 font-black text-xs ${isProfit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                 {isProfit ? '+' : ''}${p.profitPerUnit.toFixed(2)}
                               </TableCell>
-                              <TableCell className={`text-right py-4 font-black text-xs ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}>
+                              <TableCell className={`text-right py-4 font-black text-xs ${isProfit ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
                                 {isProfit ? '+' : ''}${p.totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                               </TableCell>
                               <TableCell className="text-center py-4">
                                 <Badge className={`text-[8px] font-black uppercase h-5 ${
                                   isProfit 
-                                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                                    : 'bg-rose-50 text-rose-600 border border-rose-200'
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50' 
+                                    : 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50'
                                 }`}>
                                   {isProfit ? 'GANANCIA ✅' : 'PÉRDIDA ❌'}
                                 </Badge>
@@ -1151,14 +1150,14 @@ export default function AccountingPage() {
             ) : (
               // RENTABILIDAD DE LICITACIONES
               <div className="space-y-4 animate-in fade-in duration-300">
-                <div className="bg-white p-4 rounded-2xl border">
-                  <h3 className="font-black text-sm text-slate-900">Análisis Consolidado de Proyectos Institucionales</h3>
-                  <p className="text-xs text-slate-500">Muestra el monto total adjudicado (presupuesto), costos reales de suministros cargados y la ganancia neta líquida obtenida por Licitación.</p>
+                <div className="bg-white dark:bg-card p-4 rounded-2xl border border-slate-100 dark:border-border">
+                  <h3 className="font-black text-sm text-slate-900 dark:text-foreground">Análisis Consolidado de Proyectos Institucionales</h3>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground">Muestra el monto total adjudicado (presupuesto), costos reales de suministros cargados y la ganancia neta líquida obtenida por Licitación.</p>
                 </div>
 
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
                   <Table>
-                    <TableHeader className="bg-slate-50/70">
+                    <TableHeader className="bg-slate-50/70 dark:bg-muted/50">
                       <TableRow>
                         <TableHead className="px-6 text-[10px] font-black uppercase text-slate-400 tracking-wider">Proyecto / Expediente</TableHead>
                         <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Cliente Corporativo</TableHead>
@@ -1172,29 +1171,29 @@ export default function AccountingPage() {
                     <TableBody>
                       {projectMargins.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-16 text-slate-400 italic text-xs">
+                          <TableCell colSpan={7} className="text-center py-16 text-slate-400 dark:text-muted-foreground italic text-xs">
                             No hay proyectos institucionales aperturados en el sistema.
                           </TableCell>
                         </TableRow>
                       ) : projectMargins.map((p) => {
                         const isProfit = p.netProfit >= 0;
                         return (
-                          <TableRow key={p.id} className="hover:bg-slate-50/50">
+                          <TableRow key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
                             <TableCell className="px-6 py-4">
-                              <span className="font-bold text-xs text-slate-900 block">{p.name}</span>
-                              <span className="text-[9px] text-slate-400 block font-mono">ID: {p.id?.slice(0, 8)}</span>
+                              <span className="font-bold text-xs text-slate-900 dark:text-foreground block">{p.name}</span>
+                              <span className="text-[9px] text-slate-400 dark:text-muted-foreground block font-mono">ID: {p.id?.slice(0, 8)}</span>
                             </TableCell>
-                            <TableCell className="text-xs font-semibold text-slate-700">{p.customerName}</TableCell>
-                            <TableCell className="text-right font-black text-xs text-slate-900">${p.budget.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                            <TableCell className="text-xs font-semibold text-slate-700 dark:text-slate-300">{p.customerName}</TableCell>
+                            <TableCell className="text-right font-black text-xs text-slate-900 dark:text-foreground">${p.budget.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                             <TableCell className="text-right font-bold text-xs text-rose-500">-${p.directCosts.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                             <TableCell className={`text-right font-black text-xs ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
                               ${p.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}
                             </TableCell>
-                            <TableCell className="text-center py-4 font-mono font-bold text-xs text-slate-700">
+                            <TableCell className="text-center py-4 font-mono font-bold text-xs text-slate-700 dark:text-slate-300">
                               {p.roi.toFixed(1)}%
                             </TableCell>
                             <TableCell className="text-center">
-                              <Badge className={p.status === 'FINALIZADO' ? 'bg-emerald-100 text-emerald-600 text-[8px]' : 'bg-blue-100 text-blue-600 text-[8px]'}>
+                              <Badge className={p.status === 'FINALIZADO' ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-[8px]' : 'bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[8px]'}>
                                 {p.status}
                               </Badge>
                             </TableCell>
@@ -1210,10 +1209,10 @@ export default function AccountingPage() {
 
           {/* TAB 3: LIBROS DE IVA DEL EL SALVADOR */}
           <TabsContent value="libros_iva" className="space-y-6 outline-none">
-            <Card className="p-5 bg-white border-none shadow-sm rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <Card className="p-5 bg-white dark:bg-card border border-slate-100 dark:border-border shadow-sm rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Filtrar Mes Fiscal</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-muted-foreground">Filtrar Mes Fiscal</Label>
                   <div className="flex gap-2">
                     <Select value={filterMonth} onValueChange={setFilterMonth}>
                       <SelectTrigger className="w-32 h-9 text-xs rounded-xl">
@@ -1241,13 +1240,13 @@ export default function AccountingPage() {
                 </div>
               </div>
 
-              <Button onClick={() => handleExportCSV(activeTaxTab)} className="w-full md:w-auto bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-10 text-xs font-bold flex gap-2">
+              <Button onClick={() => handleExportCSV(activeTaxTab)} className="w-full md:w-auto bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl h-10 text-xs font-bold flex gap-2">
                 <FileSpreadsheet size={14} /> Exportar Libro a CSV
               </Button>
             </Card>
 
             <div className="space-y-4">
-              <div className="flex gap-2 bg-slate-100 p-1 rounded-xl w-full justify-start overflow-x-auto">
+              <div className="flex gap-2 bg-slate-100 dark:bg-muted p-1 rounded-xl w-full justify-start overflow-x-auto">
                 <Button variant={activeTaxTab === 'vcf' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold whitespace-nowrap" onClick={() => setActiveTaxTab('vcf')}>
                   Ventas a Consumidor Final (CF)
                 </Button>
@@ -1260,20 +1259,20 @@ export default function AccountingPage() {
               </div>
 
               {activeTaxTab === 'vcf' && (
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-6">
-                  <div className="flex justify-between items-center mb-4 border-b pb-4">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
+                  <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
-                      <h3 className="font-bold text-sm">Libro de Ventas a Consumidor Final</h3>
-                      <p className="text-xs text-slate-500">Muestra las ventas facturadas a Consumidores Finales (DTE Tipo 01 / CF).</p>
+                      <h3 className="font-bold text-sm text-foreground">Libro de Ventas a Consumidor Final</h3>
+                      <p className="text-xs text-slate-500 dark:text-muted-foreground">Muestra las ventas facturadas a Consumidores Finales (DTE Tipo 01 / CF).</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-black uppercase text-slate-400">Total IVA Débito (13%)</p>
-                      <p className="text-lg font-black text-emerald-600">${libVcfIVA.toFixed(2)}</p>
+                      <p className="text-[10px] font-black uppercase text-slate-400 dark:text-muted-foreground">Total IVA Débito (13%)</p>
+                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">${libVcfIVA.toFixed(2)}</p>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader className="bg-slate-50">
+                      <TableHeader className="bg-slate-50 dark:bg-muted/50">
                         <TableRow>
                           <TableHead className="text-[9px] uppercase font-bold">No.</TableHead>
                           <TableHead className="text-[9px] uppercase font-bold">Fecha</TableHead>
@@ -1286,28 +1285,28 @@ export default function AccountingPage() {
                       </TableHeader>
                       <TableBody>
                         {filteredSalesCF.length === 0 ? (
-                          <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400 text-xs italic">No hay ventas CF registradas en este período.</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400 dark:text-muted-foreground text-xs italic">No hay ventas CF registradas en este período.</TableCell></TableRow>
                         ) : filteredSalesCF.map((s, idx) => {
                           const net = s.total / 1.13;
                           const iva = s.total - net;
                           return (
-                            <TableRow key={s.id} className="hover:bg-slate-50/50">
+                            <TableRow key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
                               <TableCell className="text-xs">{idx + 1}</TableCell>
                               <TableCell className="text-xs">{new Date(s.timestamp).toLocaleDateString()}</TableCell>
-                              <TableCell className="font-mono text-xs text-blue-600 font-bold">{s.id?.slice(0, 8)}...</TableCell>
+                              <TableCell className="font-mono text-xs text-blue-600 dark:text-blue-400 font-bold">{s.id?.slice(0, 8)}...</TableCell>
                               <TableCell className="text-xs font-semibold">{s.customer}</TableCell>
                               <TableCell className="text-xs font-medium">${net.toFixed(2)}</TableCell>
                               <TableCell className="text-xs font-medium">${iva.toFixed(2)}</TableCell>
-                              <TableCell className="text-right font-black text-xs text-slate-900">${s.total.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-black text-xs text-slate-900 dark:text-foreground">${s.total.toFixed(2)}</TableCell>
                             </TableRow>
                           );
                         })}
                         {filteredSalesCF.length > 0 && (
-                          <TableRow className="bg-slate-50 font-black">
+                          <TableRow className="bg-slate-50 dark:bg-muted/50 font-black">
                             <TableCell colSpan={4} className="text-right text-xs">TOTALES FISCALES:</TableCell>
-                            <TableCell className="text-xs text-slate-900">${libVcfNeto.toFixed(2)}</TableCell>
-                            <TableCell className="text-xs text-emerald-600">${libVcfIVA.toFixed(2)}</TableCell>
-                            <TableCell className="text-right text-xs text-slate-900">${libVcfTotal.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs text-slate-900 dark:text-foreground">${libVcfNeto.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs text-emerald-600 dark:text-emerald-400">${libVcfIVA.toFixed(2)}</TableCell>
+                            <TableCell className="text-right text-xs text-slate-900 dark:text-foreground">${libVcfTotal.toFixed(2)}</TableCell>
                           </TableRow>
                         )}
                       </TableBody>
@@ -1317,20 +1316,20 @@ export default function AccountingPage() {
               )}
 
               {activeTaxTab === 'vc' && (
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-6">
-                  <div className="flex justify-between items-center mb-4 border-b pb-4">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
+                  <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
-                      <h3 className="font-bold text-sm">Libro de Ventas a Contribuyentes</h3>
-                      <p className="text-xs text-slate-500">Muestra las ventas facturadas con Comprobante de Crédito Fiscal (DTE Tipo 03 / CCF).</p>
+                      <h3 className="font-bold text-sm text-foreground">Libro de Ventas a Contribuyentes</h3>
+                      <p className="text-xs text-slate-500 dark:text-muted-foreground">Muestra las ventas facturadas con Comprobante de Crédito Fiscal (DTE Tipo 03 / CCF).</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-black uppercase text-slate-400">Total IVA Débito (13%)</p>
-                      <p className="text-lg font-black text-emerald-600">${libVcIVA.toFixed(2)}</p>
+                      <p className="text-[10px] font-black uppercase text-slate-400 dark:text-muted-foreground">Total IVA Débito (13%)</p>
+                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">${libVcIVA.toFixed(2)}</p>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader className="bg-slate-50">
+                      <TableHeader className="bg-slate-50 dark:bg-muted/50">
                         <TableRow>
                           <TableHead className="text-[9px] uppercase font-bold">No.</TableHead>
                           <TableHead className="text-[9px] uppercase font-bold">Fecha</TableHead>
@@ -1344,37 +1343,37 @@ export default function AccountingPage() {
                       </TableHeader>
                       <TableBody>
                         {filteredSalesCCF.length === 0 ? (
-                          <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400 text-xs italic">No hay ventas de CCF en este período.</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400 dark:text-muted-foreground text-xs italic">No hay ventas de CCF en este período.</TableCell></TableRow>
                         ) : filteredSalesCCF.map((s, idx) => {
                           const net = s.total / 1.13;
                           const iva = s.total - net;
                           const hasRet = net >= 100 && (settings.taxProfile === 'Gran Contribuyente' || s.isGranContribuyente);
                           const ret = hasRet ? net * 0.01 : 0;
                           return (
-                            <TableRow key={s.id} className="hover:bg-slate-50/50">
+                            <TableRow key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
                               <TableCell className="text-xs">{idx + 1}</TableCell>
                               <TableCell className="text-xs">{new Date(s.timestamp).toLocaleDateString()}</TableCell>
-                              <TableCell className="font-mono text-xs font-bold text-blue-600">{s.id?.slice(0, 8)}...</TableCell>
+                              <TableCell className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{s.id?.slice(0, 8)}...</TableCell>
                               <TableCell className="text-xs">
-                                <span className="font-semibold block">{s.customer}</span>
-                                <span className="text-[9px] text-slate-400 block">NRC: {s.nrc || 'N/A'}</span>
+                                <span className="font-semibold block text-slate-900 dark:text-foreground">{s.customer}</span>
+                                <span className="text-[9px] text-slate-400 dark:text-muted-foreground block">NRC: {s.nrc || 'N/A'}</span>
                               </TableCell>
                               <TableCell className="text-xs">${net.toFixed(2)}</TableCell>
                               <TableCell className="text-xs">${iva.toFixed(2)}</TableCell>
                               <TableCell className="text-xs text-rose-600 font-bold">
                                 {ret > 0 ? `-$${ret.toFixed(2)}` : '$0.00'}
                               </TableCell>
-                              <TableCell className="text-right font-black text-xs text-slate-900">${(s.total - ret).toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-black text-xs text-slate-900 dark:text-foreground">${(s.total - ret).toFixed(2)}</TableCell>
                             </TableRow>
                           );
                         })}
                         {filteredSalesCCF.length > 0 && (
-                          <TableRow className="bg-slate-50 font-black">
+                          <TableRow className="bg-slate-50 dark:bg-muted/50 border-t border-slate-200 dark:border-border font-black text-slate-900 dark:text-foreground">
                             <TableCell colSpan={4} className="text-right text-xs">TOTALES FISCALES:</TableCell>
                             <TableCell className="text-xs">${libVcNeto.toFixed(2)}</TableCell>
-                            <TableCell className="text-xs text-emerald-600">${libVcIVA.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs text-emerald-600 dark:text-emerald-400">${libVcIVA.toFixed(2)}</TableCell>
                             <TableCell className="text-xs text-rose-500">-${libVcRetenido.toFixed(2)}</TableCell>
-                            <TableCell className="text-right text-xs text-slate-900">${(libVcTotal - libVcRetenido).toFixed(2)}</TableCell>
+                            <TableCell className="text-right text-xs text-slate-900 dark:text-foreground">${(libVcTotal - libVcRetenido).toFixed(2)}</TableCell>
                           </TableRow>
                         )}
                       </TableBody>
@@ -1384,20 +1383,20 @@ export default function AccountingPage() {
               )}
 
               {activeTaxTab === 'compras' && (
-                <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-6">
-                  <div className="flex justify-between items-center mb-4 border-b pb-4">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
+                  <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
-                      <h3 className="font-bold text-sm">Libro de Compras</h3>
-                      <p className="text-xs text-slate-500">Muestra los gastos y costos deducibles de IVA ingresados por el ERP NexWay.</p>
+                      <h3 className="font-bold text-sm text-foreground">Libro de Compras</h3>
+                      <p className="text-xs text-slate-500 dark:text-muted-foreground">Muestra los gastos y costos deducibles de IVA ingresados por el ERP NexWay.</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-black uppercase text-slate-400">Total IVA Crédito (13%)</p>
-                      <p className="text-lg font-black text-rose-600">${libComprasIVA.toFixed(2)}</p>
+                      <p className="text-[10px] font-black uppercase text-slate-400 dark:text-muted-foreground">Total IVA Crédito (13%)</p>
+                      <p className="text-lg font-black text-rose-600 dark:text-rose-400">${libComprasIVA.toFixed(2)}</p>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader className="bg-slate-50">
+                      <TableHeader className="bg-slate-50 dark:bg-muted/50">
                         <TableRow>
                           <TableHead className="text-[9px] uppercase font-bold">No.</TableHead>
                           <TableHead className="text-[9px] uppercase font-bold">Fecha</TableHead>
@@ -1410,34 +1409,34 @@ export default function AccountingPage() {
                       </TableHeader>
                       <TableBody>
                         {filteredPurchases.length === 0 ? (
-                          <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400 text-xs italic">No hay compras registradas en este período.</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400 dark:text-muted-foreground text-xs italic">No hay compras registradas en este período.</TableCell></TableRow>
                         ) : filteredPurchases.map((p, idx) => {
                           const net = p.total / 1.13;
                           const iva = p.total - net;
                           const hasRet = net >= 100 && settings.taxProfile === 'Gran Contribuyente';
                           const ret = hasRet ? net * 0.01 : 0;
                           return (
-                            <TableRow key={p.id} className="hover:bg-slate-50/50">
+                            <TableRow key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
                               <TableCell className="text-xs">{idx + 1}</TableCell>
                               <TableCell className="text-xs">{new Date(p.timestamp || p.date).toLocaleDateString()}</TableCell>
                               <TableCell className="text-xs">
-                                <span className="font-semibold block">{p.supplier || p.provider || 'Proveedor'}</span>
-                                <span className="text-[9px] text-slate-400 block">NRC: {p.nrc || 'N/A'}</span>
+                                <span className="font-semibold block text-slate-900 dark:text-foreground">{p.supplier || p.provider || 'Proveedor'}</span>
+                                <span className="text-[9px] text-slate-400 dark:text-muted-foreground block">NRC: {p.nrc || 'N/A'}</span>
                               </TableCell>
                               <TableCell className="text-xs">${net.toFixed(2)}</TableCell>
                               <TableCell className="text-xs">${iva.toFixed(2)}</TableCell>
                               <TableCell className="text-xs text-rose-600 font-bold">${ret.toFixed(2)}</TableCell>
-                              <TableCell className="text-right font-black text-xs text-slate-900">${(p.total - ret).toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-black text-xs text-slate-900 dark:text-foreground">${(p.total - ret).toFixed(2)}</TableCell>
                             </TableRow>
                           );
                         })}
                         {filteredPurchases.length > 0 && (
-                          <TableRow className="bg-slate-50 font-black">
+                          <TableRow className="bg-slate-50 dark:bg-muted/50 border-t border-slate-200 dark:border-border font-black text-slate-900 dark:text-foreground">
                             <TableCell colSpan={3} className="text-right text-xs">TOTALES COMPRAS:</TableCell>
                             <TableCell className="text-xs">${libComprasNeto.toFixed(2)}</TableCell>
-                            <TableCell className="text-xs text-rose-600">${libComprasIVA.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs text-rose-600 dark:text-rose-400">${libComprasIVA.toFixed(2)}</TableCell>
                             <TableCell className="text-xs text-rose-500">-${libComprasRetenido.toFixed(2)}</TableCell>
-                            <TableCell className="text-right text-xs text-slate-900">${(libComprasTotal - libComprasRetenido).toFixed(2)}</TableCell>
+                            <TableCell className="text-right text-xs text-slate-900 dark:text-foreground">${(libComprasTotal - libComprasRetenido).toFixed(2)}</TableCell>
                           </TableRow>
                         )}
                       </TableBody>
@@ -1450,7 +1449,7 @@ export default function AccountingPage() {
 
           {/* TAB 4: FORMULARIOS DE HACIENDA */}
           <TabsContent value="mh_forms" className="space-y-6 outline-none">
-            <div className="flex gap-2 bg-slate-100 p-1 rounded-xl w-fit">
+            <div className="flex gap-2 bg-slate-100 dark:bg-muted p-1 rounded-xl w-fit">
               <Button variant={activeFormTab === 'f07' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveFormTab('f07')}>
                 F07 - Declaración Mensual de IVA
               </Button>
@@ -1462,45 +1461,45 @@ export default function AccountingPage() {
             {activeFormTab === 'f07' ? (
               // FORMULARIO F07
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 border-none shadow-sm rounded-3xl bg-white p-6 md:p-8 space-y-6">
-                  <div className="flex items-center justify-between border-b pb-4">
-                    <h3 className="font-black text-slate-900 text-base">F07 - Impuesto al Valor Agregado (Esquema Mensual)</h3>
+                <Card className="lg:col-span-2 border border-slate-100 dark:border-border shadow-sm rounded-3xl bg-white dark:bg-card p-6 md:p-8 space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-4">
+                    <h3 className="font-black text-slate-900 dark:text-foreground text-base">F07 - Impuesto al Valor Agregado (Esquema Mensual)</h3>
                     <Badge className="bg-blue-600 text-white font-bold text-[9px] uppercase px-3 h-6">Ministerio de Hacienda</Badge>
                   </div>
                   
                   <div className="space-y-4">
-                    <div className="p-3 bg-slate-50/50 rounded-xl space-y-3">
-                      <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest border-b pb-1">Sección A: Débito Fiscal (Tus Ventas)</p>
+                    <div className="p-3 bg-slate-50/50 dark:bg-muted/30 border dark:border-border rounded-xl space-y-3">
+                      <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border-b border-slate-100 dark:border-border pb-1">Sección A: Débito Fiscal (Tus Ventas)</p>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-semibold">Ventas Gravadas a Consumidores Finales (CF)</span>
-                        <span className="font-bold text-slate-900">${libVcfNeto.toFixed(2)}</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-semibold">Ventas Gravadas a Consumidores Finales (CF)</span>
+                        <span className="font-bold text-slate-900 dark:text-foreground">${libVcfNeto.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-semibold">Ventas Gravadas a Contribuyentes (CCF)</span>
-                        <span className="font-bold text-slate-900">${libVcNeto.toFixed(2)}</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-semibold">Ventas Gravadas a Contribuyentes (CCF)</span>
+                        <span className="font-bold text-slate-900 dark:text-foreground">${libVcNeto.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-bold border-t pt-2 text-slate-800">
+                      <div className="flex justify-between items-center text-sm font-bold border-t border-slate-100 dark:border-border pt-2 text-slate-800 dark:text-foreground">
                         <span>Total Débito Fiscal Generado (13%):</span>
-                        <span className="text-emerald-600">${totalDebitFiscal.toFixed(2)}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">${totalDebitFiscal.toFixed(2)}</span>
                       </div>
                     </div>
 
-                    <div className="p-3 bg-slate-50/50 rounded-xl space-y-3">
-                      <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest border-b pb-1">Sección B: Crédito Fiscal (Tus Compras)</p>
+                    <div className="p-3 bg-slate-50/50 dark:bg-muted/30 border dark:border-border rounded-xl space-y-3">
+                      <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest border-b border-slate-100 dark:border-border pb-1">Sección B: Crédito Fiscal (Tus Compras)</p>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-semibold">Compras Internas Gravadas del Período</span>
-                        <span className="font-bold text-slate-900">${libComprasNeto.toFixed(2)}</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-semibold">Compras Internas Gravadas del Período</span>
+                        <span className="font-bold text-slate-900 dark:text-foreground">${libComprasNeto.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-bold border-t pt-2 text-slate-800">
+                      <div className="flex justify-between items-center text-sm font-bold border-t border-slate-100 dark:border-border pt-2 text-slate-800 dark:text-foreground">
                         <span>Total Crédito Fiscal Deducible (13%):</span>
-                        <span className="text-rose-600">${totalCreditFiscal.toFixed(2)}</span>
+                        <span className="text-rose-600 dark:text-rose-400">${totalCreditFiscal.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
                 </Card>
 
                 <div className="space-y-4">
-                  <Card className="border-none shadow-xl rounded-3xl bg-slate-900 text-white p-6 relative overflow-hidden">
+                  <Card className="border border-slate-800 dark:border-border shadow-xl rounded-3xl bg-slate-900 dark:bg-slate-950 text-white p-6 relative overflow-hidden">
                     <div className="relative z-10 space-y-4">
                       <p className="text-[9px] font-black uppercase text-blue-400 tracking-wider">Resultado del Período</p>
                       <h2 className="text-3xl font-black">
@@ -1520,7 +1519,7 @@ export default function AccountingPage() {
                     <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/3 translate-x-1/3" />
                   </Card>
 
-                  <div className="bg-amber-50 border border-amber-100 p-5 rounded-3xl flex gap-3 text-amber-800">
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 p-5 rounded-3xl flex gap-3 text-amber-800 dark:text-amber-400">
                     <AlertCircle className="flex-shrink-0 text-amber-600" size={16} />
                     <div className="space-y-1 text-xs">
                       <p className="font-bold">Recordatorio Tributario</p>
@@ -1532,36 +1531,36 @@ export default function AccountingPage() {
             ) : (
               // FORMULARIO F14
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 border-none shadow-sm rounded-3xl bg-white p-6 md:p-8 space-y-6">
-                  <div className="flex items-center justify-between border-b pb-4">
-                    <h3 className="font-black text-slate-900 text-base">F14 - Declaración de Pago a Cuenta y Retenciones de Renta</h3>
+                <Card className="lg:col-span-2 border border-slate-100 dark:border-border shadow-sm rounded-3xl bg-white dark:bg-card p-6 md:p-8 space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-4">
+                    <h3 className="font-black text-slate-900 dark:text-foreground text-base">F14 - Declaración de Pago a Cuenta y Retenciones de Renta</h3>
                     <Badge className="bg-blue-600 text-white font-bold text-[9px] uppercase px-3 h-6">Ministerio de Hacienda</Badge>
                   </div>
 
                   <div className="space-y-4">
-                    <div className="p-3 bg-slate-50/50 rounded-xl space-y-3">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest border-b pb-1">Sección A: Pago a Cuenta del Impuesto sobre la Renta</p>
+                    <div className="p-3 bg-slate-50/50 dark:bg-muted/30 border dark:border-border rounded-xl space-y-3">
+                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest border-b border-slate-100 dark:border-border pb-1">Sección A: Pago a Cuenta del Impuesto sobre la Renta</p>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-semibold">Base de Ingresos Operativos del ERP</span>
-                        <span className="font-bold text-slate-900">${activeIncome.toFixed(2)}</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-semibold">Base de Ingresos Operativos del ERP</span>
+                        <span className="font-bold text-slate-900 dark:text-foreground">${activeIncome.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-semibold">Tasa del Pago a Cuenta Mensual</span>
-                        <span className="font-bold text-slate-900">{settings.pagoCuentaRate}%</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-semibold">Tasa del Pago a Cuenta Mensual</span>
+                        <span className="font-bold text-slate-900 dark:text-foreground">{settings.pagoCuentaRate}%</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-bold border-t pt-2 text-slate-800">
+                      <div className="flex justify-between items-center text-sm font-bold border-t border-slate-100 dark:border-border pt-2 text-slate-800 dark:text-foreground">
                         <span>Pago a Cuenta Sugerido:</span>
-                        <span className="text-blue-600">${f14PagoCuenta.toFixed(2)}</span>
+                        <span className="text-blue-600 dark:text-blue-400">${f14PagoCuenta.toFixed(2)}</span>
                       </div>
                     </div>
 
-                    <div className="p-3 bg-slate-50/50 rounded-xl space-y-3">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest border-b pb-1">Sección B: Retenciones Sufridas del 1% (Grandes Contribuyentes)</p>
+                    <div className="p-3 bg-slate-50/50 dark:bg-muted/30 border dark:border-border rounded-xl space-y-3">
+                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest border-b border-slate-100 dark:border-border pb-1">Sección B: Retenciones Sufridas del 1% (Grandes Contribuyentes)</p>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-semibold">IVA Retenido por Terceros en tus ventas CCF</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-semibold">IVA Retenido por Terceros en tus ventas CCF</span>
                         <span className="font-bold text-rose-600">-${libVcRetenido.toFixed(2)}</span>
                       </div>
-                      <p className="text-[10px] text-slate-400 leading-normal">
+                      <p className="text-[10px] text-slate-400 dark:text-muted-foreground leading-normal">
                         * Este monto fue retenido por tus clientes calificados como Grandes Contribuyentes y es acreditable para tu pago mensual.
                       </p>
                     </div>
@@ -1569,7 +1568,7 @@ export default function AccountingPage() {
                 </Card>
 
                 <div className="space-y-4">
-                  <Card className="border-none shadow-xl rounded-3xl bg-slate-900 text-white p-6 relative overflow-hidden">
+                  <Card className="border border-slate-800 dark:border-border shadow-xl rounded-3xl bg-slate-900 dark:bg-slate-950 text-white p-6 relative overflow-hidden">
                     <div className="relative z-10 space-y-4">
                       <p className="text-[9px] font-black uppercase text-blue-400 tracking-wider">Total a Declarar en F14</p>
                       <h2 className="text-3xl font-black">
@@ -1593,28 +1592,28 @@ export default function AccountingPage() {
           {/* TAB 5: ESTADO DE RESULTADOS (P&L) */}
           <TabsContent value="pnl" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-              <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-6 md:p-8 space-y-6">
-                <h3 className="text-lg md:text-xl font-bold border-b pb-4">Estructura de Pérdidas y Ganancias (P&L)</h3>
+              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6 md:p-8 space-y-6">
+                <h3 className="text-lg md:text-xl font-bold border-b border-slate-100 dark:border-border pb-4 text-slate-900 dark:text-foreground">Estructura de Pérdidas y Ganancias (P&L)</h3>
                 <div className="space-y-4 md:space-y-6">
                   <div className="flex justify-between items-center text-xs md:text-sm">
-                    <span className="text-slate-500 font-bold uppercase text-[9px] md:text-[10px]">Ingresos de Operación (Ventas + Proyectos)</span>
-                    <span className="font-black text-emerald-600">${totalSales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span className="text-slate-500 dark:text-muted-foreground font-bold uppercase text-[9px] md:text-[10px]">Ingresos de Operación (Ventas + Proyectos)</span>
+                    <span className="font-black text-emerald-600 dark:text-emerald-400">${totalSales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs md:text-sm">
-                    <span className="text-slate-500 font-bold uppercase text-[9px] md:text-[10px]">Ingresos Manuales / Ajustes</span>
-                    <span className="font-black text-emerald-600">${totalManualIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span className="text-slate-500 dark:text-muted-foreground font-bold uppercase text-[9px] md:text-[10px]">Ingresos Manuales / Ajustes</span>
+                    <span className="font-black text-emerald-600 dark:text-emerald-400">${totalManualIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs md:text-sm border-t pt-4">
-                    <span className="text-slate-900 font-black uppercase text-[10px] md:text-xs">Venta Bruta Total</span>
-                    <span className="font-black text-emerald-700 text-base md:text-lg">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <div className="flex justify-between items-center text-xs md:text-sm border-t border-slate-100 dark:border-border pt-4">
+                    <span className="text-slate-900 dark:text-foreground font-black uppercase text-[10px] md:text-xs">Venta Bruta Total</span>
+                    <span className="font-black text-emerald-700 dark:text-emerald-400 text-base md:text-lg">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs md:text-sm pt-2">
-                    <span className="text-slate-500 font-bold uppercase text-[9px] md:text-[10px]">Costos Totales (Compras + Suministros Proy.)</span>
+                    <span className="text-slate-500 dark:text-muted-foreground font-bold uppercase text-[9px] md:text-[10px]">Costos Totales (Compras + Suministros Proy.)</span>
                     <span className="font-black text-rose-500">-${activeExpenses.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
-                  <div className="flex justify-between items-center text-lg md:text-xl font-black border-t border-slate-900 pt-4 md:pt-6 mt-4">
-                    <span className="uppercase text-[10px] md:text-sm tracking-tight font-black text-slate-800">UTILIDAD ESTIMADA</span>
-                    <span className={grossProfit >= 0 ? 'text-blue-600' : 'text-rose-600'}>
+                  <div className="flex justify-between items-center text-lg md:text-xl font-black border-t border-slate-900 dark:border-border pt-4 md:pt-6 mt-4">
+                    <span className="uppercase text-[10px] md:text-sm tracking-tight font-black text-slate-800 dark:text-foreground">UTILIDAD ESTIMADA</span>
+                    <span className={grossProfit >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-rose-600'}>
                       ${grossProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </span>
                   </div>
@@ -1622,7 +1621,7 @@ export default function AccountingPage() {
               </Card>
 
               <div className="space-y-4 md:space-y-6">
-                <Card className="border-none shadow-sm rounded-3xl bg-slate-900 text-white p-6 md:p-8">
+                <Card className="border border-slate-800 dark:border-border shadow-sm rounded-3xl bg-slate-900 dark:bg-slate-950 text-white p-6 md:p-8">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="p-3 bg-white/10 rounded-2xl"><PieChart size={20} /></div>
                     <div>
@@ -1644,11 +1643,11 @@ export default function AccountingPage() {
                   </div>
                 </Card>
 
-                <div className="bg-blue-50 border border-blue-100 p-5 rounded-3xl flex items-start gap-4">
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50 p-5 rounded-3xl flex items-start gap-4">
                   <div className="p-2 bg-blue-600 text-white rounded-xl flex-shrink-0"><TrendingUp size={18} /></div>
                   <div className="space-y-1">
-                    <h4 className="text-xs md:text-sm font-bold text-blue-900">Análisis NexWay Contable</h4>
-                    <p className="text-[10px] md:text-xs text-blue-700 leading-relaxed">
+                    <h4 className="text-xs md:text-sm font-bold text-blue-900 dark:text-blue-400">Análisis NexWay Contable</h4>
+                    <p className="text-[10px] md:text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
                       El margen neto está operando en rango saludable. Recuerda registrar tus amortizaciones y depreciaciones trimestralmente para mayor precisión.
                     </p>
                   </div>
@@ -1659,21 +1658,21 @@ export default function AccountingPage() {
 
           {/* TAB 6: AJUSTES CONTABLES DEL ERP CLIENTE */}
           <TabsContent value="settings" className="outline-none">
-            <Card className="border-none shadow-sm rounded-3xl bg-white p-6 md:p-8 space-y-8">
+            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border p-6 md:p-8 space-y-8">
               <div>
-                <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
+                <h3 className="font-black text-slate-900 dark:text-foreground text-base flex items-center gap-2">
                   <Settings size={18} className="text-blue-600" /> Parámetros y Activación Modular (Licencia de Cliente)
                 </h3>
-                <p className="text-slate-500 text-xs mt-1">Personaliza las funciones del sistema según los requerimientos y el perfil comercial contratado por el cliente final.</p>
+                <p className="text-slate-500 dark:text-muted-foreground text-xs mt-1">Personaliza las funciones del sistema según los requerimientos y el perfil comercial contratado por el cliente final.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-100 dark:border-border pt-6">
                 
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-2xl">
                     <div className="space-y-1 max-w-[75%]">
-                      <Label className="font-bold text-xs text-slate-900 block">Nivel de Contabilidad (Doble Entrada)</Label>
-                      <span className="text-[10px] text-slate-500 block leading-normal">
+                      <Label className="font-bold text-xs text-slate-900 dark:text-foreground block">Nivel de Contabilidad (Doble Entrada)</Label>
+                      <span className="text-[10px] text-slate-500 dark:text-muted-foreground block leading-normal">
                         Activa el Libro Diario profesional con registros de partidas con Debe y Haber balanceados. Si se desactiva, opera en modo simplificado de ingresos/egresos.
                       </span>
                     </div>
@@ -1687,10 +1686,10 @@ export default function AccountingPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-2xl">
                     <div className="space-y-1 max-w-[75%]">
-                      <Label className="font-bold text-xs text-slate-900 block">Clasificación: Gran Contribuyente</Label>
-                      <span className="text-[10px] text-slate-500 block leading-normal">
+                      <Label className="font-bold text-xs text-slate-900 dark:text-foreground block">Clasificación: Gran Contribuyente</Label>
+                      <span className="text-[10px] text-slate-500 dark:text-muted-foreground block leading-normal">
                         Habilita la aplicación automática de la retención del 1% de IVA en compras y ventas de acuerdo a las leyes del Ministerio de Hacienda de El Salvador.
                       </span>
                     </div>
@@ -1705,40 +1704,40 @@ export default function AccountingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-                  <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider mb-2">Tasas Tributarias Configurables</h4>
+                <div className="space-y-4 bg-slate-50/50 dark:bg-muted/30 p-6 rounded-3xl border border-slate-100 dark:border-border">
+                  <h4 className="font-black text-slate-800 dark:text-foreground text-xs uppercase tracking-wider mb-2">Tasas Tributarias Configurables</h4>
                   
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">Porcentaje del IVA Local (%)</Label>
+                    <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Porcentaje del IVA Local (%)</Label>
                     <div className="flex gap-2">
                       <Input 
                         type="number"
                         value={settings.ivaRate} 
                         onChange={(e) => setSettings({ ...settings, ivaRate: parseFloat(e.target.value) || 0 })}
-                        className="h-10 text-xs rounded-xl bg-white w-24 font-black"
+                        className="h-10 text-xs rounded-xl bg-white dark:bg-card border-slate-200 dark:border-border w-24 font-black text-foreground"
                       />
-                      <Button variant="secondary" size="sm" onClick={() => handleSaveSettings(settings)} className="rounded-xl text-[10px] font-bold h-10 px-4">
+                      <Button variant="secondary" size="sm" onClick={() => handleSaveSettings(settings)} className="rounded-xl text-[10px] font-bold h-10 px-4 dark:bg-muted dark:text-foreground dark:hover:bg-muted/80">
                         Actualizar
                       </Button>
                     </div>
-                    <p className="text-[9px] text-slate-400">Por defecto es 13% en El Salvador.</p>
+                    <p className="text-[9px] text-slate-400 dark:text-muted-foreground">Por defecto es 13% en El Salvador.</p>
                   </div>
 
                   <div className="space-y-2 pt-2">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">Tasa Mensual de Pago a Cuenta (%)</Label>
+                    <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Tasa Mensual de Pago a Cuenta (%)</Label>
                     <div className="flex gap-2">
                       <Input 
                         type="number"
                         step="0.01"
                         value={settings.pagoCuentaRate} 
                         onChange={(e) => setSettings({ ...settings, pagoCuentaRate: parseFloat(e.target.value) || 0 })}
-                        className="h-10 text-xs rounded-xl bg-white w-24 font-black"
+                        className="h-10 text-xs rounded-xl bg-white dark:bg-card border-slate-200 dark:border-border w-24 font-black text-foreground"
                       />
-                      <Button variant="secondary" size="sm" onClick={() => handleSaveSettings(settings)} className="rounded-xl text-[10px] font-bold h-10 px-4">
+                      <Button variant="secondary" size="sm" onClick={() => handleSaveSettings(settings)} className="rounded-xl text-[10px] font-bold h-10 px-4 dark:bg-muted dark:text-foreground dark:hover:bg-muted/80">
                         Actualizar
                       </Button>
                     </div>
-                    <p className="text-[9px] text-slate-400">Por defecto es 1.75% de los ingresos operacionales.</p>
+                    <p className="text-[9px] text-slate-400 dark:text-muted-foreground">Por defecto es 1.75% de los ingresos operacionales.</p>
                   </div>
                 </div>
 
@@ -1748,9 +1747,9 @@ export default function AccountingPage() {
 
           {/* TAB BALANCE DE COMPROBACION */}
           <TabsContent value="balance-comprobacion" className="space-y-6 outline-none animate-in fade-in duration-300">
-            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
-              <CardHeader className="p-6 border-b">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+              <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                   <Scale className="text-blue-600" size={18} />
                   Balance de Comprobación General
                 </CardTitle>
@@ -1794,8 +1793,8 @@ export default function AccountingPage() {
 
                       return (
                         <TableRow key={account.code} className="hover:bg-slate-50 dark:hover:bg-muted/30">
-                          <TableCell className="px-6 font-mono font-bold text-xs">{account.code}</TableCell>
-                          <TableCell className="font-bold text-xs">{account.name}</TableCell>
+                          <TableCell className="px-6 font-mono font-bold text-xs text-slate-600 dark:text-slate-400">{account.code}</TableCell>
+                          <TableCell className="font-bold text-xs text-slate-900 dark:text-foreground">{account.name}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-[9px] font-bold">
                               {account.group}
@@ -1803,7 +1802,7 @@ export default function AccountingPage() {
                           </TableCell>
                           <TableCell className="text-right text-xs font-semibold">${deb.toFixed(2)}</TableCell>
                           <TableCell className="text-right text-xs font-semibold">${cred.toFixed(2)}</TableCell>
-                          <TableCell className={`text-right text-xs font-black px-6 ${finalBalance >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>
+                          <TableCell className={`text-right text-xs font-black px-6 ${finalBalance >= 0 ? 'text-slate-800 dark:text-foreground' : 'text-rose-600'}`}>
                             ${finalBalance.toFixed(2)}
                           </TableCell>
                         </TableRow>
@@ -1819,19 +1818,19 @@ export default function AccountingPage() {
           <TabsContent value="tributario" className="space-y-6 outline-none animate-in fade-in duration-300">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 space-y-4">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
-                  <CardHeader className="p-6 border-b">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                  <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                       <Percent className="text-blue-600" size={18} />
                       Configuración de Periodos y Tasas Tributarias
                     </CardTitle>
-                    <CardDescription className="text-xs">Establezca los periodos activos para el envío de informes a la plataforma Hacienda.</CardDescription>
+                    <CardDescription className="text-xs dark:text-muted-foreground">Establezca los periodos activos para el envío de informes a la plataforma Hacienda.</CardDescription>
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Período Tributario Activo</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground tracking-wider">Período Tributario Activo</Label>
                       <Select value={filterMonth} onValueChange={setFilterMonth}>
-                        <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1852,9 +1851,9 @@ export default function AccountingPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Forma de Pago Predeterminada DTE</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground tracking-wider">Forma de Pago Predeterminada DTE</Label>
                       <Select defaultValue="01">
-                        <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1867,9 +1866,9 @@ export default function AccountingPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Municipio Sede Contribuyente</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground tracking-wider">Municipio Sede Contribuyente</Label>
                       <Select defaultValue="0501">
-                        <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1882,7 +1881,7 @@ export default function AccountingPage() {
                       </Select>
                     </div>
 
-                    <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl text-[11px] text-emerald-800 leading-relaxed">
+                    <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl text-[11px] text-emerald-800 dark:text-emerald-400 leading-relaxed">
                       <strong>Conexión con Hacienda activa:</strong> Las ventas cargadas en este período tributario se sincronizarán directamente para generar las declaraciones del Impuesto a la Transferencia de Bienes Muebles y a la Prestación de Servicios (F07).
                     </div>
                   </CardContent>
@@ -1890,9 +1889,9 @@ export default function AccountingPage() {
               </div>
 
               <div className="lg:col-span-7">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
-                  <CardHeader className="p-6 border-b">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+                  <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                       <BookOpen className="text-blue-600" size={18} />
                       Resumen de Libros de IVA de Hacienda
                     </CardTitle>
@@ -1900,16 +1899,16 @@ export default function AccountingPage() {
                   </CardHeader>
                   <CardContent className="p-6 space-y-6">
                     <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-[9px] font-black uppercase text-slate-400">IVA Débito Fiscal</p>
-                        <p className="text-lg font-black text-slate-900 mt-1">${totalDebitFiscal.toFixed(2)}</p>
+                      <div className="p-4 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground">IVA Débito Fiscal</p>
+                        <p className="text-lg font-black text-slate-900 dark:text-foreground mt-1">${totalDebitFiscal.toFixed(2)}</p>
                       </div>
-                      <div className="p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-[9px] font-black uppercase text-slate-400">IVA Crédito Fiscal</p>
-                        <p className="text-lg font-black text-slate-900 mt-1">${totalCreditFiscal.toFixed(2)}</p>
+                      <div className="p-4 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground">IVA Crédito Fiscal</p>
+                        <p className="text-lg font-black text-slate-900 dark:text-foreground mt-1">${totalCreditFiscal.toFixed(2)}</p>
                       </div>
-                      <div className="p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-[9px] font-black uppercase text-slate-400">Saldo a Pagar (F07)</p>
+                      <div className="p-4 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-2xl">
+                        <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground">Saldo a Pagar (F07)</p>
                         <p className={`text-lg font-black mt-1 ${f07TaxBalance >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                           ${Math.abs(f07TaxBalance).toFixed(2)}
                         </p>
@@ -1917,32 +1916,32 @@ export default function AccountingPage() {
                     </div>
 
                     <div className="space-y-3">
-                      <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Libros Oficiales Disponibles</h4>
-                      <div className="divide-y border rounded-2xl overflow-hidden bg-slate-50/30">
-                        <div className="p-4 flex items-center justify-between hover:bg-slate-50">
+                      <h4 className="font-bold text-xs text-slate-800 dark:text-foreground uppercase tracking-wider">Libros Oficiales Disponibles</h4>
+                      <div className="divide-y border border-slate-100 dark:border-border rounded-2xl overflow-hidden bg-slate-50/30 dark:bg-muted/10">
+                        <div className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-muted/20">
                           <div>
-                            <span className="text-xs font-bold text-slate-900 block">Libro de Ventas a Consumidores Finales</span>
-                            <span className="text-[10px] text-slate-400 block mt-0.5">{filteredSalesCF.length} documentos emitidos.</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-foreground block">Libro de Ventas a Consumidores Finales</span>
+                            <span className="text-[10px] text-slate-400 dark:text-muted-foreground block mt-0.5">{filteredSalesCF.length} documentos emitidos.</span>
                           </div>
-                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold" onClick={() => handleExportCSV('vcf')}>
+                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold dark:bg-card dark:text-foreground dark:border-border" onClick={() => handleExportCSV('vcf')}>
                             Exportar CSV
                           </Button>
                         </div>
-                        <div className="p-4 flex items-center justify-between hover:bg-slate-50">
+                        <div className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-muted/20">
                           <div>
-                            <span className="text-xs font-bold text-slate-900 block">Libro de Ventas a Contribuyentes</span>
-                            <span className="text-[10px] text-slate-400 block mt-0.5">{filteredSalesCCF.length} documentos emitidos.</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-foreground block">Libro de Ventas a Contribuyentes</span>
+                            <span className="text-[10px] text-slate-400 dark:text-muted-foreground block mt-0.5">{filteredSalesCCF.length} documentos emitidos.</span>
                           </div>
-                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold" onClick={() => handleExportCSV('vc')}>
+                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold dark:bg-card dark:text-foreground dark:border-border" onClick={() => handleExportCSV('vc')}>
                             Exportar CSV
                           </Button>
                         </div>
-                        <div className="p-4 flex items-center justify-between hover:bg-slate-50">
+                        <div className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-muted/20">
                           <div>
-                            <span className="text-xs font-bold text-slate-900 block">Libro de Compras y Crédito Fiscal</span>
-                            <span className="text-[10px] text-slate-400 block mt-0.5">{filteredPurchases.length} facturas registradas.</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-foreground block">Libro de Compras y Crédito Fiscal</span>
+                            <span className="text-[10px] text-slate-400 dark:text-muted-foreground block mt-0.5">{filteredPurchases.length} facturas registradas.</span>
                           </div>
-                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold" onClick={() => handleExportCSV('compras')}>
+                          <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-bold dark:bg-card dark:text-foreground dark:border-border" onClick={() => handleExportCSV('compras')}>
                             Exportar CSV
                           </Button>
                         </div>
@@ -1958,9 +1957,9 @@ export default function AccountingPage() {
           <TabsContent value="caja-chica" className="space-y-6 outline-none animate-in fade-in duration-300">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 space-y-4">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
-                  <CardHeader className="p-6 border-b">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                  <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                       <Briefcase className="text-blue-600" size={18} />
                       Liquidación de Caja Chica
                     </CardTitle>
@@ -1968,23 +1967,23 @@ export default function AccountingPage() {
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-500">Descripción del Gasto</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Descripción del Gasto</Label>
                       <Input 
                         placeholder="Ej. Combustible, papelería..." 
                         value={newEntry.description}
                         onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })}
-                        className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                        className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs text-foreground"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-500">Tipo de Gasto</Label>
+                        <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Tipo de Gasto</Label>
                         <Select 
                           value={newEntry.account}
                           onValueChange={(val) => setNewEntry({ ...newEntry, account: val })}
                         >
-                          <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
+                          <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1996,13 +1995,13 @@ export default function AccountingPage() {
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-500">Monto Invertido ($)</Label>
+                        <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Monto Invertido ($)</Label>
                         <Input 
                           type="number"
                           placeholder="0.00" 
                           value={newEntry.amount}
                           onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
-                          className="h-11 bg-slate-50 border-slate-100 rounded-xl font-bold text-rose-600 text-sm"
+                          className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl font-bold text-rose-600 text-sm text-foreground"
                         />
                       </div>
                     </div>
@@ -2020,9 +2019,9 @@ export default function AccountingPage() {
               </div>
 
               <div className="lg:col-span-7">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
-                  <CardHeader className="p-6 border-b">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+                  <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                       <FileText className="text-blue-600" size={18} />
                       Historial Reciente de Caja Chica
                     </CardTitle>
@@ -2041,13 +2040,13 @@ export default function AccountingPage() {
                       <TableBody>
                         {journal?.filter(j => j.type === 'Egreso' || j.type === 'Ingreso').length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-center py-16 text-slate-400 italic text-xs">
+                            <TableCell colSpan={4} className="text-center py-16 text-slate-400 dark:text-muted-foreground italic text-xs">
                               No hay gastos de caja chica liquidados en este período.
                             </TableCell>
                           </TableRow>
                         ) : journal?.filter(j => j.type === 'Egreso' || j.type === 'Ingreso').map((j) => (
-                          <TableRow key={j.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
-                            <TableCell className="px-6 font-bold text-xs text-slate-900">{j.description}</TableCell>
+                          <TableRow key={j.id} className="hover:bg-slate-50 dark:hover:bg-muted/20">
+                            <TableCell className="px-6 font-bold text-xs text-slate-900 dark:text-foreground">{j.description}</TableCell>
                             <TableCell>
                               <Badge variant="secondary" className="text-[9px] font-bold">
                                 {j.account}
@@ -2057,7 +2056,7 @@ export default function AccountingPage() {
                               {j.type === 'Egreso' ? '-' : '+'}${j.amount.toFixed(2)}
                             </TableCell>
                             <TableCell className="px-6 text-right">
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteEntry(j.id)} className="h-8 w-8 text-slate-400 hover:text-rose-600">
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteEntry(j.id)} className="h-8 w-8 text-slate-400 dark:text-muted-foreground hover:text-rose-600">
                                 <Trash2 size={14} />
                               </Button>
                             </TableCell>
@@ -2076,38 +2075,38 @@ export default function AccountingPage() {
 
       {/* --- MODAL NUEVO ASIENTO SIMPLE --- */}
       <Dialog open={isJournalModalOpen} onOpenChange={setIsJournalModalOpen}>
-        <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm">
+        <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm bg-white dark:bg-card text-foreground border-slate-100 dark:border-border">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                <PlusCircle className="text-blue-600" /> Nuevo Movimiento Simple
             </DialogTitle>
-            <DialogDescription className="text-xs">Registre cobros directos, planilla, servicios o caja chica.</DialogDescription>
+            <DialogDescription className="text-xs dark:text-muted-foreground">Registre cobros directos, planilla, servicios o caja chica.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-               <Label className="text-[10px] font-bold uppercase text-slate-400">Descripción del Movimiento</Label>
+               <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Descripción del Movimiento</Label>
                <Input 
                  placeholder="Ej. Pago de Internet corporativo..." 
                  value={newEntry.description} 
                  onChange={e => setNewEntry({...newEntry, description: e.target.value})}
-                 className="rounded-xl text-xs"
+                 className="rounded-xl text-xs bg-white dark:bg-card border-slate-200 dark:border-border text-foreground"
                />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                 <Label className="text-[10px] font-bold uppercase text-slate-400">Monto ($)</Label>
+                 <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Monto ($)</Label>
                  <Input 
                    type="number" 
                    placeholder="0.00" 
                    value={newEntry.amount} 
                    onChange={e => setNewEntry({...newEntry, amount: e.target.value})}
-                   className="rounded-xl font-bold text-xs"
+                   className="rounded-xl font-bold text-xs bg-white dark:bg-card border-slate-200 dark:border-border text-foreground"
                  />
               </div>
               <div className="space-y-2">
-                 <Label className="text-[10px] font-bold uppercase text-slate-400">Tipo de Flujo</Label>
+                 <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Tipo de Flujo</Label>
                  <Select value={newEntry.type} onValueChange={(v) => setNewEntry({...newEntry, type: v})}>
-                    <SelectTrigger className="h-10 rounded-xl text-xs">
+                    <SelectTrigger className="h-10 rounded-xl text-xs bg-white dark:bg-card border-slate-200 dark:border-border text-foreground">
                        <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2118,9 +2117,9 @@ export default function AccountingPage() {
               </div>
             </div>
             <div className="space-y-2">
-               <Label className="text-[10px] font-bold uppercase text-slate-400">Cuenta de Clasificación</Label>
+               <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Cuenta de Clasificación</Label>
                <Select value={newEntry.account} onValueChange={(v) => setNewEntry({...newEntry, account: v})}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs">
+                  <SelectTrigger className="h-10 rounded-xl text-xs bg-white dark:bg-card border-slate-200 dark:border-border text-foreground">
                      <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2142,12 +2141,12 @@ export default function AccountingPage() {
 
       {/* --- MODAL NUEVO ASIENTO AVANZADO (DOBLE ENTRADA) --- */}
       <Dialog open={isAdvancedModalOpen} onOpenChange={setIsAdvancedModalOpen}>
-        <DialogContent className="rounded-3xl max-w-[95vw] md:max-w-xl">
+        <DialogContent className="rounded-3xl max-w-[95vw] md:max-w-xl bg-white dark:bg-card border-slate-100 dark:border-border text-foreground">
           <DialogHeader>
-            <DialogTitle className="text-base font-black flex items-center gap-2 text-slate-900">
+            <DialogTitle className="text-base font-black flex items-center gap-2 text-slate-900 dark:text-foreground">
                <ArrowRightLeft className="text-blue-600" size={18} /> Partida Contable de Doble Entrada
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs dark:text-muted-foreground">
                Ingrese el concepto, fecha y los cargos y abonos correspondientes. Recuerde que el asiento debe estar cuadrado.
             </DialogDescription>
           </DialogHeader>
@@ -2155,29 +2154,29 @@ export default function AccountingPage() {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2 space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Concepto General de la Partida</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Concepto General de la Partida</Label>
                 <Input 
                   placeholder="Ej. Registro de costo de venta y salida de almacén..." 
                   value={advDescription} 
                   onChange={e => setAdvDescription(e.target.value)}
-                  className="rounded-xl text-xs h-9 border-slate-200 bg-white"
+                  className="rounded-xl text-xs h-9 border-slate-200 dark:border-border bg-white dark:bg-card text-foreground"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Fecha</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Fecha</Label>
                 <Input 
                   type="date" 
                   value={advDate} 
                   onChange={e => setAdvDate(e.target.value)}
-                  className="rounded-xl text-xs h-9 border-slate-200 bg-white font-bold"
+                  className="rounded-xl text-xs h-9 border-slate-200 dark:border-border bg-white dark:bg-card font-bold text-foreground"
                 />
               </div>
             </div>
 
-            <div className="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/50">
+            <div className="border border-slate-100 dark:border-border rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-muted/10">
               <div className="max-h-60 overflow-y-auto">
                 <Table>
-                  <TableHeader className="bg-slate-100">
+                  <TableHeader className="bg-slate-100 dark:bg-muted/50">
                     <TableRow className="h-8">
                       <TableHead className="text-[9px] uppercase font-bold py-1">Cuenta Contable</TableHead>
                       <TableHead className="w-24 text-[9px] uppercase font-bold py-1">Cargo (Debe)</TableHead>
@@ -2187,13 +2186,13 @@ export default function AccountingPage() {
                   </TableHeader>
                   <TableBody>
                     {advLines.map((line, idx) => (
-                      <TableRow key={idx} className="hover:bg-slate-100/30">
+                      <TableRow key={idx} className="hover:bg-slate-100/30 dark:hover:bg-muted/10">
                         <TableCell className="p-1">
                           <Select 
                             value={line.accountCode} 
                             onValueChange={(v) => handleLineChange(idx, 'accountCode', v)}
                           >
-                            <SelectTrigger className="h-8 text-[11px] rounded-lg bg-white border-slate-200">
+                            <SelectTrigger className="h-8 text-[11px] rounded-lg bg-white dark:bg-card border-slate-200 dark:border-border text-foreground">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -2212,7 +2211,7 @@ export default function AccountingPage() {
                             value={line.debit}
                             onChange={(e) => handleLineChange(idx, 'debit', e.target.value)}
                             onFocus={e => e.target.select()}
-                            className="h-8 w-24 text-right text-[11px] font-mono font-bold bg-white border-slate-200 rounded-lg"
+                            className="h-8 w-24 text-right text-[11px] font-mono font-bold bg-white dark:bg-card border-slate-200 dark:border-border rounded-lg text-foreground"
                           />
                         </TableCell>
                         <TableCell className="p-1">
@@ -2222,14 +2221,14 @@ export default function AccountingPage() {
                             value={line.credit}
                             onChange={(e) => handleLineChange(idx, 'credit', e.target.value)}
                             onFocus={e => e.target.select()}
-                            className="h-8 w-24 text-right text-[11px] font-mono font-bold bg-white border-slate-200 rounded-lg"
+                            className="h-8 w-24 text-right text-[11px] font-mono font-bold bg-white dark:bg-card border-slate-200 dark:border-border rounded-lg text-foreground"
                           />
                         </TableCell>
                         <TableCell className="p-1 text-center">
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6 text-slate-400 hover:text-rose-500 rounded-md"
+                            className="h-6 w-6 text-slate-400 dark:text-muted-foreground hover:text-rose-500 rounded-md"
                             onClick={() => handleRemoveLine(idx)}
                             disabled={advLines.length <= 2}
                           >
@@ -2242,11 +2241,11 @@ export default function AccountingPage() {
                 </Table>
               </div>
 
-              <div className="p-2 bg-slate-50 border-t border-slate-100">
+              <div className="p-2 bg-slate-50 dark:bg-muted/40 border-t border-slate-100 dark:border-border">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="rounded-lg h-7 text-[10px] font-bold border-slate-200 bg-white" 
+                  className="rounded-lg h-7 text-[10px] font-bold border-slate-200 dark:border-border bg-white dark:bg-card" 
                   onClick={handleAddLine}
                 >
                   <Plus size={10} className="mr-1" /> Añadir Cuenta
@@ -2254,15 +2253,15 @@ export default function AccountingPage() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center p-3 rounded-2xl border text-xs font-bold bg-white">
+            <div className="flex justify-between items-center p-3 rounded-2xl border border-slate-100 dark:border-border text-xs font-bold bg-white dark:bg-card">
               <div className="flex gap-4">
                 <div>
-                  <span className="text-[9px] uppercase text-slate-400 block">Total Debe</span>
-                  <span className="text-slate-900">${totalDebitLines.toFixed(2)}</span>
+                  <span className="text-[9px] uppercase text-slate-400 dark:text-muted-foreground block">Total Debe</span>
+                  <span className="text-slate-900 dark:text-foreground">${totalDebitLines.toFixed(2)}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] uppercase text-slate-400 block">Total Haber</span>
-                  <span className="text-slate-900">${totalCreditLines.toFixed(2)}</span>
+                  <span className="text-[9px] uppercase text-slate-400 dark:text-muted-foreground block">Total Haber</span>
+                  <span className="text-slate-900 dark:text-foreground">${totalCreditLines.toFixed(2)}</span>
                 </div>
               </div>
               <div className="text-right">
@@ -2295,25 +2294,25 @@ export default function AccountingPage() {
       {/* --- DIALOG DETALLE PARTIDA AVANZADA --- */}
       <Dialog open={selectedAdvEntry !== null} onOpenChange={() => setSelectedAdvEntry(null)}>
         {selectedAdvEntry && (
-          <DialogContent className="rounded-3xl max-w-md">
+          <DialogContent className="rounded-3xl max-w-md bg-white dark:bg-card border-slate-100 dark:border-border text-foreground">
             <DialogHeader>
-              <DialogTitle className="text-base font-black text-slate-900 flex gap-2">
+              <DialogTitle className="text-base font-black text-slate-900 dark:text-foreground flex gap-2">
                 <FileText className="text-blue-600" /> Detalle de Partida
               </DialogTitle>
-              <DialogDescription className="text-xs">
+              <DialogDescription className="text-xs dark:text-muted-foreground">
                 Asiento registrado el {new Date(selectedAdvEntry.timestamp).toLocaleDateString()} a las {new Date(selectedAdvEntry.timestamp).toLocaleTimeString()}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-2">
-              <div className="bg-slate-50 p-3 rounded-2xl border">
-                <span className="text-[9px] font-bold uppercase text-slate-400 block">Concepto</span>
-                <span className="text-xs font-semibold text-slate-800">{selectedAdvEntry.description}</span>
+              <div className="bg-slate-50 dark:bg-muted/40 p-3 rounded-2xl border border-slate-100 dark:border-border">
+                <span className="text-[9px] font-bold uppercase text-slate-400 dark:text-muted-foreground block">Concepto</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{selectedAdvEntry.description}</span>
               </div>
 
-              <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white">
+              <div className="border border-slate-100 dark:border-border rounded-2xl overflow-hidden bg-white dark:bg-card">
                 <Table>
-                  <TableHeader className="bg-slate-50">
+                  <TableHeader className="bg-slate-50 dark:bg-muted/50">
                     <TableRow className="h-8">
                       <TableHead className="text-[9px] uppercase font-bold py-1">Cuenta</TableHead>
                       <TableHead className="w-20 text-[9px] uppercase font-bold py-1">Debe</TableHead>
@@ -2322,23 +2321,23 @@ export default function AccountingPage() {
                   </TableHeader>
                   <TableBody>
                     {selectedAdvEntry.lines?.map((l: any, i: number) => (
-                      <TableRow key={i} className="hover:bg-slate-50/50">
+                      <TableRow key={i} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
                         <TableCell className="py-2">
-                          <span className="font-mono text-[10px] font-bold text-slate-500 block">{l.accountCode}</span>
-                          <span className="text-[10px] font-medium text-slate-800 block">{l.accountName}</span>
+                          <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-muted-foreground block">{l.accountCode}</span>
+                          <span className="text-[10px] font-medium text-slate-800 dark:text-foreground block">{l.accountName}</span>
                         </TableCell>
-                        <TableCell className="py-2 text-[10px] font-mono font-bold text-right">
+                        <TableCell className="py-2 text-[10px] font-mono font-bold text-right text-foreground">
                           {l.debit > 0 ? `$${l.debit.toFixed(2)}` : '-'}
                         </TableCell>
-                        <TableCell className="py-2 text-[10px] font-mono font-bold text-right">
+                        <TableCell className="py-2 text-[10px] font-mono font-bold text-right text-foreground">
                           {l.credit > 0 ? `$${l.credit.toFixed(2)}` : '-'}
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="bg-slate-100 font-bold border-t">
+                    <TableRow className="bg-slate-100 dark:bg-muted/80 font-bold border-t dark:border-border">
                       <TableCell className="text-[10px] uppercase font-black">Totales Partida:</TableCell>
-                      <TableCell className="text-[10px] font-mono text-right text-slate-900">${selectedAdvEntry.amount?.toFixed(2)}</TableCell>
-                      <TableCell className="text-[10px] font-mono text-right text-slate-900">${selectedAdvEntry.amount?.toFixed(2)}</TableCell>
+                      <TableCell className="text-[10px] font-mono text-right text-slate-900 dark:text-foreground">${selectedAdvEntry.amount?.toFixed(2)}</TableCell>
+                      <TableCell className="text-[10px] font-mono text-right text-slate-900 dark:text-foreground">${selectedAdvEntry.amount?.toFixed(2)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -2346,7 +2345,7 @@ export default function AccountingPage() {
             </div>
 
             <DialogFooter>
-              <Button onClick={() => setSelectedAdvEntry(null)} className="w-full bg-slate-900 text-white font-bold h-10 rounded-xl text-xs">
+              <Button onClick={() => setSelectedAdvEntry(null)} className="w-full bg-slate-900 dark:bg-slate-800 text-white font-bold h-10 rounded-xl text-xs">
                 Cerrar Vista
               </Button>
             </DialogFooter>

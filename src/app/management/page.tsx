@@ -23,8 +23,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRouter } from 'next/navigation';
 
 export default function ManagementPage() {
   const router = useRouter();
@@ -272,6 +273,8 @@ export default function ManagementPage() {
     { id: 'institutional', label: 'Ventas Institucionales', desc: 'Licitaciones y Proyectos' },
   ];
 
+  const [activeTab, setActiveTab] = useState('config');
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300">
       <div className="max-w-4xl mx-auto mb-8 flex items-center justify-between">
@@ -286,238 +289,262 @@ export default function ManagementPage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="border-none shadow-sm rounded-3xl bg-card overflow-hidden border">
-            <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
-              <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
-                <Coins className="text-blue-400" size={20} />
-                Ajustes Operativos
-              </CardTitle>
-              <CardDescription className="text-slate-400 text-xs">Fondo base y correo de respaldo para DTE.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Fondo Base de Caja ($)</Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <Input 
-                      type="number" 
-                      placeholder="0.00" 
-                      value={cashFloat}
-                      onChange={(e) => setCashFloat(e.target.value)}
-                      className="h-12 pl-12 text-lg font-black bg-muted rounded-xl border-none"
-                    />
-                  </div>
-                </div>
+      <div className="max-w-4xl mx-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="bg-muted p-1 rounded-2xl border flex w-full justify-start md:w-fit overflow-x-auto no-scrollbar">
+            <TabsTrigger value="config" className="rounded-xl px-6 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              ⚙️ Configuración Global
+            </TabsTrigger>
+            <TabsTrigger value="permissions" className="rounded-xl px-6 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              🔒 Permisos de Módulos
+            </TabsTrigger>
+            <TabsTrigger value="roles" className="rounded-xl px-6 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              👥 Roles de Usuario
+            </TabsTrigger>
+          </TabsList>
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Correo Bolsón (Catch-all)</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <Input 
-                      type="email" 
-                      placeholder="facturas@empresa.com" 
-                      value={catchAllEmail}
-                      onChange={(e) => setCatchAllEmail(e.target.value)}
-                      className="h-12 pl-12 text-sm font-bold bg-muted rounded-xl border-none"
-                    />
-                  </div>
-                  <p className="text-[9px] text-muted-foreground italic">Recibirá copia de todos los DTEs emitidos.</p>
-                </div>
-              </div>
-
-              <Button 
-                onClick={handleSaveSystemConfig} 
-                disabled={isSaving}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
-              >
-                {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={18} />}
-                GUARDAR AJUSTES
-              </Button>
-            </CardContent>
-          </Card>
-
-          <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20 h-fit">
-            <div className="flex items-center gap-2 text-blue-800 font-bold dark:text-blue-300">
-              <AlertCircle size={20} />
-              <p className="text-sm uppercase tracking-tight">Notificaciones DTE</p>
-            </div>
-            <p className="text-xs text-blue-700 leading-relaxed dark:text-blue-400">
-              El correo bolsón es obligatorio para cumplir con la normativa de respaldo digital. Si un cliente no está registrado o no proporciona correo, el sistema enviará automáticamente el DTE a la dirección configurada arriba para su posterior entrega física o reenvío manual.
-            </p>
-          </div>
-        </div>
-
-        <Card className="border-none shadow-sm rounded-3xl bg-card overflow-hidden border">
-          <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
-            <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
-              <ShieldCheck className="text-blue-400" size={20} />
-              Estado de Módulos Operativos
-            </CardTitle>
-            <CardDescription className="text-slate-400 text-xs">Active o desactive funciones para toda la empresa.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {modules.map((m) => (
-                <div key={m.id} className="p-6 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                  <div className="space-y-1">
-                    <Label className="text-sm font-bold text-foreground">{m.label}</Label>
-                    <p className="text-xs text-muted-foreground">{m.desc}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {config?.[m.id] === false ? <Lock className="text-rose-500" size={16} /> : <Unlock className="text-emerald-500" size={16} />}
-                    <Switch 
-                      checked={config?.[m.id] !== false} 
-                      onCheckedChange={(val) => handleToggleModule(m.id, val)}
-                      disabled={isSaving}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Gestor de Roles y Usuarios */}
-        <Card className="border-none shadow-sm rounded-3xl bg-card overflow-hidden border">
-          <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
-            <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
-              <Users className="text-violet-400" size={20} />
-              Gestión de Usuarios y Roles
-            </CardTitle>
-            <CardDescription className="text-slate-400 text-xs">Asigne roles de acceso para controlar los módulos visibles.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {/* Formulario de pre-asignación */}
-            <div className="p-6 bg-slate-50 dark:bg-slate-900/30 border-b border-border">
-              <form onSubmit={handlePreAssignRole} className="flex flex-col sm:flex-row items-end gap-4">
-                <div className="flex-1 space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pre-asignar Acceso por Correo</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <Input 
-                      type="email" 
-                      placeholder="correo@empleado.com" 
-                      value={preAssignEmail}
-                      onChange={(e) => setPreAssignEmail(e.target.value)}
-                      className="h-10 pl-10 text-xs font-bold bg-background rounded-xl border-border"
-                    />
-                  </div>
-                </div>
-
-                <div className="w-full sm:w-[200px] space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Rol del Puesto</Label>
-                  <Select 
-                    value={preAssignRole} 
-                    onValueChange={setPreAssignRole}
-                  >
-                    <SelectTrigger className="w-full h-10 bg-background border-border rounded-xl text-xs font-bold">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gerencia">Gerencia</SelectItem>
-                      <SelectItem value="encargado">Encargado</SelectItem>
-                      <SelectItem value="sub_encargado">Sub Encargado</SelectItem>
-                      <SelectItem value="cajero">Cajero</SelectItem>
-                      <SelectItem value="vendedor">Vendedor</SelectItem>
-                      <SelectItem value="bodeguero">Bodeguero</SelectItem>
-                      <SelectItem value="motociclista">Motociclista</SelectItem>
-                      <SelectItem value="pedidos">Solo Pedidos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button 
-                  type="submit" 
-                  disabled={isSaving}
-                  className="w-full sm:w-auto h-10 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20 px-6"
-                >
-                  {isSaving ? <Loader2 className="animate-spin" size={16} /> : "+ ASIGNAR"}
-                </Button>
-              </form>
-            </div>
-
-            {loadingUsers ? (
-              <div className="p-6 flex items-center justify-center">
-                <Loader2 className="animate-spin text-violet-600 animate-pulse" />
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {usersList.map((usr: any) => {
-                  const isPreassigned = usr.isPreassigned || usr.id.startsWith('email:');
-                  return (
-                    <div key={usr.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Label className="text-sm font-bold text-foreground">{usr.email || 'Usuario sin correo'}</Label>
-                          {isPreassigned ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                              Pre-asignado (Pendiente)
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                              Registrado
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-mono">
-                          {isPreassigned ? 'ID Pre: ' + usr.id : 'UID: ' + (usr.uid || usr.id)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Select 
-                          value={usr.role || 'pedidos'} 
-                          onValueChange={(val) => handleChangeRole(usr.id, val)}
-                          disabled={isSaving || 
-                                    usr.email === 'pablopiche1g3@gmail.com' || 
-                                    usr.email === 'pinturas.tecnicolorsw@gmail.com' ||
-                                    usr.email === 'saladventastecnicolor@gmail.com'}
-                        >
-                          <SelectTrigger className="w-[180px] h-10 bg-muted border-none rounded-xl text-xs font-bold">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Administrador / Gerente</SelectItem>
-                            <SelectItem value="gerencia">Gerencia</SelectItem>
-                            <SelectItem value="encargado">Encargado</SelectItem>
-                            <SelectItem value="sub_encargado">Sub Encargado</SelectItem>
-                            <SelectItem value="cajero">Cajero</SelectItem>
-                            <SelectItem value="vendedor">Vendedor</SelectItem>
-                            <SelectItem value="bodeguero">Bodeguero</SelectItem>
-                            <SelectItem value="motociclista">Motociclista</SelectItem>
-                            <SelectItem value="pedidos">Solo Pedidos</SelectItem>
-                          </SelectContent>
-                        </Select>
-
-                        {usr.email !== 'pablopiche1g3@gmail.com' && 
-                         usr.email !== 'pinturas.tecnicolorsw@gmail.com' && 
-                         usr.email !== 'saladventastecnicolor@gmail.com' && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleRevokeRole(usr.id, usr.email)}
-                            disabled={isSaving}
-                            className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl h-10 w-10 flex items-center justify-center"
-                            title="Revocar acceso / eliminar pre-asignación"
-                          >
-                            <Trash2 size={18} />
-                          </Button>
-                        )}
+          {/* pestaña 1: CONFIGURACIÓN GLOBAL */}
+          <TabsContent value="config" className="grid grid-cols-1 md:grid-cols-12 gap-6 outline-none">
+            <div className="md:col-span-7 space-y-6">
+              <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+                <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+                  <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+                    <Coins className="text-blue-400" size={20} />
+                    Ajustes Operativos
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-xs">Fondo base y correo de respaldo para DTE.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Fondo Base de Caja ($)</Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                        <Input 
+                          type="number" 
+                          placeholder="0.00" 
+                          value={cashFloat}
+                          onChange={(e) => setCashFloat(e.target.value)}
+                          className="h-12 pl-12 text-lg font-black bg-muted rounded-xl border-none"
+                        />
                       </div>
                     </div>
-                  );
-                })}
-                {usersList.length === 0 && (
-                  <div className="p-6 text-center text-sm text-muted-foreground">
-                    No hay otros usuarios registrados en el sistema.
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Correo Bolsón (Catch-all)</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                        <Input 
+                          type="email" 
+                          placeholder="facturas@empresa.com" 
+                          value={catchAllEmail}
+                          onChange={(e) => setCatchAllEmail(e.target.value)}
+                          className="h-12 pl-12 text-sm font-bold bg-muted rounded-xl border-none"
+                        />
+                      </div>
+                      <p className="text-[9px] text-muted-foreground italic">Recibirá copia de todos los DTEs emitidos.</p>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleSaveSystemConfig} 
+                    disabled={isSaving}
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+                  >
+                    {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={18} />}
+                    GUARDAR AJUSTES
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="md:col-span-5">
+              <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20">
+                <div className="flex items-center gap-2 text-blue-800 font-bold dark:text-blue-300">
+                  <AlertCircle size={20} />
+                  <p className="text-sm uppercase tracking-tight">Notificaciones DTE</p>
+                </div>
+                <p className="text-xs text-blue-700 leading-relaxed dark:text-blue-400">
+                  El correo bolsón es obligatorio para cumplir con la normativa de respaldo digital. Si un cliente no está registrado o no proporciona correo, el sistema enviará automáticamente el DTE a la dirección configurada arriba para su posterior entrega física o reenvío manual.
+                </p>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* pestaña 2: PERMISOS DE MÓDULOS */}
+          <TabsContent value="permissions" className="outline-none">
+            <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+              <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+                <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+                  <ShieldCheck className="text-blue-400" size={20} />
+                  Estado de Módulos Operativos
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-xs">Active o desactive funciones para toda la empresa.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-border">
+                  {modules.map((m) => (
+                    <div key={m.id} className="p-6 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-bold text-foreground">{m.label}</Label>
+                        <p className="text-xs text-muted-foreground">{m.desc}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {config?.[m.id] === false ? <Lock className="text-rose-500" size={16} /> : <Unlock className="text-emerald-500" size={16} />}
+                        <Switch 
+                          checked={config?.[m.id] !== false} 
+                          onCheckedChange={(val) => handleToggleModule(m.id, val)}
+                          disabled={isSaving}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* pestaña 3: ROLES DE USUARIO */}
+          <TabsContent value="roles" className="outline-none">
+            <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+              <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+                <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+                  <Users className="text-violet-400" size={20} />
+                  Gestión de Usuarios y Roles
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-xs">Asigne roles de acceso para controlar los módulos visibles.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {/* Formulario de pre-asignación */}
+                <div className="p-6 bg-slate-50 dark:bg-slate-900/30 border-b border-border">
+                  <form onSubmit={handlePreAssignRole} className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="flex-1 space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pre-asignar Acceso por Correo</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                        <Input 
+                          type="email" 
+                          placeholder="correo@empleado.com" 
+                          value={preAssignEmail}
+                          onChange={(e) => setPreAssignEmail(e.target.value)}
+                          className="h-10 pl-10 text-xs font-bold bg-background rounded-xl border-border"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="w-full sm:w-[200px] space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Rol del Puesto</Label>
+                      <Select 
+                        value={preAssignRole} 
+                        onValueChange={setPreAssignRole}
+                      >
+                        <SelectTrigger className="w-full h-10 bg-background border-border rounded-xl text-xs font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gerencia">Gerencia</SelectItem>
+                          <SelectItem value="encargado">Encargado</SelectItem>
+                          <SelectItem value="sub_encargado">Sub Encargado</SelectItem>
+                          <SelectItem value="cajero">Cajero</SelectItem>
+                          <SelectItem value="vendedor">Vendedor</SelectItem>
+                          <SelectItem value="bodeguero">Bodeguero</SelectItem>
+                          <SelectItem value="motociclista">Motociclista</SelectItem>
+                          <SelectItem value="pedidos">Solo Pedidos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="w-full sm:w-auto h-10 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20 px-6"
+                    >
+                      {isSaving ? <Loader2 className="animate-spin" size={16} /> : "+ ASIGNAR"}
+                    </Button>
+                  </form>
+                </div>
+
+                {loadingUsers ? (
+                  <div className="p-6 flex items-center justify-center">
+                    <Loader2 className="animate-spin text-violet-600 animate-pulse" />
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {usersList.map((usr: any) => {
+                      const isPreassigned = usr.isPreassigned || usr.id.startsWith('email:');
+                      return (
+                        <div key={usr.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
+                          <div className="space-y-1 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Label className="text-sm font-bold text-foreground">{usr.email || 'Usuario sin correo'}</Label>
+                              {isPreassigned ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                  Pre-asignado (Pendiente)
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                  Registrado
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-mono">
+                              {isPreassigned ? 'ID Pre: ' + usr.id : 'UID: ' + (usr.uid || usr.id)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Select 
+                              value={usr.role || 'pedidos'} 
+                              onValueChange={(val) => handleChangeRole(usr.id, val)}
+                              disabled={isSaving || 
+                                        usr.email === 'pablopiche1g3@gmail.com' || 
+                                        usr.email === 'pinturas.tecnicolorsw@gmail.com' ||
+                                        usr.email === 'saladventastecnicolor@gmail.com'}
+                            >
+                              <SelectTrigger className="w-[180px] h-10 bg-muted border-none rounded-xl text-xs font-bold">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Administrador / Gerente</SelectItem>
+                                <SelectItem value="gerencia">Gerencia</SelectItem>
+                                <SelectItem value="encargado">Encargado</SelectItem>
+                                <SelectItem value="sub_encargado">Sub Encargado</SelectItem>
+                                <SelectItem value="cajero">Cajero</SelectItem>
+                                <SelectItem value="vendedor">Vendedor</SelectItem>
+                                <SelectItem value="bodeguero">Bodeguero</SelectItem>
+                                <SelectItem value="motociclista">Motociclista</SelectItem>
+                                <SelectItem value="pedidos">Solo Pedidos</SelectItem>
+                              </SelectContent>
+                            </Select>
+
+                            {usr.email !== 'pablopiche1g3@gmail.com' && 
+                             usr.email !== 'pinturas.tecnicolorsw@gmail.com' && 
+                             usr.email !== 'saladventastecnicolor@gmail.com' && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => handleRevokeRole(usr.id, usr.email)}
+                                disabled={isSaving}
+                                className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl h-10 w-10 flex items-center justify-center"
+                                title="Revocar acceso / eliminar pre-asignación"
+                              >
+                                <Trash2 size={18} />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {usersList.length === 0 && (
+                      <div className="p-6 text-center text-sm text-muted-foreground">
+                        No hay otros usuarios registrados en el sistema.
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
