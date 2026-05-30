@@ -96,6 +96,26 @@ export default function BillingPage() {
     '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
     '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
   });
+
+  const adjustDenomination = (den: string, amount: number) => {
+    setCashDenominations(prev => ({
+      ...prev,
+      [den]: Math.max(0, (prev[den] || 0) + amount)
+    }));
+  };
+
+  const handleResetArqueo = () => {
+    setCashDenominations({
+      '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
+      '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
+    });
+    setExpenses([]);
+    setPhysicalCard(0);
+    setPhysicalTransfer(0);
+    setPhysicalCredit(0);
+    setPhysicalCheck(0);
+    toast({ title: "Arqueo Reiniciado", description: "Los valores de conteo han sido restaurados a cero." });
+  };
   const [expenses, setExpenses] = useState<{description: string, amount: number}[]>([]);
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
@@ -819,148 +839,270 @@ export default function BillingPage() {
           {/* TAB ARQUEO */}
           <TabsContent value="arqueo" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
               {/* Conteo de Billetes/Monedas */}
-              <div className="lg:col-span-4 space-y-4">
-                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card">
-                  <CardHeader className="bg-slate-900 text-white p-5">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Coins size={18} className="text-yellow-500" /> Conteo de Efectivo
-                    </CardTitle>
+              <div className="lg:col-span-5 space-y-6">
+                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border-slate-100 dark:border-border">
+                  <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-black flex items-center gap-2">
+                        <Coins size={18} className="text-amber-400 animate-pulse" /> Conteo de Efectivo
+                      </CardTitle>
+                      <CardDescription className="text-[10px] text-slate-300 dark:text-muted-foreground mt-1">Registre la cantidad de billetes y monedas físicas en caja.</CardDescription>
+                    </div>
+                    <Badge variant="outline" className="border-emerald-500 text-emerald-400 bg-emerald-950/20 font-black text-xs px-3 py-1">
+                      Total: ${totalPhysicalCash.toFixed(2)}
+                    </Badge>
                   </CardHeader>
-                  <CardContent className="p-4">
-                    <ScrollArea className="h-[450px] pr-4">
-                      {Object.keys(cashDenominations).map(den => (
-                        <div key={den} className="flex items-center justify-between py-2 border-b last:border-0">
-                          <Label className="text-xs font-bold text-muted-foreground">${den}</Label>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">Cant.</span>
-                            <Input 
-                              type="number" 
-                              className="h-8 w-20 text-right font-bold text-xs" 
-                              value={cashDenominations[den]}
-                              onFocus={e => e.target.select()}
-                              onChange={e => setCashDenominations({...cashDenominations, [den]: parseInt(e.target.value) || 0})}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </ScrollArea>
+                  <CardContent className="p-5 space-y-6">
+                    {/* Billetes */}
+                    <div className="space-y-3">
+                      <h4 className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Billetes Registrados
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {['100.00', '50.00', '20.00', '10.00', '5.00'].map(den => {
+                          const qty = cashDenominations[den] || 0;
+                          const subtotal = parseFloat(den) * qty;
+                          return (
+                            <div key={den} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/50 dark:bg-muted/10 border border-slate-100 dark:border-border/60 hover:border-emerald-100 dark:hover:border-emerald-900/30 transition-all">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-14 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-center text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                                  ${parseInt(den)}
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground">Billetes</span>
+                              </div>
+                              
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center bg-white dark:bg-muted/60 rounded-xl p-0.5 border dark:border-border/40 shadow-sm">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-muted font-bold"
+                                    onClick={() => adjustDenomination(den, -1)}
+                                  >
+                                    -
+                                  </Button>
+                                  <Input 
+                                    type="number" 
+                                    className="h-6 w-10 text-center font-black text-xs p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-slate-800 dark:text-foreground" 
+                                    value={qty || ''} 
+                                    placeholder="0"
+                                    onFocus={e => e.target.select()}
+                                    onChange={e => setCashDenominations({...cashDenominations, [den]: parseInt(e.target.value) || 0})}
+                                  />
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-muted font-bold"
+                                    onClick={() => adjustDenomination(den, 1)}
+                                  >
+                                    +
+                                  </Button>
+                                </div>
+                                <div className="text-right w-20">
+                                  <span className="text-xs font-black text-slate-700 dark:text-slate-200">${subtotal.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Monedas */}
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Monedas Registradas
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {['1.00', '0.25', '0.10', '0.05', '0.01'].map(den => {
+                          const qty = cashDenominations[den] || 0;
+                          const subtotal = parseFloat(den) * qty;
+                          return (
+                            <div key={den} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/50 dark:bg-muted/10 border border-slate-100 dark:border-border/60 hover:border-amber-100 dark:hover:border-amber-900/30 transition-all">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/30 flex items-center justify-center text-[10px] font-black text-amber-600 dark:text-amber-400">
+                                  ¢{parseFloat(den) < 1 ? parseInt(String(parseFloat(den) * 100)) : '1.00'}
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground">Moneda {parseFloat(den) >= 1 ? '$1.00' : `¢${parseInt(String(parseFloat(den) * 100))}`}</span>
+                              </div>
+                              
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center bg-white dark:bg-muted/60 rounded-xl p-0.5 border dark:border-border/40 shadow-sm">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-muted font-bold"
+                                    onClick={() => adjustDenomination(den, -1)}
+                                  >
+                                    -
+                                  </Button>
+                                  <Input 
+                                    type="number" 
+                                    className="h-6 w-10 text-center font-black text-xs p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-slate-800 dark:text-foreground" 
+                                    value={qty || ''} 
+                                    placeholder="0"
+                                    onFocus={e => e.target.select()}
+                                    onChange={e => setCashDenominations({...cashDenominations, [den]: parseInt(e.target.value) || 0})}
+                                  />
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-muted font-bold"
+                                    onClick={() => adjustDenomination(den, 1)}
+                                  >
+                                    +
+                                  </Button>
+                                </div>
+                                <div className="text-right w-20">
+                                  <span className="text-xs font-black text-slate-700 dark:text-slate-200">${subtotal.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Conciliación y Gastos */}
-              <div className="lg:col-span-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="p-5 border-none shadow-sm rounded-3xl bg-blue-600 text-white">
-                    <p className="text-[10px] font-black uppercase opacity-60">Fondo Base</p>
-                    <p className="text-2xl font-black">${(cashConfig?.cashFloat || 0).toFixed(2)}</p>
+              <div className="lg:col-span-7 space-y-6">
+                
+                {/* Modern KPI summary cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="p-4 border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                    <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Fondo Base</p>
+                    <p className="text-lg font-black text-blue-600 mt-1">${(cashConfig?.cashFloat || 0).toFixed(2)}</p>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">Fondo inicial asignado</span>
                   </Card>
-                  <Card className="p-5 border-none shadow-sm rounded-3xl bg-emerald-600 text-white">
-                    <p className="text-[10px] font-black uppercase opacity-60">Ventas Sistema</p>
-                    <p className="text-2xl font-black">${systemCashSales.toFixed(2)}</p>
+                  
+                  <Card className="p-4 border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                    <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Ventas Sistema</p>
+                    <p className="text-lg font-black text-emerald-600 mt-1">${systemCashSales.toFixed(2)}</p>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">En caja (Efectivo)</span>
                   </Card>
-                  <Card className={`p-5 border-none shadow-sm rounded-3xl text-white ${cashDifference < 0 ? 'bg-rose-600' : 'bg-slate-900'}`}>
-                    <p className="text-[10px] font-black uppercase opacity-60">Diferencia</p>
-                    <p className="text-2xl font-black">${cashDifference.toFixed(2)}</p>
+
+                  <Card className="p-4 border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                    <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Egresos Caja</p>
+                    <p className="text-lg font-black text-rose-500 mt-1">-${totalExpenses.toFixed(2)}</p>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">Gastos menores liquidados</span>
+                  </Card>
+
+                  <Card className={`p-4 border shadow-md rounded-3xl transition-all duration-300 ${
+                    cashDifference === 0 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-400' 
+                      : cashDifference < 0 
+                      ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-400' 
+                      : 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/50 text-blue-900 dark:text-blue-400'
+                  }`}>
+                    <p className="text-[9px] font-black uppercase tracking-wider opacity-70">Diferencia</p>
+                    <p className="text-lg font-black mt-1">
+                      {cashDifference > 0 ? '+' : ''}${cashDifference.toFixed(2)}
+                    </p>
+                    <span className="text-[9px] font-bold block mt-0.5">
+                      {cashDifference === 0 ? '✓ Caja Cuadrada' : cashDifference < 0 ? '⚠ Faltante en Caja' : '💡 Sobrante en Caja'}
+                    </span>
                   </Card>
                 </div>
 
                 {/* Conciliación de Otros Medios de Pago */}
-                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border">
-                  <CardHeader className="bg-slate-900 text-white p-4">
+                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border-slate-100 dark:border-border">
+                  <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-4 border-b dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <CardIcon size={18} className="text-blue-400" /> Conciliación de Otros Medios de Pago
+                      <CardIcon size={18} className="text-blue-400" /> Conciliación de Medios Electrónicos y Crédito
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4">
+                  <CardContent className="p-0">
                     <Table>
-                      <TableHeader className="bg-muted/50">
-                        <TableRow>
-                          <TableHead className="text-[10px] uppercase font-bold">Medio de Pago</TableHead>
-                          <TableHead className="text-right text-[10px] uppercase font-bold">Ventas Sistema</TableHead>
-                          <TableHead className="text-right text-[10px] uppercase font-bold w-36">Físico / Comprobantes</TableHead>
-                          <TableHead className="text-right text-[10px] uppercase font-bold">Diferencia</TableHead>
+                      <TableHeader className="bg-slate-50 dark:bg-muted/40">
+                        <TableRow className="border-b dark:border-border">
+                          <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-500 dark:text-muted-foreground">Medio de Pago</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Ventas Sistema</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black w-36 py-3 text-slate-500 dark:text-muted-foreground">Físico / Vales</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black px-6 py-3 text-slate-500 dark:text-muted-foreground">Diferencia</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
-                          <TableCell className="font-bold text-xs flex items-center gap-2">
+                        <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
+                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-slate-900 dark:text-foreground">
                             <CardIcon size={14} className="text-blue-500" /> Tarjeta
                           </TableCell>
-                          <TableCell className="text-right font-black text-xs">${systemCardSales.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCardSales.toFixed(2)}</TableCell>
+                          <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-slate-50 dark:bg-muted border-slate-200 dark:border-border" 
                               value={physicalCard || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
                               onChange={e => setPhysicalCard(parseFloat(e.target.value) || 0)} 
                             />
                           </TableCell>
-                          <TableCell className={`text-right font-black text-xs ${cardDifference < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                            ${cardDifference.toFixed(2)}
+                          <TableCell className={`text-right font-black text-xs px-6 ${cardDifference === 0 ? 'text-emerald-600' : cardDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                            {cardDifference > 0 ? '+' : ''}${cardDifference.toFixed(2)}
                           </TableCell>
                         </TableRow>
                         
-                        <TableRow>
-                          <TableCell className="font-bold text-xs flex items-center gap-2">
+                        <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
+                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-slate-900 dark:text-foreground">
                             <FileText size={14} className="text-purple-500" /> Cheque
                           </TableCell>
-                          <TableCell className="text-right font-black text-xs">${systemCheckSales.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCheckSales.toFixed(2)}</TableCell>
+                          <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-slate-50 dark:bg-muted border-slate-200 dark:border-border" 
                               value={physicalCheck || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
                               onChange={e => setPhysicalCheck(parseFloat(e.target.value) || 0)} 
                             />
                           </TableCell>
-                          <TableCell className={`text-right font-black text-xs ${checkDifference < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                            ${checkDifference.toFixed(2)}
+                          <TableCell className={`text-right font-black text-xs px-6 ${checkDifference === 0 ? 'text-emerald-600' : checkDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                            {checkDifference > 0 ? '+' : ''}${checkDifference.toFixed(2)}
                           </TableCell>
                         </TableRow>
 
-                        <TableRow>
-                          <TableCell className="font-bold text-xs flex items-center gap-2">
+                        <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
+                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-slate-900 dark:text-foreground">
                             <Landmark size={14} className="text-amber-500" /> Transferencia
                           </TableCell>
-                          <TableCell className="text-right font-black text-xs">${systemTransferSales.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemTransferSales.toFixed(2)}</TableCell>
+                          <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-slate-50 dark:bg-muted border-slate-200 dark:border-border" 
                               value={physicalTransfer || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
                               onChange={e => setPhysicalTransfer(parseFloat(e.target.value) || 0)} 
                             />
                           </TableCell>
-                          <TableCell className={`text-right font-black text-xs ${transferDifference < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                            ${transferDifference.toFixed(2)}
+                          <TableCell className={`text-right font-black text-xs px-6 ${transferDifference === 0 ? 'text-emerald-600' : transferDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                            {transferDifference > 0 ? '+' : ''}${transferDifference.toFixed(2)}
                           </TableCell>
                         </TableRow>
 
-                        <TableRow>
-                          <TableCell className="font-bold text-xs flex items-center gap-2">
+                        <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-0">
+                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-slate-900 dark:text-foreground">
                             <Receipt size={14} className="text-teal-500" /> Crédito
                           </TableCell>
-                          <TableCell className="text-right font-black text-xs">${systemCreditSales.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCreditSales.toFixed(2)}</TableCell>
+                          <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-slate-50 dark:bg-muted border-slate-200 dark:border-border" 
                               value={physicalCredit || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
                               onChange={e => setPhysicalCredit(parseFloat(e.target.value) || 0)} 
                             />
                           </TableCell>
-                          <TableCell className={`text-right font-black text-xs ${creditDifference < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                            ${creditDifference.toFixed(2)}
+                          <TableCell className={`text-right font-black text-xs px-6 ${creditDifference === 0 ? 'text-emerald-600' : creditDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                            {creditDifference > 0 ? '+' : ''}${creditDifference.toFixed(2)}
                           </TableCell>
                         </TableRow>
                       </TableBody>
@@ -968,22 +1110,30 @@ export default function BillingPage() {
                   </CardContent>
                 </Card>
 
+                {/* Gastos de caja chica y acciones finales */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                  <Card className="border shadow-sm rounded-3xl bg-card">
-                    <CardHeader className="p-5 border-b">
-                      <CardTitle className="text-sm font-bold flex items-center gap-2"><TrendingDown size={18} className="text-rose-500" /> Gastos de Caja</CardTitle>
+                  {/* Gastos de Caja */}
+                  <Card className="border shadow-sm rounded-3xl bg-card border-slate-100 dark:border-border">
+                    <CardHeader className="p-5 border-b dark:border-border flex flex-row items-center gap-2">
+                      <TrendingDown size={18} className="text-rose-500" /> 
+                      <div>
+                        <CardTitle className="text-sm font-bold text-slate-900 dark:text-foreground">Gastos Menores / Egresos</CardTitle>
+                        <CardDescription className="text-[10px]">Egresos rápidos del día autorizados por caja.</CardDescription>
+                      </div>
                     </CardHeader>
                     <CardContent className="p-5 space-y-4">
                       <div className="flex gap-2">
-                        <Input placeholder="Descripción..." value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} className="h-10 text-xs bg-muted border-none rounded-xl" />
-                        <Input type="number" placeholder="0.00" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="h-10 w-24 text-xs bg-muted border-none rounded-xl font-bold" />
-                        <Button onClick={addExpense} variant="secondary" size="icon" className="h-10 w-10 rounded-xl"><Plus size={16}/></Button>
+                        <Input placeholder="Descripción..." value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} className="h-10 text-xs bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-foreground" />
+                        <Input type="number" placeholder="0.00" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="h-10 w-20 text-xs bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl font-black text-rose-500" />
+                        <Button onClick={addExpense} variant="secondary" size="icon" className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-muted dark:text-foreground hover:bg-slate-200 border-none flex-shrink-0"><Plus size={16}/></Button>
                       </div>
-                      <ScrollArea className="h-40">
-                        {expenses.map((exp, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-2 hover:bg-muted/50 rounded-lg">
-                            <span className="text-xs font-medium">{exp.description}</span>
+                      <ScrollArea className="h-40 pr-1">
+                        {expenses.length === 0 ? (
+                          <div className="text-center py-10 text-[11px] text-slate-400 italic">No hay egresos registrados.</div>
+                        ) : expenses.map((exp, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-2 hover:bg-slate-50 dark:hover:bg-muted/30 border-b border-slate-50 dark:border-border/30 last:border-0 rounded-lg">
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{exp.description}</span>
                             <span className="text-xs font-black text-rose-500">-${exp.amount.toFixed(2)}</span>
                           </div>
                         ))}
@@ -991,16 +1141,33 @@ export default function BillingPage() {
                     </CardContent>
                   </Card>
 
-                  <div className="space-y-4">
-                    <Button className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-xl" onClick={handleDayClosing} disabled={isProcessing}>
-                      {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-                      GUARDAR CIERRE DE DÍA
-                    </Button>
-                    <Button variant="outline" className="w-full h-14 rounded-2xl border-2 font-black text-foreground shadow-sm" onClick={handlePrintReport}>
-                      <Printer size={20} className="mr-2" />
-                      IMPRIMIR REPORTES
-                    </Button>
-                  </div>
+                  {/* Acciones de Arqueo */}
+                  <Card className="border shadow-sm rounded-3xl bg-card border-slate-100 dark:border-border p-5 flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-black text-slate-800 dark:text-foreground uppercase tracking-wider">Finalizar Turno</h4>
+                      <p className="text-[10px] text-slate-400 leading-normal">
+                        Asegúrese de contar billete por billete. Una vez formalizado el cierre de día, la sesión quedará bloqueada y los montos quedarán registrados en el historial de arqueo oficial para gerencia y auditoría.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2.5 pt-2">
+                      <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black shadow-lg shadow-blue-500/20 transition-all text-xs" onClick={handleDayClosing} disabled={isProcessing}>
+                        {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
+                        GUARDAR CIERRE DE JORNADA
+                      </Button>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" className="h-10 rounded-xl border border-slate-200 dark:border-border font-bold text-foreground text-[10px]" onClick={handlePrintReport}>
+                          <Printer size={12} className="mr-1.5" />
+                          IMPRIMIR REPORTES
+                        </Button>
+                        <Button variant="outline" className="h-10 rounded-xl border border-rose-200 dark:border-rose-950/60 hover:bg-rose-50 dark:hover:bg-rose-950/20 font-bold text-rose-600 dark:text-rose-400 text-[10px]" onClick={handleResetArqueo}>
+                          <RotateCcw size={12} className="mr-1.5" />
+                          LIMPIAR CONTEO
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               </div>
             </div>
