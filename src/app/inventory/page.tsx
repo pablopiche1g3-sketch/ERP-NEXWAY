@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Package, 
   Plus, 
@@ -75,6 +75,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/supabase/client';
 
 interface SupplierItem {
   code: string;
@@ -143,16 +144,128 @@ export default function InventoryMasterPage() {
 
   const [warehouseName, setWarehouseName] = useState('');
 
-  // Estabilizar consultas
-  const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
-  const warehousesQuery = useMemo(() => collection(db, 'warehouses'), [db]);
-  const mappingsQuery = useMemo(() => collection(db, 'supplier_mappings'), [db]);
-  const companyMappingsQuery = useMemo(() => collection(db, 'company_mappings'), [db]); 
+  // Estados para datos cargados desde Supabase
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [savedMappings, setSavedMappings] = useState<any[]>([]);
+  const [companyMappings, setCompanyMappings] = useState<any[]>([]);
+  const [loadingInv, setLoadingInv] = useState(true);
+  const [loadingCompMappings, setLoadingCompMappings] = useState(true);
 
-  const { data: inventory, loading: loadingInv } = useCollection<any>(inventoryQuery);
-  const { data: warehouses } = useCollection<any>(warehousesQuery);
-  const { data: savedMappings } = useCollection<any>(mappingsQuery);
-  const { data: companyMappings, loading: loadingCompMappings } = useCollection<any>(companyMappingsQuery);
+  // Función para cargar los datos reactivamente desde Supabase
+  const loadSupabaseData = async () => {
+    try {
+      setLoadingInv(true);
+      setLoadingCompMappings(true);
+
+      // 1. Obtener bodegas
+      const { data: whData, error: whErr } = await supabase
+        .from('warehouses')
+        .select('*')
+        .order('name');
+      
+      if (whErr) throw whErr;
+      const whList = whData || [];
+      setWarehouses(whList);
+
+      // 2. Obtener productos maestro
+      const { data: invData, error: invErr } = await supabase
+        .from('inventory')
+        .select('*')
+        .order('sku');
+
+      if (invErr) throw invErr;
+      const invList = invData || [];
+
+      // 3. Obtener existencias por bodega
+      const { data: stockData, error: stockErr } = await supabase
+        .from('inventory_stock')
+        .select('*');
+
+      if (stockErr) throw stockErr;
+      const stockList = stockData || [];
+
+      // Mapear existencias al formato que espera el componente
+      const whMap: Record<string, string> = {};
+      whList.forEach(w => {
+        whMap[w.id] = w.name;
+      });
+
+      const mappedInventory = invList.map(item => {
+        const itemStocks = stockList.filter(s => s.sku === item.sku);
+        const bodegasMap: Record<string, number> = {};
+        
+        itemStocks.forEach(s => {
+          const whName = whMap[s.warehouse_id];
+          if (whName) {
+            bodegasMap[whName] = parseFloat(s.quantity) || 0;
+          }
+        });
+
+        // Sumar total consolidado
+        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
+
+        return {
+          id: item.sku, // Mantenemos compatibilidad con el resto del código
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          price: parseFloat(item.price) || 0,
+          quantity: totalQty,
+          bodegas: bodegasMap,
+          createdAt: item.created_at
+        };
+      });
+
+      setInventory(mappedInventory);
+
+      // 4. Obtener vinculaciones de proveedores
+      const { data: supMapData, error: supMapErr } = await supabase
+        .from('supplier_mappings')
+        .select('*');
+      
+      if (!supMapErr) {
+        setSavedMappings((supMapData || []).map(m => ({
+          id: m.supplier_code,
+          supplierCode: m.supplier_code,
+          internalSku: m.internal_sku,
+          updatedAt: m.updated_at
+        })));
+      }
+
+      // 5. Obtener vinculaciones de empresas
+      const { data: compMapData, error: compMapErr } = await supabase
+        .from('company_mappings')
+        .select('*');
+      
+      if (!compMapErr) {
+        setCompanyMappings((compMapData || []).map(m => ({
+          id: m.id,
+          masterSku: m.master_sku,
+          productName: m.product_name,
+          companyName: m.company_name,
+          companySku: m.company_sku,
+          createdAt: m.created_at
+        })));
+      }
+
+    } catch (err: any) {
+      console.error('Error al cargar datos desde Supabase:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error de Conexión',
+        description: 'No se pudieron cargar los datos desde la nube de Supabase.'
+      });
+    } finally {
+      setLoadingInv(false);
+      setLoadingCompMappings(false);
+    }
+  };
+
+  // Cargar datos en el montaje
+  useEffect(() => {
+    loadSupabaseData();
+  }, []);
 
   // Generar SKU Automático según categoría
   const generateAutoSku = () => {
@@ -428,30 +541,29 @@ export default function InventoryMasterPage() {
 
     setLoading(true);
     try {
-      const q = query(inventoryQuery, where("sku", "==", productForm.sku.toUpperCase()));
-      const snap = await getDocs(q);
-      
-      if (!snap.empty) {
+      const existing = inventory.find(p => p.sku === productForm.sku.toUpperCase());
+      if (existing) {
         toast({ variant: "destructive", title: "Error", description: "Este código SKU ya existe en el sistema." });
         setLoading(false);
         return;
       }
 
-      const data = {
-        sku: productForm.sku.toUpperCase(),
-        name: productForm.name,
-        category: productForm.category,
-        price: 0,
-        quantity: 0,
-        bodegas: {}, // Inicializa el mapa de existencias por bodega
-        createdAt: new Date().toISOString()
-      };
+      const { error } = await supabase
+        .from('inventory')
+        .insert({
+          sku: productForm.sku.toUpperCase(),
+          name: productForm.name,
+          category: productForm.category,
+          price: 0.00
+        });
 
-      await addDoc(inventoryQuery, data);
+      if (error) throw error;
+
       toast({ title: "Código Autorizado", description: "El producto ha sido registrado en el maestro." });
       setProductForm({ sku: '', name: '', category: 'General' });
+      await loadSupabaseData();
     } catch (err: any) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'inventory', operation: 'create', requestResourceData: productForm }));
+      toast({ variant: "destructive", title: "Error al crear producto", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -459,10 +571,16 @@ export default function InventoryMasterPage() {
 
   const handleDeleteProduct = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'inventory', id));
+      const { error } = await supabase
+        .from('inventory')
+        .delete()
+        .eq('sku', id);
+
+      if (error) throw error;
       toast({ title: "Producto Eliminado" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al eliminar" });
+      await loadSupabaseData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error al eliminar", description: e.message });
     }
   };
 
@@ -477,19 +595,21 @@ export default function InventoryMasterPage() {
     setLoading(true);
     try {
       const selectedProduct = inventory?.find((p: any) => p.sku === companyForm.masterSku);
-      const data = {
-        masterSku: companyForm.masterSku,
-        productName: selectedProduct ? selectedProduct.name : 'Producto',
-        companyName: companyForm.companyName,
-        companySku: companyForm.companySku.toUpperCase(),
-        createdAt: new Date().toISOString()
-      };
+      const { error } = await supabase
+        .from('company_mappings')
+        .insert({
+          master_sku: companyForm.masterSku,
+          product_name: selectedProduct ? selectedProduct.name : 'Producto',
+          company_name: companyForm.companyName,
+          company_sku: companyForm.companySku.toUpperCase()
+        });
 
-      await addDoc(companyMappingsQuery, data);
+      if (error) throw error;
       toast({ title: "Código de Empresa Asociado", description: "Se vinculó el código interno con éxito." });
       setCompanyForm({ masterSku: '', companyName: '', companySku: '' });
+      await loadSupabaseData();
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo crear la vinculación." });
+      toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo crear la vinculación." });
     } finally {
       setLoading(false);
     }
@@ -497,10 +617,15 @@ export default function InventoryMasterPage() {
 
   const handleDeleteCompanyMapping = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'company_mappings', id));
+      const { error } = await supabase
+        .from('company_mappings')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
       toast({ title: "Asociación Removida" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al eliminar la asociación" });
+      await loadSupabaseData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error al eliminar la asociación", description: e.message });
     }
   };
 
@@ -521,30 +646,35 @@ export default function InventoryMasterPage() {
         return;
       }
 
-      const productRef = doc(db, 'inventory', product.id);
-      const currentBodegas = product.bodegas || {};
+      const wh = warehouses.find(w => w.name === linkForm.warehouseName);
+      if (!wh) {
+        toast({ variant: "destructive", title: "No encontrado", description: "La bodega no existe." });
+        setLoading(false);
+        return;
+      }
+
       const newStock = parseFloat(linkForm.initialStock) || 0;
-      
-      const updatedBodegas = {
-        ...currentBodegas,
-        [linkForm.warehouseName]: newStock
-      };
 
-      // Suma total de stock consolidado
-      const consolidatedQty = Object.values(updatedBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
+      const { error } = await supabase
+        .from('inventory_stock')
+        .upsert({
+          sku: linkForm.productSku.toUpperCase(),
+          warehouse_id: wh.id,
+          quantity: newStock
+        }, {
+          onConflict: 'sku,warehouse_id'
+        });
 
-      await updateDoc(productRef, {
-        bodegas: updatedBodegas,
-        quantity: consolidatedQty
-      });
+      if (error) throw error;
 
       toast({ 
         title: "Producto Vinculado a Bodega", 
         description: `Se asignó el SKU ${linkForm.productSku} a la bodega '${linkForm.warehouseName}' con stock inicial de ${newStock} un.` 
       });
       setLinkForm({ ...linkForm, productSku: '', initialStock: '0' });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al vincular", description: "No se pudo actualizar el inventario." });
+      await loadSupabaseData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error al vincular", description: e.message || "No se pudo actualizar el inventario." });
     } finally {
       setLoading(false);
     }
@@ -552,28 +682,28 @@ export default function InventoryMasterPage() {
 
   const handleUnlinkProductFromWarehouse = async (productId: string, whName: string) => {
     try {
-      const product = inventory?.find((p: any) => p.id === productId);
-      if (!product) return;
+      const wh = warehouses.find(w => w.name === whName);
+      if (!wh) {
+        toast({ variant: "destructive", title: "Error", description: "Bodega no encontrada." });
+        return;
+      }
 
-      const productRef = doc(db, 'inventory', product.id);
-      const currentBodegas = { ...product.bodegas };
-      delete currentBodegas[whName]; // Remover la asociación de esa bodega
+      const { error } = await supabase
+        .from('inventory_stock')
+        .delete()
+        .eq('sku', productId)
+        .eq('warehouse_id', wh.id);
 
-      // Re-calcular total consolidado
-      const consolidatedQty = Object.values(currentBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
-
-      await updateDoc(productRef, {
-        bodegas: currentBodegas,
-        quantity: consolidatedQty
-      });
+      if (error) throw error;
 
       toast({ title: "Asociación Removida", description: `Se desvinculó el producto de la bodega ${whName}.` });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al desvincular" });
+      await loadSupabaseData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error al desvincular", description: e.message });
     }
   };
 
-  const handleQuickStockEntry = (e: React.FormEvent) => {
+  const handleQuickStockEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickEntry.sku || !quickEntry.quantity) {
       toast({ variant: "destructive", title: "Datos Faltantes", description: "Debe ingresar SKU y Cantidad." });
@@ -586,56 +716,90 @@ export default function InventoryMasterPage() {
       return;
     }
 
-    const productRef = doc(db, 'inventory', product.id);
-    
-    // Si hay una bodega seleccionada que no es "Todas", sumarlo ahí, si no al stock general
-    const currentQty = product.quantity || 0;
-    const addedQty = parseInt(quickEntry.quantity.toString()) || 0;
+    const addedQty = parseFloat(String(quickEntry.quantity)) || 0;
 
-    let updateData: any = {};
-    if (selectedWarehouse !== 'Todas') {
-      const currentBodegas = product.bodegas || {};
-      const updatedBodegas = {
-        ...currentBodegas,
-        [selectedWarehouse]: (currentBodegas[selectedWarehouse] || 0) + addedQty
-      };
-      updateData = {
-        bodegas: updatedBodegas,
-        quantity: currentQty + addedQty
-      };
-    } else {
-      updateData = {
-        quantity: currentQty + addedQty
-      };
+    try {
+      if (selectedWarehouse !== 'Todas') {
+        const wh = warehouses.find(w => w.name === selectedWarehouse);
+        if (!wh) {
+          toast({ variant: "destructive", title: "Error", description: "La bodega seleccionada no existe." });
+          return;
+        }
+        
+        const currentQty = product.bodegas[selectedWarehouse] || 0;
+        const newQty = currentQty + addedQty;
+
+        const { error } = await supabase
+          .from('inventory_stock')
+          .upsert({
+            sku: product.sku,
+            warehouse_id: wh.id,
+            quantity: newQty
+          }, {
+            onConflict: 'sku,warehouse_id'
+          });
+
+        if (error) throw error;
+      } else {
+        if (warehouses.length === 0) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Debe crear al menos una bodega primero.' });
+          return;
+        }
+        // Si no hay una bodega seleccionada, se aplica a la primera bodega por defecto
+        const defaultWh = warehouses[0];
+        const currentQty = product.bodegas[defaultWh.name] || 0;
+        const newQty = currentQty + addedQty;
+
+        const { error } = await supabase
+          .from('inventory_stock')
+          .upsert({
+            sku: product.sku,
+            warehouse_id: defaultWh.id,
+            quantity: newQty
+          }, {
+            onConflict: 'sku,warehouse_id'
+          });
+
+        if (error) throw error;
+      }
+
+      toast({ title: "Stock Actualizado", description: `Se agregaron ${quickEntry.quantity} unidades.` });
+      setQuickEntry({ sku: '', quantity: '' });
+      await loadSupabaseData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al actualizar stock", description: err.message });
     }
-
-    updateDoc(productRef, updateData)
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: productRef.path, operation: 'update', requestResourceData: updateData }));
-      });
-
-    toast({ title: "Stock Actualizado", description: `Se agregaron ${quickEntry.quantity} unidades.` });
-    setQuickEntry({ sku: '', quantity: '' });
   };
 
-  const handleCreateWarehouse = () => {
+  const handleCreateWarehouse = async () => {
     if (!warehouseName) return;
-    const data = { name: warehouseName };
-    addDoc(warehousesQuery, data)
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'warehouses', operation: 'create', requestResourceData: data }));
-      });
-    toast({ title: "Bodega Configurada", description: "La bodega ya está disponible." });
-    setWarehouseName('');
+    try {
+      const { error } = await supabase
+        .from('warehouses')
+        .insert({ name: warehouseName });
+
+      if (error) throw error;
+      toast({ title: "Bodega Configurada", description: "La bodega ya está disponible." });
+      setWarehouseName('');
+      await loadSupabaseData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al crear bodega", description: err.message });
+    }
   };
 
-  const handleDeleteWarehouse = (id: string) => {
-    const whRef = doc(db, 'warehouses', id);
-    deleteDoc(whRef)
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: whRef.path, operation: 'delete' }));
-      });
-    toast({ title: "Bodega Eliminada", description: "Se ha removido la bodega del sistema." });
+  const handleDeleteWarehouse = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('warehouses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast({ title: "Bodega Eliminada", description: "Se ha removido la bodega del sistema." });
+      await loadSupabaseData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al eliminar bodega", description: err.message });
+    }
   };
 
   const handleJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -688,15 +852,21 @@ export default function InventoryMasterPage() {
     setLoading(true);
     try {
       for (const [supCode, intSku] of Object.entries(mappings)) {
-        await setDoc(doc(db, 'supplier_mappings', supCode), {
-          supplierCode: supCode,
-          internalSku: intSku,
-          updatedAt: new Date().toISOString()
-        });
+        const { error } = await supabase
+          .from('supplier_mappings')
+          .upsert({
+            supplier_code: supCode,
+            internal_sku: intSku,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'supplier_code'
+          });
+        if (error) throw error;
       }
       toast({ title: "Vinculaciones Guardadas", description: "Los códigos han sido asociados correctamente." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al guardar vinculaciones" });
+      await loadSupabaseData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error al guardar vinculaciones", description: e.message });
     } finally {
       setLoading(false);
     }

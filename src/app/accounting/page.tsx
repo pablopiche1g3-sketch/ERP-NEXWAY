@@ -37,6 +37,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -83,27 +84,136 @@ export default function AccountingPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  // Data Fetching
-  const salesRef = useMemo(() => collection(db, 'sales'), [db]);
-  const expensesRef = useMemo(() => collection(db, 'expenses'), [db]);
-  const journalRef = useMemo(() => collection(db, 'journal'), [db]);
-  const purchasesRef = useMemo(() => collection(db, 'purchases'), [db]);
-  const inventoryRef = useMemo(() => collection(db, 'inventory'), [db]);
+  // Estados para datos cargados desde Supabase
+  const [sales, setSales] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [journal, setJournal] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [instSales, setInstSales] = useState<any[]>([]);
+  const [instPurchases, setInstPurchases] = useState<any[]>([]);
+  const [instProjects, setInstProjects] = useState<any[]>([]);
 
-  // Colecciones del Módulo Institucional / Proyectos (Ventas, Compras y Expedientes)
-  const instSalesRef = useMemo(() => collection(db, 'institutional_sales'), [db]);
-  const instPurchasesRef = useMemo(() => collection(db, 'institutional_purchases'), [db]);
-  const instProjectsRef = useMemo(() => collection(db, 'institutional_projects'), [db]);
+  const [loadingSales, setLoadingSales] = useState(true);
+  const [loadingExpenses, setLoadingExpenses] = useState(true);
+  const [loadingJournal, setLoadingJournal] = useState(true);
+  const [loadingPurchases, setLoadingPurchases] = useState(true);
 
-  const { data: sales, loading: loadingSales } = useCollection<any>(salesRef);
-  const { data: expenses, loading: loadingExpenses } = useCollection<any>(expensesRef);
-  const { data: journal, loading: loadingJournal } = useCollection<any>(journalRef);
-  const { data: purchases, loading: loadingPurchases } = useCollection<any>(purchasesRef);
-  const { data: inventory } = useCollection<any>(inventoryRef);
+  // Función para cargar de forma segura los datos de Contabilidad desde Supabase
+  const loadAccountingData = async () => {
+    try {
+      setLoadingSales(true);
+      setLoadingExpenses(true);
+      setLoadingJournal(true);
+      setLoadingPurchases(true);
 
-  const { data: instSales } = useCollection<any>(instSalesRef);
-  const { data: instPurchases } = useCollection<any>(instPurchasesRef);
-  const { data: instProjects } = useCollection<any>(instProjectsRef);
+      // 1. Cargar Ventas
+      const { data: salesData, error: salesErr } = await supabase
+        .from('sales')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (!salesErr) {
+        setSales((salesData || []).map(s => ({
+          id: s.id,
+          correlative: s.correlative,
+          docType: s.doc_type,
+          customerId: s.customer_id,
+          total: parseFloat(s.total) || 0,
+          status: s.status,
+          timestamp: s.created_at
+        })));
+      }
+
+      // 2. Cargar Compras
+      const { data: purchasesData, error: purchasesErr } = await supabase
+        .from('purchases')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (!purchasesErr) {
+        setPurchases((purchasesData || []).map(p => ({
+          id: p.id,
+          orderId: p.order_id,
+          supplierId: p.supplier_id,
+          enteredBy: p.entered_by,
+          warehouseId: p.warehouse_id,
+          total: parseFloat(p.total) || 0,
+          status: p.status,
+          timestamp: p.created_at
+        })));
+      }
+
+      // 3. Cargar Inventario
+      const { data: invData, error: invErr } = await supabase
+        .from('inventory')
+        .select('*');
+      
+      if (!invErr) {
+        setInventory((invData || []).map(item => ({
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          price: parseFloat(item.price) || 0
+        })));
+      }
+
+      // 4. Cargar Libro Diario Contable y sus Líneas Dobles
+      const { data: journalData, error: journalErr } = await supabase
+        .from('journal')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      const { data: linesData, error: linesErr } = await supabase
+        .from('journal_lines')
+        .select('*');
+
+      if (!journalErr) {
+        const mappedJournal = (journalData || []).map(j => {
+          const jLines = !linesErr 
+            ? (linesData || []).filter(l => l.journal_id === j.id).map(l => ({
+                accountCode: l.account_code,
+                debit: parseFloat(l.debit) || 0,
+                credit: parseFloat(l.credit) || 0
+              }))
+            : [];
+
+          return {
+            id: j.id,
+            description: j.description,
+            type: j.type,
+            amount: parseFloat(j.amount) || 0,
+            timestamp: j.created_at,
+            lines: jLines
+          };
+        });
+
+        setJournal(mappedJournal);
+
+        // Los gastos simples de Caja Chica los derivamos reactivamente de los asientos simples marcados como 'Egreso'
+        const derivedExpenses = mappedJournal.filter(j => j.type === 'Egreso');
+        setExpenses(derivedExpenses);
+      }
+
+      // Secciones institucionales vacías para iniciar sin dependencias de Firestore
+      setInstSales([]);
+      setInstPurchases([]);
+      setInstProjects([]);
+
+    } catch (err: any) {
+      console.error('Error al cargar datos contables de Supabase:', err);
+    } finally {
+      setLoadingSales(false);
+      setLoadingExpenses(false);
+      setLoadingJournal(false);
+      setLoadingPurchases(false);
+    }
+  };
+
+  // Cargar datos en el montaje
+  useEffect(() => {
+    loadAccountingData();
+  }, []);
 
   // Ajustes de Contabilidad Modular
   const [settings, setSettings] = useState({
@@ -436,17 +546,22 @@ export default function AccountingPage() {
   const handleAddJournalEntry = async () => {
     if (!newEntry.description || !newEntry.amount) return;
     try {
-      await addDoc(journalRef, {
-        ...newEntry,
-        amount: parseFloat(newEntry.amount),
-        timestamp: new Date().toISOString(),
-        type: newEntry.type
-      });
+      const { error } = await supabase
+        .from('journal')
+        .insert({
+          description: newEntry.description,
+          amount: parseFloat(newEntry.amount),
+          type: newEntry.type
+        });
+
+      if (error) throw error;
+
       toast({ title: "Asiento Registrado", description: "Movimiento simple guardado." });
       setNewEntry({ description: '', amount: '', type: 'Egreso', account: 'Gastos de Administración' });
       setIsJournalModalOpen(false);
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar." });
+      await loadAccountingData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "No se pudo registrar." });
     }
   };
 
@@ -456,24 +571,31 @@ export default function AccountingPage() {
       return;
     }
     try {
-      const formattedLines = advLines.map(l => {
-        const cat = DEFAULT_CATALOG.find(c => c.code === l.accountCode);
-        return {
-          accountCode: l.accountCode,
-          accountName: cat ? cat.name : 'Cuenta Desconocida',
-          group: cat ? cat.group : 'Gastos',
-          debit: parseFloat(l.debit) || 0,
-          credit: parseFloat(l.credit) || 0
-        };
-      });
+      const { data: insertedJ, error: jErr } = await supabase
+        .from('journal')
+        .insert({
+          description: advDescription || 'Partida Contable Diaria',
+          created_at: new Date(advDate).toISOString(),
+          type: 'Avanzado',
+          amount: totalDebitLines
+        })
+        .select()
+        .single();
 
-      await addDoc(journalRef, {
-        description: advDescription || 'Partida Contable Diaria',
-        timestamp: new Date(advDate).toISOString(),
-        type: 'Avanzado',
-        lines: formattedLines,
-        amount: totalDebitLines
-      });
+      if (jErr) throw jErr;
+
+      const linesToInsert = advLines.map(l => ({
+        journal_id: insertedJ.id,
+        account_code: l.accountCode,
+        debit: parseFloat(l.debit) || 0,
+        credit: parseFloat(l.credit) || 0
+      }));
+
+      const { error: linesErr } = await supabase
+        .from('journal_lines')
+        .insert(linesToInsert);
+
+      if (linesErr) throw linesErr;
 
       toast({ title: "Asiento Cuadrado Registrado", description: "Partida de doble entrada formalizada con éxito." });
       setAdvDescription('');
@@ -482,17 +604,25 @@ export default function AccountingPage() {
         { accountCode: '4101', debit: '0.00', credit: '0.00' }
       ]);
       setIsAdvancedModalOpen(false);
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el asiento avanzado." });
+      await loadAccountingData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "No se pudo registrar el asiento avanzado." });
     }
   };
 
   const handleDeleteEntry = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'journal', id));
+      const { error } = await supabase
+        .from('journal')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
       toast({ title: "Registro Removido", description: "El asiento ha sido eliminado." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar." });
+      await loadAccountingData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "No se pudo eliminar." });
     }
   };
 

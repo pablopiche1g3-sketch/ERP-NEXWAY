@@ -152,3 +152,23 @@ alter publication supabase_realtime add table public.inventory_stock;
 alter publication supabase_realtime add table public.sales;
 alter publication supabase_realtime add table public.purchases;
 alter publication supabase_realtime add table public.journal;
+
+-- 16. TABLAS DE MAPEO DE PRODUCTOS (Para DTE Facturación Electrónica y Empresas)
+create table public.supplier_mappings (
+  supplier_code text primary key,
+  internal_sku text not null,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create table public.company_mappings (
+  id uuid default uuid_generate_v4() primary key,
+  master_sku text not null,
+  product_name text not null,
+  company_name text not null,
+  company_sku text not null,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  constraint unique_company_mapping unique (company_name, company_sku)
+);
+
+alter publication supabase_realtime add table public.supplier_mappings;
+alter publication supabase_realtime add table public.company_mappings;
