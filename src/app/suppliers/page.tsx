@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Truck, 
   ArrowLeft, 
@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -50,10 +51,55 @@ export default function SuppliersPage() {
     applyPerception: false
   });
 
-  const suppliersCollectionRef = useMemo(() => collection(db, 'suppliers'), [db]);
-  const { data: suppliers, loading: loadingData } = useCollection<any>(suppliersCollectionRef);
+  // Estados para datos cargados desde Supabase
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  const handleCreateSupplier = (e?: React.FormEvent) => {
+  // Función para cargar los proveedores desde Supabase
+  const loadSuppliersData = async () => {
+    try {
+      setLoadingData(true);
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+
+      // Mapear campos para compatibilidad con el resto del código
+      const mapped = (data || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        nit: s.nit,
+        nrc: s.nrc,
+        giro: s.giro,
+        email: s.email,
+        phone: s.phone,
+        address: s.address,
+        applyRetention: s.apply_retention,
+        applyPerception: s.apply_perception,
+        createdAt: s.created_at
+      }));
+
+      setSuppliers(mapped);
+    } catch (err: any) {
+      console.error('Error al cargar proveedores desde Supabase:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error de Conexión',
+        description: 'No se pudo cargar el directorio de proveedores de Supabase.'
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  // Cargar proveedores en el montaje
+  useEffect(() => {
+    loadSuppliersData();
+  }, []);
+
+  const handleCreateSupplier = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
     if (!form.name || !form.nit || !form.nrc) {
@@ -65,68 +111,75 @@ export default function SuppliersPage() {
       return;
     }
 
-    const supplierData = {
-      ...form,
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .insert({
+          name: form.name,
+          nit: form.nit,
+          nrc: form.nrc,
+          giro: form.giro || null,
+          email: form.email || null,
+          phone: form.phone || null,
+          address: form.address || null,
+          apply_retention: form.applyRetention,
+          apply_perception: form.applyPerception
+        });
 
-    addDoc(suppliersCollectionRef, supplierData)
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: 'suppliers',
-          operation: 'create',
-          requestResourceData: supplierData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+      if (error) throw error;
+
+      toast({ title: "Proveedor Registrado", description: `${form.name} ha sido añadido.` });
+      setForm({
+        name: '',
+        nit: '',
+        nrc: '',
+        giro: '',
+        email: '',
+        phone: '',
+        address: '',
+        applyRetention: false,
+        applyPerception: false
       });
-
-    toast({ title: "Proveedor Registrado", description: `${form.name} ha sido añadido.` });
-    
-    setForm({
-      name: '',
-      nit: '',
-      nrc: '',
-      giro: '',
-      email: '',
-      phone: '',
-      address: '',
-      applyRetention: false,
-      applyPerception: false
-    });
+      await loadSuppliersData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al registrar", description: err.message });
+    }
   };
 
   const handleUpdateSupplierField = async (id: string, field: string, value: boolean) => {
-    const supplierRef = doc(db, 'suppliers', id);
-    const updateData = { [field]: value };
-    
-    updateDoc(supplierRef, updateData)
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: supplierRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+    try {
+      const dbField = field === 'applyRetention' ? 'apply_retention' : 'apply_perception';
+      const { error } = await supabase
+        .from('suppliers')
+        .update({ [dbField]: value })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Perfil Actualizado", 
+        description: `Se ha modificado la condición de ${field === 'applyRetention' ? 'Retención' : 'Percepción'} para este proveedor.` 
       });
-    
-    toast({ 
-      title: "Perfil Actualizado", 
-      description: `Se ha modificado la condición de ${field === 'applyRetention' ? 'Retención' : 'Percepción'} para este proveedor.` 
-    });
+      await loadSuppliersData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al actualizar", description: err.message });
+    }
   };
 
-  const handleDeleteSupplier = (id: string) => {
-    const supplierRef = doc(db, 'suppliers', id);
-    deleteDoc(supplierRef)
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: supplierRef.path,
-          operation: 'delete',
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-      });
-    
-    toast({ title: "Registro Eliminado", description: "El proveedor ha sido removido." });
+  const handleDeleteSupplier = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({ title: "Registro Eliminado", description: "El proveedor ha sido removido." });
+      await loadSuppliersData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al eliminar", description: err.message });
+    }
   };
 
   const filteredSuppliers = useMemo(() => {

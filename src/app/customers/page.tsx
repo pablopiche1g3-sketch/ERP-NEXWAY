@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Users, 
   ArrowLeft, 
@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -71,11 +72,39 @@ export default function CustomersPage() {
     address: ''
   });
 
-  // Estabilizar la referencia de la colección para evitar bucles de carga
-  const customersCollectionRef = useMemo(() => collection(db, 'customers'), [db]);
-  const { data: customers, loading: loadingData } = useCollection<any>(customersCollectionRef);
+  // Estados para datos cargados desde Supabase
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  const handleCreateCustomer = (e?: React.FormEvent) => {
+  // Función para cargar los clientes desde Supabase
+  const loadCustomersData = async () => {
+    try {
+      setLoadingData(true);
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (err: any) {
+      console.error('Error al cargar clientes desde Supabase:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error de Conexión',
+        description: 'No se pudo cargar la cartera de clientes de Supabase.'
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  // Cargar clientes en el montaje
+  useEffect(() => {
+    loadCustomersData();
+  }, []);
+
+  const handleCreateCustomer = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
     if (!form.name || (activeTab === 'ccf' && (!form.nit || !form.nrc || !form.giro))) {
@@ -87,48 +116,53 @@ export default function CustomersPage() {
       return;
     }
 
-    const customerData = {
-      ...form,
-      type: activeTab === 'cf' ? 'Individual' : 'Empresa',
-      category: activeTab === 'cf' ? 'Consumidor Final' : 'Crédito Fiscal',
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .insert({
+          name: form.name,
+          nit: form.nit || null,
+          nrc: form.nrc || null,
+          giro: form.giro || null,
+          email: form.email || null,
+          phone: form.phone || null,
+          address: form.address || null,
+          type: activeTab === 'cf' ? 'Individual' : 'Empresa',
+          category: activeTab === 'cf' ? 'Consumidor Final' : 'Crédito Fiscal'
+        });
 
-    addDoc(customersCollectionRef, customerData)
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: 'customers',
-          operation: 'create',
-          requestResourceData: customerData,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
+      if (error) throw error;
+
+      toast({ title: "Cliente Registrado", description: `${form.name} ha sido añadido.` });
+      setForm({
+        name: '',
+        nit: '',
+        nrc: '',
+        giro: '',
+        email: '',
+        phone: '',
+        address: ''
       });
-
-    toast({ title: "Cliente Registrado", description: `${form.name} ha sido añadido.` });
-    
-    setForm({
-      name: '',
-      nit: '',
-      nrc: '',
-      giro: '',
-      email: '',
-      phone: '',
-      address: ''
-    });
+      await loadCustomersData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al registrar", description: err.message });
+    }
   };
 
-  const handleDeleteCustomer = (id: string) => {
-    const customerRef = doc(db, 'customers', id);
-    deleteDoc(customerRef)
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: customerRef.path,
-          operation: 'delete',
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-      });
-    
-    toast({ title: "Registro Eliminado", description: "El cliente ha sido removido." });
+  const handleDeleteCustomer = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({ title: "Registro Eliminado", description: "El cliente ha sido removido." });
+      await loadCustomersData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al eliminar", description: err.message });
+    }
   };
 
   const filteredCustomers = useMemo(() => {

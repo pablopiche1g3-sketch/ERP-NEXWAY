@@ -69,7 +69,12 @@ create table public.suppliers (
   name text not null,
   nit text,
   nrc text,
+  giro text,
+  email text,
+  phone text,
   address text,
+  apply_retention boolean not null default false,
+  apply_perception boolean not null default false,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
@@ -79,7 +84,12 @@ create table public.customers (
   name text not null,
   nit text,
   nrc text,
+  giro text,
+  email text,
+  phone text,
   address text,
+  type text,
+  category text,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 

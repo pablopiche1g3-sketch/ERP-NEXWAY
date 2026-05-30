@@ -33,6 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, updateDoc, doc, addDoc } from 'firebase/firestore';
+import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
@@ -73,13 +74,81 @@ export default function PurchasesPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const inventoryQuery = useMemo(() => collection(db, 'inventory'), [db]);
-  const warehousesQuery = useMemo(() => collection(db, 'warehouses'), [db]);
-  const suppliersQuery = useMemo(() => collection(db, 'suppliers'), [db]);
+  // Estados para datos cargados desde Supabase
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  const { data: inventory } = useCollection<any>(inventoryQuery);
-  const { data: warehouses } = useCollection<any>(warehousesQuery);
-  const { data: suppliers } = useCollection<any>(suppliersQuery);
+  // Función para cargar los datos relacionados de forma segura
+  const loadPurchasesData = async () => {
+    try {
+      setLoadingData(true);
+
+      // Cargar bodegas
+      const { data: whData } = await supabase.from('warehouses').select('*').order('name');
+      setWarehouses(whData || []);
+
+      // Cargar proveedores
+      const { data: supData } = await supabase.from('suppliers').select('*').order('name');
+      setSuppliers((supData || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        nit: s.nit,
+        nrc: s.nrc,
+        giro: s.giro,
+        email: s.email,
+        phone: s.phone,
+        address: s.address,
+        applyRetention: s.apply_retention,
+        applyPerception: s.apply_perception
+      })));
+
+      // Cargar inventario maestro y stock consolidado
+      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
+      const { data: stockData } = await supabase.from('inventory_stock').select('*');
+
+      const whMap: Record<string, string> = {};
+      (whData || []).forEach(w => {
+        whMap[w.id] = w.name;
+      });
+
+      const mappedInventory = (invData || []).map(item => {
+        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
+        const bodegasMap: Record<string, number> = {};
+        itemStocks.forEach(s => {
+          const whName = whMap[s.warehouse_id];
+          if (whName) {
+            bodegasMap[whName] = parseFloat(s.quantity) || 0;
+          }
+        });
+
+        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
+
+        return {
+          id: item.sku,
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          price: parseFloat(item.price) || 0,
+          quantity: totalQty,
+          bodegas: bodegasMap
+        };
+      });
+
+      setInventory(mappedInventory);
+
+    } catch (e: any) {
+      console.error('Error al cargar datos en compras:', e);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  // Cargar datos en el montaje
+  useEffect(() => {
+    loadPurchasesData();
+  }, []);
 
   const filteredSuppliers = useMemo(() => {
     if (!suppliers) return [];
@@ -170,38 +239,64 @@ export default function PurchasesPage() {
 
     setLoading(true);
     try {
-      await addDoc(collection(db, 'purchases'), {
-        pedidoId,
-        generationCode,
-        docType,
-        paymentMethod,
-        creditDays: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : 0,
-        enteredBy,
-        warehouse,
-        supplier: supplierName,
-        items: purchaseItems,
-        total: totalPurchase,
-        status,
-        timestamp: new Date().toISOString()
-      });
+      const selectedSup = suppliers.find(s => s.name === supplierName);
+      const selectedWh = warehouses.find(w => w.name === warehouse);
 
+      if (!selectedWh) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Bodega de destino no encontrada.' });
+        setLoading(false);
+        return;
+      }
+
+      // 1. Insert into public.purchases
+      const { data: insertedPurch, error: purchErr } = await supabase
+        .from('purchases')
+        .insert({
+          order_id: pedidoId,
+          supplier_id: selectedSup ? selectedSup.id : null,
+          entered_by: enteredBy,
+          warehouse_id: selectedWh.id,
+          total: totalPurchase,
+          status: status
+        })
+        .select()
+        .single();
+
+      if (purchErr) throw purchErr;
+
+      // 2. Insert items into public.purchase_items
+      const itemsToInsert = purchaseItems.map(item => ({
+        purchase_id: insertedPurch.id,
+        sku: item.sku,
+        quantity: item.quantity,
+        cost: item.cost,
+        subtotal: item.quantity * item.cost
+      }));
+
+      const { error: itemsErr } = await supabase
+        .from('purchase_items')
+        .insert(itemsToInsert);
+
+      if (itemsErr) throw itemsErr;
+
+      // 3. Update stock if status === 'CERRADA'
       if (status === 'CERRADA') {
         for (const item of purchaseItems) {
-          const productRef = doc(db, 'inventory', item.id);
-          const currentProduct = inventory?.find((p: any) => p.id === item.id);
-          const currentQty = currentProduct?.quantity || 0;
-          const currentBodegas = currentProduct?.bodegas || {};
-          
-          // Sumar el stock a la bodega seleccionada para la compra
-          const updatedBodegas = {
-            ...currentBodegas,
-            [warehouse]: (currentBodegas[warehouse] || 0) + item.quantity
-          };
-          
-          updateDoc(productRef, {
-            quantity: currentQty + item.quantity,
-            bodegas: updatedBodegas
-          });
+          const currentProduct = inventory.find(p => p.sku === item.sku);
+          const currentWhStock = currentProduct ? (currentProduct.bodegas[warehouse] || 0) : 0;
+          const newQty = currentWhStock + item.quantity;
+
+          const { error: stockErr } = await supabase
+            .from('inventory_stock')
+            .upsert({
+              sku: item.sku,
+              warehouse_id: selectedWh.id,
+              quantity: newQty
+            }, {
+              onConflict: 'sku,warehouse_id'
+            });
+
+          if (stockErr) throw stockErr;
         }
         toast({ title: "Compra Cerrada", description: `Stock actualizado en la bodega '${warehouse}' de forma exitosa.` });
       } else {
@@ -217,10 +312,11 @@ export default function PurchasesPage() {
       const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const randPart = Math.floor(1000 + Math.random() * 9000);
       setPedidoId(`ORD-${datePart}-${randPart}`);
+      await loadPurchasesData();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar la compra." });
+      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo procesar la compra." });
     } finally {
       setLoading(false);
     }
