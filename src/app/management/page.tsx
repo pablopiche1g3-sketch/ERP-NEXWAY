@@ -285,15 +285,65 @@ export default function ManagementPage() {
   };
 
   const modules = [
-    { id: 'billing', label: 'Módulo de Facturación', desc: 'Ventas, cobros y arqueos' },
-    { id: 'accounting', label: 'Contabilidad Básica', desc: 'Estado de resultados e IVA' },
+    { 
+      id: 'billing', 
+      label: 'Módulo de Facturación', 
+      desc: 'Ventas, cobros y arqueos',
+      tabs: [
+        { id: 'facturacion', label: 'Facturación' },
+        { id: 'historial', label: 'Historial' },
+        { id: 'nota_credito', label: 'Nota de Crédito' },
+        { id: 'nota_debito', label: 'Nota de Débito' },
+        { id: 'arqueo', label: 'Arqueo de Caja' },
+        { id: 'creditos', label: 'Créditos' },
+      ]
+    },
+    { 
+      id: 'accounting', 
+      label: 'Contabilidad Básica', 
+      desc: 'Estado de resultados e IVA',
+      tabs: [
+        { id: 'diario', label: 'Libro Diario' },
+        { id: 'balance-comprobacion', label: 'Balance de Comprobación' },
+        { id: 'rentabilidad', label: 'Rentabilidad' },
+        { id: 'libros_iva', label: 'Libros de IVA' },
+        { id: 'mh_forms', label: 'MH Formularios' },
+        { id: 'tributario', label: 'Tributario' },
+        { id: 'caja-chica', label: 'Caja Chica' },
+        { id: 'pnl', label: 'Estado de Resultados' },
+        { id: 'settings', label: 'Configuración' },
+      ]
+    },
+    { 
+      id: 'orders', 
+      label: 'Módulo de Pedidos', 
+      desc: 'Pedidos internos y externos (proveedor)',
+      tabs: [
+        { id: 'interno', label: 'Pedidos Internos' },
+        { id: 'externo', label: 'Pedidos de Proveedor' },
+        { id: 'cargar-codigos', label: 'Cargar y Limpiar Códigos Excel' },
+      ]
+    },
+    { 
+      id: 'inventory', 
+      label: 'Inventario Maestro', 
+      desc: 'Control de SKUs y Stock',
+      tabs: [
+        { id: 'existencia', label: 'Existencias por Bodega' },
+        { id: 'maestro', label: 'Maestro de Catálogo' },
+        { id: 'kardex', label: 'Kardex de Almacén' },
+        { id: 'toma-fisica', label: 'Toma Física (Ajustes)' },
+        { id: 'carga-masiva', label: 'Carga Masiva (Excel)' },
+        { id: 'entradas', label: 'Entrada Rápida de Stock' },
+        { id: 'config', label: 'Bodegas' },
+      ]
+    },
     { id: 'purchases', label: 'Registro de Compras', desc: 'Ingreso de mercadería al stock' },
     { id: 'suppliers', label: 'Directorio de Proveedores', desc: 'Gestión de suministrantes' },
     { id: 'quedan', label: 'Gestión de Quedan', desc: 'Programación de pagos' },
     { id: 'quotations', label: 'Cotizaciones', desc: 'Presupuestos para clientes' },
     { id: 'transfers', label: 'Traslados', desc: 'Movimientos logísticos' },
     { id: 'customers', label: 'Registro de Clientes', desc: 'Cartera de contribuyentes' },
-    { id: 'inventory', label: 'Inventario Maestro', desc: 'Control de SKUs y Stock' },
     { id: 'institutional', label: 'Ventas Institucionales', desc: 'Licitaciones y Proyectos' },
   ];
 
@@ -408,19 +458,37 @@ export default function ManagementPage() {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {modules.map((m) => (
-                    <div key={m.id} className="p-6 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                      <div className="space-y-1">
-                        <Label className="text-sm font-bold text-foreground">{m.label}</Label>
-                        <p className="text-xs text-muted-foreground">{m.desc}</p>
+                    <div key={m.id} className="p-6 hover:bg-muted/10 transition-colors space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-bold text-foreground">{m.label}</Label>
+                          <p className="text-xs text-muted-foreground">{m.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          {config?.[m.id] === false ? <Lock className="text-rose-500" size={16} /> : <Unlock className="text-emerald-500" size={16} />}
+                          <Switch 
+                            checked={config?.[m.id] !== false} 
+                            onCheckedChange={(val) => handleToggleModule(m.id, val)}
+                            disabled={isSaving}
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        {config?.[m.id] === false ? <Lock className="text-rose-500" size={16} /> : <Unlock className="text-emerald-500" size={16} />}
-                        <Switch 
-                          checked={config?.[m.id] !== false} 
-                          onCheckedChange={(val) => handleToggleModule(m.id, val)}
-                          disabled={isSaving}
-                        />
-                      </div>
+
+                      {config?.[m.id] !== false && m.tabs && (
+                        <div className="ml-6 pl-4 border-l-2 border-slate-200 dark:border-slate-800 space-y-3 pt-2">
+                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Habilitar Pestañas del Módulo</p>
+                          {m.tabs.map((tab) => (
+                            <div key={tab.id} className="flex items-center justify-between py-1">
+                              <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">{tab.label}</Label>
+                              <Switch 
+                                checked={config?.[`${m.id}_${tab.id}`] !== false} 
+                                onCheckedChange={(val) => handleToggleModule(`${m.id}_${tab.id}`, val)}
+                                disabled={isSaving}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -35,7 +35,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useUser, getTenantName } from '@/firebase';
+import { useUser, getTenantName, useFirestore, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,27 @@ export default function OrdersPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'interno' | 'externo' | 'cargar-codigos'>('interno');
   const [loading, setLoading] = useState(false);
+
+  const db = useFirestore();
+  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
+  const { data: config } = useDoc<any>(configRef);
+
+  const tabsList = useMemo(() => [
+    { id: 'interno', key: 'orders_interno' },
+    { id: 'externo', key: 'orders_externo' },
+    { id: 'cargar-codigos', key: 'orders_cargar-codigos' },
+  ], []);
+
+  useEffect(() => {
+    if (!config) return;
+    const currentTabObj = tabsList.find(t => t.id === activeTab);
+    if (currentTabObj && config[currentTabObj.key] === false) {
+      const firstEnabled = tabsList.find(t => config[t.key] !== false);
+      if (firstEnabled) {
+        setActiveTab(firstEnabled.id as any);
+      }
+    }
+  }, [config, activeTab, tabsList]);
 
   // Estados locales para datos de Supabase
   const [inventory, setInventory] = useState<any[]>([]);
@@ -1009,15 +1031,21 @@ export default function OrdersPage() {
       <div className="max-w-7xl mx-auto">
         <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
           <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border h-auto w-full justify-start overflow-x-auto no-scrollbar">
-            <TabsTrigger value="interno" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
-              <Warehouse size={14} className="mr-2" /> Pedidos Internos (Tiendas)
-            </TabsTrigger>
-            <TabsTrigger value="externo" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
-              <Truck size={14} className="mr-2" /> Pedidos Externos (Proveedores)
-            </TabsTrigger>
-            <TabsTrigger value="cargar-codigos" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
-              <FileSpreadsheet size={14} className="mr-2" /> Cargar Códigos (Excel)
-            </TabsTrigger>
+            {config?.['orders_interno'] !== false && (
+              <TabsTrigger value="interno" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
+                <Warehouse size={14} className="mr-2" /> Pedidos Internos (Tiendas)
+              </TabsTrigger>
+            )}
+            {config?.['orders_externo'] !== false && (
+              <TabsTrigger value="externo" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
+                <Truck size={14} className="mr-2" /> Pedidos Externos (Proveedores)
+              </TabsTrigger>
+            )}
+            {config?.['orders_cargar-codigos'] !== false && (
+              <TabsTrigger value="cargar-codigos" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
+                <FileSpreadsheet size={14} className="mr-2" /> Cargar Códigos (Excel)
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ==================== TAB PEDIDOS INTERNOS ==================== */}

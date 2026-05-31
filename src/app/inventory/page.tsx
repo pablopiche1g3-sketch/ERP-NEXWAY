@@ -66,7 +66,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -85,6 +85,8 @@ interface SupplierItem {
 
 export default function InventoryMasterPage() {
   const db = useFirestore();
+  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
+  const { data: config } = useDoc<any>(configRef);
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -93,6 +95,29 @@ export default function InventoryMasterPage() {
   const [selectedWarehouse, setSelectedWarehouse] = useState('Todas');
   const [maestroSubTab, setMaestroSubTab] = useState<'catalogo' | 'empresas'>('catalogo');
   
+  const [activeTab, setActiveTab] = useState('existencia');
+
+  const tabsList = useMemo(() => [
+    { id: 'existencia', key: 'inventory_existencia' },
+    { id: 'maestro', key: 'inventory_maestro' },
+    { id: 'kardex', key: 'inventory_kardex' },
+    { id: 'toma-fisica', key: 'inventory_toma_fisica' },
+    { id: 'carga-masiva', key: 'inventory_carga_masiva' },
+    { id: 'entradas', key: 'inventory_entradas' },
+    { id: 'config', key: 'inventory_config' },
+  ], []);
+
+  useEffect(() => {
+    if (!config) return;
+    const currentTabObj = tabsList.find(t => t.id === activeTab);
+    if (currentTabObj && config[currentTabObj.key] === false) {
+      const firstEnabled = tabsList.find(t => config[t.key] !== false);
+      if (firstEnabled) {
+        setActiveTab(firstEnabled.id);
+      }
+    }
+  }, [config, activeTab, tabsList]);
+
   // Vinculación States
   const [supplierItems, setSupplierItems] = useState<SupplierItem[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -924,32 +949,43 @@ export default function InventoryMasterPage() {
       </div>
  
       <div className="max-w-7xl mx-auto">
-        <Tabs defaultValue="existencia" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border h-auto w-full justify-start overflow-x-auto no-scrollbar">
-            <TabsTrigger value="existencia" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <Package size={14} className="mr-2" /> Existencias
-            </TabsTrigger>
-            <TabsTrigger value="maestro" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <Tag size={14} className="mr-2" /> Maestro
-            </TabsTrigger>
-            <TabsTrigger value="kardex" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <History size={14} className="mr-2" /> Kardex de Almacén
-            </TabsTrigger>
-            <TabsTrigger value="toma-fisica" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <ClipboardList size={14} className="mr-2" /> Toma Física
-            </TabsTrigger>
-            <TabsTrigger value="carga-masiva" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <FileSpreadsheet size={14} className="mr-2" /> Carga Masiva (Excel)
-            </TabsTrigger>
-            <TabsTrigger value="vinculacion" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <ArrowRightLeft size={14} className="mr-2" /> Vincular DTE
-            </TabsTrigger>
-            <TabsTrigger value="entradas" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <Zap size={14} className="mr-2" /> Entrada Rápida
-            </TabsTrigger>
-            <TabsTrigger value="config" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <Settings2 size={14} className="mr-2" /> Bodegas
-            </TabsTrigger>
+            {config?.['inventory_existencia'] !== false && (
+              <TabsTrigger value="existencia" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <Package size={14} className="mr-2" /> Existencias
+              </TabsTrigger>
+            )}
+            {config?.['inventory_maestro'] !== false && (
+              <TabsTrigger value="maestro" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <Tag size={14} className="mr-2" /> Maestro
+              </TabsTrigger>
+            )}
+            {config?.['inventory_kardex'] !== false && (
+              <TabsTrigger value="kardex" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <History size={14} className="mr-2" /> Kardex de Almacén
+              </TabsTrigger>
+            )}
+            {config?.['inventory_toma_fisica'] !== false && (
+              <TabsTrigger value="toma-fisica" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <ClipboardList size={14} className="mr-2" /> Toma Física
+              </TabsTrigger>
+            )}
+            {config?.['inventory_carga_masiva'] !== false && (
+              <TabsTrigger value="carga-masiva" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <FileSpreadsheet size={14} className="mr-2" /> Carga Masiva (Excel)
+              </TabsTrigger>
+            )}
+            {config?.['inventory_entradas'] !== false && (
+              <TabsTrigger value="entradas" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <Zap size={14} className="mr-2" /> Entrada Rápida
+              </TabsTrigger>
+            )}
+            {config?.['inventory_config'] !== false && (
+              <TabsTrigger value="config" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <Settings2 size={14} className="mr-2" /> Bodegas
+              </TabsTrigger>
+            )}
           </TabsList>
  
           {/* TAB EXISTENCIAS CON FILTRO DE STOCK POR BODEGA */}
@@ -1349,7 +1385,7 @@ export default function InventoryMasterPage() {
                                 </Button>
                               </TableCell>
                             </TableRow>
-                          ))}
+                          ))}`
                         </TableBody>
                       </Table>
                     </ScrollArea>
@@ -1358,99 +1394,6 @@ export default function InventoryMasterPage() {
               </div>
             )}
           </TabsContent>
- 
-          {/* TAB VINCULAR DTE V3 */}
-          <TabsContent value="vinculacion" className="space-y-6 outline-none">
-             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-                <div className="lg:col-span-4 space-y-6">
-                   <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
-                      <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5 md:p-6">
-                         <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
-                            <FileJson size={20} className="text-blue-400" /> Mapeo DTE V3
-                         </CardTitle>
-                         <CardDescription className="text-slate-400 text-xs">Vincule códigos del proveedor de Hacienda</CardDescription>
-                      </CardHeader>
-                      <CardContent className="p-4 md:p-6 space-y-4 md:space-y-6">
-                         <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-4 rounded-2xl space-y-2">
-                            <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-bold">
-                               <Info size={14} />
-                               <span className="text-[10px] uppercase tracking-tight">Instrucciones</span>
-                            </div>
-                            <p className="text-[9px] md:text-[10px] text-blue-700 dark:text-blue-400 leading-relaxed">
-                               Cargue el JSON DTE (Factura o CCF) del proveedor. Asocie sus códigos para automatizar futuras compras.
-                            </p>
-                         </div>
-                         
-                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleJsonUpload} />
-                         <Button 
-                            className="w-full h-12 md:h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl font-bold text-xs text-white"
-                            onClick={() => fileInputRef.current?.click()}
-                         >
-                            <FileJson className="mr-2" size={16} /> CARGAR DTE V3
-                         </Button>
- 
-                         {supplierItems.length > 0 && (
-                            <Button 
-                               className="w-full h-12 md:h-14 bg-emerald-600 hover:bg-emerald-700 rounded-2xl font-bold text-xs text-white mt-2"
-                               onClick={saveMappings}
-                               disabled={loading}
-                            >
-                               {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={16} />}
-                               GUARDAR VINCULACIONES
-                            </Button>
-                         )}
-                      </CardContent>
-                   </Card>
-                </div>
- 
-                <div className="lg:col-span-8">
-                   <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
-                      <div className="overflow-x-auto">
-                        <Table>
-                           <TableHeader className="bg-slate-50 dark:bg-muted/50">
-                              <TableRow>
-                                 <TableHead className="px-4 md:px-6 text-[10px] font-black uppercase whitespace-nowrap">Código Prov.</TableHead>
-                                 <TableHead className="text-[10px] font-black uppercase whitespace-nowrap">Descripción</TableHead>
-                                 <TableHead className="text-[10px] font-black uppercase pr-4 md:pr-6 min-w-[150px]">SKU Interno</TableHead>
-                              </TableRow>
-                           </TableHeader>
-                           <TableBody>
-                              {supplierItems.length === 0 ? (
-                                 <TableRow>
-                                    <TableCell colSpan={3} className="text-center py-20 md:py-24 text-slate-400 text-xs italic">
-                                       Cargue un archivo DTE para comenzar
-                                    </TableCell>
-                                 </TableRow>
-                              ) : supplierItems.map((item, idx) => (
-                                 <TableRow key={idx}>
-                                    <TableCell className="px-4 md:px-6 font-mono text-[10px] md:text-[11px] font-bold text-slate-600 dark:text-muted-foreground whitespace-nowrap">{item.code}</TableCell>
-                                    <TableCell className="text-[10px] md:text-xs text-slate-500 dark:text-muted-foreground font-medium max-w-[120px] truncate">{item.name}</TableCell>
-                                    <TableCell className="pr-4 md:pr-6">
-                                       <Select 
-                                          value={mappings[item.code] || ""} 
-                                          onValueChange={(val) => setMappings(prev => ({...prev, [item.code]: val}))}
-                                       >
-                                          <SelectTrigger className="h-8 md:h-9 rounded-xl text-[9px] md:text-[10px] font-bold bg-slate-50 dark:bg-muted border-none">
-                                             <SelectValue placeholder="Vincular a..." />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                             {inventory?.map((inv: any) => (
-                                                <SelectItem key={inv.id} value={inv.sku} className="text-[10px]">
-                                                   {inv.sku} - {inv.name}
-                                                 </SelectItem>
-                                              ))}
-                                           </SelectContent>
-                                        </Select>
-                                     </TableCell>
-                                  </TableRow>
-                               ))}
-                            </TableBody>
-                         </Table>
-                       </div>
-                    </Card>
-                 </div>
-              </div>
-           </TabsContent>
  
            {/* TAB ENTRADAS */}
            <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
@@ -1971,7 +1914,13 @@ export default function InventoryMasterPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredItems.length === 0 ? (
+                      {!searchTerm.trim() ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-16 text-slate-450 italic text-xs font-medium">
+                            Digite un código de SKU o nombre en la barra de búsqueda para ver sus movimientos en el Kardex.
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredItems.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs">
                             No se encontraron registros de inventario para este filtro.

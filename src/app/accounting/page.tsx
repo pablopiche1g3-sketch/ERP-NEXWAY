@@ -35,7 +35,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -83,6 +83,33 @@ export default function AccountingPage() {
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+
+  const [activeTab, setActiveTab] = useState('diario');
+  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
+  const { data: config } = useDoc<any>(configRef);
+
+  const tabsList = useMemo(() => [
+    { id: 'diario', key: 'accounting_diario' },
+    { id: 'balance-comprobacion', key: 'accounting_balance-comprobacion' },
+    { id: 'rentabilidad', key: 'accounting_rentabilidad' },
+    { id: 'libros_iva', key: 'accounting_libros_iva' },
+    { id: 'mh_forms', key: 'accounting_mh_forms' },
+    { id: 'tributario', key: 'accounting_tributario' },
+    { id: 'caja-chica', key: 'accounting_caja-chica' },
+    { id: 'pnl', key: 'accounting_pnl' },
+    { id: 'settings', key: 'accounting_settings' },
+  ], []);
+
+  useEffect(() => {
+    if (!config) return;
+    const currentTabObj = tabsList.find(t => t.id === activeTab);
+    if (currentTabObj && config[currentTabObj.key] === false) {
+      const firstEnabled = tabsList.find(t => config[t.key] !== false);
+      if (firstEnabled) {
+        setActiveTab(firstEnabled.id);
+      }
+    }
+  }, [config, activeTab, tabsList]);
   
   // Estados para datos cargados desde Supabase
   const [sales, setSales] = useState<any[]>([]);
@@ -885,35 +912,53 @@ export default function AccountingPage() {
         </div>
 
         {/* MÓDULO PRINCIPAL CON PESTAÑAS */}
-        <Tabs defaultValue="diario" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-border flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
-            <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <FileText size={14} className="mr-2"/> Libro Diario
-            </TabsTrigger>
-            <TabsTrigger value="balance-comprobacion" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <Scale size={14} className="mr-2"/> Balance Comprobación
-            </TabsTrigger>
-            <TabsTrigger value="rentabilidad" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <PieChart size={14} className="mr-2"/> Rentabilidad & Márgenes
-            </TabsTrigger>
-            <TabsTrigger value="libros_iva" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <BookOpen size={14} className="mr-2"/> Libros de IVA
-            </TabsTrigger>
-            <TabsTrigger value="mh_forms" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <Calculator size={14} className="mr-2"/> Declaración MH
-            </TabsTrigger>
-            <TabsTrigger value="tributario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <Percent size={14} className="mr-2"/> Tributario / Hacienda
-            </TabsTrigger>
-            <TabsTrigger value="caja-chica" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <Briefcase size={14} className="mr-2"/> Caja Chica
-            </TabsTrigger>
-            <TabsTrigger value="pnl" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <BarChart3 size={14} className="mr-2"/> P&L Resultados
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-              <Settings size={14} className="mr-2"/> Ajustes ERP
-            </TabsTrigger>
+            {config?.['accounting_diario'] !== false && (
+              <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <FileText size={14} className="mr-2"/> Libro Diario
+              </TabsTrigger>
+            )}
+            {config?.['accounting_balance-comprobacion'] !== false && (
+              <TabsTrigger value="balance-comprobacion" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <Scale size={14} className="mr-2"/> Balance Comprobación
+              </TabsTrigger>
+            )}
+            {config?.['accounting_rentabilidad'] !== false && (
+              <TabsTrigger value="rentabilidad" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <PieChart size={14} className="mr-2"/> Rentabilidad & Márgenes
+              </TabsTrigger>
+            )}
+            {config?.['accounting_libros_iva'] !== false && (
+              <TabsTrigger value="libros_iva" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <BookOpen size={14} className="mr-2"/> Libros de IVA
+              </TabsTrigger>
+            )}
+            {config?.['accounting_mh_forms'] !== false && (
+              <TabsTrigger value="mh_forms" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <Calculator size={14} className="mr-2"/> Declaración MH
+              </TabsTrigger>
+            )}
+            {config?.['accounting_tributario'] !== false && (
+              <TabsTrigger value="tributario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <Percent size={14} className="mr-2"/> Tributario / Hacienda
+              </TabsTrigger>
+            )}
+            {config?.['accounting_caja-chica'] !== false && (
+              <TabsTrigger value="caja-chica" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <Briefcase size={14} className="mr-2"/> Caja Chica
+              </TabsTrigger>
+            )}
+            {config?.['accounting_pnl'] !== false && (
+              <TabsTrigger value="pnl" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <BarChart3 size={14} className="mr-2"/> P&L Resultados
+              </TabsTrigger>
+            )}
+            {config?.['accounting_settings'] !== false && (
+              <TabsTrigger value="settings" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <Settings size={14} className="mr-2"/> Ajustes ERP
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="diario" className="space-y-4 outline-none">

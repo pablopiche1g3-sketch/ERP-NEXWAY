@@ -69,8 +69,32 @@ export default function BillingPage() {
   const router = useRouter();
   const { toast } = useToast();
   
+  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
+  const { data: config } = useDoc<any>(configRef);
+
   // Tab States
   const [activeTab, setActiveTab] = useState('facturacion');
+
+  const tabsList = useMemo(() => [
+    { id: 'facturacion', key: 'billing_facturacion' },
+    { id: 'historial', key: 'billing_historial' },
+    { id: 'nota_credito', key: 'billing_nota_credito' },
+    { id: 'nota_debito', key: 'billing_nota_debito' },
+    { id: 'arqueo', key: 'billing_arqueo' },
+    { id: 'creditos', key: 'billing_creditos' },
+  ], []);
+
+  useEffect(() => {
+    if (!config) return;
+    const currentTabObj = tabsList.find(t => t.id === activeTab);
+    if (currentTabObj && config[currentTabObj.key] === false) {
+      const firstEnabled = tabsList.find(t => config[t.key] !== false);
+      if (firstEnabled) {
+        setActiveTab(firstEnabled.id);
+      }
+    }
+  }, [config, activeTab, tabsList]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -619,24 +643,36 @@ export default function BillingPage() {
       <div className="max-w-7xl mx-auto print:hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
-            <TabsTrigger value="facturacion" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
-              <ShoppingCart size={14} className="mr-2" /> Venta
-            </TabsTrigger>
-            <TabsTrigger value="historial" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
-              <History size={14} className="mr-2" /> Historial
-            </TabsTrigger>
-            <TabsTrigger value="nota_credito" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
-              <RotateCcw size={14} className="mr-2" /> Nota Crédito
-            </TabsTrigger>
-            <TabsTrigger value="nota_debito" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
-              <TrendingUp size={14} className="mr-2" /> Nota Débito
-            </TabsTrigger>
-            <TabsTrigger value="arqueo" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
-              <Calculator size={14} className="mr-2" /> Arqueo / Cierre
-            </TabsTrigger>
-            <TabsTrigger value="creditos" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
-              <Wallet size={14} className="mr-2" /> Créditos / Abonos
-            </TabsTrigger>
+            {config?.['billing_facturacion'] !== false && (
+              <TabsTrigger value="facturacion" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+                <ShoppingCart size={14} className="mr-2" /> Venta
+              </TabsTrigger>
+            )}
+            {config?.['billing_historial'] !== false && (
+              <TabsTrigger value="historial" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+                <History size={14} className="mr-2" /> Historial
+              </TabsTrigger>
+            )}
+            {config?.['billing_nota_credito'] !== false && (
+              <TabsTrigger value="nota_credito" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+                <RotateCcw size={14} className="mr-2" /> Nota Crédito
+              </TabsTrigger>
+            )}
+            {config?.['billing_nota_debito'] !== false && (
+              <TabsTrigger value="nota_debito" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+                <TrendingUp size={14} className="mr-2" /> Nota Débito
+              </TabsTrigger>
+            )}
+            {config?.['billing_arqueo'] !== false && (
+              <TabsTrigger value="arqueo" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+                <Calculator size={14} className="mr-2" /> Arqueo / Cierre
+              </TabsTrigger>
+            )}
+            {config?.['billing_creditos'] !== false && (
+              <TabsTrigger value="creditos" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
+                <Wallet size={14} className="mr-2" /> Créditos / Abonos
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* TAB VENTA */}
