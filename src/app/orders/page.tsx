@@ -459,8 +459,17 @@ export default function OrdersPage() {
       const itemsToInsert: any[] = [];
       const stockToInsert: any[] = [];
 
+      // Validar contra la base de datos real para evitar duplicados y errores de clave primaria
+      const skusToImport = bulkCodes.map(c => c.sku);
+      const { data: dbExisting } = await supabase
+        .from('inventory')
+        .select('sku')
+        .in('sku', skusToImport);
+
+      const dbExistingSkus = new Set((dbExisting || []).map((p: any) => p.sku));
+
       for (const item of bulkCodes) {
-        const exists = inventory?.some((p: any) => p.sku === item.sku);
+        const exists = dbExistingSkus.has(item.sku);
         if (!exists) {
           itemsToInsert.push({
             sku: item.sku,
@@ -473,6 +482,7 @@ export default function OrdersPage() {
           skippedCount++;
         }
       }
+
 
       if (itemsToInsert.length > 0) {
         const { error } = await supabase.from('inventory').insert(itemsToInsert);
