@@ -1888,9 +1888,22 @@ export default function OrdersPage() {
                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
                   <div className="p-4 bg-slate-50 dark:bg-muted/50 sticky top-0 border-b flex justify-between items-center z-10">
                     <span className="text-[10px] font-black text-slate-700 dark:text-foreground uppercase tracking-widest">Vista Previa de Importación</span>
-                    <Badge variant="outline" className="text-[10px] bg-violet-50 text-violet-600 border-violet-100 font-bold">
-                      {bulkCodes.length} productos listos
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {bulkCodes.length > 0 && (
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-[10px] font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 px-2 rounded-lg"
+                          onClick={() => setBulkCodes([])}
+                        >
+                          <Trash2 size={12} className="mr-1" /> Limpiar Todo
+                        </Button>
+                      )}
+                      <Badge variant="outline" className="text-[10px] bg-violet-50 text-violet-600 border-violet-100 font-bold">
+                        {bulkCodes.length} productos listos
+                      </Badge>
+                    </div>
                   </div>
                   <ScrollArea className="h-[480px]">
                     <Table>
@@ -1898,12 +1911,13 @@ export default function OrdersPage() {
                         <TableRow>
                           <TableHead className="w-1/3 px-4 md:px-6 text-[10px] font-bold uppercase">Código / SKU</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase">Descripción / Nombre</TableHead>
+                          <TableHead className="w-20 text-[10px] font-bold uppercase text-center">Acción</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {bulkCodes.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={2} className="text-center py-24 text-slate-400 italic text-xs">
+                            <TableCell colSpan={3} className="text-center py-24 text-slate-400 italic text-xs">
                               Sube un archivo de Excel para ver la vista previa de los códigos a registrar.
                             </TableCell>
                           </TableRow>
@@ -1915,12 +1929,24 @@ export default function OrdersPage() {
                             <TableCell className="text-xs font-bold text-slate-500 dark:text-muted-foreground">
                               {item.name}
                             </TableCell>
+                            <TableCell className="text-center py-1.5 px-2">
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                onClick={() => setBulkCodes(bulkCodes.filter(c => c.sku !== item.sku))}
+                              >
+                                <Trash2 size={12} />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </ScrollArea>
                 </Card>
+
               </div>
 
             </div>
