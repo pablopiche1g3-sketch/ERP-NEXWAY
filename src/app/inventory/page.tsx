@@ -171,6 +171,40 @@ export default function InventoryMasterPage() {
 
   // Estados para datos cargados desde Supabase
   const [inventory, setInventory] = useState<any[]>([]);
+
+  const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
+
+  const filteredSystemInventory = useMemo(() => {
+    return (inventory || []).filter(item => {
+      const s = catalogSearchTerm.toLowerCase().trim();
+      if (!s) return true;
+      return (
+        item.sku.toLowerCase().includes(s) ||
+        item.name.toLowerCase().includes(s)
+      );
+    });
+  }, [inventory, catalogSearchTerm]);
+
+  const handleClearAllInventoryProducts = async () => {
+    if (!confirm("⚠️ ADVERTENCIA: ¿Estás absolutamente seguro de eliminar TODOS los códigos del catálogo? Esta acción es irreversible y borrará el inventario completo.")) {
+      return;
+    }
+    const pin = prompt("Por favor, digite 'ELIMINAR' para confirmar esta acción destructiva:");
+    if (pin !== 'ELIMINAR') {
+      toast({ variant: "destructive", title: "Acción Cancelada", description: "La confirmación no coincide." });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('inventory').delete().neq('sku', '');
+      if (error) throw error;
+      toast({ title: "Catálogo Limpiado", description: "Se han eliminado todos los códigos del catálogo." });
+      await loadSupabaseData();
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al limpiar catálogo", description: err.message || "No se pudo limpiar el catálogo." });
+    }
+  };
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [savedMappings, setSavedMappings] = useState<any[]>([]);
   const [companyMappings, setCompanyMappings] = useState<any[]>([]);
@@ -1653,7 +1687,7 @@ export default function InventoryMasterPage() {
                   <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
-                        <Upload className="text-blue-400 animate-bounce" size={18} /> Importación por Excel/CSV
+                        <Upload className="text-blue-400" size={18} /> Importación por Excel/CSV
                       </CardTitle>
                       <CardDescription className="text-slate-400 text-xs">
                         Cargue inventario de forma masiva mapeando las columnas de su archivo.
@@ -1803,7 +1837,7 @@ export default function InventoryMasterPage() {
                           {bulkImporting ? (
                             <div className="space-y-2 pt-2 animate-in fade-in">
                               <div className="flex justify-between items-center text-xs font-bold text-slate-700 dark:text-foreground">
-                                <span>Cargando productos en Firestore...</span>
+                                <span>Cargando productos en la base de datos...</span>
                                 <span>{bulkImportProgress}%</span>
                               </div>
                               <div className="w-full bg-slate-100 dark:bg-muted rounded-full h-2 overflow-hidden">
@@ -1827,54 +1861,161 @@ export default function InventoryMasterPage() {
                       )}
                     </CardContent>
                   </Card>
+
+                  {/* NUEVO CARD: LIMPIEZA DE CATÁLOGO EXISTENTE */}
+                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                    <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Trash2 size={18} className="text-rose-455 dark:text-rose-400" /> Limpieza de Catálogo
+                      </CardTitle>
+                      <CardDescription className="text-slate-350 text-xs">Administre la base de códigos existente en el sistema.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Si cometió un error en la carga de Excel o desea depurar todos los registros del inventario consolidado para iniciar una carga limpia, puede realizarlo desde aquí de manera directa.
+                      </p>
+                      <Button 
+                        type="button" 
+                        onClick={handleClearAllInventoryProducts} 
+                        className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-lg text-xs flex items-center justify-center gap-2 shadow-rose-600/10 active:scale-95 transition-all"
+                      >
+                        <Trash2 size={16} />
+                        LIMPIAR TODOS LOS CÓDIGOS DEL SISTEMA
+                      </Button>
+                    </CardContent>
+                  </Card>
                 </div>
 
-                {/* Panel Derecho: Previsualización de Datos */}
+                {/* Panel Derecho: Previsualización / Catálogo en Sistema */}
                 <div className="lg:col-span-7 space-y-4">
                   <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
-                    <CardHeader className="p-5 border-b border-slate-100 dark:border-slate-800">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <CardTitle className="text-sm font-bold flex items-center gap-2">
-                            <Info size={16} className="text-blue-500" /> Previsualización (Primeras 50 Filas)
-                          </CardTitle>
-                          <CardDescription className="text-xs">Valide la estructura antes de procesar.</CardDescription>
+                    <Tabs defaultValue="excel" className="w-full">
+                      
+                      {/* Header Integrado de Sub-pestañas */}
+                      <div className="p-4 bg-slate-50 dark:bg-muted/50 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <TabsList className="bg-muted/80 p-0.5 rounded-xl border flex w-fit">
+                          <TabsTrigger value="excel" className="rounded-lg text-[10px] font-bold px-3 py-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                            Por Importar ({bulkRows.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="sistema" className="rounded-lg text-[10px] font-bold px-3 py-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                            En Sistema ({inventory.length})
+                          </TabsTrigger>
+                        </TabsList>
+                        
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                          <TabsContent value="excel" className="m-0 outline-none">
+                            {bulkRows.length > 0 && (
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-7 text-[10px] font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 px-2 rounded-lg"
+                                onClick={() => {
+                                  setBulkFile(null);
+                                  setBulkHeaders([]);
+                                  setBulkRows([]);
+                                  if (bulkFileInputRef.current) bulkFileInputRef.current.value = '';
+                                }}
+                              >
+                                <Trash2 size={12} className="mr-1" /> Limpiar Todo
+                              </Button>
+                            )}
+                          </TabsContent>
+                          
+                          <TabsContent value="sistema" className="m-0 outline-none">
+                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-600 dark:text-emerald-400 border-emerald-100 font-bold">
+                              Activos en base de datos
+                            </Badge>
+                          </TabsContent>
                         </div>
-                        {bulkRows.length > 0 && (
-                          <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold">
-                            {bulkRows.length} productos detectados
-                          </Badge>
-                        )}
                       </div>
-                    </CardHeader>
-                    <ScrollArea className="h-[550px]">
-                      <Table>
-                        <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
-                          <TableRow>
-                            {bulkHeaders.map(h => (
-                              <TableHead key={h} className="text-[10px] font-black uppercase whitespace-nowrap px-4 py-3">{h}</TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {bulkRows.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={bulkHeaders.length || 1} className="text-center py-32 text-slate-400 italic text-xs">
-                                Cargue un archivo CSV o Excel para ver la previsualización aquí.
-                              </TableCell>
-                            </TableRow>
-                          ) : bulkRows.slice(0, 50).map((row, idx) => (
-                            <TableRow key={idx} className="hover:bg-slate-50 dark:hover:bg-muted/30">
-                              {bulkHeaders.map(h => (
-                                <TableCell key={h} className="text-[11px] font-medium text-slate-700 dark:text-muted-foreground whitespace-nowrap px-4 py-2.5">
-                                  {String(row[h] !== undefined ? row[h] : '')}
-                                </TableCell>
+
+                      {/* Sub-tab 1: Vista Previa Excel */}
+                      <TabsContent value="excel" className="outline-none m-0">
+                        <ScrollArea className="h-[550px]">
+                          <Table>
+                            <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                              <TableRow>
+                                {bulkHeaders.map(h => (
+                                  <TableHead key={h} className="text-[10px] font-black uppercase whitespace-nowrap px-4 py-3">{h}</TableHead>
+                                ))}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {bulkRows.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={bulkHeaders.length || 1} className="text-center py-32 text-slate-400 italic text-xs">
+                                    Cargue un archivo CSV o Excel para ver la previsualización aquí.
+                                  </TableCell>
+                                </TableRow>
+                              ) : bulkRows.slice(0, 50).map((row, idx) => (
+                                <TableRow key={idx} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                                  {bulkHeaders.map(h => (
+                                    <TableCell key={h} className="text-[11px] font-medium text-slate-700 dark:text-muted-foreground whitespace-nowrap px-4 py-2.5">
+                                      {String(row[h] !== undefined ? row[h] : '')}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
                               ))}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </ScrollArea>
+                            </TableBody>
+                          </Table>
+                        </ScrollArea>
+                      </TabsContent>
+
+                      {/* Sub-tab 2: Catálogo en Sistema (Con búsqueda e individual delete) */}
+                      <TabsContent value="sistema" className="outline-none m-0">
+                        <div className="p-3 border-b bg-slate-50/30 dark:bg-card/50 flex items-center">
+                          <Input 
+                            placeholder="Buscar código o descripción en el catálogo..."
+                            value={catalogSearchTerm}
+                            onChange={(e) => setCatalogSearchTerm(e.target.value)}
+                            className="h-9 text-xs rounded-xl border bg-background"
+                          />
+                        </div>
+                        <ScrollArea className="h-[500px]">
+                          <Table>
+                            <TableHeader className="bg-slate-50/50 dark:bg-muted/30">
+                              <TableRow>
+                                <TableHead className="w-1/3 px-4 md:px-6 text-[10px] font-bold uppercase">Código / SKU</TableHead>
+                                <TableHead className="text-[10px] font-bold uppercase">Descripción / Nombre</TableHead>
+                                <TableHead className="w-20 text-[10px] font-bold uppercase text-center">Acción</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredSystemInventory.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={3} className="text-center py-24 text-slate-400 italic text-xs">
+                                    {catalogSearchTerm ? "No se encontraron coincidencias para la búsqueda." : "No hay códigos registrados en la base de datos."}
+                                  </TableCell>
+                                </TableRow>
+                              ) : filteredSystemInventory.map((item) => (
+                                <TableRow key={item.sku} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                                  <TableCell className="px-4 md:px-6 py-3 font-mono font-black text-xs text-slate-700 dark:text-foreground">
+                                    {item.sku}
+                                  </TableCell>
+                                  <TableCell className="text-xs font-bold text-slate-500 dark:text-muted-foreground">
+                                    {item.name}
+                                  </TableCell>
+                                  <TableCell className="text-center py-1.5 px-2">
+                                    <Button 
+                                      type="button" 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-7 w-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                      onClick={() => handleDeleteProduct(item.sku)}
+                                      title="Eliminar producto permanentemente"
+                                    >
+                                      <Trash2 size={12} />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </ScrollArea>
+                      </TabsContent>
+
+                    </Tabs>
                   </Card>
                 </div>
               </div>

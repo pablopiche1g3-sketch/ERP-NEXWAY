@@ -105,6 +105,7 @@ export default function BillingPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   
   // Adjustment States (Notas Crédito/Débito)
   const [adjustmentForm, setAdjustmentForm] = useState({
@@ -342,6 +343,78 @@ export default function BillingPage() {
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
   , [salesAll]);
 
+  // Cart Functions
+  const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
+
+  // Cálculos de Deuda Financiera y Límites de Crédito
+  const { pendingCreditInvoices, outstandingDebt } = useMemo(() => {
+    if (!selectedCustomer) return { pendingCreditInvoices: [], outstandingDebt: 0 };
+    
+    const invoices = salesAll?.filter(
+      s => s.customerId === selectedCustomer.id && 
+           s.paymentMethod === 'Credito' && 
+           s.status === 'PENDIENTE'
+    ) || [];
+
+    const debt = invoices.reduce((sum, s) => {
+      const totalAbonado = journalPayments
+        ?.filter(j => j.description.includes(`[${s.correlative}]`))
+        .reduce((sAcc, j) => sAcc + (parseFloat(j.amount) || 0), 0) || 0;
+      return sum + Math.max(0, s.total - totalAbonado);
+    }, 0);
+
+    return { pendingCreditInvoices: invoices, outstandingDebt: debt };
+  }, [selectedCustomer, salesAll, journalPayments]);
+
+  const creditValidation = useMemo(() => {
+    if (!selectedCustomer) {
+      return {
+        disabled: true,
+        reason: 'Registre o seleccione un cliente de la cartera para evaluar la viabilidad del crédito.'
+      };
+    }
+
+    if (!selectedCustomer.is_authorized_credit) {
+      return {
+        disabled: true,
+        reason: `Bloqueado por Gerencia: El cliente "${selectedCustomer.name}" no está autorizado para realizar compras al crédito.`
+      };
+    }
+
+    if (pendingCreditInvoices.length > 0) {
+      return {
+        disabled: true,
+        reason: `Bloqueado por Mora: El cliente posee ${pendingCreditInvoices.length} factura(s) al crédito pendiente(s) de pago.`
+      };
+    }
+
+    const limit = parseFloat(selectedCustomer.credit_limit) || 0;
+    const nextTotalDebt = outstandingDebt + totalCart;
+    if (nextTotalDebt > limit) {
+      return {
+        disabled: true,
+        reason: `Bloqueado por Límite: Deuda actual ($${outstandingDebt.toFixed(2)}) + compra actual ($${totalCart.toFixed(2)}) superan el límite de $${limit.toFixed(2)}.`
+      };
+    }
+
+    return {
+      disabled: false,
+      reason: `Crédito Autorizado: Límite de $${limit.toFixed(2)} disponible. Deuda pendiente actual: $${outstandingDebt.toFixed(2)}.`
+    };
+  }, [selectedCustomer, pendingCreditInvoices, outstandingDebt, totalCart]);
+
+  // Revertir forma de pago a Efectivo si el crédito queda invalidado dinámicamente
+  useEffect(() => {
+    if (paymentMethod === 'Credito' && creditValidation.disabled) {
+      setPaymentMethod('Efectivo');
+      toast({
+        variant: "destructive",
+        title: "Pago Revertido a Efectivo",
+        description: "El crédito del cliente seleccionado no cumple con las reglas vigentes en este momento."
+      });
+    }
+  }, [creditValidation.disabled, paymentMethod, toast]);
+
   const systemCardSales = useMemo(() => 
     salesAll?.filter(s => s.paymentMethod === 'Tarjeta' && s.status !== 'CANCELADA')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
@@ -381,7 +454,6 @@ export default function BillingPage() {
 
 
   // Cart Functions
-  const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
 
   const changeDue = useMemo(() => {
     const received = parseFloat(cashReceived) || 0;
@@ -717,12 +789,31 @@ export default function BillingPage() {
                       <Button variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Transferencia')} className="h-9 text-[9px] font-bold rounded-xl px-1">
                         <Landmark size={12} className="mr-1" /> Transf.
                       </Button>
-                      <Button variant={paymentMethod === 'Credito' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Credito')} className="h-9 text-[9px] font-bold rounded-xl px-1">
+                      <Button 
+                        variant={paymentMethod === 'Credito' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setPaymentMethod('Credito')} 
+                        disabled={creditValidation.disabled}
+                        className="h-9 text-[9px] font-bold rounded-xl px-1"
+                      >
                         <Receipt size={12} className="mr-1" /> Crédito
                       </Button>
                     </div>
-                  </div>
 
+                    {/* Banner Informativo de Crédito Autorizado o Alertas */}
+                    <div className={`p-3 rounded-2xl border flex items-start gap-2.5 transition-all text-[10px] leading-relaxed font-semibold shadow-sm ${
+                      !selectedCustomer 
+                        ? 'bg-slate-50 dark:bg-muted/10 border-slate-100 dark:border-border/30 text-slate-500' 
+                        : creditValidation.disabled 
+                        ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-400' 
+                        : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+                    }`}>
+                      <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+                      <div>
+                        {creditValidation.reason}
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
               <Button className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl" onClick={handleOpenCheckout} disabled={cart.length === 0}>
@@ -736,14 +827,24 @@ export default function BillingPage() {
                   <div className="flex-1 space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground">Cliente Receptor</Label>
                     <div className="flex gap-2">
-                      <Input placeholder="Nombre..." value={customerName} onChange={e => setCustomerName(e.target.value)} className="h-10 bg-muted border-none rounded-xl text-xs font-bold" />
+                      <Input 
+                        placeholder="Nombre..." 
+                        value={customerName} 
+                        onChange={e => {
+                          setCustomerName(e.target.value);
+                          if (selectedCustomer && e.target.value !== selectedCustomer.name) {
+                            setSelectedCustomer(null);
+                          }
+                        }} 
+                        className="h-10 bg-muted border-none rounded-xl text-xs font-bold" 
+                      />
                       <Popover>
                         <PopoverTrigger asChild><Button variant="outline" className="h-10 rounded-xl px-3"><Users size={16}/></Button></PopoverTrigger>
                         <PopoverContent className="w-80 p-0" align="end">
                           <div className="p-3 border-b"><Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-8 text-xs" /></div>
                           <ScrollArea className="h-48">
                             {filteredCustomers.map(c => (
-                              <div key={c.id} onClick={() => { setCustomerName(c.name); setCustomerEmail(c.email || ''); setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF'); }} className="p-3 hover:bg-muted cursor-pointer border-b">
+                              <div key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerName(c.name); setCustomerEmail(c.email || ''); setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF'); }} className="p-3 hover:bg-muted cursor-pointer border-b">
                                 <p className="text-[11px] font-bold">{c.name}</p>
                                 <p className="text-[9px] text-muted-foreground">{c.email || 'Sin correo'}</p>
                               </div>

@@ -17,7 +17,8 @@ import {
   Briefcase,
   UserCheck,
   Loader2,
-  Plus
+  Plus,
+  Pencil
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,8 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const GIROS_AUTORIZADOS = [
   "Venta de partes, piezas y accesorios para vehículos automotores",
@@ -69,7 +72,27 @@ export default function CustomersPage() {
     giro: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    is_authorized_credit: false,
+    credit_limit: '0.00'
+  });
+
+  const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    id: '',
+    name: '',
+    nit: '',
+    nrc: '',
+    giro: '',
+    email: '',
+    phone: '',
+    address: '',
+    type: 'Individual',
+    category: 'Consumidor Final',
+    is_authorized_credit: false,
+    credit_limit: '0.00'
   });
 
   // Estados para datos cargados desde Supabase
@@ -128,7 +151,9 @@ export default function CustomersPage() {
           phone: form.phone || null,
           address: form.address || null,
           type: activeTab === 'cf' ? 'Individual' : 'Empresa',
-          category: activeTab === 'cf' ? 'Consumidor Final' : 'Crédito Fiscal'
+          category: activeTab === 'cf' ? 'Consumidor Final' : 'Crédito Fiscal',
+          is_authorized_credit: form.is_authorized_credit,
+          credit_limit: parseFloat(form.credit_limit) || 0.00
         });
 
       if (error) throw error;
@@ -141,11 +166,52 @@ export default function CustomersPage() {
         giro: '',
         email: '',
         phone: '',
-        address: ''
+        address: '',
+        is_authorized_credit: false,
+        credit_limit: '0.00'
       });
       await loadCustomersData();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error al registrar", description: err.message });
+    }
+  };
+
+  const handleUpdateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editForm.name) {
+      toast({ variant: "destructive", title: "Faltan campos", description: "El nombre es obligatorio." });
+      return;
+    }
+
+    try {
+      setIsSavingEdit(true);
+      const { error } = await supabase
+        .from('customers')
+        .update({
+          name: editForm.name,
+          nit: editForm.nit || null,
+          nrc: editForm.nrc || null,
+          giro: editForm.giro || null,
+          email: editForm.email || null,
+          phone: editForm.phone || null,
+          address: editForm.address || null,
+          type: editForm.type,
+          category: editForm.category,
+          is_authorized_credit: editForm.is_authorized_credit,
+          credit_limit: parseFloat(editForm.credit_limit) || 0.00
+        })
+        .eq('id', editForm.id);
+
+      if (error) throw error;
+
+      toast({ title: "Cliente Actualizado", description: `${editForm.name} ha sido modificado.` });
+      setIsEditOpen(false);
+      setEditingCustomer(null);
+      await loadCustomersData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al actualizar", description: err.message });
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -322,6 +388,34 @@ export default function CustomersPage() {
                     </div>
                   </div>
 
+                  {/* Sección de Control de Crédito Premium */}
+                  <div className="p-4 rounded-2xl bg-slate-50/50 dark:bg-muted/10 border border-slate-100 dark:border-border/60 space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-sky-600 dark:text-sky-400 tracking-widest flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500"></span> Control de Crédito (Gerencia)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                      <div className="flex items-center justify-between p-2 bg-background dark:bg-muted/30 rounded-xl border border-slate-100 dark:border-border/40 shadow-sm">
+                        <span className="text-[11px] font-bold text-muted-foreground">¿Autorizar Crédito?</span>
+                        <Switch 
+                          checked={form.is_authorized_credit}
+                          onCheckedChange={val => setForm({...form, is_authorized_credit: val})}
+                        />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Límite Autorizado ($)</Label>
+                        <Input 
+                          type="number" 
+                          placeholder="0.00" 
+                          value={form.credit_limit}
+                          onChange={e => setForm({...form, credit_limit: e.target.value})}
+                          disabled={!form.is_authorized_credit}
+                          className="h-9 bg-background border rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-700 rounded-xl font-bold text-white shadow-lg shadow-sky-200 dark:shadow-sky-900/20">
                     <Users size={18} className="mr-2" />
                     Registrar en Cartera
@@ -373,9 +467,20 @@ export default function CustomersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <Badge variant="outline" className={`w-fit text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                            {customer.category || customer.type}
-                          </Badge>
+                          <div className="flex gap-1.5 items-center flex-wrap">
+                            <Badge variant="outline" className={`text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                              {customer.category || customer.type}
+                            </Badge>
+                            {customer.is_authorized_credit ? (
+                              <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 text-[8px] font-black uppercase">
+                                CRÉDITO AUT: ${(parseFloat(customer.credit_limit) || 0).toFixed(2)}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-400 dark:text-muted-foreground border-slate-200 dark:border-border">
+                                SIN CRÉDITO
+                              </Badge>
+                            )}
+                          </div>
                           {customer.giro && (
                             <span className="text-[9px] text-muted-foreground italic truncate max-w-[150px]">{customer.giro}</span>
                           )}
@@ -394,14 +499,41 @@ export default function CustomersPage() {
                         </div>
                       </TableCell>
                       <TableCell className="px-4">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleDeleteCustomer(customer.id)}
-                          className="h-8 w-8 text-slate-300 hover:text-rose-500"
-                        >
-                          <Trash2 size={14} />
-                        </Button>
+                        <div className="flex items-center gap-1 justify-end">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => {
+                              setEditingCustomer(customer);
+                              setEditForm({
+                                id: customer.id,
+                                name: customer.name || '',
+                                nit: customer.nit || '',
+                                nrc: customer.nrc || '',
+                                giro: customer.giro || '',
+                                email: customer.email || '',
+                                phone: customer.phone || '',
+                                address: customer.address || '',
+                                type: customer.type || 'Individual',
+                                category: customer.category || 'Consumidor Final',
+                                is_authorized_credit: !!customer.is_authorized_credit,
+                                credit_limit: (customer.credit_limit || 0.00).toString()
+                              });
+                              setIsEditOpen(true);
+                            }}
+                            className="h-8 w-8 text-slate-400 hover:text-sky-500 hover:bg-slate-100 dark:hover:bg-muted rounded-lg"
+                          >
+                            <Pencil size={13} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleDeleteCustomer(customer.id)}
+                            className="h-8 w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg"
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -411,6 +543,169 @@ export default function CustomersPage() {
           </Card>
         </div>
       </div>
+
+      {/* Diálogo de Edición de Cliente Premium */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-lg bg-card text-foreground border rounded-3xl overflow-hidden p-6 max-h-[90vh] flex flex-col shadow-2xl">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-foreground text-lg font-black uppercase tracking-tight">
+              <Pencil className="text-sky-500" size={20} />
+              Editar Cliente
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs text-left">
+              Actualice los datos comerciales y de crédito de la cuenta seleccionada.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateCustomer} className="flex-1 overflow-y-auto my-4 pr-1 space-y-4 no-scrollbar">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nombre completo / Razón Social</Label>
+              <Input 
+                value={editForm.name}
+                onChange={e => setEditForm({...editForm, name: e.target.value})}
+                className="h-10 bg-muted border-none rounded-xl text-xs font-bold"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</Label>
+                <Select value={editForm.type} onValueChange={val => setEditForm({...editForm, type: val})}>
+                  <SelectTrigger className="h-10 bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Individual">Individual</SelectItem>
+                    <SelectItem value="Empresa">Empresa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría</Label>
+                <Select value={editForm.category} onValueChange={val => setEditForm({...editForm, category: val})}>
+                  <SelectTrigger className="h-10 bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Consumidor Final">Consumidor Final</SelectItem>
+                    <SelectItem value="Crédito Fiscal">Crédito Fiscal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {editForm.category === 'Crédito Fiscal' && (
+              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">NIT</Label>
+                  <Input 
+                    placeholder="NIT..." 
+                    value={editForm.nit}
+                    onChange={e => setEditForm({...editForm, nit: e.target.value})}
+                    className="h-10 bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">NRC</Label>
+                  <Input 
+                    placeholder="NRC..." 
+                    value={editForm.nrc}
+                    onChange={e => setEditForm({...editForm, nrc: e.target.value})}
+                    className="h-10 bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+            )}
+
+            {editForm.category === 'Crédito Fiscal' && (
+              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial</Label>
+                <Select value={editForm.giro} onValueChange={val => setEditForm({...editForm, giro: val})}>
+                  <SelectTrigger className="h-10 bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-w-[400px]">
+                    {GIROS_AUTORIZADOS.map((giro, idx) => (
+                      <SelectItem key={idx} value={giro} className="text-[11px] py-2">{giro}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Correo Electrónico</Label>
+                <Input 
+                  type="email" 
+                  value={editForm.email}
+                  onChange={e => setEditForm({...editForm, email: e.target.value})}
+                  className="h-10 bg-muted border-none rounded-xl text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Teléfono</Label>
+                <Input 
+                  value={editForm.phone}
+                  onChange={e => setEditForm({...editForm, phone: e.target.value})}
+                  className="h-10 bg-muted border-none rounded-xl text-xs font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Dirección</Label>
+              <textarea 
+                placeholder="Dirección..."
+                value={editForm.address}
+                onChange={e => setEditForm({...editForm, address: e.target.value})}
+                className="w-full min-h-[50px] p-2.5 bg-muted border-none rounded-xl text-xs focus:ring-1 outline-none transition-all text-foreground"
+              />
+            </div>
+
+            {/* Crédito */}
+            <div className="p-4 rounded-2xl bg-muted/40 border space-y-3">
+              <h4 className="text-[10px] font-black uppercase text-sky-600 dark:text-sky-400 tracking-widest flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-sky-500"></span> Control de Crédito
+              </h4>
+              <div className="grid grid-cols-2 gap-4 items-center">
+                <div className="flex items-center justify-between p-2 bg-background rounded-xl border shadow-sm">
+                  <span className="text-[11px] font-bold text-muted-foreground">¿Autorizar?</span>
+                  <Switch 
+                    checked={editForm.is_authorized_credit}
+                    onCheckedChange={val => setEditForm({...editForm, is_authorized_credit: val})}
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Límite ($)</Label>
+                  <Input 
+                    type="number" 
+                    value={editForm.credit_limit}
+                    onChange={e => setEditForm({...editForm, credit_limit: e.target.value})}
+                    disabled={!editForm.is_authorized_credit}
+                    className="h-9 bg-background border rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 gap-2 border-t">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsEditOpen(false)}
+                className="rounded-xl text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSavingEdit}
+                className="bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs px-5 shadow-md shadow-sky-500/20"
+              >
+                {isSavingEdit ? <Loader2 className="animate-spin mr-1" size={14} /> : null}
+                Guardar Cambios
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

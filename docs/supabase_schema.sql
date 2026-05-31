@@ -90,6 +90,8 @@ create table public.customers (
   address text,
   type text,
   category text,
+  is_authorized_credit boolean not null default false,
+  credit_limit numeric(10,2) not null default 0.00,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 

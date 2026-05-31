@@ -14,7 +14,12 @@ import {
   DollarSign,
   Mail,
   Users,
-  Trash2
+  Trash2,
+  Database,
+  CheckCircle2,
+  XCircle,
+  Terminal,
+  AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,6 +31,13 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter } from 'next/navigation';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 export default function ManagementPage() {
   const router = useRouter();
@@ -54,6 +66,61 @@ export default function ManagementPage() {
     institutional: true,
     management: true
   });
+
+  // Estados para Auditoría de Supabase
+  const [dbStatus, setDbStatus] = useState<Record<string, 'idle' | 'checking' | 'ok' | 'error'>>({
+    inventory: 'idle',
+    inventory_stock: 'idle',
+    company_mappings: 'idle',
+    daily_closings: 'idle',
+    internal_orders: 'idle',
+    supplier_orders: 'idle',
+    customers: 'idle'
+  });
+  const [dbErrors, setDbErrors] = useState<Record<string, string>>({});
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
+
+  const runDiagnostics = async () => {
+    setIsDiagnosing(true);
+    const tablesToTest = {
+      inventory: 'sku, name, category, price',
+      inventory_stock: 'id, sku, warehouse_id, quantity',
+      company_mappings: 'id, master_sku, product_name, company_name, company_sku',
+      daily_closings: 'id, date, system_cash_sales, system_card_sales, system_check_sales, system_transfer_sales, system_credit_sales',
+      internal_orders: 'id, code, source_warehouse, destination_warehouse, requested_by, items, status',
+      supplier_orders: 'id, code, supplier_name, supplier_email, from_email, authorized_by, digitized_by, supplier_phone, status',
+      customers: 'id, name, is_authorized_credit, credit_limit'
+    };
+
+    // Reset status to checking
+    const initialStatus = { ...dbStatus };
+    Object.keys(tablesToTest).forEach(t => {
+      initialStatus[t] = 'checking';
+    });
+    setDbStatus(initialStatus);
+    setDbErrors({});
+
+    for (const [table, cols] of Object.entries(tablesToTest)) {
+      try {
+        const { error } = await supabase
+          .from(table)
+          .select(cols)
+          .limit(1);
+
+        if (error) {
+          setDbStatus(prev => ({ ...prev, [table]: 'error' }));
+          setDbErrors(prev => ({ ...prev, [table]: error.message || 'Error de conexión o columnas faltantes.' }));
+        } else {
+          setDbStatus(prev => ({ ...prev, [table]: 'ok' }));
+        }
+      } catch (err: any) {
+        setDbStatus(prev => ({ ...prev, [table]: 'error' }));
+        setDbErrors(prev => ({ ...prev, [table]: err?.message || 'Error inesperado.' }));
+      }
+    }
+    setIsDiagnosing(false);
+  };
 
   const loadData = async () => {
     try {
@@ -349,6 +416,12 @@ export default function ManagementPage() {
 
   const [activeTab, setActiveTab] = useState('config');
 
+  useEffect(() => {
+    if (activeTab === 'config') {
+      runDiagnostics();
+    }
+  }, [activeTab]);
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300">
       <div className="max-w-4xl mx-auto mb-8 flex items-center justify-between">
@@ -432,7 +505,7 @@ export default function ManagementPage() {
               </Card>
             </div>
 
-            <div className="md:col-span-5">
+            <div className="md:col-span-5 space-y-6">
               <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20">
                 <div className="flex items-center gap-2 text-blue-800 font-bold dark:text-blue-300">
                   <AlertCircle size={20} />
@@ -442,6 +515,85 @@ export default function ManagementPage() {
                   El correo bolsón es obligatorio para cumplir con la normativa de respaldo digital. Si un cliente no está registrado o no proporciona correo, el sistema enviará automáticamente el DTE a la dirección configurada arriba para su posterior entrega física o reenvío manual.
                 </p>
               </div>
+
+              <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+                <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+                  <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+                    <Database className="text-emerald-400" size={20} />
+                    Auditoría de Supabase
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-xs">
+                    Verifique el estado de las tablas relacionales y esquemas en tiempo real.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-3">
+                    {Object.keys(dbStatus).map((table) => {
+                      const status = dbStatus[table];
+                      const errorMsg = dbErrors[table];
+                      
+                      return (
+                        <div key={table} className="flex flex-col gap-1.5 p-3 rounded-2xl bg-muted/50 border border-muted-foreground/10">
+                          <div className="flex items-center justify-between">
+                            <code className="text-xs font-mono font-bold text-foreground">{table}</code>
+                            <div className="flex items-center gap-2">
+                              {status === 'checking' && (
+                                <Loader2 className="animate-spin text-amber-500" size={14} />
+                              )}
+                              {status === 'ok' && (
+                                <span className="flex items-center gap-1 text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                  <CheckCircle2 size={10} /> OK
+                                </span>
+                              )}
+                              {status === 'error' && (
+                                <span className="flex items-center gap-1 text-[9px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full">
+                                  <XCircle size={10} /> ERROR
+                                </span>
+                              )}
+                              {status === 'idle' && (
+                                <span className="text-[9px] font-bold bg-slate-500/10 text-slate-500 px-2 py-0.5 rounded-full">
+                                  PENDIENTE
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {errorMsg && (
+                            <p className="text-[10px] text-rose-500 font-semibold leading-tight break-words border-t border-rose-500/10 pt-1.5 mt-0.5">
+                              {errorMsg}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2 space-y-2">
+                    <Button
+                      onClick={runDiagnostics}
+                      disabled={isDiagnosing}
+                      variant="outline"
+                      className="w-full h-11 border-dashed font-bold rounded-xl text-xs active:scale-95 transition-all"
+                    >
+                      {isDiagnosing ? (
+                        <>
+                          <Loader2 className="animate-spin mr-2" size={14} />
+                          VERIFICANDO...
+                        </>
+                      ) : (
+                        "EJECUTAR DIAGNÓSTICO MANUAL"
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={() => setIsSqlModalOpen(true)}
+                      className="w-full h-11 bg-slate-900 text-slate-100 dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-slate-900/10 active:scale-95 transition-all"
+                    >
+                      <Terminal size={14} />
+                      VER SCRIPT SQL DE ACTUALIZACIÓN
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
@@ -638,6 +790,355 @@ export default function ManagementPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={isSqlModalOpen} onOpenChange={setIsSqlModalOpen}>
+        <DialogContent className="max-w-2xl bg-slate-950 text-slate-100 border-slate-800 rounded-3xl overflow-hidden p-6 max-h-[85vh] flex flex-col">
+          <DialogHeader className="pb-4 border-b border-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-white text-lg font-black uppercase tracking-tight">
+              <Terminal className="text-emerald-400" size={20} />
+              Script SQL de Migración Supabase
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs text-left">
+              Copia y pega este script en el SQL Editor de tu panel de control de Supabase para asegurar que todas las tablas y columnas necesarias estén creadas y configuradas correctamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto my-4 rounded-xl bg-slate-900/80 p-4 border border-slate-850 font-mono text-xs text-slate-350 leading-relaxed no-scrollbar select-all whitespace-pre-wrap">
+{`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. CREACIÓN DE TABLAS DE PEDIDOS SI NO EXISTEN
+CREATE TABLE IF NOT EXISTS public.internal_orders (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  code text,
+  source_warehouse text NOT NULL,
+  destination_warehouse text NOT NULL,
+  requested_by text NOT NULL,
+  items jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'PENDIENTE', -- PENDIENTE, APROBADO, CANCELADO
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.supplier_orders (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  code text,
+  supplier_name text NOT NULL,
+  destination_warehouse text NOT NULL,
+  requested_by text NOT NULL,
+  items jsonb NOT NULL,
+  total numeric(10,2) DEFAULT 0.00,
+  supplier_email text,
+  from_email text,
+  authorized_by text,
+  digitized_by text,
+  supplier_phone text,
+  status text NOT NULL DEFAULT 'PENDIENTE', -- PENDIENTE, APROBADO, RECHAZADO
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Asegurar columnas si las tablas ya existían a medias
+ALTER TABLE public.internal_orders ADD COLUMN IF NOT EXISTS code text;
+ALTER TABLE public.supplier_orders ADD COLUMN IF NOT EXISTS code text;
+ALTER TABLE public.supplier_orders ADD COLUMN IF NOT EXISTS total numeric(10,2) DEFAULT 0.00;
+
+-- 🛠️ CORRECCIÓN: Asegurar columnas de IVA y Percepción en la tabla de Proveedores (Suppliers)
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS apply_retention boolean NOT NULL DEFAULT false;
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS apply_perception boolean NOT NULL DEFAULT false;
+
+-- 🛠️ CONTROL DE CRÉDITO CLIENTES: Asegurar columnas de autorización y límite en la tabla de Clientes (Customers)
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_authorized_credit boolean NOT NULL DEFAULT false;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS credit_limit numeric(10,2) NOT NULL DEFAULT 0.00;
+
+-- 2. CONFIGURACIÓN DEL SISTEMA
+CREATE TABLE IF NOT EXISTS public.system_config (
+  key text PRIMARY KEY,
+  value jsonb NOT NULL
+);
+
+INSERT INTO public.system_config (key, value)
+VALUES 
+  ('module_config', '{"orders": true, "transfers": true, "quotations": true, "quedan": true, "institutional": true, "management": true}'::jsonb),
+  ('cash_config', '{"cashFloat": 100.00, "catchAllEmail": "pablopiche1g3@gmail.com"}'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
+-- 3. TRASLADOS
+CREATE TABLE IF NOT EXISTS public.transfers (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  type text NOT NULL, -- 'INTERNO' o 'INTERTIENDA'
+  source text NOT NULL,
+  destination text NOT NULL,
+  authorized_by text NOT NULL,
+  items jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'COMPLETADO',
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 4. AREA DE QUEDAN
+CREATE TABLE IF NOT EXISTS public.quedan (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  supplier text NOT NULL,
+  due_date date NOT NULL,
+  invoices jsonb NOT NULL,
+  total_amount numeric(10,2) NOT NULL DEFAULT 0.00,
+  status text NOT NULL DEFAULT 'PENDIENTE',
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. LICITACIONES / INSTITUCIONAL
+CREATE TABLE IF NOT EXISTS public.institutional_projects (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  name text NOT NULL,
+  purchase_order text,
+  total_budget numeric(10,2) NOT NULL DEFAULT 0.00,
+  customer_name text,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  status text NOT NULL DEFAULT 'EN CURSO',
+  documents jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.institutional_sales (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id uuid REFERENCES public.institutional_projects(id) ON DELETE SET NULL,
+  doc_number text NOT NULL,
+  total numeric(10,2) NOT NULL DEFAULT 0.00,
+  date date NOT NULL DEFAULT current_date,
+  items text,
+  cart_items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  concept text,
+  customer_name text,
+  customer_email text,
+  status text NOT NULL DEFAULT 'COMPLETADA',
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.institutional_purchases (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id uuid REFERENCES public.institutional_projects(id) ON DELETE SET NULL,
+  supplier text,
+  doc_number text,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  total numeric(10,2) NOT NULL DEFAULT 0.00,
+  date date NOT NULL DEFAULT current_date,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 6. ACTIVAR TIEMPO REAL (REAL-TIME) PARA ESCUCHAR CAMBIOS ACTIVAMENTE
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.system_config;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.transfers;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.quedan;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_projects;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_sales;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_purchases;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.internal_orders;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.supplier_orders;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;`}
+          </div>
+          <div className="flex justify-end pt-2 gap-2 border-t border-slate-800">
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. CREACIÓN DE TABLAS DE PEDIDOS SI NO EXISTEN
+CREATE TABLE IF NOT EXISTS public.internal_orders (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  code text,
+  source_warehouse text NOT NULL,
+  destination_warehouse text NOT NULL,
+  requested_by text NOT NULL,
+  items jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'PENDIENTE', -- PENDIENTE, APROBADO, CANCELADO
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.supplier_orders (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  code text,
+  supplier_name text NOT NULL,
+  destination_warehouse text NOT NULL,
+  requested_by text NOT NULL,
+  items jsonb NOT NULL,
+  total numeric(10,2) DEFAULT 0.00,
+  supplier_email text,
+  from_email text,
+  authorized_by text,
+  digitized_by text,
+  supplier_phone text,
+  status text NOT NULL DEFAULT 'PENDIENTE', -- PENDIENTE, APROBADO, RECHAZADO
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Asegurar columnas si las tablas ya existían a medias
+ALTER TABLE public.internal_orders ADD COLUMN IF NOT EXISTS code text;
+ALTER TABLE public.supplier_orders ADD COLUMN IF NOT EXISTS code text;
+ALTER TABLE public.supplier_orders ADD COLUMN IF NOT EXISTS total numeric(10,2) DEFAULT 0.00;
+
+-- 🛠️ CORRECCIÓN: Asegurar columnas de IVA y Percepción en la tabla de Proveedores (Suppliers)
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS apply_retention boolean NOT NULL DEFAULT false;
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS apply_perception boolean NOT NULL DEFAULT false;
+
+-- 🛠️ CONTROL DE CRÉDITO CLIENTES: Asegurar columnas de autorización y límite en la tabla de Clientes (Customers)
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_authorized_credit boolean NOT NULL DEFAULT false;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS credit_limit numeric(10,2) NOT NULL DEFAULT 0.00;
+
+-- 2. CONFIGURACIÓN DEL SISTEMA
+CREATE TABLE IF NOT EXISTS public.system_config (
+  key text PRIMARY KEY,
+  value jsonb NOT NULL
+);
+
+INSERT INTO public.system_config (key, value)
+VALUES 
+  ('module_config', '{"orders": true, "transfers": true, "quotations": true, "quedan": true, "institutional": true, "management": true}'::jsonb),
+  ('cash_config', '{"cashFloat": 100.00, "catchAllEmail": "pablopiche1g3@gmail.com"}'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
+-- 3. TRASLADOS
+CREATE TABLE IF NOT EXISTS public.transfers (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  type text NOT NULL, -- 'INTERNO' o 'INTERTIENDA'
+  source text NOT NULL,
+  destination text NOT NULL,
+  authorized_by text NOT NULL,
+  items jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'COMPLETADO',
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 4. AREA DE QUEDAN
+CREATE TABLE IF NOT EXISTS public.quedan (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  supplier text NOT NULL,
+  due_date date NOT NULL,
+  invoices jsonb NOT NULL,
+  total_amount numeric(10,2) NOT NULL DEFAULT 0.00,
+  status text NOT NULL DEFAULT 'PENDIENTE',
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. LICITACIONES / INSTITUCIONAL
+CREATE TABLE IF NOT EXISTS public.institutional_projects (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  name text NOT NULL,
+  purchase_order text,
+  total_budget numeric(10,2) NOT NULL DEFAULT 0.00,
+  customer_name text,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  status text NOT NULL DEFAULT 'EN CURSO',
+  documents jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.institutional_sales (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id uuid REFERENCES public.institutional_projects(id) ON DELETE SET NULL,
+  doc_number text NOT NULL,
+  total numeric(10,2) NOT NULL DEFAULT 0.00,
+  date date NOT NULL DEFAULT current_date,
+  items text,
+  cart_items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  concept text,
+  customer_name text,
+  customer_email text,
+  status text NOT NULL DEFAULT 'COMPLETADA',
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.institutional_purchases (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id uuid REFERENCES public.institutional_projects(id) ON DELETE SET NULL,
+  supplier text,
+  doc_number text,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  total numeric(10,2) NOT NULL DEFAULT 0.00,
+  date date NOT NULL DEFAULT current_date,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 6. ACTIVAR TIEMPO REAL (REAL-TIME) PARA ESCUCHAR CAMBIOS ACTIVAMENTE
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.system_config;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.transfers;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.quedan;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_projects;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_sales;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_purchases;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.internal_orders;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.supplier_orders;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;`);
+                toast({ title: "Copiado", description: "Script SQL copiado al portapapeles exitosamente." });
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl"
+            >
+              COPIAR AL PORTAPAPELES
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setIsSqlModalOpen(false)}
+              className="text-slate-400 hover:text-white rounded-xl"
+            >
+              CERRAR
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
