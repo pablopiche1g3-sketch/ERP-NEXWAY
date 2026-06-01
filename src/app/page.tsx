@@ -211,7 +211,7 @@ export default function Home() {
       description: 'Generar DTE y facturas', 
       path: '/billing', 
       iconBg: 'bg-blue-500/10 text-blue-500 border border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/10',
-      glowClass: 'shadow-[0_0_20px_rgba(59,130,246,0.06)] hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] hover:border-blue-500/30 dark:hover:border-blue-500/20',
+      glowClass: 'shadow-lg shadow-blue-500/20 hover:shadow-[0_0_40px_rgba(59,130,246,0.6)] hover:shadow-blue-500/60 hover:border-blue-500/50 dark:hover:border-blue-500/50',
       icon: <ShoppingCart size={22} /> 
     },
     { 
@@ -220,7 +220,7 @@ export default function Home() {
       description: 'Entrada de mercadería', 
       path: '/purchases', 
       iconBg: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/10',
-      glowClass: 'shadow-[0_0_20px_rgba(16,185,129,0.06)] hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] hover:border-emerald-500/30 dark:hover:border-emerald-500/20',
+      glowClass: 'shadow-lg shadow-emerald-500/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.6)] hover:shadow-emerald-500/60 hover:border-emerald-500/50 dark:hover:border-emerald-500/50',
       icon: <Truck size={22} /> 
     },
     { 
@@ -229,7 +229,7 @@ export default function Home() {
       description: 'Presupuestos para clientes', 
       path: '/quotations', 
       iconBg: 'bg-orange-500/10 text-orange-500 border border-orange-500/20 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/10',
-      glowClass: 'shadow-[0_0_20px_rgba(249,115,22,0.06)] hover:shadow-[0_0_30px_rgba(249,115,22,0.15)] hover:border-orange-500/30 dark:hover:border-orange-500/20',
+      glowClass: 'shadow-lg shadow-orange-500/20 hover:shadow-[0_0_40px_rgba(249,115,22,0.6)] hover:shadow-orange-500/60 hover:border-orange-500/50 dark:hover:border-orange-500/50',
       icon: <FileText size={22} /> 
     },
     { 
@@ -238,7 +238,7 @@ export default function Home() {
       description: 'Gestión de pedidos', 
       path: '/orders', 
       iconBg: 'bg-purple-500/10 text-purple-500 border border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/10',
-      glowClass: 'shadow-[0_0_20px_rgba(168,85,247,0.06)] hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] hover:border-purple-500/30 dark:hover:border-purple-500/20',
+      glowClass: 'shadow-lg shadow-purple-500/20 hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] hover:shadow-purple-500/60 hover:border-purple-500/50 dark:hover:border-purple-500/50',
       icon: <ClipboardList size={22} /> 
     },
     { 
@@ -247,7 +247,7 @@ export default function Home() {
       description: 'Contribuyentes y CF', 
       path: '/customers', 
       iconBg: 'bg-indigo-600/10 text-indigo-600 border border-indigo-600/20 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/10',
-      glowClass: 'shadow-[0_0_20px_rgba(79,70,229,0.06)] hover:shadow-[0_0_30px_rgba(79,70,229,0.15)] hover:border-indigo-500/30 dark:hover:border-indigo-500/20',
+      glowClass: 'shadow-lg shadow-indigo-500/20 hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] hover:shadow-indigo-500/60 hover:border-indigo-500/50 dark:hover:border-indigo-500/50',
       icon: <Users size={22} /> 
     },
     { 
@@ -256,8 +256,62 @@ export default function Home() {
       description: 'Existencias y stock real', 
       path: '/inventory', 
       iconBg: 'bg-rose-500/10 text-rose-500 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/10',
-      glowClass: 'shadow-[0_0_20px_rgba(244,63,94,0.06)] hover:shadow-[0_0_30px_rgba(244,63,94,0.15)] hover:border-rose-500/30 dark:hover:border-rose-500/20',
+      glowClass: 'shadow-lg shadow-rose-500/20 hover:shadow-[0_0_40px_rgba(225,29,72,0.6)] hover:shadow-rose-500/60 hover:border-rose-500/50 dark:hover:border-rose-500/50',
       icon: <Package size={22} /> 
+    },
+    { 
+      id: 'accounting', 
+      title: 'Contabilidad', 
+      description: 'Cierres y balances', 
+      path: '/accounting', 
+      iconBg: 'bg-blue-500/10 text-blue-500 border border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/10',
+      glowClass: 'shadow-lg shadow-blue-500/20 hover:shadow-[0_0_40px_rgba(59,130,246,0.6)] hover:shadow-blue-500/60 hover:border-blue-500/50 dark:hover:border-blue-500/50',
+      icon: <BarChart3 size={22} /> 
+    },
+    { 
+      id: 'suppliers', 
+      title: 'Proveedores', 
+      description: 'Gestión de socios', 
+      path: '/suppliers', 
+      iconBg: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/10',
+      glowClass: 'shadow-lg shadow-emerald-500/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.6)] hover:shadow-emerald-500/60 hover:border-emerald-500/50 dark:hover:border-emerald-500/50',
+      icon: <Building2 size={22} /> 
+    },
+    { 
+      id: 'quedan', 
+      title: 'Gestión de Quedan', 
+      description: 'Control de pagos', 
+      path: '/quedan', 
+      iconBg: 'bg-amber-500/10 text-amber-500 border border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/10',
+      glowClass: 'shadow-lg shadow-amber-500/20 hover:shadow-[0_0_40px_rgba(245,158,11,0.6)] hover:shadow-amber-500/60 hover:border-amber-500/50 dark:hover:border-amber-500/50',
+      icon: <CalendarClock size={22} /> 
+    },
+    { 
+      id: 'transfers', 
+      title: 'Traslados', 
+      description: 'Movimientos de bodega', 
+      path: '/transfers', 
+      iconBg: 'bg-rose-500/10 text-rose-500 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/10',
+      glowClass: 'shadow-lg shadow-rose-500/20 hover:shadow-[0_0_40px_rgba(225,29,72,0.6)] hover:shadow-rose-500/60 hover:border-rose-500/50 dark:hover:border-rose-500/50',
+      icon: <ArrowLeftRight size={22} /> 
+    },
+    { 
+      id: 'institutional', 
+      title: 'Institucional', 
+      description: 'Información general', 
+      path: '/institutional', 
+      iconBg: 'bg-slate-500/10 text-slate-500 border border-slate-500/20 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/10',
+      glowClass: 'shadow-lg shadow-slate-500/20 hover:shadow-[0_0_40px_rgba(100,116,139,0.6)] hover:shadow-slate-500/60 hover:border-slate-500/50 dark:hover:border-slate-500/50',
+      icon: <Building size={22} /> 
+    },
+    { 
+      id: 'management', 
+      title: 'Gerencia', 
+      description: 'Panel de control', 
+      path: '/management', 
+      iconBg: 'bg-indigo-600/10 text-indigo-600 border border-indigo-600/20 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/10',
+      glowClass: 'shadow-lg shadow-indigo-500/20 hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] hover:shadow-indigo-500/60 hover:border-indigo-500/50 dark:hover:border-indigo-500/50',
+      icon: <ShieldCheck size={22} /> 
     }
   ];
 
@@ -438,7 +492,7 @@ export default function Home() {
                 <div 
                   key={m.id}
                   onClick={() => handleModuleClick(m.id, m.path, m.title)}
-                  className={`bg-white dark:bg-slate-900/40 border border-slate-150 dark:border-zinc-800 p-5 rounded-[22px] flex items-center justify-between gap-4 cursor-pointer group transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden ${m.glowClass}`}
+                  className={`bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-zinc-800 p-5 rounded-[22px] flex items-center justify-between gap-4 cursor-pointer group transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden ${m.glowClass}`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className={`w-12 h-12 shrink-0 ${m.iconBg} rounded-xl flex items-center justify-center shadow-md transition-all duration-300 group-hover:scale-105`}>
