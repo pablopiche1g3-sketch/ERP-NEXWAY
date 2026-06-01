@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useUser, ROLE_PERMISSIONS } from '@/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { Sidebar } from '@/components/Sidebar';
 
 const ROUTE_TO_MODULE: Record<string, string> = {
   '/billing': 'billing',
@@ -24,6 +25,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
   const { user, role, isAdmin, loading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -85,5 +87,12 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     }
   }
 
-  return <>{children}</>;
+  return (
+    <div className="flex h-screen w-screen overflow-hidden bg-background">
+      <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(prev => !prev)} />
+      <main className="flex-1 h-full overflow-y-auto no-scrollbar">
+        {children}
+      </main>
+    </div>
+  );
 }

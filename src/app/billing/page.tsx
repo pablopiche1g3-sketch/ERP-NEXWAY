@@ -28,7 +28,12 @@ import {
   ArrowDownCircle,
   FileText,
   RotateCcw,
-  AlertCircle
+  AlertCircle,
+  SlidersHorizontal,
+  Filter,
+  Package,
+  Store,
+  Warehouse
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,7 +73,44 @@ export default function BillingPage() {
   const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  
+
+  // Caja/Bodega activa del usuario logueado
+  const [activeStation, setActiveStation] = useState<any | null>(null);
+  const [activeWarehouse, setActiveWarehouse] = useState<any | null>(null);
+
+  // Cargar la caja asignada al usuario desde system_config + profiles
+  useEffect(() => {
+    const loadUserStation = async () => {
+      if (!user?.email) return;
+      // Buscar el perfil del usuario para obtener station_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('station_id')
+        .eq('email', user.email)
+        .maybeSingle();
+      if (!profile?.station_id) return;
+
+      // Buscar la estación en system_config
+      const { data: stConf } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'pos_stations')
+        .maybeSingle();
+      const stations: any[] = stConf?.value || [];
+      const station = stations.find((s: any) => s.id === profile.station_id);
+      if (station) {
+        setActiveStation(station);
+        // Cargar info de la bodega
+        const { data: wh } = await supabase
+          .from('warehouses')
+          .select('*')
+          .eq('id', station.warehouse_id)
+          .maybeSingle();
+        setActiveWarehouse(wh || null);
+      }
+    };
+    loadUserStation();
+  }, [user]);
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
   const { data: config } = useDoc<any>(configRef);
 
@@ -231,7 +273,11 @@ export default function BillingPage() {
           }
         });
 
-        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
+        // Si hay bodega activa por caja asignada, mostrar solo ese stock
+        const stationWhName = activeWarehouse?.name || null;
+        const filteredQty = stationWhName
+          ? (bodegasMap[stationWhName] || 0)
+          : Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
 
         return {
           id: item.sku,
@@ -239,7 +285,7 @@ export default function BillingPage() {
           name: item.name,
           category: item.category,
           price: parseFloat(item.price) || 0,
-          quantity: totalQty,
+          quantity: filteredQty,
           bodegas: bodegasMap
         };
       });
@@ -502,7 +548,9 @@ export default function BillingPage() {
           total: totalCart,
           status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA',
           payment_method: paymentMethod,
-          customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF')
+          customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+          seller_email: user?.email || null,
+          station_name: activeStation?.name || null
         })
         .select()
         .single();
@@ -524,19 +572,19 @@ export default function BillingPage() {
 
       if (itemsErr) throw itemsErr;
 
-      // 3. Update Inventory Stock (subtract purchased quantity)
-      if (warehouses.length > 0) {
-        const defaultWh = warehouses[0]; // Bodega Central o primera bodega
+      // 3. Update Inventory Stock (subtract purchased quantity from assigned warehouse)
+      const deductWh = activeWarehouse || (warehouses.length > 0 ? warehouses[0] : null);
+      if (deductWh) {
         for (const item of cart) {
           const product = inventory.find(p => p.sku === item.sku);
-          const currentStock = product ? (product.bodegas[defaultWh.name] || 0) : 0;
+          const currentStock = product ? (product.bodegas[deductWh.name] || 0) : 0;
           const newQty = Math.max(0, currentStock - item.quantity);
 
           await supabase
             .from('inventory_stock')
             .upsert({
               sku: item.sku,
-              warehouse_id: defaultWh.id,
+              warehouse_id: deductWh.id,
               quantity: newQty
             }, {
               onConflict: 'sku,warehouse_id'
@@ -707,6 +755,20 @@ export default function BillingPage() {
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-foreground font-headline">Terminal de Ventas NexWay</h1>
             <p className="text-muted-foreground text-xs md:text-sm">Gestión de caja y facturación con DTE</p>
+            {activeStation ? (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  <Store size={10} /> {activeStation.name}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <Warehouse size={10} /> {activeStation.warehouse_name}
+                </span>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                ⚠ Sin caja asignada — stock global visible
+              </span>
+            )}
           </div>
         </div>
         <ModeToggle />
@@ -748,35 +810,57 @@ export default function BillingPage() {
           </TabsList>
 
           {/* TAB VENTA */}
-          <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
-            <div className="lg:col-span-5 space-y-4">
-              <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-card border">
-                <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+          <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-8 outline-none animate-in fade-in duration-300">
+            {/* Columna Izquierda: POS Carrito (Ancho: 5/12) */}
+            <div className="lg:col-span-5 space-y-6">
+              <Card className="border border-slate-200/60 dark:border-zinc-800/60 rounded-[28px] overflow-hidden bg-white dark:bg-zinc-900/60 shadow-sm">
+                <CardHeader className="bg-[#0F172A] text-white p-6 dark:bg-zinc-950/40">
                   <div className="flex justify-between items-center mb-1">
-                    <CardTitle className="text-sm font-bold">Resumen de Venta</CardTitle>
-                    <Badge variant="outline" className="text-[8px] text-blue-400 border-blue-400 uppercase">{docType}</Badge>
+                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Resumen de Venta</CardTitle>
+                    <Badge variant="outline" className="text-[9px] text-indigo-400 border-indigo-500/20 bg-indigo-500/5 font-black px-2.5 py-0.5 rounded-full tracking-wide uppercase">{docType}</Badge>
                   </div>
-                  <p className="text-4xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
+                  <p className="text-3xl font-black text-indigo-400 font-headline tracking-tight">${totalCart.toFixed(2)}</p>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <ScrollArea className="h-[300px]">
-                    <Table>
-                      <TableBody>
-                        {cart.length === 0 ? (
-                          <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground text-xs italic">Escanee productos</TableCell></TableRow>
-                        ) : cart.map(item => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
-                            <TableCell className="text-right font-black">${(item.price * item.quantity).toFixed(2)}</TableCell>
-                            <TableCell><Button variant="ghost" size="icon" onClick={() => setCart(cart.filter(i => i.id !== item.id))}><Trash2 size={12}/></Button></TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                <CardContent className="p-4 space-y-6">
+                  {/* Listado de carrito simplificado */}
+                  <ScrollArea className="h-[250px]">
+                    <div className="space-y-2.5 pr-2">
+                      {cart.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                          <ShoppingCart className="text-slate-300 dark:text-slate-700 animate-pulse mb-3" size={32} />
+                          <p className="text-[10px] text-slate-400 dark:text-muted-foreground font-bold uppercase tracking-wider">Escanee productos o búsquelos en el catálogo</p>
+                        </div>
+                      ) : cart.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-850 flex-wrap sm:flex-nowrap gap-2">
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{item.name}</h4>
+                            <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{item.sku} • ${item.price.toFixed(2)} c/u</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-black text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded-lg">
+                              {item.quantity}x
+                            </span>
+                            <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 min-w-[50px] text-right">
+                              ${(item.price * item.quantity).toFixed(2)}
+                            </span>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => setCart(cart.filter(i => i.id !== item.id))}
+                              className="text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl h-7 w-7"
+                            >
+                              <Trash2 size={12}/>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </ScrollArea>
-                  <div className="p-4 bg-muted/20 border-t space-y-3">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Método de Pago</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+
+                  {/* Métodos de Pago */}
+                  <div className="space-y-2 border-t pt-4 border-slate-100 dark:border-zinc-800/80">
+                    <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Método de Pago</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
                       <Button variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Efectivo')} className="h-9 text-[9px] font-bold rounded-xl px-1">
                         <Wallet size={12} className="mr-1" /> Efectivo
                       </Button>
@@ -800,10 +884,10 @@ export default function BillingPage() {
                       </Button>
                     </div>
 
-                    {/* Banner Informativo de Crédito Autorizado o Alertas */}
-                    <div className={`p-3 rounded-2xl border flex items-start gap-2.5 transition-all text-[10px] leading-relaxed font-semibold shadow-sm ${
+                    {/* Banner Informativo de Crédito */}
+                    <div className={`p-3 rounded-2xl border flex items-start gap-2.5 transition-all text-[9.5px] leading-relaxed font-semibold shadow-sm mt-3 ${
                       !selectedCustomer 
-                        ? 'bg-slate-50 dark:bg-muted/10 border-slate-100 dark:border-border/30 text-slate-500' 
+                        ? 'bg-slate-50 dark:bg-zinc-950/20 border-slate-100 dark:border-zinc-800/40 text-slate-500' 
                         : creditValidation.disabled 
                         ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-400' 
                         : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-400'
@@ -816,73 +900,154 @@ export default function BillingPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Button className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl" onClick={handleOpenCheckout} disabled={cart.length === 0}>
+
+              <Button 
+                onClick={handleOpenCheckout} 
+                disabled={cart.length === 0}
+                className="w-full h-16 rounded-[22px] bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-750 hover:to-indigo-750 text-white font-black text-sm tracking-widest shadow-xl shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-98 transition-all uppercase font-headline"
+              >
                 FINALIZAR Y NOTIFICAR
               </Button>
             </div>
 
-            <div className="lg:col-span-7 space-y-4">
-              <Card className="p-4 bg-card rounded-2xl border flex flex-col gap-3">
-                <div className="flex gap-4">
-                  <div className="flex-1 space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Cliente Receptor</Label>
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="Nombre..." 
-                        value={customerName} 
-                        onChange={e => {
-                          setCustomerName(e.target.value);
-                          if (selectedCustomer && e.target.value !== selectedCustomer.name) {
-                            setSelectedCustomer(null);
-                          }
-                        }} 
-                        className="h-10 bg-muted border-none rounded-xl text-xs font-bold" 
-                      />
-                      <Popover>
-                        <PopoverTrigger asChild><Button variant="outline" className="h-10 rounded-xl px-3"><Users size={16}/></Button></PopoverTrigger>
-                        <PopoverContent className="w-80 p-0" align="end">
-                          <div className="p-3 border-b"><Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-8 text-xs" /></div>
-                          <ScrollArea className="h-48">
-                            {filteredCustomers.map(c => (
-                              <div key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerName(c.name); setCustomerEmail(c.email || ''); setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF'); }} className="p-3 hover:bg-muted cursor-pointer border-b">
-                                <p className="text-[11px] font-bold">{c.name}</p>
-                                <p className="text-[9px] text-muted-foreground">{c.email || 'Sin correo'}</p>
-                              </div>
-                            ))}
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
+            {/* Columna Derecha: Catálogo POS (Ancho: 7/12) */}
+            <div className="lg:col-span-7 space-y-6">
+              
+              {/* Cliente y DTE */}
+              <Card className="p-4 bg-white dark:bg-zinc-900/60 rounded-[24px] border border-slate-200/60 dark:border-zinc-800/60 flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Cliente Receptor</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Buscar cliente o ingrese nombre..." 
+                      value={customerName} 
+                      onChange={e => {
+                        setCustomerName(e.target.value);
+                        if (selectedCustomer && e.target.value !== selectedCustomer.name) {
+                          setSelectedCustomer(null);
+                        }
+                      }} 
+                      className="h-10 bg-slate-50 dark:bg-zinc-950/60 border-slate-100 dark:border-zinc-800/60 rounded-xl text-xs font-bold" 
+                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="h-10 w-10 shrink-0 border-slate-200 dark:border-zinc-850 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl px-0 flex items-center justify-center">
+                          <Users size={16} className="text-slate-500" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0 rounded-2xl overflow-hidden bg-popover border shadow-lg" align="end">
+                        <div className="p-3 border-b border-muted-foreground/10">
+                          <Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="h-8 text-xs bg-muted/50 border-none rounded-lg" />
+                        </div>
+                        <ScrollArea className="h-48">
+                          {filteredCustomers.map(c => (
+                            <div key={c.id} onClick={() => { setSelectedCustomer(c); setCustomerName(c.name); setCustomerEmail(c.email || ''); setDocType(c.category === 'Crédito Fiscal' ? 'CCF' : 'CF'); }} className="p-3 hover:bg-slate-100 dark:hover:bg-zinc-900 cursor-pointer border-b border-muted-foreground/5 transition-colors">
+                              <p className="text-[11px] font-bold text-foreground">{c.name}</p>
+                              <p className="text-[9px] text-slate-400 dark:text-muted-foreground mt-0.5">{c.email || 'Sin correo registrado'}</p>
+                            </div>
+                          ))}
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                  <div className="w-48 space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Tipo de DTE</Label>
-                    <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                      <SelectTrigger className="h-10 rounded-xl bg-muted border-none text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="CF">Factura CF</SelectItem><SelectItem value="CCF">Crédito Fiscal</SelectItem></SelectContent>
-                    </Select>
-                  </div>
+                </div>
+                <div className="w-full sm:w-48 space-y-1.5">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Tipo de DTE</Label>
+                  <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                    <SelectTrigger className="h-10 rounded-xl bg-slate-50 dark:bg-zinc-950/60 border-slate-100 dark:border-zinc-800/60 text-xs font-bold"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CF">Factura CF</SelectItem>
+                      <SelectItem value="CCF">Crédito Fiscal</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </Card>
 
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                <Input placeholder="Buscar por SKU o Nombre de producto..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-card border shadow-sm rounded-2xl text-xs md:text-sm" />
+              {/* Input Buscador con Filtros */}
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={15} />
+                  <Input 
+                    placeholder="Buscar por SKU, código o nombre de producto..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="pl-10 h-12 bg-white dark:bg-zinc-900/60 border-slate-200/60 dark:border-zinc-800/60 shadow-sm rounded-2xl text-xs md:text-sm font-semibold focus-visible:ring-indigo-500" 
+                  />
+                </div>
+                <Button variant="outline" className="h-12 border-slate-200 dark:border-zinc-800/60 hover:bg-slate-100 dark:hover:bg-zinc-800 bg-white dark:bg-zinc-900/60 rounded-2xl px-4 flex items-center gap-2 text-xs font-bold shrink-0">
+                  <SlidersHorizontal size={14} className="text-slate-500" />
+                  Filtros
+                </Button>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {filteredProducts.map(p => (
-                  <div key={p.id} onClick={() => addToCart(p)} className="bg-card p-3 rounded-2xl shadow-sm border hover:border-blue-500 cursor-pointer transition-all flex flex-col justify-between aspect-square group">
-                    <div>
-                      <p className="text-[9px] font-mono text-muted-foreground">{p.sku}</p>
-                      <h3 className="text-[11px] font-bold text-foreground leading-tight line-clamp-2 h-7">{p.name}</h3>
-                    </div>
-                    <div className="mt-2 pt-2 border-t flex justify-between items-center">
-                      <span className="font-black text-blue-600">${p.price}</span>
-                      <PlusCircle size={16} className="text-blue-500 opacity-0 group-hover:opacity-100 transition-all" />
-                    </div>
+              {/* Detalle de Productos en Tabla */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase">Detalle de productos</h3>
+                
+                <Card className="border border-slate-200/60 dark:border-zinc-800/60 rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900/60 shadow-sm">
+                  <div className="overflow-x-auto no-scrollbar">
+                    <Table>
+                      <TableHeader className="bg-slate-50 dark:bg-zinc-950/20 border-b border-slate-100 dark:border-zinc-800">
+                        <TableRow>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wide w-12 text-center">#</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wide">Producto</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wide">SKU</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wide text-right">Precio unit.</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wide text-center w-24">Cantidad</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wide text-right">Descuento</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400 tracking-wide text-right pr-6">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {cart.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-20 bg-transparent">
+                              <div className="flex flex-col items-center justify-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-950/40 border flex items-center justify-center text-slate-400 dark:text-slate-600">
+                                  <Package size={20} />
+                                </div>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">No hay productos agregados</p>
+                                <p className="text-[10px] text-slate-450 dark:text-slate-550 mt-[-4px]">Agrega productos para comenzar la venta.</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : cart.map((item, idx) => (
+                          <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-950/20 border-b border-slate-100 dark:border-zinc-850">
+                            <TableCell className="text-center text-xs font-mono text-slate-400 pr-0">{idx + 1}</TableCell>
+                            <TableCell className="font-bold text-xs text-foreground py-4">{item.name}</TableCell>
+                            <TableCell className="text-xs font-mono text-slate-400">{item.sku}</TableCell>
+                            <TableCell className="text-right text-xs font-semibold">${item.price.toFixed(2)}</TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-xs font-black text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-lg font-headline">
+                                {item.quantity}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right text-xs font-semibold text-slate-400">$0.00</TableCell>
+                            <TableCell className="text-right text-xs font-black text-indigo-600 dark:text-indigo-400 pr-6 font-headline">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                ))}
+                </Card>
               </div>
+
+              {/* Fila de Totales en el Pie */}
+              <div className="grid grid-cols-3 gap-6 p-5 rounded-[24px] bg-slate-100/50 dark:bg-zinc-950/40 border border-slate-200/50 dark:border-zinc-800/40">
+                <div className="space-y-0.5">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Subtotal</span>
+                  <p className="text-sm font-black text-foreground font-headline">${totalCart.toFixed(2)}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Descuento</span>
+                  <p className="text-sm font-black text-foreground font-headline">$0.00</p>
+                </div>
+                <div className="space-y-0.5 text-right">
+                  <span className="text-[9px] font-black uppercase text-indigo-500 tracking-wider">Total a pagar</span>
+                  <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 font-headline">${totalCart.toFixed(2)}</p>
+                </div>
+              </div>
+
             </div>
           </TabsContent>
 
@@ -1773,3 +1938,32 @@ export default function BillingPage() {
     </div>
   );
 }
+
+function MockFrecuenteCard({ name, sku, stock, price, onClick }: {
+  name: string;
+  sku: string;
+  stock: number;
+  price: number;
+  onClick: () => void;
+}) {
+  return (
+    <div 
+      onClick={onClick}
+      className="bg-white dark:bg-zinc-900/60 p-4 rounded-[22px] shadow-sm border border-slate-200/60 dark:border-zinc-800/60 hover:border-indigo-500/30 dark:hover:border-indigo-500/30 hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between aspect-square group relative"
+    >
+      <div className="space-y-1">
+        <span className="text-[9px] font-bold text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded-full border border-indigo-500/10 font-mono">{sku}</span>
+        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight line-clamp-2 mt-1.5">{name}</h4>
+        <p className="text-[9px] text-slate-400 dark:text-muted-foreground font-bold">Stock: {stock}</p>
+      </div>
+
+      <div className="mt-4 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 flex justify-between items-center">
+        <span className="text-xs font-black text-slate-900 dark:text-white font-headline">${price.toFixed(2)}</span>
+        <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 active:scale-90 transition-all shadow-md shadow-indigo-600/20">
+          <Plus className="text-white" size={12} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
