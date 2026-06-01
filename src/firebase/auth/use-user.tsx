@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { useAuth, useFirestore } from '../provider';
+import { supabase } from '@/supabase/client';
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: [
@@ -94,50 +95,128 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const userDocRef = doc(db, 'users', currUser.uid);
       
       unsubscribeDoc = onSnapshot(userDocRef, async (snapshot) => {
+        let currentRole = 'pedidos';
+        const cleanEmail = currUser.email?.toLowerCase().trim();
 
+        // 1. Sincronizar desde la fuente de verdad (Supabase) primero
+        try {
+          if (cleanEmail) {
+            // A. Buscar en perfiles activos de Supabase
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('email', cleanEmail)
+              .maybeSingle();
+
+            if (profile && profile.role) {
+              currentRole = profile.role;
+            } else {
+              // B. Si no existe perfil en Supabase, buscar si tiene rol preasignado
+              const { data: preConf } = await supabase
+                .from('system_config')
+                .select('value')
+                .eq('key', 'preassigned_roles')
+                .maybeSingle();
+
+              const preassignedMap = preConf?.value || {};
+              if (preassignedMap[cleanEmail]) {
+                currentRole = preassignedMap[cleanEmail];
+
+                // Crear automáticamente el perfil consolidado en Supabase con su UID real
+                await supabase.from('profiles').insert({
+                  id: currUser.uid,
+                  email: cleanEmail,
+                  role: currentRole
+                });
+
+                // Remover el correo del mapa de preasignados para limpiar
+                const updatedPreassigned = { ...preassignedMap };
+                delete updatedPreassigned[cleanEmail];
+                await supabase.from('system_config').upsert({
+                  key: 'preassigned_roles',
+                  value: updatedPreassigned
+                });
+              }
+            }
+          }
+        } catch (supabaseErr) {
+          console.error("Error al sincronizar roles desde Supabase:", supabaseErr);
+        }
+
+        // 2. Resolver rol final y sincronizar con Firestore
         if (snapshot.exists()) {
           const data = snapshot.data();
-          let currentRole = data.role || 'pedidos';
+          const firestoreRole = data.role || 'pedidos';
 
-          // Force admin role if it's the admin email but not saved as admin
-          if (isAdminEmail && currentRole !== 'admin') {
+          if (isAdminEmail) {
             currentRole = 'admin';
-            await setDoc(userDocRef, { role: 'admin' }, { merge: true });
+          } else if (currentRole === 'pedidos' && firestoreRole !== 'pedidos') {
+            // Si Supabase no devolvió un rol personalizado, respetamos el de Firestore
+            currentRole = firestoreRole;
+          }
+
+          // Si difieren los roles o si es admin y no está marcado en Firestore
+          if (firestoreRole !== currentRole || (isAdminEmail && data.role !== 'admin')) {
+            await setDoc(userDocRef, { role: currentRole }, { merge: true });
+            
+            // Garantizar consistencia en Supabase
+            try {
+              if (cleanEmail) {
+                await supabase.from('profiles').upsert({
+                  id: currUser.uid,
+                  email: cleanEmail,
+                  role: currentRole
+                });
+              }
+            } catch (err) {
+              console.error("Error al actualizar profiles en Supabase:", err);
+            }
           }
 
           setRole(currentRole);
         } else {
-          // Auto-seed
-          let defaultRole = isAdminEmail ? 'admin' : 'pedidos';
-
-          if (currUser.email) {
+          // Si no existe el documento del usuario en Firestore (Primer Login)
+          if (isAdminEmail) {
+            currentRole = 'admin';
+          } else if (currentRole === 'pedidos' && cleanEmail) {
+            // Revisar compatibilidad heredada del documento temporal de Firestore
             try {
-              const preassignedDocRef = doc(db, 'users', 'email:' + currUser.email.toLowerCase());
+              const preassignedDocRef = doc(db, 'users', 'email:' + cleanEmail);
               const preassignedSnap = await getDoc(preassignedDocRef);
               if (preassignedSnap.exists()) {
                 const preassignedData = preassignedSnap.data();
                 if (preassignedData && preassignedData.role) {
-                  defaultRole = preassignedData.role;
+                  currentRole = preassignedData.role;
                 }
-                // Delete the preassigned temporary document
                 await deleteDoc(preassignedDocRef);
               }
-            } catch (err: any) {
-              if (err.message?.includes('offline') || err.code === 'unavailable') {
-                console.warn('Error checking pre-assigned role (client is offline):', err);
-              } else {
-                console.error('Error checking pre-assigned role:', err);
-              }
+            } catch (err) {
+              console.warn('Error checking Firestore preassigned fallback:', err);
             }
           }
 
+          // Registrar documento definitivo en Firestore
           await setDoc(userDocRef, {
             uid: currUser.uid,
             email: currUser.email,
-            role: defaultRole,
+            role: currentRole,
             createdAt: new Date().toISOString()
           });
-          setRole(defaultRole);
+
+          // Registrar en Supabase si no está creado
+          try {
+            if (cleanEmail) {
+              await supabase.from('profiles').upsert({
+                id: currUser.uid,
+                email: cleanEmail,
+                role: currentRole
+              });
+            }
+          } catch (err) {
+            console.error("Error al asegurar perfil en Supabase:", err);
+          }
+
+          setRole(currentRole);
         }
         setLoading(false);
       }, (error) => {
@@ -146,7 +225,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         } else {
           console.error('Error fetching user role:', error);
         }
-        // Fallback based on email if document access fails
         const defaultRole = isAdminEmail ? 'admin' : 'pedidos';
         setRole(defaultRole);
         setLoading(false);

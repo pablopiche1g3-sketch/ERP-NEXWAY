@@ -20,7 +20,7 @@ import {
   ChevronRight,
   ChevronLeft
 } from 'lucide-react';
-import { useUser, getTenantName } from '@/firebase';
+import { useUser, getTenantName, ROLE_PERMISSIONS } from '@/firebase';
 import { Button } from '@/components/ui/button';
 
 interface SidebarItem {
@@ -60,15 +60,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     // If admin or gerencia, show everything
     if (isAdmin || role === 'gerencia') return true;
     
-    // Otherwise, restrict based on role
-    const permissions: Record<string, string[]> = {
-      vendedor: ['billing', 'quotations', 'customers', 'inventory'],
-      cajero: ['billing', 'customers', 'inventory'],
-      bodeguero: ['purchases', 'inventory', 'transfers', 'orders'],
-      pedidos: ['orders', 'inventory'],
-    };
-
-    const allowed = permissions[role || 'pedidos'] || ['orders', 'inventory'];
+    // Otherwise, restrict based on role from single source of truth in use-user
+    const allowed = ROLE_PERMISSIONS[role || 'pedidos'] || ROLE_PERMISSIONS['pedidos'];
     return allowed.includes(item.id);
   });
 
