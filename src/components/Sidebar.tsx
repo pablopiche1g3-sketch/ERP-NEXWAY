@@ -87,12 +87,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     <aside className={`bg-[#0B1224] text-slate-300 flex flex-col h-screen border-r border-slate-800/60 select-none shrink-0 font-body transition-all duration-300 ease-in-out ${
       isCollapsed ? 'w-20' : 'w-64'
     }`}>
-      {/* Brand Header */}
+      {/* Brand Header al Estilo Mockup */}
       {!isCollapsed ? (
         <div className="p-6 flex items-center justify-between border-b border-slate-800/40">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline">
-              N
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline relative group-hover:scale-105 transition-transform duration-300">
+              <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-white/95 animate-pulse"></div>
+              </div>
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-black text-white tracking-wide font-headline">NexWay ERP</span>
@@ -115,8 +117,10 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </div>
       ) : (
         <div className="p-4 flex flex-col items-center border-b border-slate-800/40 gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline">
-            N
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline">
+            <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-white/95"></div>
+            </div>
           </div>
           <Button
             variant="ghost"
@@ -144,7 +148,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
           } ${
             pathname === '/' 
-              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-600/10' 
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/15' 
               : 'hover:bg-slate-800/40 hover:text-white text-slate-400'
           }`}
         >
@@ -170,17 +174,37 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
               } ${
                 isActive 
-                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-600/10' 
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/15' 
                   : 'hover:bg-slate-800/40 hover:text-white text-slate-400'
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <span className={isActive ? 'text-white' : 'text-slate-500 group-hover:text-white transition-colors'}>
                   {item.icon}
                 </span>
-                {!isCollapsed && <span>{item.title}</span>}
+                {!isCollapsed && <span className="truncate">{item.title}</span>}
               </div>
-              {!isCollapsed && !isActive && (
+              
+              {/* Badges Estilo Mockup */}
+              {!isCollapsed && (
+                <>
+                  {item.id === 'billing' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
+                  )}
+                  {item.id === 'orders' && (
+                    <span className="bg-blue-600 text-white font-mono font-bold text-[9px] px-1.5 py-0.5 rounded-full shrink-0 flex items-center justify-center leading-none border-none scale-90">
+                      4
+                    </span>
+                  )}
+                  {item.id === 'management' && (
+                    <span className="bg-slate-800/40 text-indigo-400 border border-slate-700/40 text-[7px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-md shrink-0 scale-90 whitespace-nowrap">
+                      Ticket en espera
+                    </span>
+                  )}
+                </>
+              )}
+              
+              {!isCollapsed && !isActive && item.id !== 'billing' && item.id !== 'orders' && item.id !== 'management' && (
                 <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-all text-slate-500 translate-x-[-4px] group-hover:translate-x-0" />
               )}
             </Link>
