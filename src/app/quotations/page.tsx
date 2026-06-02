@@ -84,7 +84,7 @@ export default function QuotationsPage() {
   }, []);
 
   const filteredProducts = useMemo(() => {
-    if (!inventory) return [];
+    if (!inventory || !searchTerm.trim()) return [];
     return inventory.filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       p.sku.toLowerCase().includes(searchTerm.toLowerCase())

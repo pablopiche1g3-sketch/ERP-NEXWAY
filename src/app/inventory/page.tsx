@@ -175,9 +175,9 @@ export default function InventoryMasterPage() {
   const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
 
   const filteredSystemInventory = useMemo(() => {
+    const s = catalogSearchTerm.toLowerCase().trim();
+    if (!s) return [];
     return (inventory || []).filter(item => {
-      const s = catalogSearchTerm.toLowerCase().trim();
-      if (!s) return true;
       return (
         item.sku.toLowerCase().includes(s) ||
         item.name.toLowerCase().includes(s)
@@ -933,7 +933,7 @@ export default function InventoryMasterPage() {
 
   // Filtrado de existencias considerando la Bodega Seleccionada
   const filteredItems = useMemo(() => {
-    if (!inventory) return [];
+    if (!inventory || !searchTerm.trim()) return [];
     
     // Si se selecciona una bodega, filtrar los productos que están vinculados a ella
     const whFiltered = selectedWarehouse === 'Todas' 
@@ -948,7 +948,7 @@ export default function InventoryMasterPage() {
 
   // Filtrar Códigos de Empresas Asociados
   const filteredCompanyMappings = useMemo(() => {
-    if (!companyMappings) return [];
+    if (!companyMappings || !companySearchTerm.trim()) return [];
     return companyMappings.filter(m => 
       m.masterSku.toLowerCase().includes(companySearchTerm.toLowerCase()) || 
       m.companyName.toLowerCase().includes(companySearchTerm.toLowerCase()) ||

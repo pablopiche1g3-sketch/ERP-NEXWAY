@@ -38,8 +38,21 @@ import {
   PackageSearch,
   Mail,
   PlusCircle,
-  ArrowDownCircle
+  ArrowDownCircle,
+  Activity,
+  Target,
+  DollarSign,
+  ArrowUpRight
 } from 'lucide-react';
+import { 
+  Bar, 
+  BarChart, 
+  ResponsiveContainer, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  Cell 
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -189,7 +202,7 @@ export default function InstitutionalModulePage() {
   }, []);
 
   // States
-  const [activeTab, setActiveTab] = useState('billing');
+  const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -391,7 +404,7 @@ export default function InstitutionalModulePage() {
   };
 
   const filteredInventory = useMemo(() => {
-    if (!inventory) return [];
+    if (!inventory || !searchTerm.trim()) return [];
     return inventory.filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -415,6 +428,20 @@ export default function InstitutionalModulePage() {
     return moves.sort((a, b) => new Date(b.createdAt || b.timestamp).getTime() - new Date(a.createdAt || a.timestamp).getTime());
   }, [allSales, allPurchases]);
 
+  // Dashboard Calculations
+  const totalRevenue = useMemo(() => (allSales || []).reduce((acc, curr) => acc + (curr.total || 0), 0), [allSales]);
+  const totalCosts = useMemo(() => (allPurchases || []).reduce((acc, curr) => acc + (curr.total || 0), 0), [allPurchases]);
+  const totalProfit = totalRevenue - totalCosts;
+  const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+  const chartData = useMemo(() => {
+    return ledgerMovements.slice(0, 10).reverse().map(t => ({
+      name: t.docNumber || 'S/N',
+      value: t.total || 0,
+      type: t.type === 'COSTO' ? 'purchase' : 'sale'
+    }));
+  }, [ledgerMovements]);
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 print:hidden">
@@ -432,6 +459,9 @@ export default function InstitutionalModulePage() {
       <div className="max-w-7xl mx-auto print:hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
+            <TabsTrigger value="overview" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
+              <Activity size={14} className="mr-2"/> Resumen
+            </TabsTrigger>
             <TabsTrigger value="billing" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
               <Receipt size={14} className="mr-2"/> Venta Inst.
             </TabsTrigger>
@@ -448,6 +478,116 @@ export default function InstitutionalModulePage() {
               <BookOpen size={14} className="mr-2"/> Libro Mayor
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="overview" className="space-y-6 outline-none">
+            {/* Metric Cards */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-3xl">
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-bold text-slate-500">Ingresos Totales</CardTitle>
+                  <DollarSign className="w-4 h-4 text-blue-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-black">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="text-blue-500 inline-flex items-center">
+                      <ArrowUpRight className="w-3 h-3 mr-1" /> General
+                    </span>
+                  </p>
+                </CardContent>
+                <div className="absolute bottom-0 left-0 h-1 bg-blue-500 w-full" />
+              </Card>
+
+              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-3xl">
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-bold text-slate-500">Costos Totales</CardTitle>
+                  <TrendingDown className="w-4 h-4 text-rose-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-black">${totalCosts.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Procesado en {(allPurchases || []).length} registros
+                  </p>
+                </CardContent>
+                <div className="absolute bottom-0 left-0 h-1 bg-rose-500 w-full" />
+              </Card>
+
+              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-3xl">
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-bold text-slate-500">Beneficio Neto</CardTitle>
+                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-black">${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Utilidad Bruta Acumulada
+                  </p>
+                </CardContent>
+                <div className="absolute bottom-0 left-0 h-1 bg-emerald-500 w-full" />
+              </Card>
+
+              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-3xl">
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-bold text-slate-500">Margen de Beneficio</CardTitle>
+                  <Target className="w-4 h-4 text-purple-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-black">{profitMargin.toFixed(1)}%</div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-3">
+                    <div 
+                      className="bg-purple-500 h-full rounded-full transition-all duration-1000" 
+                      style={{ width: `${Math.min(profitMargin, 100)}%` }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Chart Section */}
+            <Card className="w-full bg-white dark:bg-card border shadow-sm rounded-3xl">
+              <CardHeader>
+                <CardTitle className="font-bold text-lg">Actividad Financiera Reciente</CardTitle>
+                <CardDescription>Visualización de los últimos flujos de compras y ventas institucionales.</CardDescription>
+              </CardHeader>
+              <CardContent className="pl-2">
+                <div className="h-[350px] w-full">
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData}>
+                        <XAxis 
+                          dataKey="name" 
+                          stroke="#888888" 
+                          fontSize={11} 
+                          tickLine={false} 
+                          axisLine={false} 
+                        />
+                        <YAxis 
+                          stroke="#888888" 
+                          fontSize={11} 
+                          tickLine={false} 
+                          axisLine={false} 
+                          tickFormatter={(value) => `$${value}`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '1rem', fontWeight: 'bold' }}
+                          labelFormatter={(label) => `Doc: ${label}`}
+                        />
+                        <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={40}>
+                          {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.type === 'purchase' ? '#f43f5e' : '#3b82f6'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-muted-foreground border-2 border-dashed rounded-3xl">
+                      No hay transacciones disponibles para visualización en el gráfico.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="billing" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
              <div className="lg:col-span-5 space-y-4">
