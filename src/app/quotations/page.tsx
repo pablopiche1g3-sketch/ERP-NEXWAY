@@ -162,15 +162,41 @@ export default function QuotationsPage() {
   // Generamos un número de cotización estático para la sesión/impresión
   const quoteNumber = useMemo(() => `COT-${Math.floor(100000 + Math.random() * 900000)}`, []);
 
-  const handleGenerateQuote = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleGenerateQuote = async () => {
     if (quoteItems.length === 0) {
       toast({ variant: "destructive", title: "Cotización Vacía", description: "Debe agregar al menos un producto." });
       return;
     }
-    toast({ title: "Documento Preparado", description: "Imprimiendo cotización..." });
-    setTimeout(() => {
-      window.print();
-    }, 300);
+
+    try {
+      setIsSaving(true);
+      const { error } = await supabase
+        .from('quotations')
+        .insert({
+          quote_number: quoteNumber,
+          customer_name: customerName || 'Cliente de Mostrador',
+          items: quoteItems,
+          total: total,
+          status: 'PENDIENTE'
+        });
+        
+      if (error) {
+        console.error(error);
+        toast({ variant: "destructive", title: "Error al Guardar", description: "No se guardó la cotización en la base de datos." });
+        // Seguimos con la impresión aunque falle la BD, para no bloquear al usuario
+      }
+
+      toast({ title: "Documento Guardado", description: "Preparando impresión..." });
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: "Error inesperado al guardar la cotización." });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -292,11 +318,11 @@ export default function QuotationsPage() {
             
             <Button 
               className="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-lg shadow-lg"
-              disabled={quoteItems.length === 0}
+              disabled={quoteItems.length === 0 || isSaving}
               onClick={handleGenerateQuote}
             >
-              <Printer className="mr-2" size={20} />
-              Imprimir Presupuesto
+              {isSaving ? <Loader2 className="mr-2 animate-spin" size={20} /> : <Printer className="mr-2" size={20} />}
+              {isSaving ? "Guardando..." : "Guardar e Imprimir"}
             </Button>
           </div>
 

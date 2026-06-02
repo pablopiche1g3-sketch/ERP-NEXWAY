@@ -148,7 +148,38 @@ export default function BillingPage() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
-  
+
+  // --- QUOTATIONS IMPORT ---
+  const [showQuotationsDialog, setShowQuotationsDialog] = useState(false);
+  const [quotationsList, setQuotationsList] = useState<any[]>([]);
+  const [loadingQuotes, setLoadingQuotes] = useState(false);
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+
+  const fetchQuotations = async () => {
+    setLoadingQuotes(true);
+    try {
+      const { data, error } = await supabase
+        .from('quotations')
+        .select('*')
+        .eq('status', 'PENDIENTE')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setQuotationsList(data || []);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las cotizaciones' });
+    } finally {
+      setLoadingQuotes(false);
+    }
+  };
+
+  const loadQuotationToCart = (quote: any) => {
+    setCart(quote.items || []);
+    setCustomerName(quote.customer_name);
+    setSelectedQuoteId(quote.id);
+    setShowQuotationsDialog(false);
+    toast({ title: 'Cotización Cargada', description: `Se cargó el presupuesto ${quote.quote_number}` });
+  };
+  // -------------------------
   // Adjustment States (Notas Crédito/Débito)
   const [adjustmentForm, setAdjustmentForm] = useState({
     refDoc: '',
@@ -592,6 +623,14 @@ export default function BillingPage() {
         }
       }
 
+      // Marcar cotización como FACTURADA si se usó una
+      if (selectedQuoteId) {
+        await supabase
+          .from('quotations')
+          .update({ status: 'FACTURADA' })
+          .eq('id', selectedQuoteId);
+      }
+
       // Send DTE Email
       const targetEmail = customerEmail || cashConfig?.catchAllEmail;
       if (targetEmail) {
@@ -913,6 +952,18 @@ export default function BillingPage() {
             {/* Columna Derecha: Catálogo POS (Ancho: 7/12) */}
             <div className="lg:col-span-7 space-y-6">
               
+              <div className="flex justify-between items-center">
+                 <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Facturación Rápida</h2>
+                 <Button 
+                   variant="outline" 
+                   onClick={() => { fetchQuotations(); setShowQuotationsDialog(true); }}
+                   className="h-9 text-xs font-bold bg-white dark:bg-zinc-900 border-indigo-200 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-xl"
+                 >
+                   <FileText size={14} className="mr-2" />
+                   Importar Cotización
+                 </Button>
+              </div>
+
               {/* Cliente y DTE */}
               <Card className="p-4 bg-white dark:bg-zinc-900/60 rounded-[24px] border border-slate-200/60 dark:border-zinc-800/60 flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 space-y-1.5">
@@ -1934,6 +1985,51 @@ export default function BillingPage() {
             </DialogContent>
           );
         })()}
+      </Dialog>
+
+      {/* Diálogo de Importar Cotización */}
+      <Dialog open={showQuotationsDialog} onOpenChange={setShowQuotationsDialog}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-800 dark:text-slate-200 font-headline flex items-center gap-2">
+              <FileText size={20} className="text-indigo-500" />
+              Importar Cotización
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 dark:text-muted-foreground">
+              Seleccione un presupuesto pendiente para convertirlo en factura inmediatamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="h-[300px] mt-4">
+            {loadingQuotes ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+                <Loader2 className="animate-spin" />
+                <p className="text-xs font-bold">Cargando cotizaciones...</p>
+              </div>
+            ) : quotationsList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+                <FileText size={32} className="opacity-50" />
+                <p className="text-xs font-bold">No hay cotizaciones pendientes</p>
+              </div>
+            ) : (
+              <div className="space-y-3 pr-4">
+                {quotationsList.map(q => (
+                  <div key={q.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer transition-colors" onClick={() => loadQuotationToCart(q)}>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{q.quote_number}</h4>
+                      <p className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5"><Users size={12} className="inline mr-1"/>{q.customer_name}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{new Date(q.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="mt-3 sm:mt-0 text-right">
+                      <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">${Number(q.total).toFixed(2)}</p>
+                      <Badge variant="outline" className="text-[9px] uppercase mt-1 bg-amber-500/10 text-amber-600 border-amber-500/20">{q.status}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
       </Dialog>
     </div>
   );

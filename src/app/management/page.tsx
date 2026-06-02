@@ -1640,6 +1640,17 @@ CREATE TABLE IF NOT EXISTS public.debit_notes (
   created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 12.5 TABLA DE COTIZACIONES (PRESUPUESTOS)
+CREATE TABLE IF NOT EXISTS public.quotations (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  quote_number text NOT NULL UNIQUE,
+  customer_name text NOT NULL,
+  items jsonb NOT NULL,
+  total numeric(10,2) NOT NULL DEFAULT 0.00,
+  status text NOT NULL DEFAULT 'PENDIENTE',
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 13. ARQUEOS DIARIOS
 CREATE TABLE IF NOT EXISTS public.daily_closings (
   id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
