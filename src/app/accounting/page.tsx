@@ -167,6 +167,9 @@ export default function AccountingPage() {
           warehouseId: p.warehouse_id,
           total: parseFloat(p.total) || 0,
           status: p.status,
+          paymentMethod: p.payment_method,
+          creditDays: p.credit_days,
+          paymentStatus: p.payment_status,
           timestamp: p.created_at
         })));
       }
@@ -637,6 +640,21 @@ export default function AccountingPage() {
     }
   };
 
+  const handleMarkPurchaseAsPaid = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('purchases')
+        .update({ payment_status: 'PAGADO' })
+        .eq('id', id);
+
+      if (error) throw error;
+      toast({ title: "Cuenta Pagada", description: "La provisión ha sido cancelada exitosamente." });
+      await loadAccountingData();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "No se pudo actualizar el estado de pago." });
+    }
+  };
+
   const handleDeleteEntry = async (id: string) => {
     try {
       const { error } = await supabase
@@ -947,6 +965,11 @@ export default function AccountingPage() {
             {config?.['accounting_caja-chica'] !== false && (
               <TabsTrigger value="caja-chica" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
                 <Briefcase size={14} className="mr-2"/> Caja Chica
+              </TabsTrigger>
+            )}
+            {config?.['accounting_cuentas-pagar'] !== false && (
+              <TabsTrigger value="cuentas-pagar" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <FileText size={14} className="mr-2"/> Cuentas por Pagar
               </TabsTrigger>
             )}
             {config?.['accounting_pnl'] !== false && (
@@ -2113,6 +2136,80 @@ export default function AccountingPage() {
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="cuentas-pagar" className="space-y-6 outline-none animate-in fade-in duration-300">
+            <Card className="border shadow-md rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+              <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-black uppercase tracking-tight flex items-center gap-2">
+                    <FileText className="text-rose-400" size={20} />
+                    Cuentas por Pagar (Proveedores)
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-xs">Gestión de compras al crédito pendientes de pago.</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50/50 dark:bg-slate-900/50 border-b-slate-100 dark:border-b-border">
+                      <TableHead className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">ID Compra</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Fecha Ingreso</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Crédito (Días)</TableHead>
+                      <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Vencimiento</TableHead>
+                      <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Total ($)</TableHead>
+                      <TableHead className="text-center w-24"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {purchases.filter(p => p.paymentMethod === 'Credito' && p.paymentStatus === 'PENDIENTE').length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-xs font-bold text-slate-400 dark:text-muted-foreground">
+                          No hay cuentas por pagar pendientes en este momento.
+                        </TableCell>
+                      </TableRow>
+                    ) : purchases.filter(p => p.paymentMethod === 'Credito' && p.paymentStatus === 'PENDIENTE').map((p) => {
+                      const entryDate = new Date(p.timestamp);
+                      const dueDate = new Date(entryDate);
+                      dueDate.setDate(dueDate.getDate() + (p.creditDays || 0));
+                      const isOverdue = dueDate < new Date();
+
+                      return (
+                        <TableRow key={p.id} className="border-b-slate-50 dark:border-b-border/50">
+                          <TableCell className="font-mono text-xs font-bold text-slate-600 dark:text-slate-300">
+                            {p.orderId}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            {entryDate.toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {p.creditDays || 0}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className={`text-xs font-black ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {dueDate.toLocaleDateString()}
+                            </span>
+                            {isOverdue && <span className="block text-[9px] text-rose-500 uppercase tracking-tighter">¡Vencida!</span>}
+                          </TableCell>
+                          <TableCell className="text-right font-black text-slate-800 dark:text-foreground text-sm">
+                            ${p.total.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button 
+                              onClick={() => handleMarkPurchaseAsPaid(p.id)} 
+                              size="sm" 
+                              className="h-8 bg-emerald-600 hover:bg-emerald-700 text-[10px] font-bold text-white"
+                            >
+                              PAGAR
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </TabsContent>
 
         </Tabs>

@@ -259,7 +259,10 @@ export default function PurchasesPage() {
           entered_by: enteredBy,
           warehouse_id: selectedWh.id,
           total: totalPurchase,
-          status: status
+          status: status,
+          payment_method: paymentMethod,
+          credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
+          payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO')
         })
         .select()
         .single();

@@ -1534,8 +1534,15 @@ CREATE TABLE IF NOT EXISTS public.purchases (
   warehouse_id uuid REFERENCES public.warehouses(id) ON DELETE SET NULL,
   total numeric(10,2) NOT NULL DEFAULT 0.00,
   status text NOT NULL DEFAULT 'PENDIENTE',
+  payment_method text,
+  credit_days integer,
+  payment_status text DEFAULT 'PENDIENTE',
   created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS payment_method text;
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS credit_days integer;
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS payment_status text DEFAULT 'PENDIENTE';
 
 CREATE TABLE IF NOT EXISTS public.purchase_items (
   id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
