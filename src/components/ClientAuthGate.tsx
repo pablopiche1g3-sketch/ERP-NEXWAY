@@ -45,7 +45,9 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
       const moduleId = matchingRoute ? ROUTE_TO_MODULE[matchingRoute] : null;
 
       if (moduleId) {
-        if (!isAdmin && (!role || !ROLE_PERMISSIONS[role]?.includes(moduleId))) {
+        const safeRole = role ? role.toLowerCase().trim() : 'pedidos';
+        const allowed = ROLE_PERMISSIONS[safeRole] || ROLE_PERMISSIONS['pedidos'];
+        if (!isAdmin && !allowed.includes(moduleId)) {
           router.push('/');
         }
       } else {
@@ -81,8 +83,10 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
       pathname === route || pathname.startsWith(route + '/')
     );
     const moduleId = matchingRoute ? ROUTE_TO_MODULE[matchingRoute] : null;
+    const safeRole = role ? role.toLowerCase().trim() : 'pedidos';
+    const allowed = ROLE_PERMISSIONS[safeRole] || ROLE_PERMISSIONS['pedidos'];
 
-    if (!moduleId || (!role || !ROLE_PERMISSIONS[role]?.includes(moduleId))) {
+    if (!moduleId || (!isAdmin && !allowed.includes(moduleId))) {
       return null; // Will redirect in useEffect
     }
   }

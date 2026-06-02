@@ -60,8 +60,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     // If admin or gerencia, show everything
     if (isAdmin || role === 'gerencia') return true;
     
-    // Otherwise, restrict based on role from single source of truth in use-user
-    const allowed = ROLE_PERMISSIONS[role || 'pedidos'] || ROLE_PERMISSIONS['pedidos'];
+    const safeRole = role ? role.toLowerCase().trim() : 'pedidos';
+    const allowed = ROLE_PERMISSIONS[safeRole] || ROLE_PERMISSIONS['pedidos'];
     return allowed.includes(item.id);
   });
 
@@ -185,26 +185,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 {!isCollapsed && <span className="truncate">{item.title}</span>}
               </div>
               
-              {/* Badges Estilo Mockup */}
-              {!isCollapsed && (
-                <>
-                  {item.id === 'billing' && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
-                  )}
-                  {item.id === 'orders' && (
-                    <span className="bg-blue-600 text-white font-mono font-bold text-[9px] px-1.5 py-0.5 rounded-full shrink-0 flex items-center justify-center leading-none border-none scale-90">
-                      4
-                    </span>
-                  )}
-                  {item.id === 'management' && (
-                    <span className="bg-slate-200/50 dark:bg-slate-800/40 text-indigo-400 border border-slate-300 dark:border-slate-700/40 text-[7px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-md shrink-0 scale-90 whitespace-nowrap">
-                      Ticket en espera
-                    </span>
-                  )}
-                </>
-              )}
-              
-              {!isCollapsed && !isActive && item.id !== 'billing' && item.id !== 'orders' && item.id !== 'management' && (
+              {!isCollapsed && !isActive && (
                 <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-all text-slate-700 dark:text-slate-400 translate-x-[-4px] group-hover:translate-x-0" />
               )}
             </Link>

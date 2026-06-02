@@ -24,6 +24,8 @@ import {
   Info
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DteReader } from '@/components/DteReader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -421,7 +423,19 @@ export default function PurchasesPage() {
         <ModeToggle />
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="max-w-7xl mx-auto mb-6">
+        <Tabs defaultValue="manual" className="w-full">
+          <TabsList className="bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-2xl mb-6 flex-wrap h-auto">
+            <TabsTrigger value="manual" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+              Registro Manual
+            </TabsTrigger>
+            <TabsTrigger value="batch" className="rounded-xl px-6 py-2 font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+              Carga Masiva DTE (JSON)
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="manual" className="mt-0 outline-none">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         <div className="lg:col-span-4 space-y-6">
           <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
@@ -683,8 +697,16 @@ export default function PurchasesPage() {
              </div>
           </div>
         </div>
-
       </div>
-    </div>
-  );
+    </TabsContent>
+
+    <TabsContent value="batch" className="mt-0 outline-none">
+      <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 shadow-sm rounded-3xl p-6 relative overflow-hidden">
+        <DteReader />
+      </div>
+    </TabsContent>
+  </Tabs>
+</div>
+</div>
+);
 }
