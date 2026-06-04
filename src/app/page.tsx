@@ -26,7 +26,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, ROLE_PERMISSIONS } from '@/firebase';
+import {  useUser, ROLE_PERMISSIONS  } from '@/supabase/compat';
 import { supabase } from '@/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';

@@ -2,7 +2,7 @@
 'use client';
 
 import LoginForm from "@/components/login-form";
-import { useUser } from "@/firebase";
+import {  useUser  } from '@/supabase/compat';
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";

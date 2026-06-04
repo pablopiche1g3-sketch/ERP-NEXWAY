@@ -3,6 +3,23 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/supabase/client';
 
+export function useFirestore() {
+  return {}; // Dummy db
+}
+
+export function doc(dbOrCollection: any, ...pathSegments: string[]) {
+  return {}; // Dummy docRef
+}
+
+export function collection(db: any, ...pathSegments: string[]) {
+  return {}; // Dummy collectionRef
+}
+
+export function useCollection<T>(query: any) {
+  // Stub for useCollection as it's not actually used anywhere
+  return { data: [], loading: false, error: null };
+}
+
 export function useDoc<T>(docRef: any) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +53,6 @@ export function useDoc<T>(docRef: any) {
 
     loadConfig();
 
-    // Suscribirse a cambios en tiempo real
     const channel = supabase
       .channel('system_config_changes')
       .on(

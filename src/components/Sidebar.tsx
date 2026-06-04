@@ -20,7 +20,7 @@ import {
   ChevronRight,
   ChevronLeft
 } from 'lucide-react';
-import { useUser, getTenantName, ROLE_PERMISSIONS } from '@/firebase';
+import { useUser, getTenantName, ROLE_PERMISSIONS } from '@/supabase/use-user';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/supabase/client';
 

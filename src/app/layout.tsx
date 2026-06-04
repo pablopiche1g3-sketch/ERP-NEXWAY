@@ -1,8 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
-import { FirebaseClientProvider } from '@/firebase';
+import { SupabaseAuthProvider } from '@/supabase/use-user';
 import { Toaster } from '@/components/ui/toaster';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ClientAuthGate } from '@/components/ClientAuthGate';
 
@@ -29,20 +28,19 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <FirebaseClientProvider>
+        <SupabaseAuthProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange
           >
-            <FirebaseErrorListener />
             <ClientAuthGate>
               {children}
             </ClientAuthGate>
             <Toaster />
           </ThemeProvider>
-        </FirebaseClientProvider>
+        </SupabaseAuthProvider>
       </body>
     </html>
   );

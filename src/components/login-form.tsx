@@ -23,8 +23,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
-  email: z.string().min(3, {
-    message: "Por favor, ingresa un usuario o correo válido.",
+  email: z.string().email({
+    message: "Por favor, ingresa un correo electrónico válido.",
   }),
   password: z.string().min(5, {
     message: "La contraseña debe tener al menos 5 caracteres.",
@@ -49,10 +49,7 @@ export default function LoginForm() {
     setIsLoading(true)
     setAuthError(null)
     
-    let email = values.email.toLowerCase().trim()
-    if (!email.includes('@')) {
-      email = `${email}@nexway.local`
-    }
+    const email = values.email.toLowerCase().trim()
     const password = values.password
 
     try {
@@ -62,29 +59,6 @@ export default function LoginForm() {
       })
 
       if (error) {
-        // Si el error indica que no existe el usuario, y es un correo admin pre-autorizado, intentamos auto-registro
-        const isAdminEmail = email === 'pablopiche1g3@gmail.com' || 
-                             email === 'pinturas.tecnicolorsw@gmail.com' ||
-                             email === 'saladventastecnicolor@gmail.com';
-
-        if (isAdminEmail && (error.message.includes("Invalid login credentials") || error.message.includes("Email not confirmed") || error.status === 400)) {
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-          })
-
-          if (signUpError) {
-            throw signUpError;
-          }
-
-          toast({
-            title: "Acceso Exitoso (Auto-Registro)",
-            description: "Su usuario administrativo ha sido creado e ingresado con éxito.",
-          })
-          router.push("/")
-          return;
-        }
-
         throw error;
       }
 
@@ -95,9 +69,37 @@ export default function LoginForm() {
       router.push("/")
     } catch (error: any) {
       console.error(error)
-      let message = error.message || "Correo o contraseña incorrectos."
-      if (message.includes("Invalid login credentials")) {
-        message = "El usuario no está registrado o la contraseña es incorrecta."
+      let message = "Correo o contraseña incorrectos."
+      
+      const isAdminEmail = email === 'pablopiche1g3@gmail.com' || 
+                           email === 'pinturas.tecnicolorsw@gmail.com' ||
+                           email === 'saladventastecnicolor@gmail.com';
+
+      if (isAdminEmail && (error.message.includes('Invalid login credentials') || error.message.includes('not found'))) {
+        try {
+          // Intentar auto-registro para administradores si no existe el usuario en Auth
+          const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+          })
+          
+          if (signUpError) throw signUpError;
+          
+          toast({
+            title: "Acceso Exitoso (Auto-Registro)",
+            description: "Su usuario administrativo ha sido creado e ingresado con éxito.",
+          })
+          router.push("/")
+          return;
+        } catch (regErr: any) {
+          if (regErr.message?.includes('already registered')) {
+            message = "La contraseña ingresada es incorrecta para este correo."
+          } else {
+            message = `Error de registro: ${regErr.message}`
+          }
+        }
+      } else {
+        message = "El correo electrónico no está registrado o la contraseña es incorrecta."
       }
       
       setAuthError(message)

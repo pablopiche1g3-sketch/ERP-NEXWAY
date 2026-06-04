@@ -12,7 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 DROP TABLE IF EXISTS public.profiles CASCADE;
 
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id text primary key, -- Se usa text para alojar el UID de Firebase Auth
+  id uuid references auth.users(id) on delete cascade primary key,
   email text not null,
   role text not null default 'pedidos',
   created_at timestamptz default timezone('utc'::text, now()) not null

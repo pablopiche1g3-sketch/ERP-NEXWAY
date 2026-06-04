@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useUser, ROLE_PERMISSIONS } from '@/firebase';
+import { useUser, ROLE_PERMISSIONS } from '@/supabase/use-user';
 import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
