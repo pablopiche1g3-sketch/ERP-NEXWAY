@@ -1016,9 +1016,7 @@ export default function OrdersPage() {
             variant="outline" 
             size="icon"
             onClick={async () => {
-              const { getAuth, signOut } = await import('firebase/auth');
-              const auth = getAuth();
-              await signOut(auth);
+              await supabase.auth.signOut();
             }}
             title="Cerrar sesión"
           >

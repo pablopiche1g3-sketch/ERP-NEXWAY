@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useUser, getTenantName, ROLE_PERMISSIONS } from '@/firebase';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/supabase/client';
 
 interface SidebarItem {
   id: string;
@@ -66,9 +67,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   });
 
   const handleSignOut = async () => {
-    const { getAuth, signOut } = await import('firebase/auth');
-    const auth = getAuth();
-    await signOut(auth);
+    await supabase.auth.signOut();
   };
 
   const ROLE_LABELS: Record<string, string> = {
