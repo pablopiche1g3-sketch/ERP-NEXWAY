@@ -109,7 +109,14 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
           .single();
 
         if (profile && profile.role) {
-          currentRole = profile.role;
+          // Force admin role if it's an admin email, regardless of DB value
+          if (isAdminEmail && profile.role !== 'admin') {
+            currentRole = 'admin';
+            // Update the DB to reflect the correct role
+            await supabase.from('profiles').update({ role: 'admin' }).eq('id', currentUser.id);
+          } else {
+            currentRole = profile.role;
+          }
         } else if (error && error.code === 'PGRST116') {
           // El perfil no existe aún, lo creamos
           await supabase.from('profiles').upsert({

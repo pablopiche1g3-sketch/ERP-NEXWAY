@@ -20,6 +20,23 @@ export function useCollection<T>(query: any) {
   return { data: [], loading: false, error: null };
 }
 
+export function writeBatch(db: any) {
+  return {
+    set: () => {},
+    update: () => {},
+    commit: async () => {}
+  };
+}
+
+export function addDoc() { return Promise.resolve({}); }
+export function deleteDoc() { return Promise.resolve(); }
+export function getDocs() { return Promise.resolve({ docs: [], forEach: () => {} }); }
+export function updateDoc() { return Promise.resolve(); }
+export function setDoc() { return Promise.resolve(); }
+export function query() { return {}; }
+export function where() { return {}; }
+export function serverTimestamp() { return new Date(); }
+
 export function useDoc<T>(docRef: any) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
