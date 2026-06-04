@@ -26,8 +26,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
-import { useFirestore, useDoc, useUser, ROLE_PERMISSIONS } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useUser, ROLE_PERMISSIONS } from '@/firebase';
 import { supabase } from '@/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -50,12 +49,7 @@ interface ModuleConfig {
 export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
-  const db = useFirestore();
-  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
-  const { data: config } = useDoc<any>(configRef);
   const { user, role } = useUser();
-
-
 
   const modulesList: ModuleConfig[] = [
     { 

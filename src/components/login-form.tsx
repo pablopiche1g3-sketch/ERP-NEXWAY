@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { ShieldCheck, Loader2, AlertCircle, Mail, Lock } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth"
+import { supabase } from "@/supabase/client"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -20,7 +20,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/firebase"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
@@ -37,7 +36,6 @@ export default function LoginForm() {
   const [authError, setAuthError] = React.useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
-  const auth = useAuth()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -55,7 +53,38 @@ export default function LoginForm() {
     const password = values.password
 
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        // Si el error indica que no existe el usuario, y es un correo admin pre-autorizado, intentamos auto-registro
+        const isAdminEmail = email === 'pablopiche1g3@gmail.com' || 
+                             email === 'pinturas.tecnicolorsw@gmail.com' ||
+                             email === 'saladventastecnicolor@gmail.com';
+
+        if (isAdminEmail && (error.message.includes("Invalid login credentials") || error.message.includes("Email not confirmed") || error.status === 400)) {
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+          })
+
+          if (signUpError) {
+            throw signUpError;
+          }
+
+          toast({
+            title: "Acceso Exitoso (Auto-Registro)",
+            description: "Su usuario administrativo ha sido creado e ingresado con éxito.",
+          })
+          router.push("/")
+          return;
+        }
+
+        throw error;
+      }
+
       toast({
         title: "Acceso exitoso",
         description: `Bienvenido al sistema.`,
@@ -63,30 +92,8 @@ export default function LoginForm() {
       router.push("/")
     } catch (error: any) {
       console.error(error)
-      let message = "Correo o contraseña incorrectos."
-      
-      const isAdminEmail = email === 'pablopiche1g3@gmail.com' || 
-                           email === 'pinturas.tecnicolorsw@gmail.com' ||
-                           email === 'saladventastecnicolor@gmail.com';
-
-      if (isAdminEmail && (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential')) {
-        try {
-          // Intentar auto-registro para administradores si no existe el usuario en Auth
-          await createUserWithEmailAndPassword(auth, email, password)
-          toast({
-            title: "Acceso Exitoso (Auto-Registro)",
-            description: "Su usuario administrativo ha sido creado e ingresado con éxito.",
-          })
-          router.push("/")
-          return;
-        } catch (regErr: any) {
-          if (regErr.code === 'auth/email-already-in-use') {
-            message = "La contraseña ingresada es incorrecta para este correo."
-          } else {
-            message = `Error de registro: ${regErr.message}`
-          }
-        }
-      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      let message = error.message || "Correo o contraseña incorrectos."
+      if (message.includes("Invalid login credentials")) {
         message = "El correo electrónico no está registrado o la contraseña es incorrecta."
       }
       

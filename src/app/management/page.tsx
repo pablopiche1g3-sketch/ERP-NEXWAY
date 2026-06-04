@@ -1388,6 +1388,7 @@ export default function ManagementPage() {
             <DialogDescription className="text-slate-400 text-xs text-left">
               Script unificado completo. Copia y ejecuta en el SQL Editor de Supabase para crear o actualizar todas las tablas, columnas, políticas y publicaciones en un solo paso.
             </DialogDescription>
+          </DialogHeader>
           <div className="flex-1 overflow-y-auto my-4 rounded-xl bg-slate-900/80 p-4 border border-slate-850 font-mono text-xs text-slate-350 leading-relaxed no-scrollbar select-all whitespace-pre-wrap">
 {`-- =========================================================================
 -- NEXWAY ERP - SCRIPT MAESTRO UNIFICADO DE ESQUEMAS Y MIGRACIÓN (POSTGRESQL)
