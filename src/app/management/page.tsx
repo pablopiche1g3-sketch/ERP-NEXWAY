@@ -1389,7 +1389,8 @@ export default function ManagementPage() {
               Script unificado completo. Copia y ejecuta en el SQL Editor de Supabase para crear o actualizar todas las tablas, columnas, políticas y publicaciones en un solo paso.
             </DialogDescription>
           <div className="flex-1 overflow-y-auto my-4 rounded-xl bg-slate-900/80 p-4 border border-slate-850 font-mono text-xs text-slate-350 leading-relaxed no-scrollbar select-all whitespace-pre-wrap">
-{`-- NEXWAY ERP - SCRIPT MAESTRO UNIFICADO DE ESQUEMAS Y MIGRACIÓN (POSTGRESQL)
+{`-- =========================================================================
+-- NEXWAY ERP - SCRIPT MAESTRO UNIFICADO DE ESQUEMAS Y MIGRACIÓN (POSTGRESQL)
 -- =========================================================================
 -- Copia y pega este script completo en el SQL Editor de tu proyecto en Supabase para crear las tablas de forma automática.
 -- Usamos "IF NOT EXISTS" para que puedas ejecutarlo completo sin borrar ni afectar tus datos actuales.
@@ -1404,11 +1405,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id text primary key, -- Se usa text para alojar el UID de Firebase Auth
   email text not null,
   role text not null default 'pedidos',
-  station_id text, -- ID de la Caja/Sucursal asignada
+  station_id text, -- ID de la Caja/Sucursal asignada al usuario
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Asegurar columna station_id en perfiles
+-- Asegurar columnas básicas de perfiles
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS station_id text;
 
 -- Habilitar Row Level Security (RLS) en la tabla perfiles
@@ -1500,7 +1503,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
 CREATE TABLE IF NOT EXISTS public.purchases (
   id uuid default uuid_generate_v4() primary key,
   order_id text unique,
-  supplier_name text,
+  supplier_name text, -- agregado por si order_id no basta
   document_type text,
   document_number text,
   supplier_id uuid references public.suppliers(id) on delete set null,
@@ -1508,16 +1511,8 @@ CREATE TABLE IF NOT EXISTS public.purchases (
   warehouse_id uuid references public.warehouses(id) on delete set null,
   total numeric(10,2) not null default 0.00,
   status text not null default 'PENDIENTE',
-  payment_method text,
-  credit_days integer,
-  payment_status text DEFAULT 'PENDIENTE',
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
-
--- Asegurar columnas de compras
-ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS payment_method text;
-ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS credit_days integer;
-ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS payment_status text DEFAULT 'PENDIENTE';
 
 -- 10. DETALLES DE COMPRAS (Items)
 CREATE TABLE IF NOT EXISTS public.purchase_items (
@@ -1542,8 +1537,8 @@ CREATE TABLE IF NOT EXISTS public.sales (
   payment_method text,
   customer_name text,
   type text default 'Factura',
-  seller_email text, -- Trazabilidad del empleado que facturó
-  station_name text, -- Caja/Sucursal de facturación
+  seller_email text, -- Trazabilidad del empleado que realizó la venta
+  station_name text, -- Caja/Sucursal desde donde se facturó
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
