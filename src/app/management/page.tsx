@@ -1388,118 +1388,101 @@ export default function ManagementPage() {
             <DialogDescription className="text-slate-400 text-xs text-left">
               Script unificado completo. Copia y ejecuta en el SQL Editor de Supabase para crear o actualizar todas las tablas, columnas, políticas y publicaciones en un solo paso.
             </DialogDescription>
-          </DialogHeader>
           <div className="flex-1 overflow-y-auto my-4 rounded-xl bg-slate-900/80 p-4 border border-slate-850 font-mono text-xs text-slate-350 leading-relaxed no-scrollbar select-all whitespace-pre-wrap">
 {`-- NEXWAY ERP - SCRIPT MAESTRO UNIFICADO DE ESQUEMAS Y MIGRACIÓN (POSTGRESQL)
--- Copia y ejecuta este script completo en una sola pestaña de tu SQL Editor en Supabase.
+-- =========================================================================
+-- Copia y pega este script completo en el SQL Editor de tu proyecto en Supabase para crear las tablas de forma automática.
+-- Usamos "IF NOT EXISTS" para que puedas ejecutarlo completo sin borrar ni afectar tus datos actuales.
 
 -- 1. EXTENSIONES ÚTILES
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. TABLA DE PERFILES DE USUARIOS (Roles de Acceso)
+-- ADVERTENCIA: Borramos la tabla vieja en caso de que existiera con el tipo UUID incorrecto para evitar conflictos.
+DROP TABLE IF EXISTS public.profiles CASCADE;
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id uuid REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-  email text NOT NULL,
-  role text NOT NULL DEFAULT 'pedidos',
-  station_id text,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  id text primary key, -- Se usa text para alojar el UID de Firebase Auth
+  email text not null,
+  role text not null default 'pedidos',
+  station_id text, -- ID de la Caja/Sucursal asignada
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Asegurar columnas básicas de perfiles
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email text;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role text;
+-- Asegurar columna station_id en perfiles
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS station_id text;
 
--- Habilitar RLS en perfiles si no estuviera activo
+-- Habilitar Row Level Security (RLS) en la tabla perfiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Crear políticas básicas de acceso para perfiles (con captura de excepciones si ya existen)
-DO $$
-BEGIN
+-- Crear políticas básicas de acceso para perfiles (Usa 'OR REPLACE' si la base de datos lo soporta, o ignora errores si ya existen)
+DO $$ BEGIN
   CREATE POLICY "Permitir lectura pública de perfiles" ON public.profiles FOR SELECT USING (true);
-EXCEPTION WHEN OTHERS THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
-DO $$
-BEGIN
-  CREATE POLICY "Permitir a usuarios actualizar su propio perfil" ON public.profiles FOR UPDATE USING (auth.uid() = id);
-EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY "Permitir a usuarios actualizar su propio perfil" ON public.profiles FOR UPDATE USING (auth.uid()::text = id);
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
--- Disparador automático para nuevos usuarios registrados mediante Supabase Auth
+-- 3. DISPARADOR (TRIGGER) AUTOMÁTICO PARA NUEVOS USUARIOS (Si se usa auth nativo de Supabase)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, role)
-  VALUES (new.id, new.email, 'pedidos');
+  VALUES (new.id::text, new.email, 'pedidos');
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Eliminamos el trigger si existe para volver a crearlo de forma segura
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- 3. TABLA DE BODEGAS (ALMACENES)
+-- 4. TABLA DE BODEGAS (ALMACENES)
 CREATE TABLE IF NOT EXISTS public.warehouses (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name text NOT NULL UNIQUE,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  id uuid default uuid_generate_v4() primary key,
+  name text not null unique,
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- 4. TABLA DE INVENTARIO MAESTRO (Catálogo de Productos)
+-- 5. TABLA DE INVENTARIO MAESTRO (Catálogo de Productos)
 CREATE TABLE IF NOT EXISTS public.inventory (
-  sku text PRIMARY KEY,
-  name text NOT NULL,
-  category text NOT NULL DEFAULT 'General',
-  price numeric(10,2) NOT NULL DEFAULT 0.00,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  sku text primary key,
+  name text not null,
+  category text not null default 'General',
+  price numeric(10,2) not null default 0.00,
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Asegurar columnas de inventario
-ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS name text;
-ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS category text;
-ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS price numeric(10,2) DEFAULT 0.00;
-
--- 5. TABLA DE EXISTENCIAS POR BODEGA (Relación de Stock)
+-- 6. TABLA DE EXISTENCIAS POR BODEGA
 CREATE TABLE IF NOT EXISTS public.inventory_stock (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  sku text REFERENCES public.inventory(sku) ON DELETE CASCADE NOT NULL,
-  warehouse_id uuid REFERENCES public.warehouses(id) ON DELETE CASCADE NOT NULL,
-  quantity numeric(10,2) NOT NULL DEFAULT 0.00,
-  CONSTRAINT unique_sku_warehouse UNIQUE (sku, warehouse_id)
+  id uuid default uuid_generate_v4() primary key,
+  sku text references public.inventory(sku) on delete cascade not null,
+  warehouse_id uuid references public.warehouses(id) on delete cascade not null,
+  quantity numeric(10,2) not null default 0.00,
+  constraint unique_sku_warehouse unique (sku, warehouse_id)
 );
 
-ALTER TABLE public.inventory_stock ADD COLUMN IF NOT EXISTS quantity numeric(10,2) DEFAULT 0.00;
-
--- 6. TABLA DE PROVEEDORES
+-- 7. TABLA DE PROVEEDORES
 CREATE TABLE IF NOT EXISTS public.suppliers (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name text NOT NULL,
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
   nit text,
   nrc text,
   giro text,
   email text,
   phone text,
   address text,
-  apply_retention boolean NOT NULL DEFAULT false,
-  apply_perception boolean NOT NULL DEFAULT false,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  apply_retention boolean not null default false,
+  apply_perception boolean not null default false,
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS name text;
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS nit text;
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS nrc text;
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS giro text;
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS email text;
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS phone text;
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS address text;
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS apply_retention boolean NOT NULL DEFAULT false;
-ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS apply_perception boolean NOT NULL DEFAULT false;
-
--- 7. TABLA DE CLIENTES
+-- 8. TABLA DE CLIENTES
 CREATE TABLE IF NOT EXISTS public.customers (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name text NOT NULL,
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
   nit text,
   nrc text,
   giro text,
@@ -1508,215 +1491,199 @@ CREATE TABLE IF NOT EXISTS public.customers (
   address text,
   type text,
   category text,
-  is_authorized_credit boolean NOT NULL DEFAULT false,
-  credit_limit numeric(10,2) NOT NULL DEFAULT 0.00,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  is_authorized_credit boolean not null default false,
+  credit_limit numeric(10,2) not null default 0.00,
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS name text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS nit text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS nrc text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS giro text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS email text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS phone text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS address text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS type text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS category text;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_authorized_credit boolean NOT NULL DEFAULT false;
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS credit_limit numeric(10,2) NOT NULL DEFAULT 0.00;
-
--- 8. TABLA DE COMPRAS (Ingresos de Stock)
+-- 9. TABLA DE COMPRAS (Ingresos de Stock)
 CREATE TABLE IF NOT EXISTS public.purchases (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  order_id text NOT NULL UNIQUE,
-  supplier_id uuid REFERENCES public.suppliers(id) ON DELETE SET NULL,
-  entered_by text NOT NULL,
-  warehouse_id uuid REFERENCES public.warehouses(id) ON DELETE SET NULL,
-  total numeric(10,2) NOT NULL DEFAULT 0.00,
-  status text NOT NULL DEFAULT 'PENDIENTE',
+  id uuid default uuid_generate_v4() primary key,
+  order_id text unique,
+  supplier_name text,
+  document_type text,
+  document_number text,
+  supplier_id uuid references public.suppliers(id) on delete set null,
+  entered_by text,
+  warehouse_id uuid references public.warehouses(id) on delete set null,
+  total numeric(10,2) not null default 0.00,
+  status text not null default 'PENDIENTE',
   payment_method text,
   credit_days integer,
   payment_status text DEFAULT 'PENDIENTE',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
+-- Asegurar columnas de compras
 ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS payment_method text;
 ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS credit_days integer;
 ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS payment_status text DEFAULT 'PENDIENTE';
 
+-- 10. DETALLES DE COMPRAS (Items)
 CREATE TABLE IF NOT EXISTS public.purchase_items (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  purchase_id uuid REFERENCES public.purchases(id) ON DELETE CASCADE NOT NULL,
-  sku text REFERENCES public.inventory(sku) ON DELETE RESTRICT NOT NULL,
-  quantity numeric(10,2) NOT NULL DEFAULT 0.00,
-  cost numeric(10,2) NOT NULL DEFAULT 0.00,
-  subtotal numeric(10,2) NOT NULL DEFAULT 0.00
+  id uuid default uuid_generate_v4() primary key,
+  purchase_id uuid references public.purchases(id) on delete cascade not null,
+  sku text references public.inventory(sku) on delete restrict not null,
+  quantity numeric(10,2) not null default 0.00,
+  cost numeric(10,2) not null default 0.00,
+  subtotal numeric(10,2) not null default 0.00
 );
 
--- 9. TABLA DE VENTAS (Facturación / DTE)
--- seller_email: email del empleado que realizó la venta (trazabilidad)
--- station_name: nombre de la caja/sucursal desde donde se facturó
+-- 11. TABLA DE VENTAS (Facturación / DTE)
 CREATE TABLE IF NOT EXISTS public.sales (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  correlative text NOT NULL UNIQUE,
-  doc_type text NOT NULL DEFAULT 'CF',
-  customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL,
-  total numeric(10,2) NOT NULL DEFAULT 0.00,
-  status text NOT NULL DEFAULT 'ACTIVA',
+  id uuid default uuid_generate_v4() primary key,
+  correlative text unique,
+  doc_type text not null default 'CF',
+  customer_id uuid references public.customers(id) on delete set null,
+  total numeric(10,2) not null default 0.00,
+  subtotal numeric(10,2) default 0.00,
+  iva numeric(10,2) default 0.00,
+  status text not null default 'ACTIVA',
   payment_method text,
   customer_name text,
-  seller_email text,
-  station_name text,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  type text default 'Factura',
+  seller_email text, -- Trazabilidad del empleado que facturó
+  station_name text, -- Caja/Sucursal de facturación
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Asegurar columnas de trazabilidad de ventas
+-- Asegurar columnas de trazabilidad en ventas
 ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS seller_email text;
 ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS station_name text;
 
+-- 12. DETALLES DE VENTAS (Items)
 CREATE TABLE IF NOT EXISTS public.sales_items (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  sale_id uuid REFERENCES public.sales(id) ON DELETE CASCADE NOT NULL,
-  sku text REFERENCES public.inventory(sku) ON DELETE RESTRICT NOT NULL,
-  quantity numeric(10,2) NOT NULL DEFAULT 0.00,
-  price numeric(10,2) NOT NULL DEFAULT 0.00,
-  subtotal numeric(10,2) NOT NULL DEFAULT 0.00
+  id uuid default uuid_generate_v4() primary key,
+  sale_id uuid references public.sales(id) on delete cascade not null,
+  sku text not null,
+  quantity numeric(10,2) not null default 0.00,
+  price numeric(10,2) not null default 0.00,
+  subtotal numeric(10,2) not null default 0.00,
+  total numeric(10,2) default 0.00
 );
 
--- 10. LIBRO DIARIO CONTABLE (Asientos)
-CREATE TABLE IF NOT EXISTS public.journal (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  description text NOT NULL,
-  type text NOT NULL DEFAULT 'Egreso',
-  amount numeric(10,2) NOT NULL DEFAULT 0.00,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.journal_lines (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  journal_id uuid REFERENCES public.journal(id) ON DELETE CASCADE NOT NULL,
-  account_code text NOT NULL,
-  debit numeric(10,2) NOT NULL DEFAULT 0.00,
-  credit numeric(10,2) NOT NULL DEFAULT 0.00
-);
-
--- 11. TABLAS DE MAPEO DE PRODUCTOS
-CREATE TABLE IF NOT EXISTS public.supplier_mappings (
-  supplier_code text PRIMARY KEY,
-  internal_sku text NOT NULL,
-  updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.company_mappings (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  master_sku text NOT NULL,
-  product_name text NOT NULL,
-  company_name text NOT NULL,
-  company_sku text NOT NULL,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
-  CONSTRAINT unique_company_mapping UNIQUE (company_name, company_sku)
-);
-
--- 12. TABLAS DE NOTAS DE CRÉDITO Y DÉBITO
-CREATE TABLE IF NOT EXISTS public.credit_notes (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  ref_doc text NOT NULL,
-  customer_name text NOT NULL,
-  reason text NOT NULL,
-  items jsonb NOT NULL,
-  total numeric(10,2) NOT NULL DEFAULT 0.00,
-  status text NOT NULL DEFAULT 'EMITIDA',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.debit_notes (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  ref_doc text NOT NULL,
-  customer_name text NOT NULL,
-  reason text NOT NULL,
-  items jsonb NOT NULL,
-  total numeric(10,2) NOT NULL DEFAULT 0.00,
-  status text NOT NULL DEFAULT 'EMITIDA',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- 12.5 TABLA DE COTIZACIONES (PRESUPUESTOS)
+-- 12.5 NUEVO: COTIZACIONES
 CREATE TABLE IF NOT EXISTS public.quotations (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  quote_number text NOT NULL UNIQUE,
-  customer_name text NOT NULL,
-  items jsonb NOT NULL,
-  total numeric(10,2) NOT NULL DEFAULT 0.00,
-  status text NOT NULL DEFAULT 'PENDIENTE',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+    id uuid default uuid_generate_v4() primary key,
+    customer_name text not null,
+    items jsonb not null default '[]'::jsonb,
+    subtotal numeric(10,2) default 0.00,
+    iva numeric(10,2) default 0.00,
+    total numeric(10,2) default 0.00,
+    status text default 'PENDIENTE',
+    created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- 13. ARQUEOS DIARIOS
+-- 13. LIBRO DIARIO CONTABLE (Asientos)
+CREATE TABLE IF NOT EXISTS public.journal (
+  id uuid default uuid_generate_v4() primary key,
+  description text not null,
+  type text not null default 'Egreso',
+  amount numeric(10,2) not null default 0.00,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 14. LÍNEAS DE ASIENTOS DOBLES (Debe y Haber)
+CREATE TABLE IF NOT EXISTS public.journal_lines (
+  id uuid default uuid_generate_v4() primary key,
+  journal_id uuid references public.journal(id) on delete cascade not null,
+  account_code text not null,
+  debit numeric(10,2) not null default 0.00,
+  credit numeric(10,2) not null default 0.00
+);
+
+-- 15. TABLAS DE MAPEO DE PRODUCTOS
+CREATE TABLE IF NOT EXISTS public.supplier_mappings (
+  supplier_code text primary key,
+  internal_sku text not null,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+CREATE TABLE IF NOT EXISTS public.company_mappings (
+  id uuid default uuid_generate_v4() primary key,
+  master_sku text not null,
+  product_name text not null,
+  company_name text not null,
+  company_sku text not null,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  constraint unique_company_mapping unique (company_name, company_sku)
+);
+
+-- 16. NOTAS DE CRÉDITO Y DÉBITO Y CIERRES
+CREATE TABLE IF NOT EXISTS public.credit_notes (
+  id uuid default uuid_generate_v4() primary key,
+  ref_doc text not null,
+  customer_name text not null,
+  reason text not null,
+  items jsonb not null,
+  total numeric(10,2) not null default 0.00,
+  status text not null default 'EMITIDA',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+CREATE TABLE IF NOT EXISTS public.debit_notes (
+  id uuid default uuid_generate_v4() primary key,
+  ref_doc text not null,
+  customer_name text not null,
+  reason text not null,
+  items jsonb not null,
+  total numeric(10,2) not null default 0.00,
+  status text not null default 'EMITIDA',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
 CREATE TABLE IF NOT EXISTS public.daily_closings (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  date date NOT NULL,
-  cash_float numeric(10,2) NOT NULL DEFAULT 0.00,
-  system_cash_sales numeric(10,2) NOT NULL DEFAULT 0.00,
-  physical_cash_found numeric(10,2) NOT NULL DEFAULT 0.00,
-  expenses numeric(10,2) NOT NULL DEFAULT 0.00,
-  difference numeric(10,2) NOT NULL DEFAULT 0.00,
-  denominations jsonb NOT NULL,
-  system_card_sales numeric(10,2) NOT NULL DEFAULT 0.00,
-  physical_card_found numeric(10,2) NOT NULL DEFAULT 0.00,
-  card_difference numeric(10,2) NOT NULL DEFAULT 0.00,
-  system_check_sales numeric(10,2) NOT NULL DEFAULT 0.00,
-  physical_check_found numeric(10,2) NOT NULL DEFAULT 0.00,
-  check_difference numeric(10,2) NOT NULL DEFAULT 0.00,
-  system_transfer_sales numeric(10,2) NOT NULL DEFAULT 0.00,
-  physical_transfer_found numeric(10,2) NOT NULL DEFAULT 0.00,
-  transfer_difference numeric(10,2) NOT NULL DEFAULT 0.00,
-  system_credit_sales numeric(10,2) NOT NULL DEFAULT 0.00,
-  physical_credit_found numeric(10,2) NOT NULL DEFAULT 0.00,
-  credit_difference numeric(10,2) NOT NULL DEFAULT 0.00,
-  closed_by text NOT NULL,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  id uuid default uuid_generate_v4() primary key,
+  date date not null unique,
+  cash_float numeric(10,2) not null default 0.00,
+  system_cash_sales numeric(10,2) not null default 0.00,
+  physical_cash_found numeric(10,2) not null default 0.00,
+  expenses numeric(10,2) not null default 0.00,
+  difference numeric(10,2) not null default 0.00,
+  denominations jsonb not null default '{}'::jsonb,
+  system_card_sales numeric(10,2) not null default 0.00,
+  physical_card_found numeric(10,2) not null default 0.00,
+  card_difference numeric(10,2) not null default 0.00,
+  system_check_sales numeric(10,2) not null default 0.00,
+  physical_check_found numeric(10,2) not null default 0.00,
+  check_difference numeric(10,2) not null default 0.00,
+  system_transfer_sales numeric(10,2) not null default 0.00,
+  physical_transfer_found numeric(10,2) not null default 0.00,
+  transfer_difference numeric(10,2) not null default 0.00,
+  system_credit_sales numeric(10,2) not null default 0.00,
+  physical_credit_found numeric(10,2) not null default 0.00,
+  credit_difference numeric(10,2) not null default 0.00,
+  closed_by text,
+  total_sales numeric(10,2) default 0.00,
+  total_cash numeric(10,2) default 0.00,
+  total_transfers numeric(10,2) default 0.00,
+  status text not null default 'ABIERTO',
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS system_card_sales numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS physical_card_found numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS card_difference numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS system_check_sales numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS physical_check_found numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS check_difference numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS system_transfer_sales numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS physical_transfer_found numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS transfer_difference numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS system_credit_sales numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS physical_credit_found numeric(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE public.daily_closings ADD COLUMN IF NOT EXISTS credit_difference numeric(10,2) NOT NULL DEFAULT 0.00;
-
--- 14. TABLAS DE PEDIDOS INTERNOS Y PEDIDOS A PROVEEDORES (ORDENES EXTERNAS)
+-- 17. TABLAS DE PEDIDOS INTERNOS
 CREATE TABLE IF NOT EXISTS public.internal_orders (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id uuid default uuid_generate_v4() primary key,
   code text,
-  source_warehouse text NOT NULL,
-  destination_warehouse text NOT NULL,
-  requested_by text NOT NULL,
-  items jsonb NOT NULL,
-  status text NOT NULL DEFAULT 'PENDIENTE',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  source_warehouse text not null,
+  destination_warehouse text not null,
+  requested_by text not null,
+  items jsonb not null,
+  status text not null default 'PENDIENTE',
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
-
 CREATE TABLE IF NOT EXISTS public.supplier_orders (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id uuid default uuid_generate_v4() primary key,
   code text,
-  supplier_name text NOT NULL,
-  destination_warehouse text NOT NULL,
-  requested_by text NOT NULL,
-  items jsonb NOT NULL,
-  total numeric(10,2) DEFAULT 0.00,
+  supplier_name text not null,
+  destination_warehouse text not null,
+  requested_by text not null,
+  items jsonb not null,
+  total numeric(10,2) default 0.00,
   supplier_email text,
   from_email text,
   authorized_by text,
   digitized_by text,
   supplier_phone text,
-  status text NOT NULL DEFAULT 'PENDIENTE',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  status text not null default 'PENDIENTE',
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
 ALTER TABLE public.internal_orders ADD COLUMN IF NOT EXISTS code text;
@@ -1728,13 +1695,15 @@ ALTER TABLE public.supplier_orders ADD COLUMN IF NOT EXISTS authorized_by text;
 ALTER TABLE public.supplier_orders ADD COLUMN IF NOT EXISTS digitized_by text;
 ALTER TABLE public.supplier_orders ADD COLUMN IF NOT EXISTS supplier_phone text;
 
--- 15. CONFIGURACIÓN GENERAL DEL SISTEMA
--- pos_stations: cajas/sucursales vinculadas a sus bodegas de despacho
+-- 18. CONFIGURACIÓN GENERAL DEL SISTEMA
 CREATE TABLE IF NOT EXISTS public.system_config (
-  key text PRIMARY KEY,
-  value jsonb NOT NULL
+  id uuid default uuid_generate_v4() unique,
+  key text primary key,
+  value jsonb not null,
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
+-- Cargar configuración inicial por defecto (incluye pos_stations vacío)
 INSERT INTO public.system_config (key, value)
 VALUES
   ('module_config', '{"orders": true, "transfers": true, "quotations": true, "quedan": true, "institutional": true, "management": true}'::jsonb),
@@ -1742,88 +1711,93 @@ VALUES
   ('pos_stations', '[]'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
--- 16. TABLA DE TRASLADOS (HISTORIAL LOGÍSTICO)
+-- 19. TABLA DE TRASLADOS
 CREATE TABLE IF NOT EXISTS public.transfers (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  type text NOT NULL,
-  source text NOT NULL,
-  destination text NOT NULL,
-  authorized_by text NOT NULL,
-  items jsonb NOT NULL,
-  status text NOT NULL DEFAULT 'COMPLETADO',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  id uuid default uuid_generate_v4() primary key,
+  type text not null,
+  source text not null,
+  destination text not null,
+  authorized_by text not null,
+  items jsonb not null,
+  status text not null default 'COMPLETADO',
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- 17. AREA DE QUEDAN (PAGOS A PROVEEDORES)
+-- 20. AREA DE QUEDAN (PAGOS A PROVEEDORES)
 CREATE TABLE IF NOT EXISTS public.quedan (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  supplier text NOT NULL,
-  due_date date NOT NULL,
-  invoices jsonb NOT NULL,
-  total_amount numeric(10,2) NOT NULL DEFAULT 0.00,
-  status text NOT NULL DEFAULT 'PENDIENTE',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  id uuid default uuid_generate_v4() primary key,
+  supplier text not null,
+  due_date date not null,
+  invoices jsonb not null,
+  total_amount numeric(10,2) not null default 0.00,
+  status text not null default 'PENDIENTE',
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- 18. LICITACIONES / INSTITUCIONAL
+-- 21. LICITACIONES / INSTITUCIONAL
 CREATE TABLE IF NOT EXISTS public.institutional_projects (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name text NOT NULL,
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
   purchase_order text,
-  total_budget numeric(10,2) NOT NULL DEFAULT 0.00,
+  total_budget numeric(10,2) not null default 0.00,
   customer_name text,
-  items jsonb NOT NULL DEFAULT '[]'::jsonb,
-  status text NOT NULL DEFAULT 'EN CURSO',
-  documents jsonb NOT NULL DEFAULT '[]'::jsonb,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  customer_id uuid references public.customers(id) on delete set null,
+  items jsonb not null default '[]'::jsonb,
+  status text not null default 'EN CURSO',
+  budget numeric(15,2) default 0.00,
+  documents jsonb not null default '[]'::jsonb,
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
-
 CREATE TABLE IF NOT EXISTS public.institutional_sales (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  project_id uuid REFERENCES public.institutional_projects(id) ON DELETE SET NULL,
-  doc_number text NOT NULL,
-  total numeric(10,2) NOT NULL DEFAULT 0.00,
-  date date NOT NULL DEFAULT current_date,
+  id uuid default uuid_generate_v4() primary key,
+  project_id uuid references public.institutional_projects(id) on delete cascade,
+  doc_number text,
+  total numeric(10,2) not null default 0.00,
+  amount numeric(15,2) default 0.00,
+  date date default current_date,
   items text,
-  cart_items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  cart_items jsonb default '[]'::jsonb,
   concept text,
+  description text,
   customer_name text,
   customer_email text,
-  status text NOT NULL DEFAULT 'COMPLETADA',
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  status text not null default 'COMPLETADA',
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
-
 CREATE TABLE IF NOT EXISTS public.institutional_purchases (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-  project_id uuid REFERENCES public.institutional_projects(id) ON DELETE SET NULL,
+  id uuid default uuid_generate_v4() primary key,
+  project_id uuid references public.institutional_projects(id) on delete cascade,
   supplier text,
   doc_number text,
-  items jsonb NOT NULL DEFAULT '[]'::jsonb,
-  total numeric(10,2) NOT NULL DEFAULT 0.00,
-  date date NOT NULL DEFAULT current_date,
-  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
+  items jsonb default '[]'::jsonb,
+  total numeric(10,2) not null default 0.00,
+  amount numeric(15,2) default 0.00,
+  description text,
+  date date default current_date,
+  created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- 19. HABILITAR TIEMPO REAL (REAL-TIME) PARA TODAS LAS TABLAS CLAVE
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.warehouses; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.inventory_stock; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.sales; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.purchases; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.journal; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.supplier_mappings; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.company_mappings; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.credit_notes; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.debit_notes; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.daily_closings; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.internal_orders; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.supplier_orders; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.system_config; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.transfers; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.quedan; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_projects; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_sales; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.institutional_purchases; EXCEPTION WHEN OTHERS THEN NULL; END $$;`}
+-- 22. REAL-TIME PARA TODAS LAS TABLAS CLAVE
+DO $$ 
+DECLARE
+  t text;
+  tables_to_publish text[] := ARRAY[
+    'profiles', 'warehouses', 'inventory_stock', 'sales', 'purchases', 
+    'journal', 'supplier_mappings', 'company_mappings', 'credit_notes', 
+    'debit_notes', 'daily_closings', 'internal_orders', 'supplier_orders', 
+    'system_config', 'transfers', 'quedan', 'institutional_projects', 
+    'institutional_sales', 'institutional_purchases', 'quotations'
+  ];
+BEGIN
+  FOREACH t IN ARRAY tables_to_publish
+  LOOP
+    BEGIN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I;', t);
+    EXCEPTION WHEN undefined_object OR duplicate_object THEN
+      NULL;
+    END;
+  END LOOP;
+END $$;`}
           </div>
           <div className="flex justify-end pt-2 gap-2 border-t border-slate-800">
             <Button
