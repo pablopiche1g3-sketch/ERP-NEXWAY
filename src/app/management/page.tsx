@@ -56,6 +56,7 @@ export default function ManagementPage() {
   const [catchAllEmail, setCatchAllEmail] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
   const [preAssignEmail, setPreAssignEmail] = useState('');
+  const [preAssignPassword, setPreAssignPassword] = useState('');
   const [preAssignRole, setPreAssignRole] = useState('vendedor');
 
   // Estados de datos
@@ -311,22 +312,32 @@ export default function ManagementPage() {
 
   const handlePreAssignRole = async (e: React.FormEvent) => {
     e.preventDefault();
-    const emailToAssign = preAssignEmail.trim().toLowerCase();
-    if (!emailToAssign) {
-      toast({ variant: "destructive", title: "Campo requerido", description: "Por favor ingrese un correo electrónico." });
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailToAssign)) {
-      toast({ variant: "destructive", title: "Formato inválido", description: "Ingrese un correo electrónico válido." });
+    const usernameToAssign = preAssignEmail.trim().toLowerCase();
+    if (!usernameToAssign) {
+      toast({ variant: "destructive", title: "Campo requerido", description: "Por favor ingrese un nombre de usuario o correo." });
       return;
     }
 
+    // Permitir letras, números, puntos, guiones y correos normales (evitar espacios)
+    const validUserRegex = /^[a-zA-Z0-9._%+-]+(@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})?$/;
+    if (!validUserRegex.test(usernameToAssign)) {
+      toast({ variant: "destructive", title: "Formato inválido", description: "El nombre de usuario no debe contener espacios ni caracteres especiales." });
+      return;
+    }
+
+    const formattedEmail = usernameToAssign.includes('@') 
+      ? usernameToAssign 
+      : `${usernameToAssign}@nexway.local`;
+
     setIsSaving(true);
     try {
-      const existingUser = usersList?.find((usr: any) => usr.email?.toLowerCase() === emailToAssign);
+      const existingUser = usersList?.find((usr: any) => 
+        usr.email?.toLowerCase() === formattedEmail || 
+        usr.email?.toLowerCase() === usernameToAssign
+      );
       
       if (existingUser) {
+        // Si el usuario ya existe, solo actualizamos su rol en la tabla profiles
         const { error } = await supabase.from('profiles').update({ role: preAssignRole }).eq('id', existingUser.id);
         if (error) throw error;
         toast({ 
@@ -334,25 +345,47 @@ export default function ManagementPage() {
           description: `El usuario ya estaba registrado. Se actualizó su rol a ${ROLE_NAMES[preAssignRole]}.` 
         });
       } else {
-        // Preasignar en public.system_config para evitar violaciones de llave foránea en profiles
-        const { data: preConf } = await supabase.from('system_config').select('*').eq('key', 'preassigned_roles').maybeSingle();
-        const currentPreassigned = preConf?.value || {};
-        const updatedPreassigned = { ...currentPreassigned, [emailToAssign]: preAssignRole };
-        await supabase.from('system_config').upsert({ key: 'preassigned_roles', value: updatedPreassigned });
+        // Si es un usuario nuevo, la contraseña es obligatoria
+        if (!preAssignPassword || preAssignPassword.length < 5) {
+          toast({ 
+            variant: "destructive", 
+            title: "Contraseña requerida", 
+            description: "La contraseña es obligatoria y debe tener al menos 5 caracteres." 
+          });
+          setIsSaving(false);
+          return;
+        }
+
+        // Llamar a nuestra API segura en el servidor
+        const response = await fetch('/api/users/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: usernameToAssign,
+            password: preAssignPassword,
+            role: preAssignRole
+          })
+        });
+
+        const apiData = await response.json();
+        if (!response.ok) {
+          throw new Error(apiData.error || 'No se pudo crear el usuario.');
+        }
 
         toast({ 
-          title: "Rol Pre-asignado", 
-          description: `El correo ${emailToAssign} fue pre-asignado como ${ROLE_NAMES[preAssignRole]} exitosamente.` 
+          title: "Usuario Creado", 
+          description: `El usuario ${usernameToAssign} fue registrado con rol ${ROLE_NAMES[preAssignRole]} exitosamente.` 
         });
       }
       setPreAssignEmail('');
+      setPreAssignPassword('');
       await loadData();
     } catch (error: any) {
-      console.error('Error al preasignar rol:', error);
+      console.error('Error al gestionar rol/usuario:', error);
       toast({ 
         variant: "destructive", 
-        title: "Error al preasignar", 
-        description: error.message || error.details || "No se pudo pre-asignar el rol." 
+        title: "Error de registro", 
+        description: error.message || "No se pudo completar la operación." 
       });
     } finally {
       setIsSaving(false);
@@ -953,14 +986,14 @@ export default function ManagementPage() {
               <CardContent className="p-0">
                 {/* Formulario de pre-asignación */}
                 <div className="p-6 bg-slate-50 dark:bg-slate-900/30 border-b border-border">
-                  <form onSubmit={handlePreAssignRole} className="flex flex-col sm:flex-row items-end gap-4">
-                    <div className="flex-1 space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pre-asignar Acceso por Correo</Label>
+                  <form onSubmit={handlePreAssignRole} className="flex flex-col lg:flex-row items-end gap-4">
+                    <div className="flex-1 w-full space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Registrar / Asignar Usuario</Label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                        <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
                         <Input 
-                          type="email" 
-                          placeholder="correo@empleado.com" 
+                          type="text" 
+                          placeholder="Nombre de usuario (ej: carlos)" 
                           value={preAssignEmail}
                           onChange={(e) => setPreAssignEmail(e.target.value)}
                           className="h-10 pl-10 text-xs font-bold bg-background rounded-xl border-border"
@@ -968,7 +1001,21 @@ export default function ManagementPage() {
                       </div>
                     </div>
 
-                    <div className="w-full sm:w-[200px] space-y-2">
+                    <div className="flex-1 w-full space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Contraseña Inicial</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                        <Input 
+                          type="text" 
+                          placeholder="Contraseña (mín. 5 caracteres)" 
+                          value={preAssignPassword}
+                          onChange={(e) => setPreAssignPassword(e.target.value)}
+                          className="h-10 pl-10 text-xs font-bold bg-background rounded-xl border-border"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="w-full lg:w-[200px] space-y-2">
                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Rol del Puesto</Label>
                       <Select 
                         value={preAssignRole} 
@@ -993,9 +1040,9 @@ export default function ManagementPage() {
                     <Button 
                       type="submit" 
                       disabled={isSaving}
-                      className="w-full sm:w-auto h-10 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20 px-6"
+                      className="w-full lg:w-auto h-10 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-violet-600/20 px-6"
                     >
-                      {isSaving ? <Loader2 className="animate-spin" size={16} /> : "+ ASIGNAR"}
+                      {isSaving ? <Loader2 className="animate-spin" size={16} /> : "+ CREAR USUARIO"}
                     </Button>
                   </form>
                 </div>

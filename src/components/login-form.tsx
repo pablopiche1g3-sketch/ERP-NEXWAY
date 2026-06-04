@@ -23,8 +23,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
-  email: z.string().email({
-    message: "Por favor, ingresa un correo electrónico válido.",
+  email: z.string().min(3, {
+    message: "Por favor, ingresa un usuario o correo válido.",
   }),
   password: z.string().min(5, {
     message: "La contraseña debe tener al menos 5 caracteres.",
@@ -49,7 +49,10 @@ export default function LoginForm() {
     setIsLoading(true)
     setAuthError(null)
     
-    const email = values.email.toLowerCase().trim()
+    let email = values.email.toLowerCase().trim()
+    if (!email.includes('@')) {
+      email = `${email}@nexway.local`
+    }
     const password = values.password
 
     try {
@@ -94,7 +97,7 @@ export default function LoginForm() {
       console.error(error)
       let message = error.message || "Correo o contraseña incorrectos."
       if (message.includes("Invalid login credentials")) {
-        message = "El correo electrónico no está registrado o la contraseña es incorrecta."
+        message = "El usuario no está registrado o la contraseña es incorrecta."
       }
       
       setAuthError(message)
@@ -151,14 +154,14 @@ export default function LoginForm() {
               render={({ field }) => (
                 <FormItem className="space-y-2">
                   <FormLabel className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">
-                    Correo Electrónico
+                    Usuario o Correo
                   </FormLabel>
                   <FormControl>
                     <div className="relative group">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
                       <Input 
-                        type="email"
-                        placeholder="ejemplo@correo.com" 
+                        type="text"
+                        placeholder="Ingresa tu usuario o correo" 
                         {...field} 
                         className="pl-11 pr-4 bg-slate-50/50 dark:bg-slate-950/40 border-slate-200/80 dark:border-slate-800/80 h-12 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all font-medium"
                       />
