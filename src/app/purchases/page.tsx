@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {  useFirestore, useCollection  } from '@/supabase/compat';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -80,6 +81,12 @@ export default function PurchasesPage() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+
+  // Estados para productos DTE no creados
+  const [uncreatedDteProducts, setUncreatedDteProducts] = useState<any[]>([]);
+  const [isUncreatedDialogOpen, setIsUncreatedDialogOpen] = useState(false);
+  const [selectedUncreatedCategory, setSelectedUncreatedCategory] = useState<Record<string, string>>({});
+  const [selectedUncreatedPrice, setSelectedUncreatedPrice] = useState<Record<string, string>>({});
 
   // Función para cargar los datos relacionados de forma segura
   const loadPurchasesData = async () => {
@@ -143,6 +150,77 @@ export default function PurchasesPage() {
       console.error('Error al cargar datos en compras:', e);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleCreateUncreatedProduct = async (productIndex: number) => {
+    const p = uncreatedDteProducts[productIndex];
+    const category = selectedUncreatedCategory[p.sku] || 'Inventario de Mercadería';
+    const priceVal = parseFloat(selectedUncreatedPrice[p.sku] || '0') || (p.cost * 1.3); // default PVP is Cost * 1.3
+
+    try {
+      // 1. Insert in public.inventory
+      const { data, error } = await supabase
+        .from('inventory')
+        .insert({
+          sku: p.sku,
+          name: p.name,
+          category: category,
+          price: priceVal
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // 2. Add to local inventory state so it behaves normally in later steps
+      const newInventoryItem = {
+        id: p.sku,
+        sku: p.sku,
+        name: p.name,
+        category: category,
+        price: priceVal,
+        quantity: 0,
+        bodegas: {}
+      };
+      setInventory(prev => [...prev, newInventoryItem]);
+
+      // 3. Add to purchaseItems (cart)
+      setPurchaseItems(prev => {
+        const existing = prev.find(item => item.sku === p.sku);
+        if (existing) {
+          return prev.map(item => 
+            item.sku === p.sku ? { ...item, quantity: item.quantity + p.quantity, cost: p.cost } : item
+          );
+        }
+        return [...prev, {
+          id: p.sku,
+          sku: p.sku,
+          name: p.name,
+          quantity: p.quantity,
+          cost: p.cost
+        }];
+      });
+
+      // 4. Remove from queue
+      const updatedQueue = uncreatedDteProducts.filter((_, idx) => idx !== productIndex);
+      setUncreatedDteProducts(updatedQueue);
+
+      toast({ 
+        title: "Producto Creado", 
+        description: `El código ${p.sku} se creó y vinculó a la cuenta '${category}'.` 
+      });
+
+      if (updatedQueue.length === 0) {
+        setIsUncreatedDialogOpen(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al crear", 
+        description: err.message || "No se pudo registrar el producto en Supabase." 
+      });
     }
   };
 
@@ -330,7 +408,6 @@ export default function PurchasesPage() {
     setSupplierName(supplier.name);
     toast({ title: "Proveedor Seleccionado", description: `${supplier.name} cargado correctamente.` });
   };
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -340,6 +417,7 @@ export default function PurchasesPage() {
       try {
         const json = JSON.parse(event.target?.result as string);
         let itemsToLoad: any[] = [];
+        let uncreated: any[] = [];
         let detectedCount = 0;
 
         if (json.identificacion && json.emisor && json.cuerpoDocumento) {
@@ -358,13 +436,30 @@ export default function PurchasesPage() {
                 id: product.id,
                 sku: product.sku,
                 name: product.name,
-                quantity: item.cantidad || 0,
+                quantity: item.quantity || 0,
                 cost: item.precioUnitario || 0
               });
               detectedCount++;
+            } else {
+              uncreated.push({
+                sku: (item.codigo || `TEMP-${Date.now().toString().slice(-4)}`).toUpperCase(),
+                name: item.descripcion || 'Producto sin nombre',
+                quantity: item.quantity || 0,
+                cost: item.precioUnitario || 0
+              });
             }
           });
-          toast({ title: "DTE V3 Detectado", description: `Se identificó proveedor y ${detectedCount} productos compatibles.` });
+          
+          if (uncreated.length > 0) {
+            setUncreatedDteProducts(uncreated);
+            setIsUncreatedDialogOpen(true);
+            toast({
+              title: "DTE V3 con Códigos Pendientes",
+              description: `Se encontraron ${uncreated.length} productos sin registrar en el inventario maestro.`
+            });
+          } else {
+            toast({ title: "DTE V3 Detectado", description: `Se identificó proveedor y ${detectedCount} productos compatibles.` });
+          }
         } 
         else if (Array.isArray(json)) {
           json.forEach(item => {
@@ -378,9 +473,22 @@ export default function PurchasesPage() {
                 cost: parseFloat(item.price) || 0
               });
               detectedCount++;
+            } else {
+              uncreated.push({
+                sku: (item.sku || `TEMP-${Date.now().toString().slice(-4)}`).toUpperCase(),
+                name: item.name || 'Producto sin nombre',
+                quantity: parseInt(item.quantity) || 0,
+                cost: parseFloat(item.price) || 0
+              });
             }
           });
-          toast({ title: "JSON Cargado", description: `Se añadieron ${detectedCount} productos válidos.` });
+          
+          if (uncreated.length > 0) {
+            setUncreatedDteProducts(uncreated);
+            setIsUncreatedDialogOpen(true);
+          } else {
+            toast({ title: "JSON Cargado", description: `Se añadieron ${detectedCount} productos válidos.` });
+          }
         } else {
           toast({ variant: "destructive", title: "Formato Desconocido", description: "El archivo no coincide con el estándar DTE V3 de El Salvador." });
           return;
@@ -688,6 +796,102 @@ export default function PurchasesPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={isUncreatedDialogOpen} onOpenChange={setIsUncreatedDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-4 overflow-hidden rounded-3xl border shadow-xl">
+          <DialogHeader className="px-1 pt-1">
+            <DialogTitle className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
+              <AlertTriangle className="text-amber-500" size={20} />
+              Productos DTE No Registrados
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Hemos detectado códigos en el archivo de compra DTE que no existen en el inventario. Define su vinculación contable y precio de venta pública (PVP) para poder agregarlos.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 pr-2">
+            <div className="space-y-4 py-2">
+              {uncreatedDteProducts.map((p, index) => {
+                const category = selectedUncreatedCategory[p.sku] || 'Inventario de Mercadería';
+                const priceVal = selectedUncreatedPrice[p.sku] || '';
+                const suggestedPrice = (p.cost * 1.3).toFixed(2);
+                return (
+                  <div key={p.sku} className="p-4 border rounded-2xl bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-[10px] font-bold text-primary border-primary/20 bg-primary/5">
+                          {p.sku}
+                        </Badge>
+                        <span className="text-xs font-bold text-muted-foreground">
+                          Costo: ${p.cost.toFixed(2)}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-foreground leading-snug">{p.name}</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[280px] md:min-w-[340px]">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Vínculo Contable</Label>
+                        <Select 
+                          value={category} 
+                          onValueChange={(val) => setSelectedUncreatedCategory(prev => ({ ...prev, [p.sku]: val }))}
+                        >
+                          <SelectTrigger className="h-9 text-xs rounded-xl bg-card border">
+                            <SelectValue placeholder="Seleccione Categoría" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            <SelectItem value="Inventario de Mercadería">Inventario de Mercadería</SelectItem>
+                            <SelectItem value="Gastos de Administración">Gastos de Administración</SelectItem>
+                            <SelectItem value="Gastos de Venta">Gastos de Venta</SelectItem>
+                            <SelectItem value="Propiedad, Planta y Equipo">Propiedad, Planta y Equipo</SelectItem>
+                            <SelectItem value="General">General</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground flex justify-between">
+                          <span>Precio Venta (PVP)</span>
+                          <span className="text-[9px] text-muted-foreground lowercase">sug. ${suggestedPrice}</span>
+                        </Label>
+                        <Input 
+                          type="number" 
+                          placeholder={suggestedPrice}
+                          value={priceVal} 
+                          onChange={(e) => setSelectedUncreatedPrice(prev => ({ ...prev, [p.sku]: e.target.value }))}
+                          className="h-9 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-card rounded-xl border"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-end pt-2 md:pt-0">
+                      <Button 
+                        onClick={() => handleCreateUncreatedProduct(index)}
+                        className="w-full md:w-auto h-9 bg-primary text-primary-foreground font-bold text-xs rounded-xl px-4"
+                      >
+                        Crear y Añadir
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="border-t pt-3 flex items-center justify-between sm:justify-between">
+            <span className="text-[10px] text-muted-foreground font-medium">
+              * El precio de venta por defecto si se deja en blanco es Costo + 30% de margen.
+            </span>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsUncreatedDialogOpen(false)}
+              className="rounded-xl h-9 text-xs font-bold"
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+}

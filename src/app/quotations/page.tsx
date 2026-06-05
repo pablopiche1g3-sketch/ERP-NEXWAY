@@ -49,9 +49,9 @@ export default function QuotationsPage() {
   const [customerNit, setCustomerNit] = useState('');
   const [customerNrc, setCustomerNrc] = useState('');
 
-  // Sincronización de catálogo maestro desde Supabase
+  // Sincronización de catálogo maestro desde Supabase  
   const [inventory, setInventory] = useState<any[]>([]);
-  const [loadingInv, setLoadingInv] = useState(true);
+  const [loadingInv, setLoadingInv] = useState(false);
 
   // Estados para productos personalizados / sin existencia
   const [customName, setCustomName] = useState('');
@@ -59,10 +59,19 @@ export default function QuotationsPage() {
   const [customPrice, setCustomPrice] = useState('');
   const [customQty, setCustomQty] = useState('1');
 
-  const loadInventory = async () => {
+  const handleSearchInventory = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!searchTerm.trim()) {
+      setInventory([]);
+      return;
+    }
     try {
       setLoadingInv(true);
-      const { data, error } = await supabase.from('inventory').select('*').order('sku');
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('*')
+        .or(`sku.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
+        .limit(50);
       if (error) throw error;
       setInventory((data || []).map(p => ({
         id: p.sku,
@@ -73,23 +82,13 @@ export default function QuotationsPage() {
       })));
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo sincronizar el catálogo de inventario." });
+      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la búsqueda de productos." });
     } finally {
       setLoadingInv(false);
     }
   };
 
-  useEffect(() => {
-    loadInventory();
-  }, []);
-
-  const filteredProducts = useMemo(() => {
-    if (!inventory || !searchTerm.trim()) return [];
-    return inventory.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, inventory]);
+  const filteredProducts = inventory;
 
   const addToQuote = (product: any) => {
     setQuoteItems(prev => {
@@ -425,15 +424,20 @@ export default function QuotationsPage() {
                 <Package size={16} className="text-blue-500" />
                 Catálogo de Códigos Autorizados
               </h2>
-              <div className="relative w-full md:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <Input 
-                  placeholder="Filtrar por SKU o nombre..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10 bg-white border-none shadow-sm rounded-xl text-sm font-medium"
-                />
-              </div>
+              <form onSubmit={handleSearchInventory} className="relative w-full md:w-80 flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <Input 
+                    placeholder="Buscar por SKU o nombre (Presiona Enter)..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-10 bg-white border-none shadow-sm rounded-xl text-sm font-medium"
+                  />
+                </div>
+                <Button type="submit" className="h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-4 font-bold shrink-0">
+                  Buscar
+                </Button>
+              </form>
             </div>
 
             <ScrollArea className="h-[400px]">

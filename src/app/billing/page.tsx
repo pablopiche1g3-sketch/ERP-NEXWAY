@@ -284,9 +284,37 @@ export default function BillingPage() {
         .like('description', 'Abono a Crédito [%');
       setJournalPayments(jData || []);
 
-      // Cargar catálogo de inventario maestro y stock
-      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
-      const { data: stockData } = await supabase.from('inventory_stock').select('*');
+    } catch (e: any) {
+      console.error('Error al cargar datos en facturación:', e);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handleSearchInventory = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!searchTerm.trim()) {
+      setInventory([]);
+      return;
+    }
+    setLoadingData(true);
+    try {
+      const { data: whData } = await supabase.from('warehouses').select('*');
+      const { data: invData } = await supabase
+        .from('inventory')
+        .select('*')
+        .or(`sku.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
+        .limit(50);
+      
+      const foundSkus = (invData || []).map(item => item.sku);
+      let stockData: any[] = [];
+      if (foundSkus.length > 0) {
+        const { data: stData } = await supabase
+          .from('inventory_stock')
+          .select('*')
+          .in('sku', foundSkus);
+        stockData = stData || [];
+      }
 
       const whMap: Record<string, string> = {};
       (whData || []).forEach(w => {
@@ -294,7 +322,7 @@ export default function BillingPage() {
       });
 
       const mappedInventory = (invData || []).map(item => {
-        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
+        const itemStocks = stockData.filter(s => s.sku === item.sku);
         const bodegasMap: Record<string, number> = {};
         itemStocks.forEach(s => {
           const whName = whMap[s.warehouse_id];
@@ -321,9 +349,9 @@ export default function BillingPage() {
       });
 
       setInventory(mappedInventory);
-
-    } catch (e: any) {
-      console.error('Error al cargar datos en facturación:', e);
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la búsqueda." });
     } finally {
       setLoadingData(false);
     }
@@ -396,14 +424,7 @@ export default function BillingPage() {
     }
   };
 
-  // Filters
-  const filteredProducts = useMemo(() => {
-    if (!inventory || !searchTerm.trim()) return [];
-    return inventory.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [searchTerm, inventory]);
+  const filteredProducts = inventory;
 
   const filteredCustomers = useMemo(() => {
     if (!customers) return [];
@@ -1014,21 +1035,45 @@ export default function BillingPage() {
               </Card>
 
               {/* Input Buscador con Filtros */}
-              <div className="flex gap-3">
+              <form onSubmit={handleSearchInventory} className="flex gap-3 relative">
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={15} />
                   <Input 
-                    placeholder="Buscar por SKU, código o nombre de producto..." 
+                    placeholder="Buscar por SKU, código o nombre (Presione Enter)..." 
                     value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)} 
+                    onChange={e => {
+                      setSearchTerm(e.target.value);
+                      if (!e.target.value) setInventory([]);
+                    }} 
                     className="pl-10 h-12 bg-white dark:bg-zinc-900/60 border-slate-200/60 dark:border-zinc-800/60 shadow-sm rounded-2xl text-xs md:text-sm font-semibold focus-visible:ring-indigo-500" 
                   />
+                  {/* Absolute search results dropdown */}
+                  {inventory.length > 0 && searchTerm.trim() !== "" && (
+                    <Card className="absolute left-0 right-0 mt-2 bg-white dark:bg-zinc-950 border border-slate-250 dark:border-zinc-800 shadow-2xl z-50 max-h-64 overflow-y-auto no-scrollbar rounded-2xl p-1">
+                      {inventory.map((p) => (
+                        <div 
+                          key={p.id} 
+                          onClick={() => {
+                            addToCart(p);
+                            setSearchTerm('');
+                            setInventory([]);
+                          }}
+                          className="p-3 hover:bg-slate-100 dark:hover:bg-zinc-900 cursor-pointer rounded-xl border-b last:border-none border-slate-100 dark:border-zinc-900 flex justify-between items-center transition-colors"
+                        >
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{p.name}</span>
+                            <span className="text-[9px] text-slate-450 dark:text-slate-500 font-mono">SKU: {p.sku} • Stock: {p.quantity}</span>
+                          </div>
+                          <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">${p.price.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </Card>
+                  )}
                 </div>
-                <Button variant="outline" className="h-12 border-slate-200 dark:border-zinc-800/60 hover:bg-slate-100 dark:hover:bg-zinc-800 bg-white dark:bg-zinc-900/60 rounded-2xl px-4 flex items-center gap-2 text-xs font-bold shrink-0">
-                  <SlidersHorizontal size={14} className="text-slate-500" />
-                  Filtros
+                <Button type="submit" className="h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-600/20 px-6">
+                  Buscar
                 </Button>
-              </div>
+              </form>
 
               {/* Detalle de Productos en Tabla */}
               <div className="space-y-3">
@@ -1145,7 +1190,7 @@ export default function BillingPage() {
                       </div>
                       <div className="space-y-1.5">
                          <Label className="text-[10px] font-black uppercase text-muted-foreground">Cliente</Label>
-                         <Input placeholder="Nombre del cliente..." value={adjustmentForm.customerName} onChange={e => setAdjustmentForm({...adjustmentForm, customerName: e.target.value})} className="h-10 bg-muted border-none rounded-xl text-xs font-bold" />
+                          <Input placeholder="Nombre del cliente..." value={adjustmentForm.customerName} onChange={e => setAdjustmentForm({...adjustmentForm, customerName: e.target.value})} className="h-10 bg-muted border-none rounded-xl text-xs font-bold" />
                       </div>
                    </div>
                    <div className="space-y-1.5">
@@ -1153,10 +1198,15 @@ export default function BillingPage() {
                       <Textarea placeholder="Ej: Mercadería dañada, error en precio..." value={adjustmentForm.reason} onChange={e => setAdjustmentForm({...adjustmentForm, reason: e.target.value})} className="bg-muted border-none rounded-xl text-xs" />
                    </div>
                 </Card>
-                <div className="relative">
-                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                   <Input placeholder="Buscar productos para devolución..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-card border shadow-sm rounded-2xl text-xs" />
-                </div>
+                <form onSubmit={handleSearchInventory} className="relative flex gap-2">
+                    <div className="relative flex-1">
+                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                       <Input placeholder="Buscar productos para devolución (Presione Enter)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-card border shadow-sm rounded-2xl text-xs" />
+                    </div>
+                    <Button type="submit" className="h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl px-6 font-bold shrink-0 text-xs">
+                       Buscar
+                    </Button>
+                </form>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                    {filteredProducts.slice(0, 8).map(p => (
                       <div key={p.id} onClick={() => addAdjustmentItem(p)} className="bg-card p-3 rounded-2xl border hover:border-rose-500 cursor-pointer transition-all flex flex-col justify-between aspect-square group">

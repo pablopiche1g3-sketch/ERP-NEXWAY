@@ -155,10 +155,37 @@ export default function InstitutionalModulePage() {
         setCashConfig(confData.value);
       }
 
-      // 6. Cargar catálogo de inventario maestro y stock consolidado por bodega
+    } catch (e) {
+      console.error("Error al cargar datos en institucional:", e);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  const handleSearchInventory = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!searchTerm.trim()) {
+      setInventory([]);
+      return;
+    }
+    setLoadingProjects(true);
+    try {
       const { data: whData } = await supabase.from('warehouses').select('*');
-      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
-      const { data: stockData } = await supabase.from('inventory_stock').select('*');
+      const { data: invData } = await supabase
+        .from('inventory')
+        .select('*')
+        .or(`sku.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
+        .limit(50);
+      
+      const foundSkus = (invData || []).map(item => item.sku);
+      let stockData: any[] = [];
+      if (foundSkus.length > 0) {
+        const { data: stData } = await supabase
+          .from('inventory_stock')
+          .select('*')
+          .in('sku', foundSkus);
+        stockData = stData || [];
+      }
 
       const whMap: Record<string, string> = {};
       (whData || []).forEach(w => {
@@ -166,7 +193,7 @@ export default function InstitutionalModulePage() {
       });
 
       const mappedInventory = (invData || []).map(item => {
-        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
+        const itemStocks = stockData.filter(s => s.sku === item.sku);
         const bodegasMap: Record<string, number> = {};
         itemStocks.forEach(s => {
           const whName = whMap[s.warehouse_id];
@@ -189,9 +216,9 @@ export default function InstitutionalModulePage() {
       });
 
       setInventory(mappedInventory);
-
-    } catch (e) {
-      console.error("Error al cargar datos en institucional:", e);
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la búsqueda." });
     } finally {
       setLoadingProjects(false);
     }
@@ -403,13 +430,7 @@ export default function InstitutionalModulePage() {
     }
   };
 
-  const filteredInventory = useMemo(() => {
-    if (!inventory || !searchTerm.trim()) return [];
-    return inventory.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [searchTerm, inventory]);
+  const filteredInventory = inventory;
 
   const filteredCustomers = useMemo(() => {
     if (!customers) return [];
@@ -666,10 +687,15 @@ export default function InstitutionalModulePage() {
                    </div>
                 </Card>
 
-                <div className="relative">
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                   <Input placeholder="Buscar suministros..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl" />
-                </div>
+                 <form onSubmit={handleSearchInventory} className="relative flex gap-2">
+                    <div className="relative flex-1">
+                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                       <Input placeholder="Buscar suministros (Presione Enter)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-sm font-medium" />
+                    </div>
+                    <Button type="submit" className="h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl px-6 font-bold shrink-0">
+                       Buscar
+                    </Button>
+                 </form>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                    {filteredInventory.slice(0, 12).map(p => (
@@ -900,7 +926,13 @@ export default function InstitutionalModulePage() {
                  </div>
                  <div className="space-y-4">
                     <Label className="text-[10px] font-bold uppercase">Suministros Comprometidos</Label>
-                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} /><Input placeholder="Buscar en maestro..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 h-9 text-xs" /></div>
+                    <form onSubmit={handleSearchInventory} className="flex gap-1.5">
+                       <div className="relative flex-1">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={12} />
+                          <Input placeholder="Buscar en maestro..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-8 h-8 text-xs bg-white" />
+                       </div>
+                       <Button type="submit" size="sm" className="h-8 text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-2">Buscar</Button>
+                    </form>
                     <ScrollArea className="h-[250px] border rounded-2xl p-2 bg-muted/20">
                        {filteredInventory.slice(0, 20).map(p => (
                           <div key={p.id} onClick={() => setNewProject({...newProject, items: [...newProject.items, { ...p, quantity: 1 }]})} className="p-2 hover:bg-card cursor-pointer rounded-lg border-b last:border-0 flex justify-between items-center transition-colors">
