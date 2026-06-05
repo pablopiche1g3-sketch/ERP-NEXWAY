@@ -1194,30 +1194,48 @@ export default function BillingPage() {
                       </div>
                    </div>
                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Motivo del Ajuste / Devolución</Label>
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Motivo del Ajuste / Devolución (Nota de Crédito)</Label>
                       <Textarea placeholder="Ej: Mercadería dañada, error en precio..." value={adjustmentForm.reason} onChange={e => setAdjustmentForm({...adjustmentForm, reason: e.target.value})} className="bg-muted border-none rounded-xl text-xs" />
                    </div>
                 </Card>
                 <form onSubmit={handleSearchInventory} className="relative flex gap-2">
                     <div className="relative flex-1">
                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                       <Input placeholder="Buscar productos para devolución (Presione Enter)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-card border shadow-sm rounded-2xl text-xs" />
+                       <Input 
+                         placeholder="Buscar productos para devolución (Presione Enter)..." 
+                         value={searchTerm} 
+                         onChange={e => {
+                           setSearchTerm(e.target.value);
+                           if (!e.target.value) setInventory([]);
+                         }} 
+                         className="pl-10 h-12 bg-card border shadow-sm rounded-2xl text-xs" 
+                       />
+                       {inventory.length > 0 && searchTerm.trim() !== "" && (
+                         <Card className="absolute left-0 right-0 mt-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 shadow-2xl z-50 max-h-64 overflow-y-auto no-scrollbar rounded-2xl p-1">
+                           {inventory.map((p) => (
+                             <div 
+                               key={p.id} 
+                               onClick={() => {
+                                 addAdjustmentItem(p);
+                                 setSearchTerm('');
+                                 setInventory([]);
+                               }}
+                               className="p-3 hover:bg-slate-100 dark:hover:bg-zinc-900 cursor-pointer rounded-xl border-b last:border-none border-slate-100 dark:border-zinc-900 flex justify-between items-center transition-colors"
+                             >
+                               <div className="flex flex-col gap-0.5">
+                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{p.name}</span>
+                                 <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">SKU: {p.sku}</span>
+                               </div>
+                               <span className="text-xs font-black text-rose-600">${p.price.toFixed(2)}</span>
+                             </div>
+                           ))}
+                         </Card>
+                       )}
                     </div>
                     <Button type="submit" className="h-12 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl px-6 font-bold shrink-0 text-xs">
                        Buscar
                     </Button>
                 </form>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                   {filteredProducts.slice(0, 8).map(p => (
-                      <div key={p.id} onClick={() => addAdjustmentItem(p)} className="bg-card p-3 rounded-2xl border hover:border-rose-500 cursor-pointer transition-all flex flex-col justify-between aspect-square group">
-                         <h3 className="text-[10px] font-bold leading-tight line-clamp-2">{p.name}</h3>
-                         <div className="mt-2 pt-2 border-t flex justify-between items-center">
-                            <span className="font-black text-rose-600">${p.price}</span>
-                            <PlusCircle size={14} className="text-rose-500" />
-                         </div>
-                      </div>
-                   ))}
-                </div>
              </div>
           </TabsContent>
 
@@ -1269,7 +1287,7 @@ export default function BillingPage() {
                       </div>
                    </div>
                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Razón del Cargo Adicional</Label>
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Razón del Cargo Adicional (Nota de Débito)</Label>
                       <Textarea placeholder="Ej: Intereses por mora, flete no cobrado, ajuste de precio..." value={adjustmentForm.reason} onChange={e => setAdjustmentForm({...adjustmentForm, reason: e.target.value})} className="bg-muted border-none rounded-xl text-xs" />
                    </div>
                 </Card>
@@ -1277,17 +1295,44 @@ export default function BillingPage() {
                    <AlertCircle className="text-amber-600 mt-0.5" size={16} />
                    <p className="text-[10px] text-amber-700">Las notas de débito incrementan el valor del documento original. Asegúrese de que el concepto sea legalmente válido.</p>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                   {filteredProducts.slice(0, 4).map(p => (
-                      <div key={p.id} onClick={() => addAdjustmentItem(p)} className="bg-card p-3 rounded-2xl border hover:border-amber-500 cursor-pointer transition-all flex flex-col justify-between aspect-square group">
-                         <h3 className="text-[10px] font-bold leading-tight line-clamp-2">{p.name}</h3>
-                         <div className="mt-2 pt-2 border-t flex justify-between items-center">
-                            <span className="font-black text-amber-600">${p.price}</span>
-                            <PlusCircle size={14} className="text-amber-500" />
-                         </div>
-                      </div>
-                   ))}
-                </div>
+                <form onSubmit={handleSearchInventory} className="relative flex gap-2">
+                    <div className="relative flex-1">
+                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                       <Input 
+                         placeholder="Buscar conceptos de cargo (Presione Enter)..." 
+                         value={searchTerm} 
+                         onChange={e => {
+                           setSearchTerm(e.target.value);
+                           if (!e.target.value) setInventory([]);
+                         }} 
+                         className="pl-10 h-12 bg-card border shadow-sm rounded-2xl text-xs" 
+                       />
+                       {inventory.length > 0 && searchTerm.trim() !== "" && (
+                         <Card className="absolute left-0 right-0 mt-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 shadow-2xl z-50 max-h-64 overflow-y-auto no-scrollbar rounded-2xl p-1">
+                           {inventory.map((p) => (
+                             <div 
+                               key={p.id} 
+                               onClick={() => {
+                                 addAdjustmentItem(p);
+                                 setSearchTerm('');
+                                 setInventory([]);
+                               }}
+                               className="p-3 hover:bg-slate-100 dark:hover:bg-zinc-900 cursor-pointer rounded-xl border-b last:border-none border-slate-100 dark:border-zinc-900 flex justify-between items-center transition-colors"
+                             >
+                               <div className="flex flex-col gap-0.5">
+                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{p.name}</span>
+                                 <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">SKU: {p.sku}</span>
+                               </div>
+                               <span className="text-xs font-black text-amber-600">${p.price.toFixed(2)}</span>
+                             </div>
+                           ))}
+                         </Card>
+                       )}
+                    </div>
+                    <Button type="submit" className="h-12 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl px-6 font-bold shrink-0 text-xs">
+                       Buscar
+                    </Button>
+                </form>
              </div>
           </TabsContent>
 
