@@ -1195,7 +1195,20 @@ export default function BillingPage() {
                    </div>
                    <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-muted-foreground">Motivo del Ajuste / Devolución (Nota de Crédito)</Label>
-                      <Textarea placeholder="Ej: Mercadería dañada, error en precio..." value={adjustmentForm.reason} onChange={e => setAdjustmentForm({...adjustmentForm, reason: e.target.value})} className="bg-muted border-none rounded-xl text-xs" />
+                      <Select 
+                        value={adjustmentForm.reason} 
+                        onValueChange={(val) => setAdjustmentForm({...adjustmentForm, reason: val})}
+                      >
+                        <SelectTrigger className="h-10 rounded-xl bg-muted border-none text-xs font-bold">
+                          <SelectValue placeholder="Seleccione el motivo de la Nota de Crédito" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="Devoluciones de mercancías (Cliente retorna producto)">Devoluciones de mercancías</SelectItem>
+                          <SelectItem value="Anulación o Invalidación fuera de tiempo legal">Anulaciones o Invalidadas fuera de tiempo</SelectItem>
+                          <SelectItem value="Descuentos o bonificaciones post-venta concedidos">Descuentos o bonificaciones post-venta</SelectItem>
+                          <SelectItem value="Corrección de errores a la baja (Precio o cantidad menor)">Corrección de errores (A la baja)</SelectItem>
+                        </SelectContent>
+                      </Select>
                    </div>
                 </Card>
                 <form onSubmit={handleSearchInventory} className="relative flex gap-2">
@@ -1288,7 +1301,19 @@ export default function BillingPage() {
                    </div>
                    <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-muted-foreground">Razón del Cargo Adicional (Nota de Débito)</Label>
-                      <Textarea placeholder="Ej: Intereses por mora, flete no cobrado, ajuste de precio..." value={adjustmentForm.reason} onChange={e => setAdjustmentForm({...adjustmentForm, reason: e.target.value})} className="bg-muted border-none rounded-xl text-xs" />
+                      <Select 
+                        value={adjustmentForm.reason} 
+                        onValueChange={(val) => setAdjustmentForm({...adjustmentForm, reason: val})}
+                      >
+                        <SelectTrigger className="h-10 rounded-xl bg-muted border-none text-xs font-bold">
+                          <SelectValue placeholder="Seleccione el motivo de la Nota de Débito" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="Intereses por mora (Cargos financieros por atraso)">Intereses por mora</SelectItem>
+                          <SelectItem value="Gastos de transporte o fletes adicionales cobrados a posteriori">Gastos de transporte o fletes adicionales</SelectItem>
+                          <SelectItem value="Diferencias de precio al alza (Precio cobrado fue menor al real)">Diferencias de precio (Al alza)</SelectItem>
+                        </SelectContent>
+                      </Select>
                    </div>
                 </Card>
                 <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3">
