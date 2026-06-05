@@ -117,6 +117,80 @@ export default function InventoryMasterPage() {
     }
   }, [config, activeTab, tabsList]);
 
+  // Pricing edit states
+  const [selectedPriceProduct, setSelectedPriceProduct] = useState<any | null>(null);
+  const [priceValue, setPriceValue] = useState<string>('');
+  const [selectedPriceCategory, setSelectedPriceCategory] = useState<string>('General');
+  const [selectedPriceSupplierSku, setSelectedPriceSupplierSku] = useState<string>('');
+  const [savingPrice, setSavingPrice] = useState(false);
+
+  const handleSelectPriceProduct = async (sku: string) => {
+    const prod = inventory.find(p => p.sku === sku);
+    if (!prod) return;
+    setSelectedPriceProduct(prod);
+    setPriceValue(prod.price.toString());
+    setSelectedPriceCategory(prod.category || 'General');
+
+    // Cargar vinculación de proveedor si existe
+    const { data: mapping } = await supabase
+      .from('supplier_mappings')
+      .select('supplier_code')
+      .eq('internal_sku', sku)
+      .maybeSingle();
+    
+    setSelectedPriceSupplierSku(mapping?.supplier_code || '');
+  };
+
+  const handleSavePrice = async () => {
+    if (!selectedPriceProduct) return;
+    setSavingPrice(true);
+    try {
+      // 1. Actualizar precio y categoría en public.inventory
+      const { error: invErr } = await supabase
+        .from('inventory')
+        .update({
+          price: parseFloat(priceValue) || 0,
+          category: selectedPriceCategory
+        })
+        .eq('sku', selectedPriceProduct.sku);
+
+      if (invErr) throw invErr;
+
+      // 2. Registrar/actualizar SKU del proveedor en public.supplier_mappings si no está en blanco
+      if (selectedPriceSupplierSku.trim()) {
+        const { error: mapErr } = await supabase
+          .from('supplier_mappings')
+          .upsert({
+            supplier_code: selectedPriceSupplierSku.trim().toUpperCase(),
+            internal_sku: selectedPriceProduct.sku,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'supplier_code'
+          });
+        
+        if (mapErr) throw mapErr;
+      }
+
+      toast({ 
+        title: "Cambios Guardados", 
+        description: `Se actualizó el producto ${selectedPriceProduct.sku} con éxito.` 
+      });
+      setSelectedPriceProduct(null);
+      setPriceValue('');
+      setSelectedPriceSupplierSku('');
+      await loadSupabaseData();
+    } catch (err: any) {
+      console.error(err);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al actualizar", 
+        description: err.message || "No se pudieron registrar las modificaciones del producto." 
+      });
+    } finally {
+      setSavingPrice(false);
+    }
+  };
+
   // Vinculación States
   const [supplierItems, setSupplierItems] = useState<SupplierItem[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -1426,6 +1500,161 @@ export default function InventoryMasterPage() {
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          {/* TAB PRECIOS */}
+          <TabsContent value="precios" className="space-y-4 outline-none">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
+              {/* Formulario Izquierdo: Editor de Precios y Mapeo */}
+              <div className="lg:col-span-4 space-y-6">
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Tag className="text-blue-400" size={18} /> Editor de Precios y Vinculación
+                    </CardTitle>
+                    <CardDescription className="text-slate-400 text-xs">
+                      Selecciona un producto de la lista para modificar su precio al público y vincularlo con su código contable o código del proveedor.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    {selectedPriceProduct ? (
+                      <div className="space-y-4">
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-muted/30 border space-y-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Producto Seleccionado</span>
+                          <h4 className="text-xs font-black text-slate-800 dark:text-foreground">{selectedPriceProduct.name}</h4>
+                          <p className="text-[10px] font-mono text-muted-foreground mt-1">SKU Interno: {selectedPriceProduct.sku}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Precio Venta Público (PVP)</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-muted-foreground">$</span>
+                            <Input 
+                              type="number" 
+                              placeholder="0.00" 
+                              value={priceValue} 
+                              onChange={e => setPriceValue(e.target.value)}
+                              className="pl-7 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold text-emerald-600 dark:text-emerald-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Categoría / Área Contable</Label>
+                          <Select 
+                            value={selectedPriceCategory} 
+                            onValueChange={setSelectedPriceCategory}
+                          >
+                            <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="Inventario de Mercadería">Inventario de Mercadería</SelectItem>
+                              <SelectItem value="Gastos de Administración">Gastos de Administración</SelectItem>
+                              <SelectItem value="Gastos de Venta">Gastos de Venta</SelectItem>
+                              <SelectItem value="Propiedad, Planta y Equipo">Propiedad, Planta y Equipo</SelectItem>
+                              <SelectItem value="General">General</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Código del Proveedor (DTE)</Label>
+                          <Input 
+                            placeholder="Código con el que factura el proveedor..." 
+                            value={selectedPriceSupplierSku} 
+                            onChange={e => setSelectedPriceSupplierSku(e.target.value)}
+                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                          />
+                          <p className="text-[9px] text-muted-foreground">Si el proveedor factura este producto con otro código, ingrésalo aquí para que las compras se registren automáticamente.</p>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setSelectedPriceProduct(null)} 
+                            className="w-1/3 h-11 rounded-xl text-xs font-bold"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button 
+                            onClick={handleSavePrice}
+                            disabled={savingPrice} 
+                            className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs"
+                          >
+                            {savingPrice ? <Loader2 className="animate-spin" size={16} /> : "Guardar Cambios"}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-slate-400 dark:text-muted-foreground italic text-xs">
+                        Selecciona un producto del catálogo para gestionar su precio y vinculación.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Tabla Derecha: Listado de Productos */}
+              <div className="lg:col-span-8 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <Input 
+                    placeholder="Buscar por SKU o descripción..." 
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs"
+                  />
+                </div>
+
+                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                        <TableRow>
+                          <TableHead className="px-6 text-[10px] font-black uppercase">SKU</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase">Área Contable</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase pr-8">Precio Público</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredItems.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">
+                              No se encontraron productos.
+                            </TableCell>
+                          </TableRow>
+                        ) : filteredItems.map((item) => (
+                          <TableRow 
+                            key={item.id} 
+                            onClick={() => handleSelectPriceProduct(item.sku)}
+                            className="hover:bg-slate-50 dark:hover:bg-muted/30 cursor-pointer transition-colors"
+                          >
+                            <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
+                              {item.sku}
+                            </TableCell>
+                            <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">
+                              {item.name}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-[9px] font-bold">
+                                {item.category || 'General'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right pr-8 font-black text-xs text-emerald-600 dark:text-emerald-400">
+                              ${(item.price || 0).toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </Card>
+              </div>
+
+            </div>
           </TabsContent>
  
            {/* TAB ENTRADAS */}
