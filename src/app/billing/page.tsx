@@ -245,6 +245,40 @@ export default function BillingPage() {
   const [abonoNotes, setAbonoNotes] = useState<string>('');
   const [isRegisteringAbono, setIsRegisteringAbono] = useState<boolean>(false);
 
+  // Estados para ver detalle e imprimir PDF de venta (Historial)
+  const [selectedSaleDetails, setSelectedSaleDetails] = useState<any | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  const handleFetchSaleDetails = async (sale: any) => {
+    setLoadingDetails(true);
+    setIsDetailsDialogOpen(true);
+    try {
+      const { data: items, error } = await supabase
+        .from('sales_items')
+        .select('*')
+        .eq('sale_id', sale.id);
+
+      if (error) throw error;
+
+      setSelectedSaleDetails({
+        ...sale,
+        items: items || []
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al cargar detalles", 
+        description: err.message || "No se pudo obtener el detalle de los productos vendidos." 
+      });
+      setIsDetailsDialogOpen(false);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+
   // Función para cargar todos los datos requeridos de forma reactiva
   const loadBillingData = async () => {
     try {
@@ -1361,9 +1395,13 @@ export default function BillingPage() {
              </div>
           </TabsContent>
 
-          {/* TAB HISTORIAL */}
+           {/* TAB HISTORIAL */}
           <TabsContent value="historial" className="outline-none">
             <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
+              <div className="p-4 border-b bg-muted/20">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Consejo de uso</p>
+                <p className="text-[11px] text-muted-foreground">Haz **doble clic** sobre cualquier venta en la lista para ver el detalle de los productos facturados e imprimir el comprobante en PDF.</p>
+              </div>
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
@@ -1376,7 +1414,11 @@ export default function BillingPage() {
                 </TableHeader>
                 <TableBody>
                   {salesAll?.map((sale: any) => (
-                    <TableRow key={sale.id}>
+                    <TableRow 
+                      key={sale.id} 
+                      className="cursor-pointer hover:bg-muted/40 select-none transition-colors"
+                      onDoubleClick={() => handleFetchSaleDetails(sale)}
+                    >
                       <TableCell className="px-6 text-[10px] md:text-xs text-muted-foreground">{new Date(sale.timestamp).toLocaleTimeString()}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[8px]">{sale.docType}</Badge></TableCell>
                       <TableCell className="font-bold text-[10px] md:text-xs">{sale.customer}</TableCell>
@@ -1387,6 +1429,180 @@ export default function BillingPage() {
                 </TableBody>
               </Table>
             </Card>
+
+            <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+              <DialogContent className="max-w-2xl rounded-3xl border shadow-xl flex flex-col gap-4 overflow-hidden max-h-[90vh]">
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-black tracking-tight text-foreground flex items-center justify-between">
+                    <span>Detalle de Facturación</span>
+                    {selectedSaleDetails && (
+                      <Badge className="font-mono bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 text-[10px] font-bold">
+                        {selectedSaleDetails.correlative}
+                      </Badge>
+                    )}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    Detalles completos del documento emitido.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {loadingDetails ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-3">
+                    <Loader2 className="animate-spin text-primary" size={24} />
+                    <p className="text-xs text-muted-foreground">Obteniendo productos de la venta...</p>
+                  </div>
+                ) : selectedSaleDetails ? (
+                  <div className="flex-1 overflow-y-auto pr-2 space-y-5" id="printable-sale-area">
+                    {/* Header info */}
+                    <div className="grid grid-cols-2 gap-4 p-4 border rounded-2xl bg-muted/30">
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Cliente</span>
+                        <p className="text-xs font-black text-foreground">{selectedSaleDetails.customer}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Fecha / Hora</span>
+                        <p className="text-xs font-semibold text-foreground">{new Date(selectedSaleDetails.timestamp).toLocaleString()}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Forma de Pago</span>
+                        <p className="text-xs font-semibold text-foreground">{selectedSaleDetails.paymentMethod}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Tipo Documento</span>
+                        <p className="text-xs font-semibold text-foreground">{selectedSaleDetails.docType === 'CF' ? 'Factura de Consumo Final' : 'Comprobante de Crédito Fiscal'}</p>
+                      </div>
+                    </div>
+
+                    {/* Products list */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider px-1">Productos Facturados</span>
+                      <Card className="rounded-2xl border overflow-hidden">
+                        <Table>
+                          <TableHeader className="bg-muted/40">
+                            <TableRow>
+                              <TableHead className="text-[10px] font-bold">Producto / SKU</TableHead>
+                              <TableHead className="text-center text-[10px] font-bold">Cant.</TableHead>
+                              <TableHead className="text-right text-[10px] font-bold">P. Unitario</TableHead>
+                              <TableHead className="text-right text-[10px] font-bold pr-4">Subtotal</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {selectedSaleDetails.items?.map((item: any, idx: number) => (
+                              <TableRow key={idx}>
+                                <TableCell className="py-2.5">
+                                  <p className="text-xs font-bold text-foreground">{item.name || 'Producto General'}</p>
+                                  <p className="text-[9px] font-mono text-muted-foreground">{item.sku}</p>
+                                </TableCell>
+                                <TableCell className="text-center text-xs font-black py-2.5">{item.quantity}</TableCell>
+                                <TableCell className="text-right text-xs font-semibold py-2.5">${(parseFloat(item.price) || 0).toFixed(2)}</TableCell>
+                                <TableCell className="text-right text-xs font-black text-indigo-600 dark:text-indigo-400 py-2.5 pr-4">
+                                  ${((parseFloat(item.price) || 0) * item.quantity).toFixed(2)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </Card>
+                    </div>
+
+                    {/* Total balance info */}
+                    <div className="flex justify-between items-center p-4 rounded-2xl bg-indigo-550/5 border border-indigo-500/10">
+                      <div>
+                        <span className="text-[9px] font-black uppercase text-indigo-500 dark:text-indigo-400 tracking-wider">Total Transacción</span>
+                        <p className="text-xs text-muted-foreground">Impuestos incluidos</p>
+                      </div>
+                      <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">
+                        ${selectedSaleDetails.total.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <DialogFooter className="border-t pt-3 flex items-center justify-between sm:justify-between gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="rounded-xl h-10 text-xs font-bold" 
+                    onClick={() => setIsDetailsDialogOpen(false)}
+                  >
+                    Cerrar
+                  </Button>
+                  {selectedSaleDetails && (
+                    <Button 
+                      className="rounded-xl h-10 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                      onClick={() => {
+                        const printContent = document.getElementById('printable-sale-area')?.innerHTML;
+                        const originalContent = document.body.innerHTML;
+                        const printWindow = window.open('', '_blank');
+                        if (printWindow) {
+                          printWindow.document.write(`
+                            <html>
+                              <head>
+                                <title>NexWay - Factura ${selectedSaleDetails.correlative}</title>
+                                <style>
+                                  body { font-family: system-ui, sans-serif; padding: 40px; color: #333; }
+                                  .header { border-bottom: 2px solid #3f51b5; padding-bottom: 20px; margin-bottom: 20px; }
+                                  .title { font-size: 24px; font-weight: bold; margin: 0; }
+                                  .meta { display: grid; grid-template-cols: 1fr 1fr; gap: 15px; margin-bottom: 30px; background: #f5f5f5; padding: 15px; border-radius: 10px; }
+                                  table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                                  th, td { text-align: left; padding: 10px; border-bottom: 1px solid #ddd; }
+                                  th { background: #f0f0f0; font-size: 12px; text-transform: uppercase; }
+                                  .total { text-align: right; font-size: 20px; font-weight: bold; color: #3f51b5; padding: 15px; background: #e8eaf6; border-radius: 10px; }
+                                </style>
+                              </head>
+                              <body>
+                                <div class="header">
+                                  <p class="title">NexWay ERP - Comprobante de Venta</p>
+                                  <p style="font-family:monospace; margin:5px 0 0 0;">Correlativo: ${selectedSaleDetails.correlative}</p>
+                                </div>
+                                <div class="meta">
+                                  <div><strong>Cliente:</strong> ${selectedSaleDetails.customer}</div>
+                                  <div><strong>Fecha:</strong> ${new Date(selectedSaleDetails.timestamp).toLocaleString()}</div>
+                                  <div><strong>Forma de Pago:</strong> ${selectedSaleDetails.paymentMethod}</div>
+                                  <div><strong>Documento:</strong> ${selectedSaleDetails.docType === 'CF' ? 'Factura CF' : 'Crédito Fiscal'}</div>
+                                </div>
+                                <table>
+                                  <thead>
+                                    <tr>
+                                      <th>Producto</th>
+                                      <th>Cant.</th>
+                                      <th>P. Unitario</th>
+                                      <th style="text-align: right;">Subtotal</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    ${selectedSaleDetails.items?.map((item: any) => `
+                                      <tr>
+                                        <td>${item.name || 'Producto General'}<br><small style="font-family:monospace; color:#666">${item.sku}</small></td>
+                                        <td>${item.quantity}</td>
+                                        <td>$${(parseFloat(item.price) || 0).toFixed(2)}</td>
+                                        <td style="text-align: right; font-weight:bold;">$${((parseFloat(item.price) || 0) * item.quantity).toFixed(2)}</td>
+                                      </tr>
+                                    `).join('')}
+                                  </tbody>
+                                </table>
+                                <div class="total">
+                                  Total a Pagar: $${selectedSaleDetails.total.toFixed(2)}
+                                </div>
+                                <script>
+                                  window.onload = function() {
+                                    window.print();
+                                    setTimeout(function() { window.close(); }, 500);
+                                  }
+                                </script>
+                              </body>
+                            </html>
+                          `);
+                          printWindow.document.close();
+                        }
+                      }}
+                    >
+                      <Printer size={14} className="mr-2" />
+                      Imprimir / PDF
+                    </Button>
+                  )}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* TAB ARQUEO */}
