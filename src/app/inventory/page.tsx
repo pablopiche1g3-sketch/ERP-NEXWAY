@@ -100,6 +100,7 @@ export default function InventoryMasterPage() {
     { id: 'existencia', key: 'inventory_existencia' },
     { id: 'maestro', key: 'inventory_maestro' },
     { id: 'kardex', key: 'inventory_kardex' },
+    { id: 'precios', key: 'inventory_precios' },
     { id: 'toma-fisica', key: 'inventory_toma_fisica' },
     { id: 'carga-masiva', key: 'inventory_carga_masiva' },
     { id: 'entradas', key: 'inventory_entradas' },
@@ -119,6 +120,7 @@ export default function InventoryMasterPage() {
 
   // Pricing edit states
   const [selectedPriceProduct, setSelectedPriceProduct] = useState<any | null>(null);
+  const [productNameValue, setProductNameValue] = useState<string>('');
   const [priceValue, setPriceValue] = useState<string>('');
   const [selectedPriceCategory, setSelectedPriceCategory] = useState<string>('General');
   const [selectedPriceSupplierSku, setSelectedPriceSupplierSku] = useState<string>('');
@@ -128,6 +130,7 @@ export default function InventoryMasterPage() {
     const prod = inventory.find(p => p.sku === sku);
     if (!prod) return;
     setSelectedPriceProduct(prod);
+    setProductNameValue(prod.name || '');
     setPriceValue(prod.price.toString());
     setSelectedPriceCategory(prod.category || 'General');
 
@@ -143,12 +146,12 @@ export default function InventoryMasterPage() {
 
   const handleSavePrice = async () => {
     if (!selectedPriceProduct) return;
-    setSavingPrice(true);
-    try {
-      // 1. Actualizar precio y categoría en public.inventory
+    setSavingPrice(true);    try {
+      // 1. Actualizar nombre, precio y categoría en public.inventory
       const { error: invErr } = await supabase
         .from('inventory')
-        .update({
+        .update({ 
+          name: productNameValue,
           price: parseFloat(priceValue) || 0,
           category: selectedPriceCategory
         })
@@ -1068,6 +1071,11 @@ export default function InventoryMasterPage() {
                 <Tag size={14} className="mr-2" /> Maestro
               </TabsTrigger>
             )}
+            {config?.['inventory_precios'] !== false && (
+              <TabsTrigger value="precios" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap">
+                <Tag size={14} className="mr-2" /> Producto
+              </TabsTrigger>
+            )}
             {config?.['inventory_kardex'] !== false && (
               <TabsTrigger value="kardex" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <History size={14} className="mr-2" /> Kardex de Almacén
@@ -1502,28 +1510,36 @@ export default function InventoryMasterPage() {
             )}
           </TabsContent>
 
-          {/* TAB PRECIOS */}
+          {/* TAB PRECIOS / PRODUCTO */}
           <TabsContent value="precios" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
-              {/* Formulario Izquierdo: Editor de Precios y Mapeo */}
+              {/* Formulario Izquierdo: Editor de Producto */}
               <div className="lg:col-span-4 space-y-6">
                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
-                  <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                  <CardHeader className="bg-emerald-900 dark:bg-emerald-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Tag className="text-blue-400" size={18} /> Editor de Precios y Vinculación
+                      <Tag className="text-emerald-400" size={18} /> Editor de Producto
                     </CardTitle>
-                    <CardDescription className="text-slate-400 text-xs">
-                      Selecciona un producto de la lista para modificar su precio al público y vincularlo con su código contable o código del proveedor.
+                    <CardDescription className="text-emerald-100/70 text-xs">
+                      Selecciona un producto de la lista para modificar su nombre, precio, categoría y vinculación con el proveedor.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
                     {selectedPriceProduct ? (
                       <div className="space-y-4">
-                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-muted/30 border space-y-2">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">Producto Seleccionado</span>
-                          <h4 className="text-xs font-black text-slate-800 dark:text-foreground">{selectedPriceProduct.name}</h4>
-                          <p className="text-[10px] font-mono text-muted-foreground mt-1">SKU Interno: {selectedPriceProduct.sku}</p>
+                        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 space-y-2">
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">Editando</span>
+                          <p className="text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-200 mt-1">SKU Interno: {selectedPriceProduct.sku}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Nombre del Producto</Label>
+                          <Input 
+                            value={productNameValue} 
+                            onChange={e => setProductNameValue(e.target.value)}
+                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
+                          />
                         </div>
 
                         <div className="space-y-2">
