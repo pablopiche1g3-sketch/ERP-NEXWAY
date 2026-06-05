@@ -193,53 +193,56 @@ export default function Home() {
     <div className="min-h-screen bg-slate-50 dark:bg-[#090D16] p-4 md:p-8 lg:p-10 font-body select-none transition-colors duration-300">
       
       {/* Header Dashboard al Estilo Mockup */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white font-headline">
-            ¡Bienvenido de vuelta! 👋
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-0.5">
-            Centro de operaciones NexWay
-          </p>
+      <header className="flex flex-col gap-5 mb-8">
+        <div className="flex justify-between items-start gap-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white font-headline">
+              ¡Bienvenido de vuelta! 👋
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-0.5">
+              Centro de operaciones NexWay
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <ModeToggle />
+            {/* Perfil del Administrador (Solo Icono en Móvil) */}
+            <div className="hidden sm:flex items-center gap-2.5 bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 p-1.5 pr-3.5 rounded-xl">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-500 text-white flex items-center justify-center font-black text-xs uppercase shadow-md shadow-indigo-500/10">
+                AD
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-[10px] font-black text-slate-800 dark:text-white leading-tight">Admin</span>
+                <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-0.5">
+                  {ROLE_PERMISSIONS[userRole] ? 'Colaborador' : 'Administrador'}
+                </span>
+              </div>
+            </div>
+            <div className="sm:hidden w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 text-white flex items-center justify-center font-black text-sm uppercase shadow-md shadow-indigo-500/10">
+              AD
+            </div>
+          </div>
         </div>
 
-        {/* Controles de barra superior */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Botón Filtrar */}
-          <Button 
-            variant="outline" 
-            className="h-10 px-4 bg-white dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1.5"
-          >
-            <SlidersHorizontal size={13} />
-            <span>Filtrar</span>
-          </Button>
-
+        {/* Controles de barra inferior (Buscador y Filtro) */}
+        <div className="flex items-center gap-3 w-full">
           {/* Buscador */}
-          <div className="relative flex-1 sm:flex-initial sm:w-64">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-3.5 h-3.5" />
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
             <Input 
               type="text" 
               placeholder="Buscar..." 
-              className="h-10 pl-10 pr-4 bg-white dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 text-xs font-medium rounded-xl focus-visible:ring-indigo-500 transition-colors"
+              className="h-11 pl-10 pr-4 bg-white dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 text-xs font-medium rounded-xl focus-visible:ring-indigo-500 transition-colors w-full"
             />
           </div>
 
-
-
-          <ModeToggle />
-
-          {/* Perfil del Administrador */}
-          <div className="flex items-center gap-2.5 bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 p-1.5 pr-3.5 rounded-xl">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-500 text-white flex items-center justify-center font-black text-xs uppercase shadow-md shadow-indigo-500/10">
-              AD
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="text-[10px] font-black text-slate-800 dark:text-white leading-tight">Admin</span>
-              <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-0.5">
-                {ROLE_PERMISSIONS[userRole] ? 'Colaborador' : 'Administrador'}
-              </span>
-            </div>
-          </div>
+          {/* Botón Filtrar */}
+          <Button 
+            variant="outline" 
+            className="h-11 px-4 bg-white dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 shrink-0"
+          >
+            <SlidersHorizontal size={14} />
+            <span className="hidden sm:inline">Filtrar</span>
+          </Button>
         </div>
       </header>
 
