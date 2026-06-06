@@ -59,6 +59,22 @@ CREATE TABLE IF NOT EXISTS public.inventory (
   name text not null,
   category text not null default 'General',
   price numeric(10,2) not null default 0.00,
+  
+  -- Campos Avanzados (ERP Legacy)
+  brand text,
+  product_type text default 'Terminado',
+  unit text default 'Unidad',
+  location text,
+  min_stock numeric(10,2) default 0.00,
+  max_stock numeric(10,2) default 0.00,
+  reorder_point numeric(10,2) default 0.00,
+  cost numeric(10,2) default 0.00,
+  
+  -- Propiedades (Banderas)
+  is_active boolean default true,
+  is_service boolean default false,
+  is_exempt boolean default false,
+
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 

@@ -126,13 +126,38 @@ export default function InventoryMasterPage() {
   const [selectedPriceSupplierSku, setSelectedPriceSupplierSku] = useState<string>('');
   const [savingPrice, setSavingPrice] = useState(false);
 
+  // Advanced Product Edit States
+  const [productBrand, setProductBrand] = useState<string>('');
+  const [productType, setProductType] = useState<string>('Terminado');
+  const [productUnit, setProductUnit] = useState<string>('Unidad');
+  const [productLocation, setProductLocation] = useState<string>('');
+  const [minStock, setMinStock] = useState<string>('0');
+  const [maxStock, setMaxStock] = useState<string>('0');
+  const [reorderPoint, setReorderPoint] = useState<string>('0');
+  const [productCost, setProductCost] = useState<string>('0');
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [isService, setIsService] = useState<boolean>(false);
+  const [isExempt, setIsExempt] = useState<boolean>(false);
+
   const handleSelectPriceProduct = async (sku: string) => {
     const prod = inventory.find(p => p.sku === sku);
     if (!prod) return;
     setSelectedPriceProduct(prod);
     setProductNameValue(prod.name || '');
-    setPriceValue(prod.price.toString());
+    setPriceValue(prod.price?.toString() || '0');
     setSelectedPriceCategory(prod.category || 'General');
+    
+    setProductBrand(prod.brand || '');
+    setProductType(prod.product_type || 'Terminado');
+    setProductUnit(prod.unit || 'Unidad');
+    setProductLocation(prod.location || '');
+    setMinStock(prod.min_stock?.toString() || '0');
+    setMaxStock(prod.max_stock?.toString() || '0');
+    setReorderPoint(prod.reorder_point?.toString() || '0');
+    setProductCost(prod.cost?.toString() || '0');
+    setIsActive(prod.is_active ?? true);
+    setIsService(prod.is_service ?? false);
+    setIsExempt(prod.is_exempt ?? false);
 
     // Cargar vinculación de proveedor si existe
     const { data: mapping } = await supabase
@@ -147,13 +172,24 @@ export default function InventoryMasterPage() {
   const handleSavePrice = async () => {
     if (!selectedPriceProduct) return;
     setSavingPrice(true);    try {
-      // 1. Actualizar nombre, precio y categoría en public.inventory
+      // 1. Actualizar campos en public.inventory
       const { error: invErr } = await supabase
         .from('inventory')
         .update({ 
           name: productNameValue,
           price: parseFloat(priceValue) || 0,
-          category: selectedPriceCategory
+          category: selectedPriceCategory,
+          brand: productBrand,
+          product_type: productType,
+          unit: productUnit,
+          location: productLocation,
+          min_stock: parseFloat(minStock) || 0,
+          max_stock: parseFloat(maxStock) || 0,
+          reorder_point: parseFloat(reorderPoint) || 0,
+          cost: parseFloat(productCost) || 0,
+          is_active: isActive,
+          is_service: isService,
+          is_exempt: isExempt
         })
         .eq('sku', selectedPriceProduct.sku);
 
@@ -1515,7 +1551,7 @@ export default function InventoryMasterPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
               {/* Formulario Izquierdo: Editor de Producto */}
-              <div className="lg:col-span-4 space-y-6">
+              <div className="lg:col-span-7 space-y-6">
                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
                   <CardHeader className="bg-emerald-900 dark:bg-emerald-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -1527,78 +1563,136 @@ export default function InventoryMasterPage() {
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
                     {selectedPriceProduct ? (
-                      <div className="space-y-4">
-                        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 space-y-2">
-                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">Editando</span>
-                          <p className="text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-200 mt-1">SKU Interno: {selectedPriceProduct.sku}</p>
+                      <div className="space-y-6">
+                        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 space-y-2 flex justify-between items-center">
+                          <div>
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">Editando</span>
+                            <p className="text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-200 mt-1">SKU Interno: {selectedPriceProduct.sku}</p>
+                          </div>
+                          <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800/60 font-bold uppercase text-[9px]">
+                            {productType}
+                          </Badge>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Nombre del Producto</Label>
-                          <Input 
-                            value={productNameValue} 
-                            onChange={e => setProductNameValue(e.target.value)}
-                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Precio Venta Público (PVP)</Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-muted-foreground">$</span>
-                            <Input 
-                              type="number" 
-                              placeholder="0.00" 
-                              value={priceValue} 
-                              onChange={e => setPriceValue(e.target.value)}
-                              className="pl-7 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold text-emerald-600 dark:text-emerald-400"
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Nombre del Producto</Label>
+                            <Input value={productNameValue} onChange={e => setProductNameValue(e.target.value)} className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Marca</Label>
+                            <Input value={productBrand} onChange={e => setProductBrand(e.target.value)} placeholder="Ej. Sony, Samsung..." className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Categoría / Área Contable</Label>
-                          <Select 
-                            value={selectedPriceCategory} 
-                            onValueChange={setSelectedPriceCategory}
-                          >
-                            <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="Inventario de Mercadería">Inventario de Mercadería</SelectItem>
-                              <SelectItem value="Gastos de Administración">Gastos de Administración</SelectItem>
-                              <SelectItem value="Gastos de Venta">Gastos de Venta</SelectItem>
-                              <SelectItem value="Propiedad, Planta y Equipo">Propiedad, Planta y Equipo</SelectItem>
-                              <SelectItem value="General">General</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Tipo</Label>
+                            <Select value={productType} onValueChange={setProductType}>
+                              <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                <SelectItem value="Terminado">Terminado</SelectItem>
+                                <SelectItem value="Materia Prima">Materia Prima</SelectItem>
+                                <SelectItem value="Servicio">Servicio</SelectItem>
+                                <SelectItem value="Insumo">Insumo</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Categoría / Área Contable</Label>
+                            <Select value={selectedPriceCategory} onValueChange={setSelectedPriceCategory}>
+                              <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                <SelectItem value="Inventario de Mercadería">Inventario</SelectItem>
+                                <SelectItem value="Gastos de Administración">Gtos. Admin</SelectItem>
+                                <SelectItem value="Gastos de Venta">Gtos. Venta</SelectItem>
+                                <SelectItem value="Propiedad, Planta y Equipo">Propiedad y Equipo</SelectItem>
+                                <SelectItem value="General">General</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Unidad</Label>
+                            <Select value={productUnit} onValueChange={setProductUnit}>
+                              <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                <SelectItem value="Unidad">Unidad</SelectItem>
+                                <SelectItem value="Kilogramo">Kilogramo</SelectItem>
+                                <SelectItem value="Litro">Litro</SelectItem>
+                                <SelectItem value="Caja">Caja</SelectItem>
+                                <SelectItem value="Metro">Metro</SelectItem>
+                                <SelectItem value="Galon">Galón</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Código del Proveedor (DTE)</Label>
-                          <Input 
-                            placeholder="Código con el que factura el proveedor..." 
-                            value={selectedPriceSupplierSku} 
-                            onChange={e => setSelectedPriceSupplierSku(e.target.value)}
-                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold"
-                          />
-                          <p className="text-[9px] text-muted-foreground">Si el proveedor factura este producto con otro código, ingrésalo aquí para que las compras se registren automáticamente.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Costo (Sin Impuesto)</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-muted-foreground">$</span>
+                              <Input type="number" placeholder="0.00" value={productCost} onChange={e => setProductCost(e.target.value)} className="pl-7 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Precio Venta (PVP)</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-emerald-600 dark:text-emerald-400">$</span>
+                              <Input type="number" placeholder="0.00" value={priceValue} onChange={e => setPriceValue(e.target.value)} className="pl-7 h-11 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-black text-emerald-700 dark:text-emerald-400" />
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="flex gap-2 pt-2">
-                          <Button 
-                            variant="outline" 
-                            onClick={() => setSelectedPriceProduct(null)} 
-                            className="w-1/3 h-11 rounded-xl text-xs font-bold"
-                          >
-                            Cancelar
-                          </Button>
-                          <Button 
-                            onClick={handleSavePrice}
-                            disabled={savingPrice} 
-                            className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs"
-                          >
+                        <div className="border-t border-slate-100 dark:border-zinc-800 pt-4 mt-2">
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Warehouse size={14}/> Control de Inventario</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-slate-450">Min. Stock</Label>
+                              <Input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-slate-450">Max. Stock</Label>
+                              <Input type="number" value={maxStock} onChange={e => setMaxStock(e.target.value)} className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-slate-450">Punto Pedido</Label>
+                              <Input type="number" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="h-10 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-bold" />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Ubicación Física</Label>
+                              <Input value={productLocation} onChange={e => setProductLocation(e.target.value)} placeholder="Ej. Estante A, Pasillo 3" className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Código del Proveedor</Label>
+                              <Input value={selectedPriceSupplierSku} onChange={e => setSelectedPriceSupplierSku(e.target.value)} placeholder="Código externo..." className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-100 dark:border-zinc-800 pt-4 mt-2">
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Tag size={14}/> Propiedades</h4>
+                          <div className="flex flex-wrap gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-muted px-3 py-2 rounded-xl">
+                              <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Activo</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-muted px-3 py-2 rounded-xl">
+                              <input type="checkbox" checked={isService} onChange={e => setIsService(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Servicio</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-muted px-3 py-2 rounded-xl">
+                              <input type="checkbox" checked={isExempt} onChange={e => setIsExempt(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Exento (Sin IVA)</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-4">
+                          <Button variant="outline" onClick={() => setSelectedPriceProduct(null)} className="w-1/3 h-11 rounded-xl text-xs font-bold">Cancelar</Button>
+                          <Button onClick={handleSavePrice} disabled={savingPrice} className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs">
                             {savingPrice ? <Loader2 className="animate-spin" size={16} /> : "Guardar Cambios"}
                           </Button>
                         </div>
@@ -1612,8 +1706,8 @@ export default function InventoryMasterPage() {
                 </Card>
               </div>
 
-              {/* Tabla Derecha: Listado de Productos */}
-              <div className="lg:col-span-8 space-y-4">
+              {/* Lado Derecho: Catálogo Maestro */}
+              <div className="lg:col-span-5 space-y-6">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <Input 
