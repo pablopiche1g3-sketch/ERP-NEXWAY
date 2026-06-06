@@ -332,24 +332,31 @@ export default function InventoryMasterPage() {
       const whList = whData || [];
       setWarehouses(whList);
 
-      // 2. Obtener productos maestro
-      const { data: invData, error: invErr } = await supabase
-        .from('inventory')
-        .select('*')
-        .limit(10000)
-        .order('sku');
+      // Helper function to bypass Supabase 1000-row limit
+      const fetchAllRows = async (table: string, orderByCol?: string) => {
+        let allData: any[] = [];
+        let start = 0;
+        const limit = 1000;
+        while (true) {
+          let query = supabase.from(table).select('*').range(start, start + limit - 1);
+          if (orderByCol) query = query.order(orderByCol);
+          
+          const { data, error } = await query;
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = [...allData, ...data];
+          }
+          if (!data || data.length < limit) break;
+          start += limit;
+        }
+        return allData;
+      };
 
-      if (invErr) throw invErr;
-      const invList = invData || [];
+      // 2. Obtener productos maestro
+      const invList = await fetchAllRows('inventory', 'sku');
 
       // 3. Obtener existencias por bodega
-      const { data: stockData, error: stockErr } = await supabase
-        .from('inventory_stock')
-        .select('*')
-        .limit(30000);
-
-      if (stockErr) throw stockErr;
-      const stockList = stockData || [];
+      const stockList = await fetchAllRows('inventory_stock');
 
       // Mapear existencias al formato que espera el componente
       const whMap: Record<string, string> = {};
