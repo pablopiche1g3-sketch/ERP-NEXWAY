@@ -517,7 +517,7 @@ export default function InventoryMasterPage() {
         if (skuCol === -1) skuCol = 0;
         if (descCol === -1 && headersRaw.length >= 2 && skuCol !== 1) descCol = 1;
 
-        const validTemp: any[] = [];
+        const validTempMap = new Map();
         const invalidTemp: any[] = [];
         
         for (let i = 1; i < rows.length; i++) {
@@ -536,9 +536,10 @@ export default function InventoryMasterPage() {
             if (d !== "") descripcion = d;
           }
           
-          validTemp.push({ sku: skuRaw, descripcion });
+          validTempMap.set(skuRaw.toUpperCase(), { sku: skuRaw.toUpperCase(), descripcion });
         }
         
+        const validTemp = Array.from(validTempMap.values());
         setBulkValidProducts(validTemp);
         setBulkInvalidRows(invalidTemp);
         
