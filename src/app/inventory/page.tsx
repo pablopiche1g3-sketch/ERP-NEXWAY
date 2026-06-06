@@ -336,6 +336,7 @@ export default function InventoryMasterPage() {
       const { data: invData, error: invErr } = await supabase
         .from('inventory')
         .select('*')
+        .limit(10000)
         .order('sku');
 
       if (invErr) throw invErr;
@@ -344,7 +345,8 @@ export default function InventoryMasterPage() {
       // 3. Obtener existencias por bodega
       const { data: stockData, error: stockErr } = await supabase
         .from('inventory_stock')
-        .select('*');
+        .select('*')
+        .limit(30000);
 
       if (stockErr) throw stockErr;
       const stockList = stockData || [];
