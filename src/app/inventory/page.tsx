@@ -235,20 +235,13 @@ export default function InventoryMasterPage() {
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Excel/CSV Bulk Import states
+  // --- CARGA MASIVA STATES (NUEVO) ---
   const [bulkFile, setBulkFile] = useState<File | null>(null);
-  const [bulkHeaders, setBulkHeaders] = useState<string[]>([]);
-  const [bulkRows, setBulkRows] = useState<any[]>([]);
-  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({
-    sku: '',
-    name: '',
-    category: '',
-    price: '',
-    stock: ''
-  });
-  const [bulkImportProgress, setBulkImportProgress] = useState(0);
-  const [bulkImporting, setBulkImporting] = useState(false);
-  const [selectedImportWarehouse, setSelectedImportWarehouse] = useState('Ninguna');
+  const [bulkValidProducts, setBulkValidProducts] = useState<any[]>([]);
+  const [bulkInvalidRows, setBulkInvalidRows] = useState<any[]>([]);
+  const [bulkProgressPercent, setBulkProgressPercent] = useState(0);
+  const [bulkProgressText, setBulkProgressText] = useState('');
+  const [isSendingBulk, setIsSendingBulk] = useState(false);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
 
   const [productForm, setProductForm] = useState({
@@ -477,226 +470,131 @@ export default function InventoryMasterPage() {
     
     toast({
       title: "SKU Generado",
-      description: `Código sugerido: ${newSku} para la categoría ${productForm.category}`
-    });
+      description: `Código sugerido: ${newSku} para la categoría ${produ  // --- LÓGICA DE CARGA MASIVA ---
+  const handleDownloadTemplate = () => {
+    const plantillaData = [['SKU', 'Descripción'],['PROD-001', 'Laptop Gamer 15 pulgadas'],['PROD-002', 'Mouse inalámbrico ergonómico']];
+    const ws = XLSX.utils.aoa_to_sheet(plantillaData);
+    ws['!cols'] = [{wch:18},{wch:40}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+    XLSX.writeFile(wb, 'plantilla_nexway_masiva.xlsx');
+    toast({ title: "Plantilla descargada", description: "Revisa tu carpeta de descargas." });
   };
 
-  // Manejo de carga de archivos (CSV y Excel)
-  const handleBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
+  const processBulkFile = async (file: File) => {
     setBulkFile(file);
-    const reader = new FileReader();
+    setBulkValidProducts([]);
+    setBulkInvalidRows([]);
+    setBulkProgressPercent(0);
+    setBulkProgressText('');
     
-    if (file.name.endsWith('.csv')) {
-      reader.onload = (event) => {
-        try {
-          const text = event.target?.result as string;
-          const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-          if (lines.length === 0) {
-            toast({ variant: "destructive", title: "Archivo vacío", description: "El archivo CSV no contiene datos." });
-            return;
-          }
-          
-          const firstLine = lines[0];
-          const delimiter = firstLine.includes(';') ? ';' : ',';
-          const headers = firstLine.split(delimiter).map(h => h.replace(/^["']|["']$/g, '').trim());
-          setBulkHeaders(headers);
-          
-          const rows = lines.slice(1).map((line) => {
-            const values = line.split(delimiter).map(v => v.replace(/^["']|["']$/g, '').trim());
-            const rowObj: Record<string, string> = {};
-            headers.forEach((header, index) => {
-              rowObj[header] = values[index] || '';
-            });
-            return rowObj;
-          });
-          
-          setBulkRows(rows);
-          
-          const newMapping = { ...columnMapping };
-          headers.forEach(h => {
-            const lower = h.toLowerCase();
-            if (lower.includes('sku') || lower.includes('código') || lower.includes('codigo')) newMapping.sku = h;
-            if (lower.includes('nombre') || lower.includes('producto') || lower.includes('descrip')) newMapping.name = h;
-            if (lower.includes('categor') || lower.includes('cat')) newMapping.category = h;
-            if (lower.includes('precio') || lower.includes('price') || lower.includes('costo')) newMapping.price = h;
-            if (lower.includes('stock') || lower.includes('cant') || lower.includes('exist')) newMapping.stock = h;
-          });
-          setColumnMapping(newMapping);
-          
-          toast({ title: "CSV Cargado", description: `Se detectaron ${rows.length} filas.` });
-        } catch (err) {
-          toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el archivo CSV." });
-        }
-      };
-      reader.readAsText(file);
-    } else {
-      reader.onload = (event) => {
-        try {
-          const data = new Uint8Array(event.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
-          
-          if (json.length === 0) {
-            toast({ variant: "destructive", title: "Archivo vacío", description: "El archivo Excel no contiene datos." });
-            return;
-          }
-          
-          const headers = (json[0] as any[]).map(h => String(h || '').trim());
-          setBulkHeaders(headers);
-          
-          const rows = json.slice(1).map((row: any) => {
-            const rowObj: Record<string, any> = {};
-            headers.forEach((header, index) => {
-              rowObj[header] = row[index] !== undefined ? row[index] : '';
-            });
-            return rowObj;
-          });
-          
-          setBulkRows(rows);
-          
-          const newMapping = { ...columnMapping };
-          headers.forEach(h => {
-            const lower = h.toLowerCase();
-            if (lower.includes('sku') || lower.includes('código') || lower.includes('codigo')) newMapping.sku = h;
-            if (lower.includes('nombre') || lower.includes('producto') || lower.includes('descrip')) newMapping.name = h;
-            if (lower.includes('categor') || lower.includes('cat')) newMapping.category = h;
-            if (lower.includes('precio') || lower.includes('price') || lower.includes('costo')) newMapping.price = h;
-            if (lower.includes('stock') || lower.includes('cant') || lower.includes('exist')) newMapping.stock = h;
-          });
-          setColumnMapping(newMapping);
-          
-          toast({ title: "Excel Cargado", description: `Se detectaron ${rows.length} filas.` });
-        } catch (err) {
-          toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el archivo Excel." });
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    }
-  };
-
-  // Procesar importación masiva en Firestore
-  const handleBulkImport = async () => {
-    if (!bulkRows.length) return;
-    if (!columnMapping.sku || !columnMapping.name) {
-      toast({ variant: "destructive", title: "Mapeo Incompleto", description: "Es obligatorio mapear al menos SKU y Nombre." });
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls', 'csv', 'xlsm'].includes(extension || '')) {
+      toast({ variant: "destructive", title: "Formato no soportado", description: "Use .xlsx, .xls o .csv" });
       return;
     }
+
+    toast({ title: "Procesando archivo...", description: "Leyendo datos del Excel." });
     
-    setBulkImporting(true);
-    setBulkImportProgress(0);
-    let importedCount = 0;
-    let errorCount = 0;
-    
-    try {
-      // Obtener los nombres de todas las bodegas activas en el sistema para inicializarlas
-      const whNames = warehouses?.map((w: any) => w.name) || [];
-      
-      // Segmentar el lote de filas en sub-lotes de 500 (límite de Firestore)
-      const chunkSize = 500;
-      for (let i = 0; i < bulkRows.length; i += chunkSize) {
-        const chunk = bulkRows.slice(i, i + chunkSize);
-        const batch = writeBatch(db);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" }) as any[][];
         
-        for (const row of chunk) {
-          const rawSku = String(row[columnMapping.sku] || '').trim().toUpperCase();
-          const rawName = String(row[columnMapping.name] || '').trim();
+        if (!rows || rows.length < 2) throw new Error("El archivo debe tener al menos una fila de encabezados y datos.");
+        
+        const headersRaw = rows[0].map(c => String(c).trim().toLowerCase());
+        let skuCol = headersRaw.findIndex(h => h.includes('sku') || h.includes('codigo') || h.includes('código') || h.includes('referencia') || h.includes('ref'));
+        let descCol = headersRaw.findIndex(h => h.includes('descripción') || h.includes('descripcion') || h.includes('nombre') || h.includes('detalle'));
+        
+        if (skuCol === -1) skuCol = 0;
+        if (descCol === -1 && headersRaw.length >= 2 && skuCol !== 1) descCol = 1;
+
+        const validTemp: any[] = [];
+        const invalidTemp: any[] = [];
+        
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length === 0) continue;
           
-          if (!rawSku || !rawName) {
-            errorCount++;
+          const skuRaw = row[skuCol] !== undefined ? String(row[skuCol]).trim() : '';
+          if (skuRaw === "") {
+            invalidTemp.push({ row: i+1, reason: "SKU vacío" });
             continue;
           }
           
-          const rawCategory = columnMapping.category ? String(row[columnMapping.category] || '').trim() : 'General';
-          const rawPrice = columnMapping.price ? parseFloat(row[columnMapping.price]) || 0 : 0;
-          const rawStock = columnMapping.stock ? parseFloat(row[columnMapping.stock]) || 0 : 0;
-          
-          const existing = inventory?.find((p: any) => p.sku === rawSku);
-          
-          if (existing) {
-            const existingBodegas = existing.bodegas || {};
-            const updatedBodegas = { ...existingBodegas };
-            
-            // Asegurar que todas las bodegas activas existan en el mapa de este producto
-            whNames.forEach(wh => {
-              if (updatedBodegas[wh] === undefined) {
-                updatedBodegas[wh] = 0;
-              }
-            });
-            
-            // Asignar y sumar existencias a la bodega de importación
-            if (selectedImportWarehouse !== 'Ninguna') {
-              updatedBodegas[selectedImportWarehouse] = (updatedBodegas[selectedImportWarehouse] || 0) + rawStock;
-            }
-            
-            const consolidatedQty = Object.values(updatedBodegas).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
-            
-            const productRef = doc(db, 'inventory', existing.id);
-            batch.update(productRef, {
-              bodegas: updatedBodegas,
-              quantity: consolidatedQty,
-              price: rawPrice > 0 ? rawPrice : (existing.price || 0)
-            });
-          } else {
-            const bodegasData: Record<string, number> = {};
-            // Inicializar todas las bodegas en 0 para mantener catálogo uniforme
-            whNames.forEach(wh => {
-              bodegasData[wh] = 0;
-            });
-            
-            // Asignar existencias a la bodega seleccionada
-            if (selectedImportWarehouse !== 'Ninguna') {
-              bodegasData[selectedImportWarehouse] = rawStock;
-            }
-            
-            const consolidatedQty = Object.values(bodegasData).reduce((acc: number, val: any) => acc + (parseFloat(val) || 0), 0) as number;
-            
-            const newDocRef = doc(collection(db, 'inventory'));
-            batch.set(newDocRef, {
-              sku: rawSku,
-              name: rawName,
-              category: rawCategory || 'General',
-              price: rawPrice,
-              quantity: consolidatedQty,
-              bodegas: bodegasData,
-              createdAt: new Date().toISOString()
-            });
+          let descripcion = "Sin descripción";
+          if (descCol !== -1 && row[descCol] !== undefined && row[descCol] !== null) {
+            const d = String(row[descCol]).trim();
+            if (d !== "") descripcion = d;
           }
-          importedCount++;
+          
+          validTemp.push({ sku: skuRaw, descripcion });
         }
         
-        try {
-          await Promise.race([
-            batch.commit(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
-          ]);
-        } catch (err: any) {
-          if (err.message === 'timeout') {
-            console.warn('La importación masiva se guardó localmente en caché debido a conexión offline.');
-          } else {
-            throw err;
-          }
+        setBulkValidProducts(validTemp);
+        setBulkInvalidRows(invalidTemp);
+        
+        if (invalidTemp.length > 0) {
+          toast({ variant: "destructive", title: "Filas omitidas", description: `Se omitieron ${invalidTemp.length} filas por SKU vacío o inválido.`});
         }
-        setBulkImportProgress(Math.min(100, Math.round(((i + chunk.length) / bulkRows.length) * 100)));
+        toast({ title: "Carga exitosa", description: `${validTemp.length} productos listos para enviar.` });
+        
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Error al leer", description: err.message });
       }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleBulkUploadSubmit = async () => {
+    if (bulkValidProducts.length === 0) return;
+    setIsSendingBulk(true);
+    setBulkProgressPercent(0);
+    
+    const CHUNK_SIZE = 500;
+    const totalChunks = Math.ceil(bulkValidProducts.length / CHUNK_SIZE);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = bulkValidProducts.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+      const percent = Math.round(((i + 1) / totalChunks) * 100);
+      setBulkProgressPercent(percent);
+      setBulkProgressText(`Enviando lote ${i+1} de ${totalChunks}...`);
       
-      toast({
-        title: "Carga Masiva Completada",
-        description: `Se procesaron exitosamente ${importedCount} productos y se asignaron a todas las bodegas con stock inicial cargado.`
-      });
-      
+      const payload = chunk.map(p => ({
+        sku: p.sku.toUpperCase(),
+        name: p.descripcion,
+        category: 'General',
+        price: 0
+      }));
+
+      const { error } = await supabase.from('inventory').upsert(payload, { onConflict: 'sku' });
+        
+      if (error) {
+        errorCount += chunk.length;
+        console.error("Bulk upload error on chunk", i, error);
+      } else {
+        successCount += chunk.length;
+      }
+    }
+    
+    setIsSendingBulk(false);
+    if (errorCount === 0) {
+      toast({ title: "Éxito masivo", description: `${successCount} productos guardados en Supabase correctamente.` });
+      setBulkValidProducts([]);
+      setBulkInvalidRows([]);
       setBulkFile(null);
-      setBulkHeaders([]);
-      setBulkRows([]);
       if (bulkFileInputRef.current) bulkFileInputRef.current.value = '';
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Error en la importación", description: "Ocurrió un error al procesar el lote en la base de datos." });
-    } finally {
+      await loadSupabaseData();
+    } else {
+      toast({ variant: "destructive", title: "Carga parcial", description: `${successCount} enviados, ${errorCount} con error.` });
+    }
+  }; } finally {
       setBulkImporting(false);
       setBulkImportProgress(0);
     }
@@ -2020,15 +1918,20 @@ export default function InventoryMasterPage() {
             <TabsContent value="carga-masiva" className="space-y-6 outline-none animate-in fade-in duration-300">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
-                {/* Panel Izquierdo: Carga y Mapeo */}
+                {/* Panel Izquierdo: Carga y Progreso */}
                 <div className="lg:col-span-5 space-y-6">
                   <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
-                      <CardTitle className="text-sm font-bold flex items-center gap-2">
-                        <Upload className="text-blue-400" size={18} /> Importación por Excel/CSV
-                      </CardTitle>
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <Upload className="text-blue-400" size={18} /> Carga Masiva (SKU + Desc)
+                        </CardTitle>
+                        <Button variant="ghost" size="sm" onClick={handleDownloadTemplate} className="h-7 text-xs bg-slate-800 hover:bg-slate-700 text-white border-0">
+                          Descargar Plantilla
+                        </Button>
+                      </div>
                       <CardDescription className="text-slate-400 text-xs">
-                        Cargue inventario de forma masiva mapeando las columnas de su archivo.
+                        Sube hasta +3000 códigos rápidamente en formato Excel o CSV.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="p-6 space-y-4">
@@ -2043,7 +1946,11 @@ export default function InventoryMasterPage() {
                           ref={bulkFileInputRef} 
                           className="hidden" 
                           accept=".xlsx,.xls,.csv" 
-                          onChange={handleBulkFileChange} 
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              processBulkFile(e.target.files[0]);
+                            }
+                          }}
                         />
                         <FileSpreadsheet className="mx-auto text-blue-500 mb-2" size={32} />
                         <span className="text-xs font-bold text-slate-700 dark:text-foreground block">
@@ -2054,145 +1961,49 @@ export default function InventoryMasterPage() {
                         </span>
                       </div>
 
-                      {bulkHeaders.length > 0 && (
+                      {bulkValidProducts.length > 0 && (
                         <div className="space-y-4 border-t pt-4 border-slate-100 dark:border-slate-800">
-                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">
-                            Mapear Columnas del Archivo
-                          </Label>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-500">SKU (Obligatorio)</Label>
-                              <Select 
-                                value={columnMapping.sku} 
-                                onValueChange={(val) => setColumnMapping({...columnMapping, sku: val})}
-                              >
-                                <SelectTrigger className="h-9 bg-slate-50 dark:bg-muted border-none text-[10px] rounded-lg font-semibold">
-                                  <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {bulkHeaders.map(h => (
-                                    <SelectItem key={h} value={h} className="text-xs">{h}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-500">Nombre (Obligatorio)</Label>
-                              <Select 
-                                value={columnMapping.name} 
-                                onValueChange={(val) => setColumnMapping({...columnMapping, name: val})}
-                              >
-                                <SelectTrigger className="h-9 bg-slate-50 dark:bg-muted border-none text-[10px] rounded-lg font-semibold">
-                                  <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {bulkHeaders.map(h => (
-                                    <SelectItem key={h} value={h} className="text-xs">{h}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-500">Categoría</Label>
-                              <Select 
-                                value={columnMapping.category} 
-                                onValueChange={(val) => setColumnMapping({...columnMapping, category: val})}
-                              >
-                                <SelectTrigger className="h-9 bg-slate-50 dark:bg-muted border-none text-[10px] rounded-lg font-semibold">
-                                  <SelectValue placeholder="Ninguna (Defecto: General)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="" className="text-xs">General</SelectItem>
-                                  {bulkHeaders.map(h => (
-                                    <SelectItem key={h} value={h} className="text-xs">{h}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-500">Precio</Label>
-                              <Select 
-                                value={columnMapping.price} 
-                                onValueChange={(val) => setColumnMapping({...columnMapping, price: val})}
-                              >
-                                <SelectTrigger className="h-9 bg-slate-50 dark:bg-muted border-none text-[10px] rounded-lg font-semibold">
-                                  <SelectValue placeholder="Ninguno (Defecto: $0.00)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="" className="text-xs">$0.00</SelectItem>
-                                  {bulkHeaders.map(h => (
-                                    <SelectItem key={h} value={h} className="text-xs">{h}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-500">Stock Inicial</Label>
-                              <Select 
-                                value={columnMapping.stock} 
-                                onValueChange={(val) => setColumnMapping({...columnMapping, stock: val})}
-                              >
-                                <SelectTrigger className="h-9 bg-slate-50 dark:bg-muted border-none text-[10px] rounded-lg font-semibold">
-                                  <SelectValue placeholder="Ninguno (Defecto: 0)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="" className="text-xs">0 unidades</SelectItem>
-                                  {bulkHeaders.map(h => (
-                                    <SelectItem key={h} value={h} className="text-xs">{h}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                          <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="text-emerald-500" size={18} />
+                              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                                {bulkValidProducts.length} Códigos Listos
+                              </span>
                             </div>
                           </div>
 
-                          {columnMapping.stock && (
-                            <div className="space-y-1.5 border-t pt-3 border-slate-100 dark:border-slate-800">
-                              <Label className="text-[9px] font-black uppercase text-slate-400 block">
-                                Bodega Destino para Stock Inicial
-                              </Label>
-                              <Select 
-                                value={selectedImportWarehouse} 
-                                onValueChange={setSelectedImportWarehouse}
-                              >
-                                <SelectTrigger className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Ninguna" className="text-xs">No asignar a Bodega (Solo registrar SKU)</SelectItem>
-                                  {warehouses?.map(w => (
-                                    <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                          {bulkInvalidRows.length > 0 && (
+                            <div className="p-3 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-400">
+                              <span className="font-bold block mb-1">Se omitieron {bulkInvalidRows.length} filas:</span>
+                              <ul className="list-disc pl-4 opacity-80 text-[10px]">
+                                {bulkInvalidRows.slice(0, 3).map((inv, idx) => (
+                                  <li key={idx}>Fila {inv.row}: {inv.reason}</li>
+                                ))}
+                                {bulkInvalidRows.length > 3 && <li>...y {bulkInvalidRows.length - 3} más.</li>}
+                              </ul>
                             </div>
                           )}
 
-                          {bulkImporting ? (
+                          {isSendingBulk ? (
                             <div className="space-y-2 pt-2 animate-in fade-in">
                               <div className="flex justify-between items-center text-xs font-bold text-slate-700 dark:text-foreground">
-                                <span>Cargando productos en la base de datos...</span>
-                                <span>{bulkImportProgress}%</span>
+                                <span>{bulkProgressText}</span>
+                                <span>{bulkProgressPercent}%</span>
                               </div>
                               <div className="w-full bg-slate-100 dark:bg-muted rounded-full h-2 overflow-hidden">
                                 <div 
                                   className="bg-blue-600 h-full transition-all duration-150 rounded-full" 
-                                  style={{ width: `${bulkImportProgress}%` }}
+                                  style={{ width: `${bulkProgressPercent}%` }}
                                 />
                               </div>
                             </div>
                           ) : (
                             <Button 
-                              onClick={handleBulkImport} 
+                              onClick={handleBulkUploadSubmit} 
                               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold mt-2"
-                              disabled={!columnMapping.sku || !columnMapping.name}
                             >
-                              <CheckCircle2 size={16} className="mr-2" />
-                              INICIAR IMPORTACIÓN ({bulkRows.length} ÍTEMS)
+                              <Upload size={16} className="mr-2" />
+                              SUBIR {bulkValidProducts.length} PRODUCTOS
                             </Button>
                           )}
                         </div>
@@ -2233,7 +2044,7 @@ export default function InventoryMasterPage() {
                       <div className="p-4 bg-slate-50 dark:bg-muted/50 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <TabsList className="bg-muted/80 p-0.5 rounded-xl border flex w-fit">
                           <TabsTrigger value="excel" className="rounded-lg text-[10px] font-bold px-3 py-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                            Por Importar ({bulkRows.length})
+                            Por Importar ({bulkValidProducts.length})
                           </TabsTrigger>
                           <TabsTrigger value="sistema" className="rounded-lg text-[10px] font-bold px-3 py-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                             En Sistema ({inventory.length})
@@ -2242,7 +2053,7 @@ export default function InventoryMasterPage() {
                         
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                           <TabsContent value="excel" className="m-0 outline-none">
-                            {bulkRows.length > 0 && (
+                            {bulkValidProducts.length > 0 && (
                               <Button 
                                 type="button" 
                                 variant="ghost" 
@@ -2250,8 +2061,8 @@ export default function InventoryMasterPage() {
                                 className="h-7 text-[10px] font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 px-2 rounded-lg"
                                 onClick={() => {
                                   setBulkFile(null);
-                                  setBulkHeaders([]);
-                                  setBulkRows([]);
+                                  setBulkValidProducts([]);
+                                  setBulkInvalidRows([]);
                                   if (bulkFileInputRef.current) bulkFileInputRef.current.value = '';
                                 }}
                               >
@@ -2274,25 +2085,25 @@ export default function InventoryMasterPage() {
                           <Table>
                             <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
                               <TableRow>
-                                {bulkHeaders.map(h => (
-                                  <TableHead key={h} className="text-[10px] font-black uppercase whitespace-nowrap px-4 py-3">{h}</TableHead>
-                                ))}
+                                <TableHead className="text-[10px] font-black uppercase whitespace-nowrap px-4 py-3">CÓDIGO (SKU)</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase whitespace-nowrap px-4 py-3">DESCRIPCIÓN</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {bulkRows.length === 0 ? (
+                              {bulkValidProducts.length === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={bulkHeaders.length || 1} className="text-center py-32 text-slate-400 italic text-xs">
+                                  <TableCell colSpan={2} className="text-center py-32 text-slate-400 italic text-xs">
                                     Cargue un archivo CSV o Excel para ver la previsualización aquí.
                                   </TableCell>
                                 </TableRow>
-                              ) : bulkRows.slice(0, 50).map((row, idx) => (
+                              ) : bulkValidProducts.slice(0, 50).map((row, idx) => (
                                 <TableRow key={idx} className="hover:bg-slate-50 dark:hover:bg-muted/30">
-                                  {bulkHeaders.map(h => (
-                                    <TableCell key={h} className="text-[11px] font-medium text-slate-700 dark:text-muted-foreground whitespace-nowrap px-4 py-2.5">
-                                      {String(row[h] !== undefined ? row[h] : '')}
-                                    </TableCell>
-                                  ))}
+                                  <TableCell className="text-[11px] font-bold text-slate-700 dark:text-muted-foreground whitespace-nowrap px-4 py-2.5 font-mono">
+                                    {row.sku}
+                                  </TableCell>
+                                  <TableCell className="text-[11px] font-medium text-slate-700 dark:text-muted-foreground px-4 py-2.5">
+                                    {row.descripcion}
+                                  </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
