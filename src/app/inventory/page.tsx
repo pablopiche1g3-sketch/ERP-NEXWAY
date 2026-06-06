@@ -470,7 +470,11 @@ export default function InventoryMasterPage() {
     
     toast({
       title: "SKU Generado",
-      description: `Código sugerido: ${newSku} para la categoría ${produ  // --- LÓGICA DE CARGA MASIVA ---
+      description: `Código sugerido: ${newSku} para la categoría ${productForm.category}`
+    });
+  };
+
+  // --- LÓGICA DE CARGA MASIVA ---
   const handleDownloadTemplate = () => {
     const plantillaData = [['SKU', 'Descripción'],['PROD-001', 'Laptop Gamer 15 pulgadas'],['PROD-002', 'Mouse inalámbrico ergonómico']];
     const ws = XLSX.utils.aoa_to_sheet(plantillaData);
@@ -593,10 +597,6 @@ export default function InventoryMasterPage() {
       await loadSupabaseData();
     } else {
       toast({ variant: "destructive", title: "Carga parcial", description: `${successCount} enviados, ${errorCount} con error.` });
-    }
-  }; } finally {
-      setBulkImporting(false);
-      setBulkImportProgress(0);
     }
   };
 
