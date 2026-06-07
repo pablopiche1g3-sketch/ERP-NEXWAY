@@ -26,7 +26,6 @@ import {
   ClipboardList,
   Save
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 function BarcodePreview({ sku }: { sku: string }) {
   if (!sku) return null;
@@ -66,11 +65,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {  useFirestore, useCollection, useDoc, doc, collection, writeBatch  } from '@/supabase/compat';
+import { useModuleConfig } from '@/supabase/use-module-config';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -83,9 +80,7 @@ interface SupplierItem {
 }
 
 export default function InventoryMasterPage() {
-  const db = useFirestore();
-  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
-  const { data: config } = useDoc<any>(configRef);
+  const { config } = useModuleConfig();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -485,7 +480,8 @@ export default function InventoryMasterPage() {
   };
 
   // --- LÓGICA DE CARGA MASIVA ---
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
+    const XLSX = await import('xlsx');
     const plantillaData = [['SKU', 'Descripción'],['PROD-001', 'Laptop Gamer 15 pulgadas'],['PROD-002', 'Mouse inalámbrico ergonómico']];
     const ws = XLSX.utils.aoa_to_sheet(plantillaData);
     ws['!cols'] = [{wch:18},{wch:40}];
@@ -511,8 +507,9 @@ export default function InventoryMasterPage() {
     toast({ title: "Procesando archivo...", description: "Leyendo datos del Excel." });
     
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array', cellDates: false });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -1991,7 +1988,7 @@ export default function InventoryMasterPage() {
                               <span className="font-bold block mb-1">Se omitieron {bulkInvalidRows.length} filas:</span>
                               <ul className="list-disc pl-4 opacity-80 text-[10px]">
                                 {bulkInvalidRows.slice(0, 3).map((inv, idx) => (
-                                  <li key={idx}>Fila {inv.row}: {inv.reason}</li>
+                                  <li key={inv.row}>Fila {inv.row}: {inv.reason}</li>
                                 ))}
                                 {bulkInvalidRows.length > 3 && <li>...y {bulkInvalidRows.length - 3} más.</li>}
                               </ul>
@@ -2111,7 +2108,7 @@ export default function InventoryMasterPage() {
                                   </TableCell>
                                 </TableRow>
                               ) : bulkValidProducts.slice(0, 50).map((row, idx) => (
-                                <TableRow key={idx} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                                <TableRow key={row.sku} className="hover:bg-slate-50 dark:hover:bg-muted/30">
                                   <TableCell className="text-[11px] font-bold text-slate-700 dark:text-muted-foreground whitespace-nowrap px-4 py-2.5 font-mono">
                                     {row.sku}
                                   </TableCell>

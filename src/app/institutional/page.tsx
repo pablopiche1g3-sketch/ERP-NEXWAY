@@ -65,6 +65,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { DEFAULT_FROM_EMAIL } from '@/lib/admin-emails';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
@@ -96,7 +97,7 @@ export default function InstitutionalModulePage() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [allSales, setAllSales] = useState<any[]>([]);
   const [allPurchases, setAllPurchases] = useState<any[]>([]);
-  const [cashConfig, setCashConfig] = useState<any>({ cashFloat: 100, catchAllEmail: 'pablopiche1g3@gmail.com' });
+  const [cashConfig, setCashConfig] = useState<any>({ cashFloat: 100, catchAllEmail: DEFAULT_FROM_EMAIL });
 
   const loadData = async () => {
     try {
@@ -833,8 +834,8 @@ export default function InstitutionalModulePage() {
                             </TableRow>
                          </TableHeader>
                          <TableBody>
-                            {manualCost.items.map((item, idx) => (
-                               <TableRow key={idx}>
+                             {manualCost.items.map((item, idx) => (
+                                <TableRow key={item.name + '-' + idx}>
                                   <TableCell className="text-xs">{item.quantity}</TableCell>
                                   <TableCell className="text-xs font-bold">{item.name}</TableCell>
                                   <TableCell className="text-right text-xs">${item.price.toFixed(2)}</TableCell>
@@ -872,8 +873,8 @@ export default function InstitutionalModulePage() {
                       <Table>
                          <TableHeader className="bg-muted/50"><TableRow><TableHead>Documento</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Monto</TableHead></TableRow></TableHeader>
                          <TableBody>
-                            {ledgerMovements.filter(m => m.projectId === selectedProjectId).map((m, idx) => (
-                               <TableRow key={idx}><TableCell className="text-xs font-bold">{m.docNumber}</TableCell><TableCell><Badge variant="outline">{m.type}</Badge></TableCell><TableCell className={`text-right font-black ${m.color}`}>${m.total?.toFixed(2)}</TableCell></TableRow>
+                             {ledgerMovements.filter(m => m.projectId === selectedProjectId).map((m, idx) => (
+                                <TableRow key={m.id}><TableCell className="text-xs font-bold">{m.docNumber}</TableCell><TableCell><Badge variant="outline">{m.type}</Badge></TableCell><TableCell className={`text-right font-black ${m.color}`}>${m.total?.toFixed(2)}</TableCell></TableRow>
                             ))}
                          </TableBody>
                       </Table>
@@ -887,8 +888,8 @@ export default function InstitutionalModulePage() {
                 <Table>
                    <TableHeader className="bg-muted/50"><TableRow><TableHead className="px-6">Fecha</TableHead><TableHead>Proyecto</TableHead><TableHead>Documento</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right px-6">Monto</TableHead></TableRow></TableHeader>
                    <TableBody>
-                      {ledgerMovements.map((m, idx) => (
-                         <TableRow key={idx}>
+                       {ledgerMovements.map((m, idx) => (
+                          <TableRow key={m.id}>
                             <TableCell className="px-6 text-xs text-muted-foreground">{new Date(m.createdAt || m.timestamp).toLocaleDateString()}</TableCell>
                             <TableCell className="text-xs font-bold">{projects?.find(p => p.id === m.projectId)?.name || 'General'}</TableCell>
                             <TableCell className="text-xs font-mono">{m.docNumber}</TableCell>
@@ -948,8 +949,8 @@ export default function InstitutionalModulePage() {
                  <ScrollArea className="h-[150px] border rounded-2xl p-0">
                     <Table>
                        <TableBody>
-                          {newProject.items.map((item, idx) => (
-                             <TableRow key={idx}><TableCell className="font-bold text-xs">{item.name}</TableCell><TableCell className="text-right text-xs font-black">${item.price}</TableCell><TableCell className="w-10"><Button variant="ghost" size="icon" className="h-6 w-6 text-rose-500" onClick={() => setNewProject({...newProject, items: newProject.items.filter((_, i) => i !== idx)})}><Trash2 size={12}/></Button></TableCell></TableRow>
+                           {newProject.items.map((item, idx) => (
+                              <TableRow key={item.id || item.name + '-' + idx}><TableCell className="font-bold text-xs">{item.name}</TableCell><TableCell className="text-right text-xs font-black">${item.price}</TableCell><TableCell className="w-10"><Button variant="ghost" size="icon" className="h-6 w-6 text-rose-500" onClick={() => setNewProject({...newProject, items: newProject.items.filter((_, i) => i !== idx)})}><Trash2 size={12}/></Button></TableCell></TableRow>
                           ))}
                        </TableBody>
                     </Table>

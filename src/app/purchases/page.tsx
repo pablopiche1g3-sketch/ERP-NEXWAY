@@ -35,7 +35,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import {  useFirestore, useCollection  } from '@/supabase/compat';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -53,7 +52,6 @@ interface PurchaseItem {
 type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Credito';
 
 export default function PurchasesPage() {
-  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -1427,7 +1425,7 @@ export default function PurchasesPage() {
                 const priceVal = selectedUncreatedPrice[p.sku] || '';
                 const suggestedPrice = (p.cost * 1.3).toFixed(2);
                 return (
-                  <div key={index} className="p-4 border rounded-2xl bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div key={p.sku} className="p-4 border rounded-2xl bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Cód. Prov: {p.originalProviderCode || p.sku}</span>

@@ -261,7 +261,7 @@ export default function QuedanPage() {
                 {invoices.length > 0 && (
                   <div className="mt-4 border-t border-slate-200 pt-4 space-y-2">
                     {invoices.map((inv, index) => (
-                      <div key={index} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
+                      <div key={inv.number} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
                         <div className="flex flex-col">
                           <span className="text-[10px] font-bold text-slate-600">FAC: {inv.number}</span>
                           <span className="text-xs font-black text-slate-900">${inv.amount.toFixed(2)}</span>
@@ -332,7 +332,7 @@ export default function QuedanPage() {
                           <span className="font-bold text-slate-900 text-xs">{q.supplier}</span>
                           <div className="flex flex-wrap gap-1">
                             {q.invoices?.map((inv: any, idx: number) => (
-                              <Badge key={idx} variant="secondary" className="text-[8px] font-mono px-1.5 h-4 bg-slate-100 text-slate-500">
+                              <Badge key={inv.number} variant="secondary" className="text-[8px] font-mono px-1.5 h-4 bg-slate-100 text-slate-500">
                                 {inv.number}
                               </Badge>
                             ))}

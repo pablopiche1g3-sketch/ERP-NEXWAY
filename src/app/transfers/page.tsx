@@ -595,7 +595,7 @@ export default function TransfersPage() {
                       <TableCell>
                          <div className="flex flex-wrap gap-1">
                             {t.items?.map((item: any, idx: number) => (
-                               <Badge key={idx} variant="secondary" className="text-[8px] font-mono">{item.quantity}x {item.sku}</Badge>
+                                <Badge key={item.sku} variant="secondary" className="text-[8px] font-mono">{item.quantity}x {item.sku}</Badge>
                             ))}
                          </div>
                       </TableCell>

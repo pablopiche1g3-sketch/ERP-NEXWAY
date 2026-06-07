@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { isAdminEmail, isRoleChangeable, canRevokeAccess } from '@/lib/admin-emails';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter } from 'next/navigation';
@@ -1078,10 +1079,7 @@ export default function ManagementPage() {
                             <Select 
                               value={usr.role || 'pedidos'} 
                               onValueChange={(val) => handleChangeRole(usr.id, val)}
-                              disabled={isSaving || 
-                                        usr.email === 'pablopiche1g3@gmail.com' || 
-                                        usr.email === 'pinturas.tecnicolorsw@gmail.com' ||
-                                        usr.email === 'saladventastecnicolor@gmail.com'}
+                              disabled={isSaving || !isRoleChangeable(usr.email)}
                             >
                               <SelectTrigger className="w-[170px] h-10 bg-muted border-none rounded-xl text-xs font-bold">
                                 <SelectValue />
@@ -1119,9 +1117,7 @@ export default function ManagementPage() {
                               </Select>
                             )}
 
-                            {usr.email !== 'pablopiche1g3@gmail.com' && 
-                             usr.email !== 'pinturas.tecnicolorsw@gmail.com' && 
-                             usr.email !== 'saladventastecnicolor@gmail.com' && (
+                            {canRevokeAccess(usr.email) && (
                               <Button 
                                 variant="ghost" 
                                 size="icon"

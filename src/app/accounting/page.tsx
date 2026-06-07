@@ -35,9 +35,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {  useFirestore, useCollection, useDoc, doc, collection  } from '@/supabase/compat';
 import { supabase } from '@/supabase/client';
+import { useModuleConfig } from '@/supabase/use-module-config';
+import { useTabs } from '@/hooks/use-tabs';
 import { useToast } from '@/hooks/use-toast';
+import { SettingsTab } from './components/settings-tab';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
@@ -79,15 +81,11 @@ const DEFAULT_CATALOG = [
 ];
 
 export default function AccountingPage() {
-  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const { config } = useModuleConfig();
 
-  const [activeTab, setActiveTab] = useState('diario');
-  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
-  const { data: config } = useDoc<any>(configRef);
-
-  const tabsList = useMemo(() => [
+  const accountingTabs = [
     { id: 'diario', key: 'accounting_diario' },
     { id: 'balance-comprobacion', key: 'accounting_balance-comprobacion' },
     { id: 'rentabilidad', key: 'accounting_rentabilidad' },
@@ -97,18 +95,8 @@ export default function AccountingPage() {
     { id: 'caja-chica', key: 'accounting_caja-chica' },
     { id: 'pnl', key: 'accounting_pnl' },
     { id: 'settings', key: 'accounting_settings' },
-  ], []);
-
-  useEffect(() => {
-    if (!config) return;
-    const currentTabObj = tabsList.find(t => t.id === activeTab);
-    if (currentTabObj && config[currentTabObj.key] === false) {
-      const firstEnabled = tabsList.find(t => config[t.key] !== false);
-      if (firstEnabled) {
-        setActiveTab(firstEnabled.id);
-      }
-    }
-  }, [config, activeTab, tabsList]);
+  ];
+  const { activeTab, setActiveTab } = useTabs(config, accountingTabs, 'diario');
   
   // Estados para datos cargados desde Supabase
   const [sales, setSales] = useState<any[]>([]);
@@ -1729,91 +1717,11 @@ export default function AccountingPage() {
 
           {/* TAB 6: AJUSTES CONTABLES DEL ERP CLIENTE */}
           <TabsContent value="settings" className="outline-none">
-            <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border p-6 md:p-8 space-y-8">
-              <div>
-                <h3 className="font-black text-slate-900 dark:text-foreground text-base flex items-center gap-2">
-                  <Settings size={18} className="text-blue-600" /> Parámetros y Activación Modular (Licencia de Cliente)
-                </h3>
-                <p className="text-slate-500 dark:text-muted-foreground text-xs mt-1">Personaliza las funciones del sistema según los requerimientos y el perfil comercial contratado por el cliente final.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-100 dark:border-border pt-6">
-                
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-2xl">
-                    <div className="space-y-1 max-w-[75%]">
-                      <Label className="font-bold text-xs text-slate-900 dark:text-foreground block">Nivel de Contabilidad (Doble Entrada)</Label>
-                      <span className="text-[10px] text-slate-500 dark:text-muted-foreground block leading-normal">
-                        Activa el Libro Diario profesional con registros de partidas con Debe y Haber balanceados. Si se desactiva, opera en modo simplificado de ingresos/egresos.
-                      </span>
-                    </div>
-                    <Switch 
-                      id="accountingLevel"
-                      checked={settings.accountingLevel === 'Avanzado'} 
-                      onCheckedChange={(checked) => handleSaveSettings({
-                        ...settings,
-                        accountingLevel: checked ? 'Avanzado' : 'Simplificado'
-                      })}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-2xl">
-                    <div className="space-y-1 max-w-[75%]">
-                      <Label className="font-bold text-xs text-slate-900 dark:text-foreground block">Clasificación: Gran Contribuyente</Label>
-                      <span className="text-[10px] text-slate-500 dark:text-muted-foreground block leading-normal">
-                        Habilita la aplicación automática de la retención del 1% de IVA en compras y ventas de acuerdo a las leyes del Ministerio de Hacienda de El Salvador.
-                      </span>
-                    </div>
-                    <Switch 
-                      id="taxProfile"
-                      checked={settings.taxProfile === 'Gran Contribuyente'} 
-                      onCheckedChange={(checked) => handleSaveSettings({
-                        ...settings,
-                        taxProfile: checked ? 'Gran Contribuyente' : 'Normal'
-                      })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4 bg-slate-50/50 dark:bg-muted/30 p-6 rounded-2xl border border-slate-100 dark:border-border">
-                  <h4 className="font-black text-slate-800 dark:text-foreground text-xs uppercase tracking-wider mb-2">Tasas Tributarias Configurables</h4>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Porcentaje del IVA Local (%)</Label>
-                    <div className="flex gap-2">
-                      <Input 
-                        type="number"
-                        value={settings.ivaRate} 
-                        onChange={(e) => setSettings({ ...settings, ivaRate: parseFloat(e.target.value) || 0 })}
-                        className="h-10 text-xs rounded-xl bg-white dark:bg-card border-slate-200 dark:border-border w-24 font-black text-foreground"
-                      />
-                      <Button variant="secondary" size="sm" onClick={() => handleSaveSettings(settings)} className="rounded-xl text-[10px] font-bold h-10 px-4 dark:bg-muted dark:text-foreground dark:hover:bg-muted/80">
-                        Actualizar
-                      </Button>
-                    </div>
-                    <p className="text-[9px] text-slate-400 dark:text-muted-foreground">Por defecto es 13% en El Salvador.</p>
-                  </div>
-
-                  <div className="space-y-2 pt-2">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Tasa Mensual de Pago a Cuenta (%)</Label>
-                    <div className="flex gap-2">
-                      <Input 
-                        type="number"
-                        step="0.01"
-                        value={settings.pagoCuentaRate} 
-                        onChange={(e) => setSettings({ ...settings, pagoCuentaRate: parseFloat(e.target.value) || 0 })}
-                        className="h-10 text-xs rounded-xl bg-white dark:bg-card border-slate-200 dark:border-border w-24 font-black text-foreground"
-                      />
-                      <Button variant="secondary" size="sm" onClick={() => handleSaveSettings(settings)} className="rounded-xl text-[10px] font-bold h-10 px-4 dark:bg-muted dark:text-foreground dark:hover:bg-muted/80">
-                        Actualizar
-                      </Button>
-                    </div>
-                    <p className="text-[9px] text-slate-400 dark:text-muted-foreground">Por defecto es 1.75% de los ingresos operacionales.</p>
-                  </div>
-                </div>
-
-              </div>
-            </Card>
+            <SettingsTab
+              settings={settings}
+              onChange={setSettings}
+              onSave={handleSaveSettings}
+            />
           </TabsContent>
 
           {/* TAB BALANCE DE COMPROBACION */}
@@ -2331,7 +2239,7 @@ export default function AccountingPage() {
                   </TableHeader>
                   <TableBody>
                     {advLines.map((line, idx) => (
-                      <TableRow key={idx} className="hover:bg-slate-100/30 dark:hover:bg-muted/10">
+                      <TableRow key={line.accountCode + '-' + idx} className="hover:bg-slate-100/30 dark:hover:bg-muted/10">
                         <TableCell className="p-1">
                           <Select 
                             value={line.accountCode} 

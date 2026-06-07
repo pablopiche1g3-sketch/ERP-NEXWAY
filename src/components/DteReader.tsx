@@ -468,7 +468,7 @@ export function DteReader() {
                 </TableRow>
               ) : (
                 facturas.map((f, idx) => (
-                  <TableRow key={idx} className={idx % 2 === 0 ? 'bg-slate-50/50 dark:bg-slate-900/10' : ''}>
+                  <TableRow key={f.numControl} className={idx % 2 === 0 ? 'bg-slate-50/50 dark:bg-slate-900/10' : ''}>
                     <TableCell className="text-center">
                       <Checkbox 
                         checked={f.selected}

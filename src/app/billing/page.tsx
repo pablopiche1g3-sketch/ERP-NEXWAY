@@ -45,169 +45,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import {  useFirestore, useCollection, useUser, useDoc, doc, collection  } from '@/supabase/compat';
+import { useUser } from '@/supabase/compat';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { ModeToggle } from '@/components/mode-toggle';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
 import { Textarea } from '@/components/ui/textarea';
-
-interface CartItem {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  quantity: number;
-}
-
-type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito' | 'Cheque';
-
+import { useStation } from './components/use-station';
+import { useTabs } from '@/hooks/use-tabs';
+import { useModuleConfig } from '@/supabase/use-module-config';
+import type { CartItem, PaymentMethod } from './components/types';
 
 export default function BillingPage() {
-  const db = useFirestore();
   const { user, role } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const isUserAdmin = role === 'admin' || role === 'gerencia';
+  const { config } = useModuleConfig();
 
-  // Caja/Bodega activa del usuario logueado
-  const [activeStation, setActiveStation] = useState<any | null>(null);
-  const [activeWarehouse, setActiveWarehouse] = useState<any | null>(null);
-  const [availableStations, setAvailableStations] = useState<any[]>([]);
-  const [establishedStationId, setEstablishedStationId] = useState<string | null>(null);
-
-  // Cargar la caja asignada al usuario desde system_config + profiles + localStorage
-  useEffect(() => {
-    const loadUserStation = async () => {
-      if (!user?.email) return;
-
-      // Buscar las estaciones en system_config
-      const { data: stConf } = await supabase
-        .from('system_config')
-        .select('value')
-        .eq('key', 'pos_stations')
-        .maybeSingle();
-      const stations: any[] = stConf?.value || [];
-      setAvailableStations(stations);
-
-      // Cargar de localStorage si ya fue establecida fijamente en este dispositivo
-      const localEstId = typeof window !== 'undefined' ? localStorage.getItem('established_station_id') : null;
-
-      if (localEstId) {
-        const station = stations.find((s: any) => s.id === localEstId);
-        if (station) {
-          setEstablishedStationId(localEstId);
-          setActiveStation(station);
-          const { data: wh } = await supabase
-            .from('warehouses')
-            .select('*')
-            .eq('id', station.warehouse_id)
-            .maybeSingle();
-          setActiveWarehouse(wh || null);
-          return;
-        } else {
-          // Si la caja ya no existe (fue eliminada), liberarla automáticamente
-          localStorage.removeItem('established_station_id');
-          setEstablishedStationId(null);
-        }
-      }
-
-      // Buscar el perfil del usuario para obtener station_id si no hay fija
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('station_id')
-        .eq('email', user.email)
-        .maybeSingle();
-
-      if (profile?.station_id) {
-        const station = stations.find((s: any) => s.id === profile.station_id);
-        if (station) {
-          setActiveStation(station);
-          // Cargar info de la bodega
-          const { data: wh } = await supabase
-            .from('warehouses')
-            .select('*')
-            .eq('id', station.warehouse_id)
-            .maybeSingle();
-          setActiveWarehouse(wh || null);
-        }
-      }
-    };
-    loadUserStation();
-  }, [user]);
+  const station = useStation(user?.email);
+  const { activeStation, activeWarehouse, availableStations, establishedStationId, clearEstablishedStation, establishStation } = station;
 
   const handleAssignStation = async (stationId: string) => {
-    if (!user?.email) return;
-    try {
-      // 1. Update profiles table
-      const { error } = await supabase
-        .from('profiles')
-        .update({ station_id: stationId })
-        .eq('email', user.email);
-
-      if (error) throw error;
-
-      // 2. Update local state
-      const station = availableStations.find((s: any) => s.id === stationId);
-      if (station) {
-        setActiveStation(station);
-        // Cargar info de la bodega
-        const { data: wh } = await supabase
-          .from('warehouses')
-          .select('*')
-          .eq('id', station.warehouse_id)
-          .maybeSingle();
-        setActiveWarehouse(wh || null);
-
-        setSearchTerm('');
-        setInventory([]);
-        setCart([]);
-
-        toast({
-          title: "Caja Asignada",
-          description: `Se asignó la caja '${station.name}' (Bodega: ${station.warehouse_name || wh?.name || 'Asociada'}).`
-        });
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast({
-        variant: "destructive",
-        title: "Error al asignar caja",
-        description: err.message || "No se pudo actualizar la caja asignada."
-      });
-    }
+    await station.assignStation(stationId);
+    setSearchTerm('');
+    setInventory([]);
+    setCart([]);
   };
 
-  const handleEstablishStation = () => {
-    if (!activeStation) return;
-    localStorage.setItem('established_station_id', activeStation.id);
-    setEstablishedStationId(activeStation.id);
-    toast({
-      title: "Caja Establecida Fija 📌",
-      description: `Esta terminal de ventas ha quedado asignada permanentemente a la caja '${activeStation.name}'.`
-    });
-  };
+  const handleClearEstablishedStation = clearEstablishedStation;
+  const handleEstablishStation = establishStation;
 
-  const handleClearEstablishedStation = () => {
-    localStorage.removeItem('established_station_id');
-    setEstablishedStationId(null);
-    toast({
-      title: "Caja Liberada 🔓",
-      description: "Se ha removido el bloqueo fijo de la caja en este dispositivo."
-    });
-  };
-
-  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
-  const { data: config } = useDoc<any>(configRef);
-
-  // Tab States
-  const [activeTab, setActiveTab] = useState('facturacion');
-
-  const tabsList = useMemo(() => [
+  const billingTabs = useMemo(() => [
     { id: 'facturacion', key: 'billing_facturacion' },
     { id: 'historial', key: 'billing_historial' },
     { id: 'nota_credito', key: 'billing_nota_credito' },
@@ -216,16 +87,7 @@ export default function BillingPage() {
     { id: 'creditos', key: 'billing_creditos' },
   ], []);
 
-  useEffect(() => {
-    if (!config) return;
-    const currentTabObj = tabsList.find(t => t.id === activeTab);
-    if (currentTabObj && config[currentTabObj.key] === false) {
-      const firstEnabled = tabsList.find(t => config[t.key] !== false);
-      if (firstEnabled) {
-        setActiveTab(firstEnabled.id);
-      }
-    }
-  }, [config, activeTab, tabsList]);
+  const { activeTab, setActiveTab } = useTabs(config, billingTabs, 'facturacion');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -1439,12 +1301,12 @@ export default function BillingPage() {
                                {adjustmentForm.items.length === 0 ? (
                                   <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground text-xs italic">Agregue ítems a descontar</TableCell></TableRow>
                                ) : adjustmentForm.items.map((item, idx) => (
-                                  <TableRow key={idx}>
-                                     <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
-                                     <TableCell className="text-right font-black text-rose-600">-${(item.price * item.quantity).toFixed(2)}</TableCell>
-                                     <TableCell><Button variant="ghost" size="icon" onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}><Trash2 size={12}/></Button></TableCell>
-                                  </TableRow>
-                               ))}
+                                <TableRow key={item.id}>
+                                      <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
+                                      <TableCell className="text-right font-black text-rose-600">-${(item.price * item.quantity).toFixed(2)}</TableCell>
+                                      <TableCell><Button variant="ghost" size="icon" onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}><Trash2 size={12}/></Button></TableCell>
+                                   </TableRow>
+                                ))}
                             </TableBody>
                          </Table>
                       </ScrollArea>
@@ -1545,12 +1407,12 @@ export default function BillingPage() {
                                {adjustmentForm.items.length === 0 ? (
                                   <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground text-xs italic">Agregue conceptos de cargo</TableCell></TableRow>
                                ) : adjustmentForm.items.map((item, idx) => (
-                                  <TableRow key={idx}>
-                                     <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
-                                     <TableCell className="text-right font-black text-amber-600">+${(item.price * item.quantity).toFixed(2)}</TableCell>
-                                     <TableCell><Button variant="ghost" size="icon" onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}><Trash2 size={12}/></Button></TableCell>
-                                  </TableRow>
-                               ))}
+                                <TableRow key={item.id}>
+                                      <TableCell className="font-bold text-xs">{item.quantity}x {item.name}</TableCell>
+                                      <TableCell className="text-right font-black text-amber-600">+${(item.price * item.quantity).toFixed(2)}</TableCell>
+                                      <TableCell><Button variant="ghost" size="icon" onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}><Trash2 size={12}/></Button></TableCell>
+                                   </TableRow>
+                                ))}
                             </TableBody>
                          </Table>
                       </ScrollArea>
@@ -1731,8 +1593,8 @@ export default function BillingPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {selectedSaleDetails.items?.map((item: any, idx: number) => (
-                              <TableRow key={idx}>
+                             {selectedSaleDetails.items?.map((item: any) => (
+                               <TableRow key={item.id}>
                                 <TableCell className="py-2.5">
                                   <p className="text-xs font-bold text-foreground">{item.name || 'Producto General'}</p>
                                   <p className="text-[9px] font-mono text-muted-foreground">{item.sku}</p>
@@ -2629,31 +2491,5 @@ export default function BillingPage() {
   );
 }
 
-function MockFrecuenteCard({ name, sku, stock, price, onClick }: {
-  name: string;
-  sku: string;
-  stock: number;
-  price: number;
-  onClick: () => void;
-}) {
-  return (
-    <div 
-      onClick={onClick}
-      className="bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-200/60 dark:border-zinc-800/60 hover:border-indigo-500/30 dark:hover:border-indigo-500/30 hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between aspect-square group relative"
-    >
-      <div className="space-y-1">
-        <span className="text-[9px] font-bold text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded-full border border-indigo-500/10 font-mono">{sku}</span>
-        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight line-clamp-2 mt-1.5">{name}</h4>
-        <p className="text-[9px] text-slate-400 dark:text-muted-foreground font-bold">Stock: {stock}</p>
-      </div>
 
-      <div className="mt-4 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 flex justify-between items-center">
-        <span className="text-xs font-black text-slate-900 dark:text-white font-headline">${price.toFixed(2)}</span>
-        <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 active:scale-90 transition-all shadow-md shadow-indigo-600/20">
-          <Plus className="text-white" size={12} />
-        </div>
-      </div>
-    </div>
-  );
-}
 

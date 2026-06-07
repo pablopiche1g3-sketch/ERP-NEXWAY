@@ -35,7 +35,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {  useUser, getTenantName, useFirestore, useDoc, doc, collection  } from '@/supabase/compat';
+import { useUser, getTenantName } from '@/supabase/compat';
+import { useModuleConfig } from '@/supabase/use-module-config';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -44,7 +45,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
-import * as XLSX from 'xlsx';
+import { DEFAULT_FROM_EMAIL } from '@/lib/admin-emails';
 
 interface OrderItem {
   sku: string;
@@ -60,9 +61,7 @@ export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<'interno' | 'externo' | 'cargar-codigos'>('interno');
   const [loading, setLoading] = useState(false);
 
-  const db = useFirestore();
-  const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
-  const { data: config } = useDoc<any>(configRef);
+  const { config } = useModuleConfig();
 
   const tabsList = useMemo(() => [
     { id: 'interno', key: 'orders_interno' },
@@ -204,7 +203,7 @@ export default function OrdersPage() {
   const [extItemName, setExtItemName] = useState('');
   const [extIsManual, setExtIsManual] = useState(false);
   const [extSupplierEmail, setExtSupplierEmail] = useState('');
-  const [extFromEmail, setExtFromEmail] = useState('pablopiche1g3@gmail.com');
+  const [extFromEmail, setExtFromEmail] = useState(DEFAULT_FROM_EMAIL);
   const [extAuthorizedBy, setExtAuthorizedBy] = useState('JULIO NEFTALI CAÑAS ZELAYA');
   const [extDigitizedBy, setExtDigitizedBy] = useState('RENE LANGLOIS 74503973');
   const [extSupplierPhone, setExtSupplierPhone] = useState('');
@@ -287,8 +286,9 @@ export default function OrdersPage() {
   };
 
   // --- LOGICA DE EXPORTACION A EXCEL ---
-  const handleDownloadExcel = (order: any) => {
+  const handleDownloadExcel = async (order: any) => {
     try {
+      const XLSX = await import('xlsx');
       // Helper para formatear fecha en español: ej. "12-may-26"
       const formatDateToSpanishShort = (dateStr: string) => {
         try {
@@ -333,7 +333,7 @@ export default function OrdersPage() {
         'Teléfono', 
         order.supplierPhone || '', 
         'DESDE EL CORREO ELECTRONICO', 
-        order.fromEmail || 'pablopiche1g3@gmail.com'
+        order.fromEmail || DEFAULT_FROM_EMAIL
       ]);
       
       // Fila 5: Encabezados de Tabla
@@ -417,6 +417,7 @@ export default function OrdersPage() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -872,7 +873,7 @@ export default function OrdersPage() {
       setExtDestWh('');
       if (!extConfigLocked) {
         setExtSupplierEmail('');
-        setExtFromEmail('pablopiche1g3@gmail.com');
+        setExtFromEmail(DEFAULT_FROM_EMAIL);
         setExtAuthorizedBy('JULIO NEFTALI CAÑAS ZELAYA');
         setExtDigitizedBy('RENE LANGLOIS 74503973');
         setExtSupplierPhone('');
@@ -1200,8 +1201,8 @@ export default function OrdersPage() {
                           <ScrollArea className="h-32 border rounded-xl bg-slate-50 dark:bg-muted/20">
                             <Table>
                               <TableBody>
-                                {intItems.map((item, idx) => (
-                                  <TableRow key={idx} className="hover:bg-transparent">
+                                                                  {intItems.map((item, idx) => (
+                                  <TableRow key={item.sku} className="hover:bg-transparent">
                                     <TableCell className="py-2 text-[10px] font-mono font-bold text-slate-600 dark:text-muted-foreground">{item.sku}</TableCell>
                                     <TableCell className="py-2 text-[11px] font-bold text-slate-800 dark:text-foreground">{item.name}</TableCell>
                                     <TableCell className="py-2 text-center text-[10px] font-black">{item.quantity} un.</TableCell>
@@ -1695,8 +1696,8 @@ export default function OrdersPage() {
                           <ScrollArea className="h-32 border rounded-xl bg-slate-50 dark:bg-muted/20">
                             <Table>
                               <TableBody>
-                                {extItems.map((item, idx) => (
-                                  <TableRow key={idx} className="hover:bg-transparent">
+                                                                 {extItems.map((item, idx) => (
+                                  <TableRow key={item.sku} className="hover:bg-transparent">
                                     <TableCell className="py-2 text-[10px] font-mono font-bold text-slate-600 dark:text-muted-foreground">{item.sku}</TableCell>
                                     <TableCell className="py-2 text-[11px] font-bold text-slate-800 dark:text-foreground">
                                       {item.name}
@@ -1951,7 +1952,7 @@ export default function OrdersPage() {
                             </TableCell>
                           </TableRow>
                         ) : bulkCodes.map((item, idx) => (
-                          <TableRow key={idx} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                          <TableRow key={item.sku} className="hover:bg-slate-50 dark:hover:bg-muted/30">
                             <TableCell className="px-4 md:px-6 py-3 font-mono font-black text-xs text-slate-700 dark:text-foreground">
                               {item.sku}
                             </TableCell>
@@ -2018,7 +2019,7 @@ export default function OrdersPage() {
                     {previewType === 'externo' && (
                       <div className="text-[9px] text-slate-400 font-bold mt-2 space-y-0.5 text-right select-none">
                         <div>ENVIAR AL CORREO: <span className="text-indigo-600 font-mono">{selectedOrderForPreview.supplierEmail || 'sac.es2@swdeca.com'}</span></div>
-                        <div>DESDE EL CORREO: <span className="text-slate-600 font-mono">{selectedOrderForPreview.fromEmail || 'pablopiche1g3@gmail.com'}</span></div>
+                        <div>DESDE EL CORREO: <span className="text-slate-600 font-mono">{selectedOrderForPreview.fromEmail || DEFAULT_FROM_EMAIL}</span></div>
                       </div>
                     )}
                   </div>
@@ -2088,7 +2089,7 @@ export default function OrdersPage() {
                     </TableHeader>
                     <TableBody>
                       {selectedOrderForPreview.items?.map((item: any, idx: number) => (
-                        <TableRow key={idx} className="border-b last:border-0 hover:bg-transparent">
+                        <TableRow key={item.sku} className="border-b last:border-0 hover:bg-transparent">
                           <TableCell className="px-4 py-3 font-mono text-[10px] font-bold text-slate-600">{item.sku}</TableCell>
                           <TableCell className="text-xs font-bold text-slate-800 dark:text-slate-200">{item.name}</TableCell>
                           <TableCell className="text-center text-xs font-black">{item.quantity} un.</TableCell>

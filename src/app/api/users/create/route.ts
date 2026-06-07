@@ -1,8 +1,43 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
+async function verifyAdminAuth(authHeader: string | null): Promise<string | null> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return 'Token de autorización requerido.';
+  }
+
+  const token = authHeader.slice(7);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+
+  const supabaseAnon = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '', {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+
+  const { data: { user }, error } = await supabaseAnon.auth.getUser(token);
+  if (error || !user) {
+    return 'Token inválido o expirado.';
+  }
+
+  const { data: profile } = await supabaseAnon
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || profile.role !== 'admin') {
+    return 'Se requieren permisos de administrador.';
+  }
+
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
+    const authErr = await verifyAdminAuth(request.headers.get('authorization'));
+    if (authErr) {
+      return NextResponse.json({ error: authErr }, { status: 401 });
+    }
+
     const { username, password, role, station_id } = await request.json();
 
     if (!username || !password || !role) {
@@ -16,14 +51,12 @@ export async function POST(request: Request) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
     if (!supabaseUrl || !serviceRoleKey) {
-      console.error('Error: NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no configurados en el servidor.');
       return NextResponse.json(
         { error: 'El servidor no está configurado con las credenciales de administración requeridas.' },
         { status: 500 }
       );
     }
 
-    // Crear cliente de administración de Supabase
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         autoRefreshToken: false,

@@ -7,6 +7,7 @@ import * as z from "zod"
 import { ShieldCheck, Loader2, AlertCircle, Mail, Lock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/supabase/client"
+import { isAdminEmail } from "@/lib/admin-emails"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -71,11 +72,9 @@ export default function LoginForm() {
       console.error(error)
       let message = "Correo o contraseña incorrectos."
       
-      const isAdminEmail = email === 'pablopiche1g3@gmail.com' || 
-                           email === 'pinturas.tecnicolorsw@gmail.com' ||
-                           email === 'saladventastecnicolor@gmail.com';
+      const userIsAdmin = isAdminEmail(email);
 
-      if (isAdminEmail && (error.message.includes('Invalid login credentials') || error.message.includes('not found'))) {
+      if (userIsAdmin && (error.message.includes('Invalid login credentials') || error.message.includes('not found'))) {
         try {
           // Intentar auto-registro para administradores si no existe el usuario en Auth
           const { error: signUpError } = await supabase.auth.signUp({

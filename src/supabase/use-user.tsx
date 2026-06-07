@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/supabase/client';
 import { User } from '@supabase/supabase-js';
+import { isAdminEmail } from '@/lib/admin-emails';
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: [
@@ -94,12 +95,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       }
 
       const cleanEmail = currentUser.email?.trim().toLowerCase() || '';
-      const isAdminEmail = cleanEmail === 'pablopiche1g3@gmail.com' || 
-                           cleanEmail === 'pinturas.tecnicolorsw@gmail.com' ||
-                           cleanEmail === 'saladventastecnicolor@gmail.com';
+      const userIsAdmin = isAdminEmail(cleanEmail);
 
       // Cargar rol desde Supabase profiles
-      let currentRole = isAdminEmail ? 'admin' : 'pedidos';
+      let currentRole = userIsAdmin ? 'admin' : 'pedidos';
 
       try {
         const { data: profile, error } = await supabase
@@ -110,7 +109,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 
         if (profile && profile.role) {
           // Force admin role if it's an admin email, regardless of DB value
-          if (isAdminEmail && profile.role !== 'admin') {
+          if (userIsAdmin && profile.role !== 'admin') {
             currentRole = 'admin';
             // Update the DB to reflect the correct role
             await supabase.from('profiles').update({ role: 'admin' }).eq('id', currentUser.id);
