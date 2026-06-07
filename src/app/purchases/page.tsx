@@ -177,6 +177,7 @@ export default function PurchasesPage() {
         .from('purchases')
         .select(`
           *,
+          suppliers ( name ),
           purchase_items (
             *,
             inventory (
