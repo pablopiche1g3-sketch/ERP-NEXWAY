@@ -78,8 +78,9 @@ export default function BillingPage() {
   const [activeStation, setActiveStation] = useState<any | null>(null);
   const [activeWarehouse, setActiveWarehouse] = useState<any | null>(null);
   const [availableStations, setAvailableStations] = useState<any[]>([]);
+  const [establishedStationId, setEstablishedStationId] = useState<string | null>(null);
 
-  // Cargar la caja asignada al usuario desde system_config + profiles
+  // Cargar la caja asignada al usuario desde system_config + profiles + localStorage
   useEffect(() => {
     const loadUserStation = async () => {
       if (!user?.email) return;
@@ -93,7 +94,25 @@ export default function BillingPage() {
       const stations: any[] = stConf?.value || [];
       setAvailableStations(stations);
 
-      // Buscar el perfil del usuario para obtener station_id
+      // Cargar de localStorage si ya fue establecida fijamente en este dispositivo
+      const localEstId = typeof window !== 'undefined' ? localStorage.getItem('established_station_id') : null;
+      setEstablishedStationId(localEstId);
+
+      if (localEstId) {
+        const station = stations.find((s: any) => s.id === localEstId);
+        if (station) {
+          setActiveStation(station);
+          const { data: wh } = await supabase
+            .from('warehouses')
+            .select('*')
+            .eq('id', station.warehouse_id)
+            .maybeSingle();
+          setActiveWarehouse(wh || null);
+          return;
+        }
+      }
+
+      // Buscar el perfil del usuario para obtener station_id si no hay fija
       const { data: profile } = await supabase
         .from('profiles')
         .select('station_id')
@@ -158,6 +177,26 @@ export default function BillingPage() {
       });
     }
   };
+
+  const handleEstablishStation = () => {
+    if (!activeStation) return;
+    localStorage.setItem('established_station_id', activeStation.id);
+    setEstablishedStationId(activeStation.id);
+    toast({
+      title: "Caja Establecida Fija 📌",
+      description: `Esta terminal de ventas ha quedado asignada permanentemente a la caja '${activeStation.name}'.`
+    });
+  };
+
+  const handleClearEstablishedStation = () => {
+    localStorage.removeItem('established_station_id');
+    setEstablishedStationId(null);
+    toast({
+      title: "Caja Liberada 🔓",
+      description: "Se ha removido el bloqueo fijo de la caja en este dispositivo."
+    });
+  };
+
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
   const { data: config } = useDoc<any>(configRef);
 
@@ -1014,7 +1053,7 @@ export default function BillingPage() {
             <Select 
               value={activeStation?.id || ''} 
               onValueChange={handleAssignStation}
-              disabled={!isUserAdmin}
+              disabled={!isUserAdmin || !!establishedStationId}
             >
               <SelectTrigger className="h-9 w-[180px] text-xs rounded-xl bg-card border font-bold text-foreground">
                 <SelectValue placeholder="Seleccionar Caja..." />
@@ -1027,6 +1066,38 @@ export default function BillingPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Acciones para establecer/liberar caja fija */}
+            {activeStation && (
+              establishedStationId === activeStation.id ? (
+                <>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-black bg-indigo-600 text-white shadow-sm shrink-0">
+                    🔒 FIJA
+                  </span>
+                  {isUserAdmin && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleClearEstablishedStation}
+                      className="h-9 px-3 border-rose-500/20 text-rose-500 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl text-xs font-bold shrink-0"
+                    >
+                      Liberar
+                    </Button>
+                  )}
+                </>
+              ) : (
+                isUserAdmin && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleEstablishStation}
+                    className="h-9 px-3 border-indigo-500/20 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 hover:bg-indigo-500/10 rounded-xl text-xs font-bold shrink-0 animate-pulse"
+                  >
+                    Establecer Caja
+                  </Button>
+                )
+              )
+            )}
           </div>
           <ModeToggle />
         </div>
