@@ -83,14 +83,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   };
 
   return (
-    <aside className={`bg-slate-50 dark:bg-[#090D16] text-slate-900 dark:text-slate-300 flex flex-col h-screen border-r border-slate-200 dark:border-slate-800/60 select-none shrink-0 font-body transition-all duration-300 ease-in-out ${
+    <aside className={`bg-slate-50 dark:bg-[#090D16] text-slate-900 dark:text-slate-300 flex flex-col h-screen border-r border-slate-200 dark:border-slate-800/60 select-none shrink-0 font-body transition-[width] duration-200 ease-in-out will-change-[width] ${
       isCollapsed ? 'w-20' : 'w-64'
     }`}>
       {/* Brand Header al Estilo Mockup */}
       {!isCollapsed ? (
         <div className="p-6 flex items-center justify-between border-b border-slate-200 dark:border-slate-800/40">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline relative group-hover:scale-105 transition-transform duration-300">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline relative group-hover:scale-105 transition-transform duration-200">
               <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
                 <div className="w-1.5 h-1.5 rounded-full bg-white/95 animate-pulse"></div>
               </div>
@@ -108,7 +108,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             variant="ghost"
             size="icon"
             onClick={onToggle}
-            className="h-8 w-8 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:text-white rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-200/50 dark:bg-slate-800/40 active:scale-95 transition-all"
+            className="h-8 w-8 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:text-white rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-200/50 dark:bg-slate-800/40 active:scale-95 transition-colors"
             title="Colapsar menú"
           >
             <ChevronLeft size={16} />
@@ -125,7 +125,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             variant="ghost"
             size="icon"
             onClick={onToggle}
-            className="h-7 w-7 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:text-white rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-200/50 dark:bg-slate-800/40 active:scale-95 transition-all"
+            className="h-7 w-7 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:text-white rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-200/50 dark:bg-slate-800/40 active:scale-95 transition-colors"
             title="Expandir menú"
           >
             <ChevronRight size={15} />
@@ -143,7 +143,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         <Link 
           href="/" 
           title={isCollapsed ? "Inicio" : undefined}
-          className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-all duration-300 group ${
+          className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-colors duration-200 group ${
             isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
           } ${
             pathname === '/' 
@@ -158,7 +158,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             {!isCollapsed && <span>Inicio</span>}
           </div>
           {!isCollapsed && pathname !== '/' && (
-            <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-all text-slate-700 dark:text-slate-400 translate-x-[-4px] group-hover:translate-x-0" />
+            <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-700 dark:text-slate-400 translate-x-[-4px] group-hover:translate-x-0" />
           )}
         </Link>
 
@@ -169,7 +169,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               key={item.id}
               href={item.path} 
               title={isCollapsed ? item.title : undefined}
-              className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-all duration-300 group ${
+              className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-colors duration-200 group ${
                 isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
               } ${
                 isActive 
