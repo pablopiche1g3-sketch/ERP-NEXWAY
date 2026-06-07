@@ -816,9 +816,13 @@ export default function AccountingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-blue-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-blue-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
+      {/* Orbes decorativos */}
+      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[42vw] h-[42vw] rounded-full bg-blue-500/5 dark:bg-blue-500/8 blur-[140px]" />
+      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[110px]" />
+      <div className="pointer-events-none fixed top-[40%] left-[30%] w-[20vw] h-[20vw] rounded-full bg-cyan-500/3 dark:bg-cyan-500/5 blur-[90px]" />
       {/* Header */}
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 relative z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-muted" onClick={() => router.push('/')}>
             <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
@@ -847,10 +851,10 @@ export default function AccountingPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6 relative z-10">
         
         {/* Selector de Canal / Vista Contable */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-card p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-border gap-4 transition-all duration-300">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between glass-card p-5 rounded-2xl gap-4 transition-all duration-300">
           <div className="space-y-1">
             <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 dark:text-muted-foreground">Canal Contable de Evaluación</h3>
             <p className="text-xs text-slate-500 dark:text-muted-foreground leading-none">Filtre y compare las ventas e inventarios por canal de distribución.</p>
@@ -891,7 +895,7 @@ export default function AccountingPage() {
 
         {/* KPI Panel */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border p-5">
+          <Card className="glass-card rounded-2xl p-5">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-xl"><TrendingUp size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/50">Unificado</Badge>
@@ -900,7 +904,7 @@ export default function AccountingPage() {
             <p className="text-2xl font-black text-slate-900 dark:text-foreground">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
-          <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border p-5">
+          <Card className="glass-card rounded-2xl p-5">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 rounded-xl"><TrendingDown size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/50">Consolidado</Badge>
@@ -930,7 +934,7 @@ export default function AccountingPage() {
 
         {/* MÓDULO PRINCIPAL CON PESTAÑAS */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-border flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="glass-card p-1 rounded-2xl flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['accounting_diario'] !== false && (
               <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
                 <FileText size={14} className="mr-2"/> Libro Diario
@@ -1003,7 +1007,7 @@ export default function AccountingPage() {
             </div>
 
             {activeSubTab === 'movimientos' ? (
-              <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden border-slate-100 dark:border-border">
+              <Card className="glass-card rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader className="bg-slate-50/70 dark:bg-muted/50 border-b border-slate-100 dark:border-border">
@@ -1088,7 +1092,7 @@ export default function AccountingPage() {
               </Card>
             ) : (
               // CATÁLOGO DE CUENTAS
-              <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card p-6 border-slate-100 dark:border-border">
+              <Card className="glass-card rounded-2xl p-6">
                 <div className="mb-4">
                   <h3 className="font-bold text-slate-900 dark:text-foreground text-sm">Estructura del Catálogo de Cuentas</h3>
                   <p className="text-slate-500 dark:text-muted-foreground text-xs">Cuentas contables organizadas según el esquema estándar del Ministerio de Hacienda de El Salvador.</p>
@@ -1160,7 +1164,7 @@ export default function AccountingPage() {
                   </div>
                 </div>
 
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader className="bg-slate-50/70 dark:bg-muted/50 border-b border-slate-100 dark:border-border">

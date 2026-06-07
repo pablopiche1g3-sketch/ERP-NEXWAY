@@ -1021,9 +1021,13 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300 print:bg-white print:p-0">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-indigo-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-indigo-950/10 p-4 md:p-6 transition-colors duration-300 print:bg-white print:p-0 relative overflow-x-hidden">
+      {/* Orbes decorativos */}
+      <div className="pointer-events-none fixed top-[-10%] right-[-8%] w-[40vw] h-[40vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[130px]" />
+      <div className="pointer-events-none fixed bottom-[-12%] left-[-6%] w-[35vw] h-[35vw] rounded-full bg-blue-500/5 dark:bg-blue-500/8 blur-[120px]" />
+      <div className="pointer-events-none fixed top-[50%] left-[40%] w-[18vw] h-[18vw] rounded-full bg-violet-500/3 dark:bg-violet-500/5 blur-[90px]" />
       {/* Header Print Hidden */}
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 print:hidden">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 print:hidden relative z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-card shadow-sm border" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
@@ -1103,9 +1107,9 @@ export default function BillingPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto print:hidden">
+      <div className="max-w-7xl mx-auto print:hidden relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="glass-card p-1 rounded-2xl h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['billing_facturacion'] !== false && (
               <TabsTrigger value="facturacion" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm whitespace-nowrap">
                 <ShoppingCart size={14} className="mr-2" /> Venta
@@ -1142,7 +1146,7 @@ export default function BillingPage() {
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-8 outline-none animate-in fade-in duration-300">
             {/* Columna Izquierda: POS Carrito (Ancho: 5/12) */}
             <div className="lg:col-span-5 space-y-6">
-              <Card className="border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl overflow-hidden bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md shadow-sm">
+              <Card className="glass-card rounded-2xl overflow-hidden">
                 <CardHeader className="bg-[#0F172A] text-white p-6 dark:bg-zinc-950/40">
                   <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Resumen de Venta</CardTitle>
@@ -1255,7 +1259,7 @@ export default function BillingPage() {
               </div>
 
               {/* Cliente y DTE */}
-              <Card className="p-4 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-zinc-800/60 flex flex-col sm:flex-row gap-4">
+              <Card className="glass-card p-4 rounded-2xl flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 space-y-1.5">
                   <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Cliente Receptor</Label>
                   <div className="flex gap-2">
@@ -1349,7 +1353,7 @@ export default function BillingPage() {
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase">Detalle de productos</h3>
                 
-                <Card className="border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl overflow-hidden bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md shadow-sm">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto no-scrollbar">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-zinc-950/20 border-b border-slate-100 dark:border-zinc-800">

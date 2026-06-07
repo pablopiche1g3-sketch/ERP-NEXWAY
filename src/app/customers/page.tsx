@@ -239,8 +239,12 @@ export default function CustomersPage() {
   }, [searchTerm, customers]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-sky-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-sky-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
+      {/* Orbes decorativos */}
+      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[38vw] h-[38vw] rounded-full bg-sky-500/5 dark:bg-sky-500/8 blur-[130px]" />
+      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[110px]" />
+      <div className="pointer-events-none fixed top-[45%] left-[35%] w-[16vw] h-[16vw] rounded-full bg-blue-500/3 dark:bg-blue-500/5 blur-[80px]" />
+      <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
@@ -257,9 +261,9 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
         <div className="lg:col-span-5 space-y-4">
-          <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden border">
+          <Card className="glass-card rounded-2xl overflow-hidden">
             <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-6">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Plus size={20} className="text-sky-400" />
@@ -432,11 +436,11 @@ export default function CustomersPage() {
               placeholder="Buscar por nombre o NIT..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
+              className="pl-12 h-12 glass-input border-none shadow-sm rounded-2xl text-xs md:text-sm"
             />
           </div>
 
-          <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden border">
+          <Card className="glass-card rounded-2xl overflow-hidden">
             <ScrollArea className="h-[550px]">
               <Table>
                 <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">

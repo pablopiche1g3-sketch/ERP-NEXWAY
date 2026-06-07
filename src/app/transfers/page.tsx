@@ -335,8 +335,12 @@ export default function TransfersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#090D16] p-4 md:p-6 lg:p-8 font-body select-none transition-colors duration-300">
-      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-indigo-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-indigo-950/10 p-4 md:p-6 lg:p-8 font-body select-none transition-colors duration-300 relative overflow-x-hidden">
+      {/* Orbes decorativos */}
+      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[40vw] h-[40vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[130px]" />
+      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-blue-500/5 dark:bg-blue-500/8 blur-[110px]" />
+      <div className="pointer-events-none fixed top-[40%] left-[35%] w-[18vw] h-[18vw] rounded-full bg-cyan-500/3 dark:bg-cyan-500/5 blur-[80px]" />
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4 relative z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-zinc-900/60 shadow-sm border border-slate-200 dark:border-zinc-800" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
@@ -349,9 +353,9 @@ export default function TransfersPage() {
         <ModeToggle />
       </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white/80 dark:bg-zinc-900/60 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 flex w-fit gap-2">
+          <TabsList className="glass-card p-1 rounded-2xl flex w-fit gap-2">
             <TabsTrigger value="nuevo" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all text-xs md:text-sm">
               <Plus size={14} className="mr-2"/> Nuevo Traslado
             </TabsTrigger>
@@ -362,7 +366,7 @@ export default function TransfersPage() {
 
           <TabsContent value="nuevo" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none animate-in fade-in duration-300">
             <div className="lg:col-span-5 space-y-4">
-              <Card className="border border-slate-200/60 dark:border-zinc-800/60 shadow-md rounded-2xl overflow-hidden bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md">
+              <Card className="glass-card rounded-2xl overflow-hidden">
                 <CardHeader className="bg-indigo-900 dark:bg-indigo-950 text-white p-5">
                   <div className="flex justify-between items-center mb-2">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -444,7 +448,7 @@ export default function TransfersPage() {
             </div>
 
             <div className="lg:col-span-7 space-y-4">
-              <Card className="border border-slate-200/60 dark:border-zinc-800/60 shadow-md rounded-2xl bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md p-6">
+              <Card className="glass-card rounded-2xl p-6">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-4">
                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Tipo de Traslado</Label>

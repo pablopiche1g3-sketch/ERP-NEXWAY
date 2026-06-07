@@ -190,8 +190,12 @@ export default function SuppliersPage() {
   }, [searchTerm, suppliers]);
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-emerald-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-emerald-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
+      {/* Orbes decorativos */}
+      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[38vw] h-[38vw] rounded-full bg-emerald-500/5 dark:bg-emerald-500/8 blur-[130px]" />
+      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-teal-500/5 dark:bg-teal-500/8 blur-[110px]" />
+      <div className="pointer-events-none fixed top-[45%] left-[35%] w-[16vw] h-[16vw] rounded-full bg-green-500/3 dark:bg-green-500/5 blur-[80px]" />
+      <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
@@ -209,9 +213,9 @@ export default function SuppliersPage() {
         <ModeToggle />
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 relative z-10">
         <div className="lg:col-span-4 space-y-4">
-          <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
+          <Card className="glass-card rounded-2xl overflow-hidden">
             <CardHeader className="bg-emerald-700 text-white p-6">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Building2 size={20} />
@@ -320,11 +324,11 @@ export default function SuppliersPage() {
               placeholder="Buscar por razón social o NIT..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-10 md:h-12 bg-card border shadow-sm rounded-2xl text-xs md:text-sm"
+              className="pl-12 h-10 md:h-12 glass-input border shadow-sm rounded-2xl text-xs md:text-sm"
             />
           </div>
 
-          <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
+          <Card className="glass-card rounded-2xl overflow-hidden">
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader className="bg-muted/50 sticky top-0 z-10">

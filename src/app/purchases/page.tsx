@@ -98,6 +98,13 @@ export default function PurchasesPage() {
   const [savingMapping, setSavingMapping] = useState(false);
   const [savingJsonMappings, setSavingJsonMappings] = useState(false);
 
+  // Historial de compras
+  const [purchasesHistory, setPurchasesHistory] = useState<any[]>([]);
+  const [selectedPurchase, setSelectedPurchase] = useState<any | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'TODOS' | 'PENDIENTE' | 'CERRADA'>('TODOS');
+
   // Función para cargar los datos relacionados de forma segura
   const loadPurchasesData = async () => {
     try {
@@ -162,6 +169,21 @@ export default function PurchasesPage() {
         supplierCode: m.supplier_code,
         internalSku: m.internal_sku
       })));
+
+      // Cargar historial de compras
+      const { data: purchHistoryData } = await supabase
+        .from('purchases')
+        .select(`
+          *,
+          purchase_items (
+            *,
+            inventory (
+              name
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
+      setPurchasesHistory(purchHistoryData || []);
 
     } catch (e: any) {
       console.error('Error al cargar datos en compras:', e);
@@ -687,8 +709,12 @@ export default function PurchasesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-slate-100 to-blue-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+      {/* Background glow animations */}
+      <div className="absolute top-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-500/5 dark:bg-blue-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[35vw] h-[35vw] rounded-full bg-emerald-500/5 dark:bg-emerald-500/5 blur-[120px] pointer-events-none" />
+      
+      <div className="relative z-10 max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-card shadow-sm border" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
@@ -706,6 +732,9 @@ export default function PurchasesPage() {
           <TabsTrigger value="registro" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
             <ClipboardList size={14} className="mr-2" /> Registro de Compra
           </TabsTrigger>
+          <TabsTrigger value="historial" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
+            <Calendar size={14} className="mr-2" /> Historial de Ingresos
+          </TabsTrigger>
           <TabsTrigger value="vinculacion" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
             <Link2 size={14} className="mr-2" /> Vinculación de Códigos
           </TabsTrigger>
@@ -715,7 +744,7 @@ export default function PurchasesPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <div className="lg:col-span-4 space-y-6">
-              <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
+              <Card className="glass-card rounded-2xl overflow-hidden">
             <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -844,7 +873,7 @@ export default function PurchasesPage() {
             </CardContent>
           </Card>
 
-          <Card className="border shadow-sm rounded-2xl bg-card p-6">
+          <Card className="glass-card rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cargar DTE V3</Label>
                <Popover>
@@ -892,7 +921,7 @@ export default function PurchasesPage() {
         </div>
 
         <div className="lg:col-span-8 space-y-6">
-          <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden h-[550px] flex flex-col">
+          <Card className="glass-card rounded-2xl overflow-hidden h-[550px] flex flex-col">
             <CardHeader className="bg-muted/30 border-b px-6 py-4">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex items-center gap-4">
@@ -993,13 +1022,122 @@ export default function PurchasesPage() {
       </div>
     </TabsContent>
 
+    <TabsContent value="historial" className="space-y-6 outline-none">
+      <Card className="glass-card rounded-2xl">
+        <CardHeader className="p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/20">
+          <div>
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Calendar className="text-blue-600" size={18} />
+              Historial de Ingresos de Compra
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">Consulte los ingresos históricos de productos y compras operativas Nexway.</CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-muted p-1 rounded-xl">
+              <Button variant={historyStatusFilter === 'TODOS' ? 'default' : 'ghost'} size="sm" onClick={() => setHistoryStatusFilter('TODOS')} className="text-xs font-bold rounded-lg h-8">TODOS</Button>
+              <Button variant={historyStatusFilter === 'PENDIENTE' ? 'default' : 'ghost'} size="sm" onClick={() => setHistoryStatusFilter('PENDIENTE')} className="text-xs font-bold rounded-lg h-8">BORRADOR</Button>
+              <Button variant={historyStatusFilter === 'CERRADA' ? 'default' : 'ghost'} size="sm" onClick={() => setHistoryStatusFilter('CERRADA')} className="text-xs font-bold rounded-lg h-8">INGRESADA</Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <div className="p-4 border-b flex items-center gap-2 bg-muted/10">
+          <Search size={16} className="text-muted-foreground" />
+          <Input 
+            placeholder="Buscar por ID de Pedido, Proveedor o Encargado..." 
+            value={historySearch}
+            onChange={(e) => setHistorySearch(e.target.value)}
+            className="h-9 bg-card border text-xs rounded-lg shadow-sm w-full md:max-w-md text-foreground"
+          />
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-[10px] font-black uppercase px-6">ID Pedido / Orden</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Proveedor</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Encargado</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Bodega</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Método Pago</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Monto Total</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-center">Estado</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-center">Fecha de Creación</TableHead>
+                <TableHead className="w-24 text-right px-6"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(() => {
+                const s = historySearch.toLowerCase().trim();
+                let list = purchasesHistory || [];
+                if (historyStatusFilter !== 'TODOS') {
+                  list = list.filter(p => p.status === historyStatusFilter);
+                }
+                if (s) {
+                  list = list.filter(p => 
+                    (p.order_id && p.order_id.toLowerCase().includes(s)) ||
+                    (p.entered_by && p.entered_by.toLowerCase().includes(s)) ||
+                    (p.suppliers && p.suppliers.name && p.suppliers.name.toLowerCase().includes(s)) ||
+                    (p.supplier_name && p.supplier_name.toLowerCase().includes(s))
+                  );
+                }
+                if (list.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-20 text-muted-foreground italic text-xs">
+                        No se encontraron registros de compra.
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                return list.map((p: any) => {
+                  const whName = warehouses.find(w => w.id === p.warehouse_id)?.name || 'N/A';
+                  const provName = p.suppliers?.name || p.supplier_name || 'Sin Proveedor';
+                  const dateStr = p.created_at ? new Date(p.created_at).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' }) : 'N/A';
+                  return (
+                    <TableRow key={p.id} className="hover:bg-muted/30">
+                      <TableCell className="px-6 font-mono font-bold text-xs text-foreground">{p.order_id}</TableCell>
+                      <TableCell className="font-bold text-xs text-foreground">{provName}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{p.entered_by || 'N/A'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground font-bold">{whName}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{p.payment_method} {p.credit_days ? `(${p.credit_days} d)` : ''}</TableCell>
+                      <TableCell className="text-xs font-black text-emerald-600 dark:text-emerald-400">${parseFloat(p.total).toFixed(2)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={p.status === 'CERRADA' ? 'default' : 'secondary'} className={p.status === 'CERRADA' ? 'bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-[9px] font-bold' : 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border border-amber-500/20 rounded-md text-[9px] font-bold'}>
+                          {p.status === 'CERRADA' ? 'INGRESADA' : 'BORRADOR'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground">{dateStr}</TableCell>
+                      <TableCell className="text-right px-6">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => {
+                            setSelectedPurchase(p);
+                            setIsDetailsDialogOpen(true);
+                          }}
+                          className="h-8 text-[10px] font-bold rounded-lg"
+                        >
+                          Ver Detalle
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                });
+              })()}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+    </TabsContent>
+
     <TabsContent value="vinculacion" className="space-y-6 outline-none">
       {/* VINCULACIÓN DE CÓDIGOS DE PROVEEDOR UI */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* FORMULARIO MANUAL (IZQUIERDA) */}
         <div className="lg:col-span-4 space-y-4">
-          <Card className="border shadow-sm rounded-2xl bg-card">
+          <Card className="glass-card rounded-2xl">
             <CardHeader className="p-6">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Link2 className="text-blue-600" size={18} />
@@ -1077,7 +1215,7 @@ export default function PurchasesPage() {
 
         {/* LISTA & JSON EDITOR (DERECHA) */}
         <div className="lg:col-span-8">
-          <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
+          <Card className="glass-card rounded-2xl overflow-hidden">
             <Tabs defaultValue="tabla" className="w-full">
               <CardHeader className="p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/20">
                 <div>
@@ -1293,6 +1431,100 @@ export default function PurchasesPage() {
             <Button 
               variant="outline" 
               onClick={() => setIsUncreatedDialogOpen(false)}
+              className="rounded-xl h-9 text-xs font-bold"
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-4 overflow-hidden rounded-2xl border shadow-xl">
+          <DialogHeader className="px-1 pt-1">
+            <DialogTitle className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
+              <ClipboardList size={20} className="text-blue-600" />
+              Detalles de Compra: {selectedPurchase?.order_id}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Comprobante de ingreso registrado en Nexway ERP.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPurchase && (
+            <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-muted/20 rounded-2xl border text-xs">
+                <div>
+                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Proveedor</span>
+                  <span className="font-black text-foreground text-sm">{selectedPurchase.suppliers?.name || selectedPurchase.supplier_name || 'Sin Proveedor'}</span>
+                </div>
+                <div>
+                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Encargado</span>
+                  <span className="font-bold text-foreground">{selectedPurchase.entered_by || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Bodega Destino</span>
+                  <span className="font-bold text-foreground">
+                    {warehouses.find(w => w.id === selectedPurchase.warehouse_id)?.name || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Fecha</span>
+                  <span className="font-bold text-foreground">
+                    {new Date(selectedPurchase.created_at).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Tipo Documento</span>
+                  <span className="font-bold text-foreground">{selectedPurchase.document_type || 'FACTURA'}</span>
+                </div>
+                <div>
+                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">DTE / Cód. Gen.</span>
+                  <span className="font-mono text-foreground">{selectedPurchase.document_number || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Método de Pago</span>
+                  <span className="font-bold text-foreground">{selectedPurchase.payment_method} {selectedPurchase.credit_days ? `(${selectedPurchase.credit_days} d)` : ''}</span>
+                </div>
+                <div>
+                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Total (Con IVA)</span>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">${parseFloat(selectedPurchase.total).toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-hidden flex flex-col min-h-[150px]">
+                <span className="font-bold text-xs text-foreground uppercase tracking-widest block mb-2">Artículos Ingresados</span>
+                <ScrollArea className="flex-1 border rounded-2xl bg-card">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase px-6">SKU</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Producto</TableHead>
+                        <TableHead className="text-center text-[10px] font-black uppercase">Cant.</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase">Costo Un.</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase px-6">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedPurchase.purchase_items?.map((item: any) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="px-6 font-mono font-bold text-xs text-muted-foreground">{item.sku}</TableCell>
+                          <TableCell className="font-bold text-xs text-foreground">{item.inventory?.name || 'Desconocido'}</TableCell>
+                          <TableCell className="text-center font-bold text-xs text-foreground">{item.quantity}</TableCell>
+                          <TableCell className="text-right font-bold text-foreground text-xs">${parseFloat(item.cost).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-black text-foreground text-xs px-6">${parseFloat(item.subtotal).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t pt-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDetailsDialogOpen(false)}
               className="rounded-xl h-9 text-xs font-bold"
             >
               Cerrar

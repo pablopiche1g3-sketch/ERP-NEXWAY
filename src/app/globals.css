@@ -78,3 +78,12 @@
 .dark .border-slate-100, .dark .border-slate-50 {
   @apply border-slate-800/60;
 }
+
+/* Glassmorphism Styles */
+.glass-card {
+  @apply bg-white/60 dark:bg-slate-950/50 backdrop-blur-md border border-white/40 dark:border-slate-800/50 shadow-xl transition-all duration-300;
+}
+
+.glass-input {
+  @apply bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 focus:border-primary/50 dark:focus:border-primary/50 transition-all duration-200;
+}

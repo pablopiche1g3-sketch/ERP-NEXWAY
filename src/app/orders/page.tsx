@@ -973,10 +973,14 @@ export default function OrdersPage() {
   }, [supplierSearchQuery, suppliers]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-violet-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-violet-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
+      {/* Orbes decorativos */}
+      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[42vw] h-[42vw] rounded-full bg-violet-500/5 dark:bg-violet-500/8 blur-[140px]" />
+      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[110px]" />
+      <div className="pointer-events-none fixed top-[40%] left-[30%] w-[20vw] h-[20vw] rounded-full bg-purple-500/3 dark:bg-purple-500/5 blur-[90px]" />
       
       {/* HEADER PRINCIPAL */}
-      <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
         <div className="flex items-center gap-4">
           {!isStandalone && isAdmin && (
             <Button 
@@ -1025,9 +1029,9 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
-          <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border h-auto w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="glass-card p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['orders_interno'] !== false && (
               <TabsTrigger value="interno" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
                 <Warehouse size={14} className="mr-2" /> Pedidos Internos (Tiendas)
@@ -1051,7 +1055,7 @@ export default function OrdersPage() {
               
               {/* Formulario Nueva Requisición */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <CardHeader className="bg-violet-900 dark:bg-violet-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <ClipboardList size={18} className="text-violet-400" /> Nueva Requisición entre Sucursales
@@ -1240,11 +1244,11 @@ export default function OrdersPage() {
                     placeholder="Buscar requisición por código, bodega o encargado..." 
                     value={internalSearchFilter}
                     onChange={e => setInternalSearchFilter(e.target.value)}
-                    className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
+                    className="pl-12 h-12 glass-input border-none shadow-sm rounded-2xl text-xs md:text-sm"
                   />
                 </div>
 
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <ScrollArea className="h-[520px]">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">
@@ -1356,7 +1360,7 @@ export default function OrdersPage() {
               
               {/* Formulario Nueva Orden Proveedor */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Building2 size={18} className="text-violet-400" /> Nueva Orden de Pedido a Proveedor

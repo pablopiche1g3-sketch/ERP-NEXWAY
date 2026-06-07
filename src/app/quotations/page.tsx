@@ -201,8 +201,12 @@ export default function QuotationsPage() {
   return (
     <>
       {/* VISTA EN PANTALLA (OCULTA AL IMPRIMIR) */}
-      <div className="min-h-screen bg-slate-50 p-4 sm:p-6 print:hidden">
-        <div className="max-w-7xl mx-auto flex items-center justify-between mb-6">
+      <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-orange-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-orange-950/10 p-4 sm:p-6 print:hidden relative overflow-x-hidden">
+        {/* Orbes decorativos */}
+        <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[38vw] h-[38vw] rounded-full bg-orange-500/5 dark:bg-orange-500/8 blur-[130px]" />
+        <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-amber-500/5 dark:bg-amber-500/8 blur-[110px]" />
+        <div className="pointer-events-none fixed top-[40%] left-[35%] w-[16vw] h-[16vw] rounded-full bg-yellow-500/3 dark:bg-yellow-500/5 blur-[80px]" />
+        <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 relative z-10">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
@@ -219,10 +223,10 @@ export default function QuotationsPage() {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
           {/* Panel Izquierdo: Resumen y Totales */}
           <div className="lg:col-span-4 space-y-4">
-            <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
+            <Card className="glass-card rounded-2xl overflow-hidden">
               <CardHeader className="bg-orange-600 text-white p-5">
                 <div className="flex justify-between items-center mb-2">
                   <CardTitle className="text-base font-bold">Resumen del Cliente</CardTitle>
@@ -327,7 +331,7 @@ export default function QuotationsPage() {
 
           {/* Panel Derecho: Información, Producto Sin Existencia y Catálogo Maestro */}
           <div className="lg:col-span-8 space-y-4">
-            <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+            <Card className="glass-card rounded-2xl overflow-hidden">
               <div className="bg-slate-50 border-b border-slate-100 px-4 py-2 flex items-center justify-between">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Solicitante</span>
                 <FileText size={14} className="text-slate-300" />
@@ -370,7 +374,7 @@ export default function QuotationsPage() {
             </Card>
 
             {/* SECCIÓN: PRODUCTO SIN EXISTENCIA / PERSONALIZADO */}
-            <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden border-l-4 border-orange-500">
+            <Card className="glass-card rounded-2xl overflow-hidden border-l-4 border-orange-500">
               <div className="bg-slate-50/50 border-b border-slate-100 px-4 py-2.5 flex items-center justify-between">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                   <Calculator size={12} className="text-orange-500" />
@@ -431,7 +435,7 @@ export default function QuotationsPage() {
                     placeholder="Buscar por SKU o nombre (Presiona Enter)..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-10 bg-white border-none shadow-sm rounded-xl text-sm font-medium"
+                    className="pl-10 h-10 glass-input border-none shadow-sm rounded-xl text-sm font-medium"
                   />
                 </div>
                 <Button type="submit" className="h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-4 font-bold shrink-0">
@@ -455,7 +459,7 @@ export default function QuotationsPage() {
                   <div 
                     key={product.id}
                     onClick={() => addToQuote(product)}
-                    className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-orange-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between min-h-[145px] h-auto gap-2"
+                    className="glass-card p-3 rounded-2xl hover:border-orange-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between min-h-[145px] h-auto gap-2"
                   >
                     <div className="flex justify-between items-start">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50 text-blue-500 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">

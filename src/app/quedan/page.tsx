@@ -157,8 +157,12 @@ export default function QuedanPage() {
   }, [searchTerm, quedans]);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-purple-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-purple-950/10 p-6 transition-colors duration-300 relative overflow-x-hidden">
+      {/* Orbes decorativos */}
+      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[38vw] h-[38vw] rounded-full bg-purple-500/5 dark:bg-purple-500/8 blur-[130px]" />
+      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-violet-500/5 dark:bg-violet-500/8 blur-[110px]" />
+      <div className="pointer-events-none fixed top-[40%] left-[35%] w-[16vw] h-[16vw] rounded-full bg-fuchsia-500/3 dark:bg-fuchsia-500/5 blur-[80px]" />
+      <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm" onClick={() => router.push('/')}>
             <ArrowLeft className="text-slate-600" size={20} />
@@ -170,10 +174,10 @@ export default function QuedanPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
         {/* Panel Izquierdo: Formulario de Emisión */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+          <Card className="glass-card rounded-2xl overflow-hidden">
             <CardHeader className="bg-purple-600 text-white p-6">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -296,11 +300,11 @@ export default function QuedanPage() {
               placeholder="Buscar por proveedor en historial..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 bg-white border-none shadow-sm rounded-2xl text-sm"
+              className="pl-12 h-12 glass-input border-none shadow-sm rounded-2xl text-sm"
             />
           </div>
 
-          <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+          <Card className="glass-card rounded-2xl overflow-hidden">
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader className="bg-slate-50 sticky top-0 z-10">

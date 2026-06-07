@@ -190,10 +190,14 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#090D16] p-4 md:p-8 lg:p-10 font-body select-none transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-blue-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-blue-950/10 p-4 md:p-8 lg:p-10 font-body select-none transition-colors duration-300 relative overflow-hidden">
+      {/* Orbes de fondo decorativos */}
+      <div className="pointer-events-none fixed top-[-15%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-blue-500/5 dark:bg-blue-500/8 blur-[140px]" />
+      <div className="pointer-events-none fixed bottom-[-10%] left-[-8%] w-[35vw] h-[35vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[120px]" />
+      <div className="pointer-events-none fixed top-[40%] left-[30%] w-[20vw] h-[20vw] rounded-full bg-emerald-500/3 dark:bg-emerald-500/5 blur-[100px]" />
       
       {/* Header Dashboard al Estilo Mockup */}
-      <header className="flex flex-col gap-5 mb-8">
+      <header className="flex flex-col gap-5 mb-8 relative z-10">
         <div className="flex justify-between items-start gap-4">
           <div>
             <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white font-headline">
@@ -249,7 +253,7 @@ export default function Home() {
 
 
       {/* Contenedor central: Módulos principales con glows */}
-      <Card className="border border-slate-200/60 dark:border-zinc-900/50 bg-white/80 dark:bg-slate-900/30 backdrop-blur-md rounded-2xl shadow-md mb-8 overflow-hidden">
+      <Card className="glass-card rounded-2xl mb-8 overflow-hidden relative z-10">
         <div className="p-6 border-b border-slate-100 dark:border-zinc-800/80 flex items-center justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider font-headline">Módulos principales</h2>
@@ -271,7 +275,7 @@ export default function Home() {
                 <div 
                   key={m.id}
                   onClick={() => handleModuleClick(m.id, m.path, m.title)}
-                  className={`bg-white/90 dark:bg-slate-900/40 border border-slate-200/80 dark:border-zinc-800 p-5 rounded-xl flex items-center justify-between gap-4 cursor-pointer group transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden ${m.glowClass}`}
+                  className={`bg-white/70 dark:bg-slate-900/40 backdrop-blur-sm border border-white/60 dark:border-white/5 p-5 rounded-xl flex items-center justify-between gap-4 cursor-pointer group transition-all duration-300 hover:-translate-y-1 relative overflow-hidden ${m.glowClass}`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className={`w-12 h-12 shrink-0 ${m.iconBg} rounded-xl flex items-center justify-center shadow-md transition-all duration-300 group-hover:scale-105`}>

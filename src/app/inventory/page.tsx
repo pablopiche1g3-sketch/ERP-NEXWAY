@@ -976,7 +976,6 @@ export default function InventoryMasterPage() {
       m.companySku.toLowerCase().includes(companySearchTerm.toLowerCase())
     );
   }, [companySearchTerm, companyMappings]);
-
   // Filtrar productos vinculados a la Bodega en la sección de consulta de la pestaña Bodegas
   const productsInSelectedWarehouse = useMemo(() => {
     if (!inventory) return [];
@@ -985,8 +984,12 @@ export default function InventoryMasterPage() {
   }, [inventory, selectedWhView]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-emerald-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-emerald-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
+      {/* Orbes decorativos */}
+      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[40vw] h-[40vw] rounded-full bg-emerald-500/5 dark:bg-emerald-500/8 blur-[130px]" />
+      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-blue-500/5 dark:bg-blue-500/8 blur-[110px]" />
+      <div className="pointer-events-none fixed top-[45%] left-[35%] w-[18vw] h-[18vw] rounded-full bg-teal-500/3 dark:bg-teal-500/5 blur-[90px]" />
+      <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
@@ -1003,9 +1006,9 @@ export default function InventoryMasterPage() {
         </div>
       </div>
  
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border h-auto w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="glass-card p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['inventory_existencia'] !== false && (
               <TabsTrigger value="existencia" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <Package size={14} className="mr-2" /> Existencias
@@ -1052,7 +1055,7 @@ export default function InventoryMasterPage() {
           <TabsContent value="existencia" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-1 space-y-4">
-                <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-card border h-fit hidden lg:block">
+                <Card className="glass-card rounded-2xl h-fit hidden lg:block">
                   <CardHeader>
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Warehouse size={18} className="text-blue-600" /> Bodega de Consulta
@@ -1102,11 +1105,11 @@ export default function InventoryMasterPage() {
                     placeholder={selectedWarehouse === 'Todas' ? "Buscar en stock consolidado..." : `Buscar existencias en '${selectedWarehouse}'...`} 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
+                    className="pl-12 h-12 glass-input border-none shadow-sm rounded-2xl text-xs md:text-sm"
                   />
                 </div>
  
-                <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-card border overflow-hidden">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-muted/50">
