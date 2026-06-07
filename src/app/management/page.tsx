@@ -28,7 +28,8 @@ import {
   Package,
   UserCheck,
   Award,
-  ChevronDown
+  ChevronDown,
+  Settings
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -411,7 +412,6 @@ export default function ManagementPage() {
       if (error) throw error;
       toast({ title: "Configuración Actualizada", description: "Los ajustes globales han sido guardados." });
       setIsInitialized(true);
-      await loadData();
     } catch (error: any) {
       console.error('Error al guardar ajustes globales:', error);
       toast({ 
@@ -667,20 +667,20 @@ export default function ManagementPage() {
       <div className="max-w-4xl mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-muted p-1 rounded-2xl border flex w-full justify-start overflow-x-auto no-scrollbar gap-1">
-            <TabsTrigger value="config" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs">
-              ⚙️ Configuración
+            <TabsTrigger value="config" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <Settings size={14} /> Configuración
             </TabsTrigger>
-            <TabsTrigger value="permissions" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs">
-              🔒 Módulos
+            <TabsTrigger value="permissions" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <Lock size={14} /> Módulos
             </TabsTrigger>
-            <TabsTrigger value="roles" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs">
-              👥 Usuarios
+            <TabsTrigger value="roles" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <Users size={14} /> Usuarios
             </TabsTrigger>
-            <TabsTrigger value="metrics" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs">
-              📊 Métricas
+            <TabsTrigger value="metrics" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <BarChart3 size={14} /> Métricas
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="rounded-xl px-5 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs">
-              📈 Análisis de Ventas
+            <TabsTrigger value="analytics" className="rounded-xl px-5 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <TrendingUp size={14} /> Análisis de Ventas
             </TabsTrigger>
           </TabsList>
 
@@ -1559,6 +1559,9 @@ CREATE TABLE IF NOT EXISTS public.purchases (
   warehouse_id uuid references public.warehouses(id) on delete set null,
   total numeric(10,2) not null default 0.00,
   status text not null default 'PENDIENTE',
+  payment_method text,
+  credit_days integer,
+  payment_status text,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
@@ -1869,6 +1872,7 @@ ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS apply_retention boolean NO
 CREATE TABLE IF NOT EXISTS public.customers (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, name text NOT NULL, nit text, nrc text, giro text, email text, phone text, address text, type text, category text, is_authorized_credit boolean NOT NULL DEFAULT false, credit_limit numeric(10,2) NOT NULL DEFAULT 0.00, created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL);
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_authorized_credit boolean NOT NULL DEFAULT false; ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS credit_limit numeric(10,2) NOT NULL DEFAULT 0.00;
 CREATE TABLE IF NOT EXISTS public.purchases (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, order_id text NOT NULL UNIQUE, supplier_id uuid REFERENCES public.suppliers(id) ON DELETE SET NULL, entered_by text NOT NULL, warehouse_id uuid REFERENCES public.warehouses(id) ON DELETE SET NULL, total numeric(10,2) NOT NULL DEFAULT 0.00, status text NOT NULL DEFAULT 'PENDIENTE', created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL);
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS payment_method text; ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS credit_days integer; ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS payment_status text;
 CREATE TABLE IF NOT EXISTS public.purchase_items (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, purchase_id uuid REFERENCES public.purchases(id) ON DELETE CASCADE NOT NULL, sku text REFERENCES public.inventory(sku) ON DELETE RESTRICT NOT NULL, quantity numeric(10,2) NOT NULL DEFAULT 0.00, cost numeric(10,2) NOT NULL DEFAULT 0.00, subtotal numeric(10,2) NOT NULL DEFAULT 0.00);
 CREATE TABLE IF NOT EXISTS public.sales (id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, correlative text NOT NULL UNIQUE, doc_type text NOT NULL DEFAULT 'CF', customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL, total numeric(10,2) NOT NULL DEFAULT 0.00, status text NOT NULL DEFAULT 'ACTIVA', payment_method text, customer_name text, seller_email text, station_name text, created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL);
 ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS seller_email text; ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS station_name text;

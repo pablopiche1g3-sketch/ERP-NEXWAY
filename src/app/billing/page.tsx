@@ -256,14 +256,20 @@ export default function BillingPage() {
     try {
       const { data: items, error } = await supabase
         .from('sales_items')
-        .select('*')
+        .select('*, inventory:inventory(name)')
         .eq('sale_id', sale.id);
 
       if (error) throw error;
 
+      const mappedItems = (items || []).map((item: any) => ({
+        ...item,
+        name: item.inventory?.name || 'Producto General'
+      }));
+
       setSelectedSaleDetails({
         ...sale,
-        items: items || []
+        total: parseFloat(sale.total) || 0,
+        items: mappedItems
       });
     } catch (err: any) {
       console.error(err);
@@ -606,6 +612,23 @@ export default function BillingPage() {
       toast({ variant: "destructive", title: "Carrito vacío" });
       return;
     }
+
+    const deductWh = activeWarehouse || (warehouses.length > 0 ? warehouses[0] : null);
+    if (deductWh) {
+      for (const item of cart) {
+        const product = inventory.find(p => p.sku === item.sku);
+        const available = product ? (product.bodegas?.[deductWh.name] || 0) : 0;
+        if (available < item.quantity) {
+          toast({ 
+            variant: "destructive", 
+            title: "Stock Insuficiente Detectado", 
+            description: `El producto "${item.name}" no tiene existencias suficientes en "${deductWh.name}". Disponible: ${available}, Solicitado: ${item.quantity}.` 
+          });
+          return;
+        }
+      }
+    }
+
     setCashReceived('');
     setPaymentReference('');
     setIsCheckoutOpen(true);
@@ -618,9 +641,44 @@ export default function BillingPage() {
     }
 
     setIsProcessing(true);
-    const correlative = `${docType}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // 0. Validar stock real en base de datos al momento de guardar
+    const deductWh = activeWarehouse || (warehouses.length > 0 ? warehouses[0] : null);
+    if (!deductWh) {
+      toast({ variant: "destructive", title: "Error de Bodega", description: "No hay una bodega activa o configurada." });
+      setIsProcessing(false);
+      return;
+    }
 
     try {
+      const skusInCart = cart.map(i => i.sku);
+      const { data: dbStocks, error: stockCheckErr } = await supabase
+        .from('inventory_stock')
+        .select('*')
+        .eq('warehouse_id', deductWh.id)
+        .in('sku', skusInCart);
+
+      if (stockCheckErr) throw stockCheckErr;
+
+      const stockMap: Record<string, number> = {};
+      (dbStocks || []).forEach(s => {
+        stockMap[s.sku] = parseFloat(s.quantity) || 0;
+      });
+
+      for (const item of cart) {
+        const available = stockMap[item.sku] || 0;
+        if (available < item.quantity) {
+          toast({
+            variant: "destructive",
+            title: "Stock Insuficiente",
+            description: `El producto "${item.name}" (${item.sku}) no tiene suficiente stock en la bodega "${deductWh.name}". Disponible: ${available}, Requerido: ${item.quantity}.`
+          });
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      const correlative = `${docType}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
       const selectedCust = customers.find(c => c.name === customerName);
 
       // 1. Insert into public.sales
@@ -658,7 +716,6 @@ export default function BillingPage() {
       if (itemsErr) throw itemsErr;
 
       // 3. Update Inventory Stock (subtract purchased quantity from assigned warehouse)
-      const deductWh = activeWarehouse || (warehouses.length > 0 ? warehouses[0] : null);
       if (deductWh) {
         for (const item of cart) {
           const product = inventory.find(p => p.sku === item.sku);
@@ -1530,14 +1587,29 @@ export default function BillingPage() {
                     <Button 
                       className="rounded-xl h-10 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
                       onClick={() => {
-                        const printContent = document.getElementById('printable-sale-area')?.innerHTML;
-                        const originalContent = document.body.innerHTML;
                         const printWindow = window.open('', '_blank');
-                        if (printWindow) {
+                        if (printWindow && selectedSaleDetails) {
+                          const correlative = selectedSaleDetails.correlative || 'N/A';
+                          const customer = selectedSaleDetails.customer || 'Consumidor Final';
+                          const docType = selectedSaleDetails.docType === 'CF' ? 'Factura CF' : 'Crédito Fiscal';
+                          const paymentMethod = selectedSaleDetails.paymentMethod || 'Efectivo';
+                          const totalAmt = (selectedSaleDetails.total || 0).toFixed(2);
+                          
+                          let timestampStr = 'N/A';
+                          try {
+                            if (selectedSaleDetails.timestamp) {
+                              timestampStr = new Date(selectedSaleDetails.timestamp).toLocaleString();
+                            } else {
+                              timestampStr = new Date().toLocaleString();
+                            }
+                          } catch (e) {
+                            timestampStr = new Date().toLocaleString();
+                          }
+
                           printWindow.document.write(`
                             <html>
                               <head>
-                                <title>NexWay - Factura ${selectedSaleDetails.correlative}</title>
+                                <title>NexWay - Factura ${correlative}</title>
                                 <style>
                                   body { font-family: system-ui, sans-serif; padding: 40px; color: #333; }
                                   .header { border-bottom: 2px solid #3f51b5; padding-bottom: 20px; margin-bottom: 20px; }
@@ -1552,13 +1624,13 @@ export default function BillingPage() {
                               <body>
                                 <div class="header">
                                   <p class="title">NexWay ERP - Comprobante de Venta</p>
-                                  <p style="font-family:monospace; margin:5px 0 0 0;">Correlativo: ${selectedSaleDetails.correlative}</p>
+                                  <p style="font-family:monospace; margin:5px 0 0 0;">Correlativo: ${correlative}</p>
                                 </div>
                                 <div class="meta">
-                                  <div><strong>Cliente:</strong> ${selectedSaleDetails.customer}</div>
-                                  <div><strong>Fecha:</strong> ${new Date(selectedSaleDetails.timestamp).toLocaleString()}</div>
-                                  <div><strong>Forma de Pago:</strong> ${selectedSaleDetails.paymentMethod}</div>
-                                  <div><strong>Documento:</strong> ${selectedSaleDetails.docType === 'CF' ? 'Factura CF' : 'Crédito Fiscal'}</div>
+                                  <div><strong>Cliente:</strong> ${customer}</div>
+                                  <div><strong>Fecha:</strong> ${timestampStr}</div>
+                                  <div><strong>Forma de Pago:</strong> ${paymentMethod}</div>
+                                  <div><strong>Documento:</strong> ${docType}</div>
                                 </div>
                                 <table>
                                   <thead>
@@ -1570,18 +1642,18 @@ export default function BillingPage() {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    ${selectedSaleDetails.items?.map((item: any) => `
+                                    ${(selectedSaleDetails.items || []).map((item: any) => `
                                       <tr>
                                         <td>${item.name || 'Producto General'}<br><small style="font-family:monospace; color:#666">${item.sku}</small></td>
-                                        <td>${item.quantity}</td>
+                                        <td>${item.quantity || 0}</td>
                                         <td>$${(parseFloat(item.price) || 0).toFixed(2)}</td>
-                                        <td style="text-align: right; font-weight:bold;">$${((parseFloat(item.price) || 0) * item.quantity).toFixed(2)}</td>
+                                        <td style="text-align: right; font-weight:bold;">$${((parseFloat(item.price) || 0) * (item.quantity || 0)).toFixed(2)}</td>
                                       </tr>
                                     `).join('')}
                                   </tbody>
                                 </table>
                                 <div class="total">
-                                  Total a Pagar: $${selectedSaleDetails.total.toFixed(2)}
+                                  Total a Pagar: $${totalAmt}
                                 </div>
                                 <script>
                                   window.onload = function() {

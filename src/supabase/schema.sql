@@ -131,6 +131,9 @@ CREATE TABLE IF NOT EXISTS public.purchases (
   warehouse_id uuid references public.warehouses(id) on delete set null,
   total numeric(10,2) not null default 0.00,
   status text not null default 'PENDIENTE',
+  payment_method text,
+  credit_days integer,
+  payment_status text,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 

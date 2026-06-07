@@ -436,7 +436,7 @@ export default function PurchasesPage() {
                 id: product.id,
                 sku: product.sku,
                 name: product.name,
-                quantity: item.quantity || 0,
+                quantity: parseFloat(item.cantidad || item.quantity) || 0,
                 cost: item.precioUnitario || 0
               });
               detectedCount++;
@@ -444,7 +444,7 @@ export default function PurchasesPage() {
               uncreated.push({
                 sku: (item.codigo || `TEMP-${Date.now().toString().slice(-4)}`).toUpperCase(),
                 name: item.descripcion || 'Producto sin nombre',
-                quantity: item.quantity || 0,
+                quantity: parseFloat(item.cantidad || item.quantity) || 0,
                 cost: item.precioUnitario || 0
               });
             }
@@ -469,16 +469,16 @@ export default function PurchasesPage() {
                 id: product.id,
                 sku: product.sku,
                 name: product.name,
-                quantity: parseInt(item.quantity) || 0,
-                cost: parseFloat(item.price) || 0
+                quantity: parseFloat(item.cantidad || item.quantity) || 0,
+                cost: parseFloat(item.precioUnitario || item.price || item.cost) || 0
               });
               detectedCount++;
             } else {
               uncreated.push({
-                sku: (item.sku || `TEMP-${Date.now().toString().slice(-4)}`).toUpperCase(),
-                name: item.name || 'Producto sin nombre',
-                quantity: parseInt(item.quantity) || 0,
-                cost: parseFloat(item.price) || 0
+                sku: (item.sku || item.codigo || `TEMP-${Date.now().toString().slice(-4)}`).toUpperCase(),
+                name: item.name || item.descripcion || 'Producto sin nombre',
+                quantity: parseFloat(item.cantidad || item.quantity) || 0,
+                cost: parseFloat(item.precioUnitario || item.price || item.cost) || 0
               });
             }
           });
@@ -824,6 +824,9 @@ export default function PurchasesPage() {
                         </Badge>
                         <span className="text-xs font-bold text-muted-foreground">
                           Costo: ${p.cost.toFixed(2)}
+                        </span>
+                        <span className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded-md">
+                          Cant: {p.quantity}
                         </span>
                       </div>
                       <h4 className="text-sm font-bold text-foreground leading-snug">{p.name}</h4>
