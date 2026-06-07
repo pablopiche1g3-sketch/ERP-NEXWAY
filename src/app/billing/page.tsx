@@ -96,11 +96,11 @@ export default function BillingPage() {
 
       // Cargar de localStorage si ya fue establecida fijamente en este dispositivo
       const localEstId = typeof window !== 'undefined' ? localStorage.getItem('established_station_id') : null;
-      setEstablishedStationId(localEstId);
 
       if (localEstId) {
         const station = stations.find((s: any) => s.id === localEstId);
         if (station) {
+          setEstablishedStationId(localEstId);
           setActiveStation(station);
           const { data: wh } = await supabase
             .from('warehouses')
@@ -109,6 +109,10 @@ export default function BillingPage() {
             .maybeSingle();
           setActiveWarehouse(wh || null);
           return;
+        } else {
+          // Si la caja ya no existe (fue eliminada), liberarla automáticamente
+          localStorage.removeItem('established_station_id');
+          setEstablishedStationId(null);
         }
       }
 
