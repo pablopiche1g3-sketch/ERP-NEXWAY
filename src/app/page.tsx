@@ -190,11 +190,11 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-blue-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-blue-950/10 p-4 md:p-8 lg:p-10 font-body select-none transition-colors duration-300 relative overflow-hidden">
-      {/* Orbes de fondo decorativos */}
-      <div className="pointer-events-none fixed top-[-15%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-blue-500/5 dark:bg-blue-500/8 blur-[140px]" />
-      <div className="pointer-events-none fixed bottom-[-10%] left-[-8%] w-[35vw] h-[35vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[120px]" />
-      <div className="pointer-events-none fixed top-[40%] left-[30%] w-[20vw] h-[20vw] rounded-full bg-emerald-500/3 dark:bg-emerald-500/5 blur-[100px]" />
+    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-blue-50/30 dark:from-[#0f0c29] dark:via-[#302b63] dark:to-[#24243e] p-4 md:p-8 lg:p-10 font-body select-none transition-colors duration-300 relative overflow-hidden">
+      {/* Orbes de fondo decorativos optimizados */}
+      <div className="pointer-events-none fixed top-[-80px] left-[100px] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.25)_0%,transparent_70%)] hidden dark:block" />
+      <div className="pointer-events-none fixed bottom-[20px] right-[200px] w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.18)_0%,transparent_70%)] hidden dark:block" />
+      <div className="pointer-events-none fixed top-[-15%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-blue-500/5 blur-[140px] dark:hidden" />
       
       {/* Header Dashboard al Estilo Mockup */}
       <header className="flex flex-col gap-5 mb-8 relative z-10">
@@ -275,10 +275,10 @@ export default function Home() {
                 <div 
                   key={m.id}
                   onClick={() => handleModuleClick(m.id, m.path, m.title)}
-                  className={`bg-white/70 dark:bg-slate-900/40 backdrop-blur-sm border border-white/60 dark:border-white/5 p-5 rounded-xl flex items-center justify-between gap-4 cursor-pointer group transition-all duration-300 hover:-translate-y-1 relative overflow-hidden ${m.glowClass}`}
+                  className={`bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/60 dark:border-white/10 p-5 rounded-xl flex items-center justify-between gap-4 cursor-pointer group transition-colors duration-200 relative overflow-hidden hover:bg-slate-50 dark:hover:bg-white/10 transform-gpu`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className={`w-12 h-12 shrink-0 ${m.iconBg} rounded-xl flex items-center justify-center shadow-md transition-all duration-300 group-hover:scale-105`}>
+                    <div className={`w-12 h-12 shrink-0 ${m.iconBg} rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105`}>
                       {m.icon}
                     </div>
                     <div className="min-w-0">
