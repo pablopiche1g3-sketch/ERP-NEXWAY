@@ -850,7 +850,7 @@ export default function AccountingPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Selector de Canal / Vista Contable */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-card p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-border gap-4 transition-all duration-300">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-card p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-border gap-4 transition-all duration-300">
           <div className="space-y-1">
             <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 dark:text-muted-foreground">Canal Contable de Evaluación</h3>
             <p className="text-xs text-slate-500 dark:text-muted-foreground leading-none">Filtre y compare las ventas e inventarios por canal de distribución.</p>
@@ -891,7 +891,7 @@ export default function AccountingPage() {
 
         {/* KPI Panel */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border p-5">
+          <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border p-5">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-xl"><TrendingUp size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/50">Unificado</Badge>
@@ -900,7 +900,7 @@ export default function AccountingPage() {
             <p className="text-2xl font-black text-slate-900 dark:text-foreground">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
-          <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border p-5">
+          <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border p-5">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 rounded-xl"><TrendingDown size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/50">Consolidado</Badge>
@@ -909,7 +909,7 @@ export default function AccountingPage() {
             <p className="text-2xl font-black text-slate-900 dark:text-foreground">${activeExpenses.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
-          <Card className={`border shadow-sm rounded-3xl p-5 text-white ${grossProfit >= 0 ? 'bg-blue-600 dark:bg-blue-900/90 shadow-lg border-blue-600 dark:border-blue-800' : 'bg-rose-600 dark:bg-rose-900/90 shadow-lg border-rose-600 dark:border-rose-800'}`}>
+          <Card className={`border shadow-sm rounded-2xl p-5 text-white ${grossProfit >= 0 ? 'bg-blue-600 dark:bg-blue-900/90 shadow-lg border-blue-600 dark:border-blue-800' : 'bg-rose-600 dark:bg-rose-900/90 shadow-lg border-rose-600 dark:border-rose-800'}`}>
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-white/10 rounded-xl"><Scale size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-white border-white/20 uppercase font-black">Utilidad</Badge>
@@ -918,7 +918,7 @@ export default function AccountingPage() {
             <p className="text-2xl font-black">${grossProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
-          <Card className="border shadow-sm rounded-3xl bg-slate-900 dark:bg-slate-950 border-slate-800 dark:border-border p-5 text-white">
+          <Card className="border shadow-sm rounded-2xl bg-slate-900 dark:bg-slate-950 border-slate-800 dark:border-border p-5 text-white">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-white/10 rounded-xl"><Percent size={18} className="text-blue-400" /></div>
               <Badge variant="outline" className="text-[9px] text-blue-400 border-blue-800 bg-blue-950/20">{settings.ivaRate}% IVA</Badge>
@@ -1003,7 +1003,7 @@ export default function AccountingPage() {
             </div>
 
             {activeSubTab === 'movimientos' ? (
-              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden border-slate-100 dark:border-border">
+              <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden border-slate-100 dark:border-border">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader className="bg-slate-50/70 dark:bg-muted/50 border-b border-slate-100 dark:border-border">
@@ -1088,7 +1088,7 @@ export default function AccountingPage() {
               </Card>
             ) : (
               // CATÁLOGO DE CUENTAS
-              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card p-6 border-slate-100 dark:border-border">
+              <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card p-6 border-slate-100 dark:border-border">
                 <div className="mb-4">
                   <h3 className="font-bold text-slate-900 dark:text-foreground text-sm">Estructura del Catálogo de Cuentas</h3>
                   <p className="text-slate-500 dark:text-muted-foreground text-xs">Cuentas contables organizadas según el esquema estándar del Ministerio de Hacienda de El Salvador.</p>
@@ -1160,7 +1160,7 @@ export default function AccountingPage() {
                   </div>
                 </div>
 
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader className="bg-slate-50/70 dark:bg-muted/50 border-b border-slate-100 dark:border-border">
@@ -1222,7 +1222,7 @@ export default function AccountingPage() {
                   <p className="text-xs text-slate-500 dark:text-muted-foreground">Muestra el monto total adjudicado (presupuesto), costos reales de suministros cargados y la ganancia neta líquida obtenida por Licitación.</p>
                 </div>
 
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
                   <Table>
                     <TableHeader className="bg-slate-50/70 dark:bg-muted/50">
                       <TableRow>
@@ -1276,7 +1276,7 @@ export default function AccountingPage() {
 
           {/* TAB 3: LIBROS DE IVA DEL EL SALVADOR */}
           <TabsContent value="libros_iva" className="space-y-6 outline-none">
-            <Card className="p-5 bg-white dark:bg-card border border-slate-100 dark:border-border shadow-sm rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <Card className="p-5 bg-white dark:bg-card border border-slate-100 dark:border-border shadow-sm rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
                 <div className="space-y-1">
                   <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-muted-foreground">Filtrar Mes Fiscal</Label>
@@ -1326,7 +1326,7 @@ export default function AccountingPage() {
               </div>
 
               {activeTaxTab === 'vcf' && (
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
                   <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
                       <h3 className="font-bold text-sm text-foreground">Libro de Ventas a Consumidor Final</h3>
@@ -1383,7 +1383,7 @@ export default function AccountingPage() {
               )}
 
               {activeTaxTab === 'vc' && (
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
                   <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
                       <h3 className="font-bold text-sm text-foreground">Libro de Ventas a Contribuyentes</h3>
@@ -1450,7 +1450,7 @@ export default function AccountingPage() {
               )}
 
               {activeTaxTab === 'compras' && (
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6">
                   <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
                       <h3 className="font-bold text-sm text-foreground">Libro de Compras</h3>
@@ -1528,7 +1528,7 @@ export default function AccountingPage() {
             {activeFormTab === 'f07' ? (
               // FORMULARIO F07
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 border border-slate-100 dark:border-border shadow-sm rounded-3xl bg-white dark:bg-card p-6 md:p-8 space-y-6">
+                <Card className="lg:col-span-2 border border-slate-100 dark:border-border shadow-sm rounded-2xl bg-white dark:bg-card p-6 md:p-8 space-y-6">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-4">
                     <h3 className="font-black text-slate-900 dark:text-foreground text-base">F07 - Impuesto al Valor Agregado (Esquema Mensual)</h3>
                     <Badge className="bg-blue-600 text-white font-bold text-[9px] uppercase px-3 h-6">Ministerio de Hacienda</Badge>
@@ -1566,7 +1566,7 @@ export default function AccountingPage() {
                 </Card>
 
                 <div className="space-y-4">
-                  <Card className="border border-slate-800 dark:border-border shadow-xl rounded-3xl bg-slate-900 dark:bg-slate-950 text-white p-6 relative overflow-hidden">
+                  <Card className="border border-slate-800 dark:border-border shadow-xl rounded-2xl bg-slate-900 dark:bg-slate-950 text-white p-6 relative overflow-hidden">
                     <div className="relative z-10 space-y-4">
                       <p className="text-[9px] font-black uppercase text-blue-400 tracking-wider">Resultado del Período</p>
                       <h2 className="text-3xl font-black">
@@ -1586,7 +1586,7 @@ export default function AccountingPage() {
                     <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/3 translate-x-1/3" />
                   </Card>
 
-                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 p-5 rounded-3xl flex gap-3 text-amber-800 dark:text-amber-400">
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 p-5 rounded-2xl flex gap-3 text-amber-800 dark:text-amber-400">
                     <AlertCircle className="flex-shrink-0 text-amber-600" size={16} />
                     <div className="space-y-1 text-xs">
                       <p className="font-bold">Recordatorio Tributario</p>
@@ -1598,7 +1598,7 @@ export default function AccountingPage() {
             ) : (
               // FORMULARIO F14
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 border border-slate-100 dark:border-border shadow-sm rounded-3xl bg-white dark:bg-card p-6 md:p-8 space-y-6">
+                <Card className="lg:col-span-2 border border-slate-100 dark:border-border shadow-sm rounded-2xl bg-white dark:bg-card p-6 md:p-8 space-y-6">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-4">
                     <h3 className="font-black text-slate-900 dark:text-foreground text-base">F14 - Declaración de Pago a Cuenta y Retenciones de Renta</h3>
                     <Badge className="bg-blue-600 text-white font-bold text-[9px] uppercase px-3 h-6">Ministerio de Hacienda</Badge>
@@ -1635,7 +1635,7 @@ export default function AccountingPage() {
                 </Card>
 
                 <div className="space-y-4">
-                  <Card className="border border-slate-800 dark:border-border shadow-xl rounded-3xl bg-slate-900 dark:bg-slate-950 text-white p-6 relative overflow-hidden">
+                  <Card className="border border-slate-800 dark:border-border shadow-xl rounded-2xl bg-slate-900 dark:bg-slate-950 text-white p-6 relative overflow-hidden">
                     <div className="relative z-10 space-y-4">
                       <p className="text-[9px] font-black uppercase text-blue-400 tracking-wider">Total a Declarar en F14</p>
                       <h2 className="text-3xl font-black">
@@ -1659,7 +1659,7 @@ export default function AccountingPage() {
           {/* TAB 5: ESTADO DE RESULTADOS (P&L) */}
           <TabsContent value="pnl" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6 md:p-8 space-y-6">
+              <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden p-6 md:p-8 space-y-6">
                 <h3 className="text-lg md:text-xl font-bold border-b border-slate-100 dark:border-border pb-4 text-slate-900 dark:text-foreground">Estructura de Pérdidas y Ganancias (P&L)</h3>
                 <div className="space-y-4 md:space-y-6">
                   <div className="flex justify-between items-center text-xs md:text-sm">
@@ -1688,7 +1688,7 @@ export default function AccountingPage() {
               </Card>
 
               <div className="space-y-4 md:space-y-6">
-                <Card className="border border-slate-800 dark:border-border shadow-sm rounded-3xl bg-slate-900 dark:bg-slate-950 text-white p-6 md:p-8">
+                <Card className="border border-slate-800 dark:border-border shadow-sm rounded-2xl bg-slate-900 dark:bg-slate-950 text-white p-6 md:p-8">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="p-3 bg-white/10 rounded-2xl"><PieChart size={20} /></div>
                     <div>
@@ -1710,7 +1710,7 @@ export default function AccountingPage() {
                   </div>
                 </Card>
 
-                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50 p-5 rounded-3xl flex items-start gap-4">
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50 p-5 rounded-2xl flex items-start gap-4">
                   <div className="p-2 bg-blue-600 text-white rounded-xl flex-shrink-0"><TrendingUp size={18} /></div>
                   <div className="space-y-1">
                     <h4 className="text-xs md:text-sm font-bold text-blue-900 dark:text-blue-400">Análisis NexWay Contable</h4>
@@ -1725,7 +1725,7 @@ export default function AccountingPage() {
 
           {/* TAB 6: AJUSTES CONTABLES DEL ERP CLIENTE */}
           <TabsContent value="settings" className="outline-none">
-            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border p-6 md:p-8 space-y-8">
+            <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border p-6 md:p-8 space-y-8">
               <div>
                 <h3 className="font-black text-slate-900 dark:text-foreground text-base flex items-center gap-2">
                   <Settings size={18} className="text-blue-600" /> Parámetros y Activación Modular (Licencia de Cliente)
@@ -1771,7 +1771,7 @@ export default function AccountingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 bg-slate-50/50 dark:bg-muted/30 p-6 rounded-3xl border border-slate-100 dark:border-border">
+                <div className="space-y-4 bg-slate-50/50 dark:bg-muted/30 p-6 rounded-2xl border border-slate-100 dark:border-border">
                   <h4 className="font-black text-slate-800 dark:text-foreground text-xs uppercase tracking-wider mb-2">Tasas Tributarias Configurables</h4>
                   
                   <div className="space-y-2">
@@ -1814,7 +1814,7 @@ export default function AccountingPage() {
 
           {/* TAB BALANCE DE COMPROBACION */}
           <TabsContent value="balance-comprobacion" className="space-y-6 outline-none animate-in fade-in duration-300">
-            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+            <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border">
               <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                 <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                   <Scale className="text-blue-600" size={18} />
@@ -1885,7 +1885,7 @@ export default function AccountingPage() {
           <TabsContent value="tributario" className="space-y-6 outline-none animate-in fade-in duration-300">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 space-y-4">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border">
                   <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                       <Percent className="text-blue-600" size={18} />
@@ -1956,7 +1956,7 @@ export default function AccountingPage() {
               </div>
 
               <div className="lg:col-span-7">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
                   <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                       <BookOpen className="text-blue-600" size={18} />
@@ -2024,7 +2024,7 @@ export default function AccountingPage() {
           <TabsContent value="caja-chica" className="space-y-6 outline-none animate-in fade-in duration-300">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 space-y-4">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border">
                   <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                       <Briefcase className="text-blue-600" size={18} />
@@ -2086,7 +2086,7 @@ export default function AccountingPage() {
               </div>
 
               <div className="lg:col-span-7">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
                   <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-foreground">
                       <FileText className="text-blue-600" size={18} />
@@ -2138,7 +2138,7 @@ export default function AccountingPage() {
           </TabsContent>
 
           <TabsContent value="cuentas-pagar" className="space-y-6 outline-none animate-in fade-in duration-300">
-            <Card className="border shadow-md rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
+            <Card className="border shadow-md rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border overflow-hidden">
               <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-black uppercase tracking-tight flex items-center gap-2">
@@ -2282,7 +2282,7 @@ export default function AccountingPage() {
 
       {/* --- MODAL NUEVO ASIENTO AVANZADO (DOBLE ENTRADA) --- */}
       <Dialog open={isAdvancedModalOpen} onOpenChange={setIsAdvancedModalOpen}>
-        <DialogContent className="rounded-3xl max-w-[95vw] md:max-w-xl bg-white dark:bg-card border-slate-100 dark:border-border text-foreground">
+        <DialogContent className="rounded-2xl max-w-[95vw] md:max-w-xl bg-white dark:bg-card border-slate-100 dark:border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2 text-slate-900 dark:text-foreground">
                <ArrowRightLeft className="text-blue-600" size={18} /> Partida Contable de Doble Entrada
@@ -2435,7 +2435,7 @@ export default function AccountingPage() {
       {/* --- DIALOG DETALLE PARTIDA AVANZADA --- */}
       <Dialog open={selectedAdvEntry !== null} onOpenChange={() => setSelectedAdvEntry(null)}>
         {selectedAdvEntry && (
-          <DialogContent className="rounded-3xl max-w-md bg-white dark:bg-card border-slate-100 dark:border-border text-foreground">
+          <DialogContent className="rounded-2xl max-w-md bg-white dark:bg-card border-slate-100 dark:border-border text-foreground">
             <DialogHeader>
               <DialogTitle className="text-base font-black text-slate-900 dark:text-foreground flex gap-2">
                 <FileText className="text-blue-600" /> Detalle de Partida

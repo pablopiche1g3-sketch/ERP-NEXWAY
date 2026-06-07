@@ -259,7 +259,7 @@ export default function CustomersPage() {
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-5 space-y-4">
-          <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden border">
+          <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden border">
             <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-6">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Plus size={20} className="text-sky-400" />
@@ -436,7 +436,7 @@ export default function CustomersPage() {
             />
           </div>
 
-          <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden border">
+          <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden border">
             <ScrollArea className="h-[550px]">
               <Table>
                 <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">
@@ -545,7 +545,7 @@ export default function CustomersPage() {
 
       {/* Diálogo de Edición de Cliente Premium */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-lg bg-card text-foreground border rounded-3xl overflow-hidden p-6 max-h-[90vh] flex flex-col shadow-2xl">
+        <DialogContent className="max-w-lg bg-card text-foreground border rounded-2xl overflow-hidden p-6 max-h-[90vh] flex flex-col shadow-2xl">
           <DialogHeader className="pb-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-foreground text-lg font-black uppercase tracking-tight">
               <Pencil className="text-sky-500" size={20} />

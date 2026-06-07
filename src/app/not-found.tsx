@@ -46,7 +46,7 @@ export default function NotFound() {
         {/* Error Indicator & Icon */}
         <div className="relative mb-6">
           <div className="absolute inset-0 bg-blue-500/10 dark:bg-blue-500/5 blur-3xl rounded-full scale-150"></div>
-          <div className="w-24 h-24 bg-amber-500/10 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400 rounded-3xl flex items-center justify-center mx-auto border border-amber-500/20 mb-6 shadow-xl relative animate-bounce">
+          <div className="w-24 h-24 bg-amber-500/10 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto border border-amber-500/20 mb-6 shadow-xl relative animate-bounce">
             <AlertTriangle size={48} />
           </div>
           <h1 className="text-8xl font-black tracking-tighter text-slate-200 dark:text-slate-800 leading-none select-none">
@@ -94,7 +94,7 @@ export default function NotFound() {
         </form>
 
         {/* Site Map (Mapa del Sitio - Navigation) */}
-        <div className="w-full max-w-2xl bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/60 rounded-3xl p-6 md:p-8 shadow-xl">
+        <div className="w-full max-w-2xl bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-6 md:p-8 shadow-xl">
           <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-6 text-left border-b border-slate-100 dark:border-slate-800/80 pb-2">
             Mapa del Sitio
           </h3>

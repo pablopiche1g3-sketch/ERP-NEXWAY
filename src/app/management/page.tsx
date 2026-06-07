@@ -688,7 +688,7 @@ export default function ManagementPage() {
           <TabsContent value="config" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               <div className="md:col-span-7 space-y-6">
-                <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+                <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
                   <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
                     <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
                       <Coins className="text-blue-400" size={20} />
@@ -741,7 +741,7 @@ export default function ManagementPage() {
               </div>
 
               <div className="md:col-span-5 space-y-6">
-                <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20">
+                <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20">
                 <div className="flex items-center gap-2 text-blue-800 font-bold dark:text-blue-300">
                   <AlertCircle size={20} />
                   <p className="text-sm uppercase tracking-tight">Notificaciones DTE</p>
@@ -751,7 +751,7 @@ export default function ManagementPage() {
                 </p>
               </div>
 
-              <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+              <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
                 <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
                   <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
                     <Database className="text-emerald-400" size={20} />
@@ -833,7 +833,7 @@ export default function ManagementPage() {
             </div>
 
             {/* ── Cajas / Sucursales ─────────────────────────────────── */}
-            <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+            <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-6">
                 <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
                   <Store className="text-indigo-400" size={20} />
@@ -924,7 +924,7 @@ export default function ManagementPage() {
 
           {/* pestaña 2: PERMISOS DE MÓDULOS */}
           <TabsContent value="permissions" className="outline-none">
-            <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+            <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
               <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
                 <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
                   <ShieldCheck className="text-blue-400" size={20} />
@@ -975,7 +975,7 @@ export default function ManagementPage() {
 
           {/* pestaña 3: ROLES DE USUARIO */}
           <TabsContent value="roles" className="outline-none">
-            <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+            <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
               <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
                 <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
                   <Users className="text-violet-400" size={20} />
@@ -1152,7 +1152,7 @@ export default function ManagementPage() {
           <TabsContent value="metrics" className="outline-none space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
-              <Card className="border shadow-md rounded-[28px] overflow-hidden bg-card border-slate-100 dark:border-zinc-800">
+              <Card className="border shadow-md rounded-2xl overflow-hidden bg-card border-slate-100 dark:border-zinc-800">
                 <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950 flex flex-row items-center justify-between">
                   <div>
                     <CardTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-blue-400">
@@ -1168,7 +1168,7 @@ export default function ManagementPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border shadow-md rounded-[28px] overflow-hidden bg-card border-slate-100 dark:border-zinc-800">
+              <Card className="border shadow-md rounded-2xl overflow-hidden bg-card border-slate-100 dark:border-zinc-800">
                 <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950 flex flex-row items-center justify-between">
                   <div>
                     <CardTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-rose-400">
@@ -1184,7 +1184,7 @@ export default function ManagementPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border shadow-md rounded-[28px] overflow-hidden bg-card border-slate-100 dark:border-zinc-800">
+              <Card className="border shadow-md rounded-2xl overflow-hidden bg-card border-slate-100 dark:border-zinc-800">
                 <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950 flex flex-row items-center justify-between">
                   <div>
                     <CardTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-emerald-400">
@@ -1237,7 +1237,7 @@ export default function ManagementPage() {
                 { label: 'Clientes Únicos', value: customerStats.length, icon: <Users size={18} className="text-violet-400" />, bg: 'bg-violet-500/10 border-violet-500/20' },
                 { label: 'Productos Distintos', value: topProducts.length, icon: <Package size={18} className="text-orange-400" />, bg: 'bg-orange-500/10 border-orange-500/20' },
               ].map(k => (
-                <Card key={k.label} className={`border ${k.bg} rounded-[20px] shadow-sm`}>
+                <Card key={k.label} className={`border ${k.bg} rounded-xl shadow-sm`}>
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl border ${k.bg} flex items-center justify-center shrink-0`}>{k.icon}</div>
                     <div>
@@ -1278,7 +1278,7 @@ export default function ManagementPage() {
               <>
                 {/* ── A: Por Empleado ─────────────────────────────── */}
                 {analyticsTab === 'employees' && (
-                  <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+                  <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950">
                       <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
                         <UserCheck className="text-emerald-400" size={18} /> Ventas por Empleado
@@ -1318,7 +1318,7 @@ export default function ManagementPage() {
 
                 {/* ── B: Por Cliente ──────────────────────────────── */}
                 {analyticsTab === 'customers' && (
-                  <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+                  <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950">
                       <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
                         <Users className="text-violet-400" size={18} /> Ventas por Cliente
@@ -1358,7 +1358,7 @@ export default function ManagementPage() {
 
                 {/* ── C: Top Productos ────────────────────────────── */}
                 {analyticsTab === 'products' && (
-                  <Card className="border shadow-md rounded-3xl bg-card overflow-hidden">
+                  <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
@@ -1426,7 +1426,7 @@ export default function ManagementPage() {
       </div>
 
       <Dialog open={isSqlModalOpen} onOpenChange={setIsSqlModalOpen}>
-        <DialogContent className="max-w-2xl bg-slate-950 text-slate-100 border-slate-800 rounded-3xl overflow-hidden p-6 max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-2xl bg-slate-950 text-slate-100 border-slate-800 rounded-2xl overflow-hidden p-6 max-h-[85vh] flex flex-col">
           <DialogHeader className="pb-4 border-b border-slate-800">
             <DialogTitle className="flex items-center gap-2 text-white text-lg font-black uppercase tracking-tight">
               <Terminal className="text-emerald-400" size={20} />

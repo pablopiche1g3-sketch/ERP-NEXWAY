@@ -1051,7 +1051,7 @@ export default function OrdersPage() {
               
               {/* Formulario Nueva Requisición */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                   <CardHeader className="bg-violet-900 dark:bg-violet-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <ClipboardList size={18} className="text-violet-400" /> Nueva Requisición entre Sucursales
@@ -1244,7 +1244,7 @@ export default function OrdersPage() {
                   />
                 </div>
 
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                   <ScrollArea className="h-[520px]">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">
@@ -1356,7 +1356,7 @@ export default function OrdersPage() {
               
               {/* Formulario Nueva Orden Proveedor */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                   <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Building2 size={18} className="text-violet-400" /> Nueva Orden de Pedido a Proveedor
@@ -1747,7 +1747,7 @@ export default function OrdersPage() {
                   />
                 </div>
 
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                   <ScrollArea className="h-[520px]">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">
@@ -1852,7 +1852,7 @@ export default function OrdersPage() {
               
               {/* Cargador e Instrucciones */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                   <CardHeader className="bg-violet-900 dark:bg-violet-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <FileSpreadsheet size={18} className="text-violet-400" /> Carga Masiva de Códigos
@@ -1910,7 +1910,7 @@ export default function OrdersPage() {
 
               {/* Vista Previa de Códigos a Registrar */}
               <div className="lg:col-span-7 space-y-4">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                   <div className="p-4 bg-slate-50 dark:bg-muted/50 sticky top-0 border-b flex justify-between items-center z-10">
                     <span className="text-[10px] font-black text-slate-700 dark:text-foreground uppercase tracking-widest">Vista Previa de Importación</span>
                     <div className="flex items-center gap-2">
@@ -1982,7 +1982,7 @@ export default function OrdersPage() {
       {/* ==================== MODAL DE VISTA PREVIA & IMPRESIÓN DE ORDEN ==================== */}
       {selectedOrderForPreview && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-card border w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-card border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
             
             {/* Header Modal */}
             <div className="p-5 bg-slate-900 text-white flex justify-between items-center">

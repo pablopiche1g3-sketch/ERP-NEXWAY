@@ -206,7 +206,7 @@ export default function Home() {
           <div className="flex items-center gap-2 shrink-0">
             <ModeToggle />
             {/* Perfil del Administrador (Solo Icono en Móvil) */}
-            <div className="hidden sm:flex items-center gap-2.5 bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 p-1.5 pr-3.5 rounded-xl">
+            <div className="hidden sm:flex items-center gap-2.5 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md border border-slate-200 dark:border-zinc-800 p-1.5 pr-3.5 rounded-xl">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-500 text-white flex items-center justify-center font-black text-xs uppercase shadow-md shadow-indigo-500/10">
                 AD
               </div>
@@ -231,14 +231,14 @@ export default function Home() {
             <Input 
               type="text" 
               placeholder="Buscar..." 
-              className="h-11 pl-10 pr-4 bg-white dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 text-xs font-medium rounded-xl focus-visible:ring-indigo-500 transition-colors w-full"
+              className="h-11 pl-10 pr-4 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md border-slate-200 dark:border-zinc-800 text-xs font-medium rounded-xl focus-visible:ring-indigo-500 transition-colors w-full"
             />
           </div>
 
           {/* Botón Filtrar */}
           <Button 
             variant="outline" 
-            className="h-11 px-4 bg-white dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 shrink-0"
+            className="h-11 px-4 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 shrink-0"
           >
             <SlidersHorizontal size={14} />
             <span className="hidden sm:inline">Filtrar</span>
@@ -249,7 +249,7 @@ export default function Home() {
 
 
       {/* Contenedor central: Módulos principales con glows */}
-      <Card className="border border-slate-200/60 dark:border-zinc-900/40 bg-white dark:bg-slate-900/20 rounded-[28px] shadow-sm mb-8 overflow-hidden">
+      <Card className="border border-slate-200/60 dark:border-zinc-900/50 bg-white/80 dark:bg-slate-900/30 backdrop-blur-md rounded-2xl shadow-md mb-8 overflow-hidden">
         <div className="p-6 border-b border-slate-100 dark:border-zinc-800/80 flex items-center justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider font-headline">Módulos principales</h2>
@@ -258,7 +258,7 @@ export default function Home() {
           <Button 
             variant="outline" 
             onClick={() => router.push('/management')}
-            className="h-9 px-4 bg-slate-50 dark:bg-zinc-900/60 border-slate-100 dark:border-zinc-800/80 rounded-xl text-xs font-bold hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-1.5"
+            className="h-9 px-4 bg-slate-50/80 dark:bg-zinc-900/40 backdrop-blur-md border-slate-100 dark:border-zinc-800/80 rounded-xl text-xs font-bold hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-1.5"
           >
             <ShieldCheck size={14} /> Ajustar Módulos
           </Button>
@@ -271,7 +271,7 @@ export default function Home() {
                 <div 
                   key={m.id}
                   onClick={() => handleModuleClick(m.id, m.path, m.title)}
-                  className={`bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-zinc-800 p-5 rounded-[22px] flex items-center justify-between gap-4 cursor-pointer group transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden ${m.glowClass}`}
+                  className={`bg-white/90 dark:bg-slate-900/40 border border-slate-200/80 dark:border-zinc-800 p-5 rounded-xl flex items-center justify-between gap-4 cursor-pointer group transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden ${m.glowClass}`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className={`w-12 h-12 shrink-0 ${m.iconBg} rounded-xl flex items-center justify-center shadow-md transition-all duration-300 group-hover:scale-105`}>

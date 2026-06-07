@@ -21,7 +21,8 @@ import {
   Landmark,
   Building2,
   DollarSign,
-  Info
+  Info,
+  Link2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -88,6 +89,15 @@ export default function PurchasesPage() {
   const [selectedUncreatedCategory, setSelectedUncreatedCategory] = useState<Record<string, string>>({});
   const [selectedUncreatedPrice, setSelectedUncreatedPrice] = useState<Record<string, string>>({});
 
+  // Estados para vinculación de códigos de proveedor
+  const [savedMappings, setSavedMappings] = useState<any[]>([]);
+  const [mappingSearch, setMappingSearch] = useState('');
+  const [supplierCodeInput, setSupplierCodeInput] = useState('');
+  const [internalSkuInput, setInternalSkuInput] = useState('');
+  const [jsonMappingsInput, setJsonMappingsInput] = useState('');
+  const [savingMapping, setSavingMapping] = useState(false);
+  const [savingJsonMappings, setSavingJsonMappings] = useState(false);
+
   // Función para cargar los datos relacionados de forma segura
   const loadPurchasesData = async () => {
     try {
@@ -146,10 +156,89 @@ export default function PurchasesPage() {
 
       setInventory(mappedInventory);
 
+      // Cargar vinculaciones de proveedor
+      const { data: mapData } = await supabase.from('supplier_mappings').select('*');
+      setSavedMappings((mapData || []).map(m => ({
+        supplierCode: m.supplier_code,
+        internalSku: m.internal_sku
+      })));
+
     } catch (e: any) {
       console.error('Error al cargar datos en compras:', e);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleSaveManualMapping = async () => {
+    if (!supplierCodeInput.trim() || !internalSkuInput.trim()) return;
+    setSavingMapping(true);
+    try {
+      const code = supplierCodeInput.trim().toUpperCase();
+      const sku = internalSkuInput.trim().toUpperCase();
+      const { error } = await supabase.from('supplier_mappings').upsert({
+        supplier_code: code,
+        internal_sku: sku
+      });
+      if (error) throw error;
+      toast({ title: 'Vínculo guardado', description: `Se vinculó ${code} con ${sku}` });
+      setSupplierCodeInput('');
+      setInternalSkuInput('');
+      
+      const { data } = await supabase.from('supplier_mappings').select('*');
+      setSavedMappings((data || []).map(m => ({
+        supplierCode: m.supplier_code,
+        internalSku: m.internal_sku
+      })));
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Error', description: err.message || 'No se pudo guardar la vinculación' });
+    } finally {
+      setSavingMapping(false);
+    }
+  };
+
+  const handleDeleteMapping = async (supplierCode: string) => {
+    try {
+      const { error } = await supabase.from('supplier_mappings').delete().eq('supplier_code', supplierCode);
+      if (error) throw error;
+      toast({ title: 'Vínculo eliminado', description: `Se eliminó el vínculo del código ${supplierCode}` });
+      setSavedMappings(prev => prev.filter(m => m.supplierCode !== supplierCode));
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Error', description: err.message || 'No se pudo eliminar la vinculación' });
+    }
+  };
+
+  const handleSaveJsonMappings = async () => {
+    if (!jsonMappingsInput.trim()) return;
+    setSavingJsonMappings(true);
+    try {
+      const parsed = JSON.parse(jsonMappingsInput);
+      if (!Array.isArray(parsed)) throw new Error('El JSON debe ser un arreglo de objetos');
+      const rows = parsed.map(item => {
+        if (!item.supplier_code || !item.internal_sku) {
+          throw new Error('Cada objeto debe tener supplier_code e internal_sku');
+        }
+        return {
+          supplier_code: item.supplier_code.toString().trim().toUpperCase(),
+          internal_sku: item.internal_sku.toString().trim().toUpperCase()
+        };
+      });
+      const { error } = await supabase.from('supplier_mappings').upsert(rows);
+      if (error) throw error;
+      toast({ title: 'Vínculos importados', description: `Se importaron ${rows.length} equivalencias` });
+      setJsonMappingsInput('');
+      const { data } = await supabase.from('supplier_mappings').select('*');
+      setSavedMappings((data || []).map(m => ({
+        supplierCode: m.supplier_code,
+        internalSku: m.internal_sku
+      })));
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Error', description: err.message || 'Error al importar JSON' });
+    } finally {
+      setSavingJsonMappings(false);
     }
   };
 
@@ -173,7 +262,29 @@ export default function PurchasesPage() {
 
       if (error) throw error;
 
-      // 2. Add to local inventory state so it behaves normally in later steps
+      // 2. Insert equivalence in public.supplier_mappings if originalProviderCode exists
+      if (p.originalProviderCode) {
+        const { error: mappingError } = await supabase
+          .from('supplier_mappings')
+          .upsert({
+            supplier_code: p.originalProviderCode,
+            internal_sku: p.sku
+          });
+        
+        if (mappingError) {
+          console.error('Error inserting supplier mapping:', mappingError);
+        } else {
+          setSavedMappings(prev => {
+            const exists = prev.some(m => m.supplierCode === p.originalProviderCode);
+            if (exists) {
+              return prev.map(m => m.supplierCode === p.originalProviderCode ? { ...m, internalSku: p.sku } : m);
+            }
+            return [...prev, { supplierCode: p.originalProviderCode, internalSku: p.sku }];
+          });
+        }
+      }
+
+      // 3. Add to local inventory state so it behaves normally in later steps
       const newInventoryItem = {
         id: p.sku,
         sku: p.sku,
@@ -426,8 +537,12 @@ export default function PurchasesPage() {
           setDocType(json.identificacion.tipoDte === '03' ? 'CCF' : 'FACTURA');
           
           json.cuerpoDocumento?.forEach((item: any) => {
+            const rawCode = (item.codigo || '').toUpperCase();
+            const mapping = savedMappings.find(m => m.supplierCode === rawCode);
+            const resolvedSku = mapping ? mapping.internalSku : rawCode;
+
             const product = inventory?.find((p: any) => 
-              p.sku === (item.codigo || '').toUpperCase() || 
+              p.sku === resolvedSku || 
               p.name.toLowerCase() === (item.descripcion || '').toLowerCase()
             );
 
@@ -437,15 +552,16 @@ export default function PurchasesPage() {
                 sku: product.sku,
                 name: product.name,
                 quantity: parseFloat(item.cantidad || item.quantity) || 0,
-                cost: item.precioUnitario || 0
+                cost: parseFloat(item.precioUnitario) || 0
               });
               detectedCount++;
             } else {
               uncreated.push({
-                sku: (item.codigo || `TEMP-${Date.now().toString().slice(-4)}`).toUpperCase(),
+                sku: resolvedSku || `TEMP-${Date.now().toString().slice(-4)}`,
+                originalProviderCode: rawCode,
                 name: item.descripcion || 'Producto sin nombre',
                 quantity: parseFloat(item.cantidad || item.quantity) || 0,
-                cost: item.precioUnitario || 0
+                cost: parseFloat(item.precioUnitario) || 0
               });
             }
           });
@@ -463,7 +579,11 @@ export default function PurchasesPage() {
         } 
         else if (Array.isArray(json)) {
           json.forEach(item => {
-            const product = inventory?.find((p: any) => p.sku === item.sku?.toUpperCase());
+            const rawCode = (item.sku || item.codigo || '').toUpperCase();
+            const mapping = savedMappings.find(m => m.supplierCode === rawCode);
+            const resolvedSku = mapping ? mapping.internalSku : rawCode;
+
+            const product = inventory?.find((p: any) => p.sku === resolvedSku);
             if (product) {
               itemsToLoad.push({
                 id: product.id,
@@ -475,7 +595,8 @@ export default function PurchasesPage() {
               detectedCount++;
             } else {
               uncreated.push({
-                sku: (item.sku || item.codigo || `TEMP-${Date.now().toString().slice(-4)}`).toUpperCase(),
+                sku: resolvedSku || `TEMP-${Date.now().toString().slice(-4)}`,
+                originalProviderCode: rawCode,
                 name: item.name || item.descripcion || 'Producto sin nombre',
                 quantity: parseFloat(item.cantidad || item.quantity) || 0,
                 cost: parseFloat(item.precioUnitario || item.price || item.cost) || 0
@@ -487,7 +608,7 @@ export default function PurchasesPage() {
             setUncreatedDteProducts(uncreated);
             setIsUncreatedDialogOpen(true);
           } else {
-            toast({ title: "JSON Cargado", description: `Se añadieron ${detectedCount} productos válidos.` });
+            toast({ title: "JSON Cargado", description: `Se añadieron ${detectedCount} productos compatibles.` });
           }
         } else {
           toast({ variant: "destructive", title: "Formato Desconocido", description: "El archivo no coincide con el estándar DTE V3 de El Salvador." });
@@ -526,17 +647,28 @@ export default function PurchasesPage() {
             <ArrowLeft className="text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-foreground font-headline leading-tight">Registro de Compra Operativa</h1>
-            <p className="text-muted-foreground text-xs md:text-sm">Soporte nativo para DTE V3 Hacienda El Salvador</p>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground font-headline leading-tight">Módulo de Compras</h1>
+            <p className="text-muted-foreground text-xs md:text-sm">Registro de compra operativa con soporte Hacienda DTE V3</p>
           </div>
         </div>
         <ModeToggle />
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <div className="lg:col-span-4 space-y-6">
-          <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
+      <Tabs defaultValue="registro" className="max-w-7xl mx-auto space-y-6">
+        <TabsList className="bg-slate-100 dark:bg-muted p-1 rounded-2xl flex w-fit gap-2">
+          <TabsTrigger value="registro" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
+            <ClipboardList size={14} className="mr-2" /> Registro de Compra
+          </TabsTrigger>
+          <TabsTrigger value="vinculacion" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
+            <Link2 size={14} className="mr-2" /> Vinculación de Códigos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="registro" className="space-y-6 outline-none">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div className="lg:col-span-4 space-y-6">
+              <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
             <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -665,7 +797,7 @@ export default function PurchasesPage() {
             </CardContent>
           </Card>
 
-          <Card className="border shadow-sm rounded-3xl bg-card p-6">
+          <Card className="border shadow-sm rounded-2xl bg-card p-6">
             <div className="flex items-center justify-between mb-4">
                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cargar DTE V3</Label>
                <Popover>
@@ -713,7 +845,7 @@ export default function PurchasesPage() {
         </div>
 
         <div className="lg:col-span-8 space-y-6">
-          <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden h-[550px] flex flex-col">
+          <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden h-[550px] flex flex-col">
             <CardHeader className="bg-muted/30 border-b px-6 py-4">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex items-center gap-4">
@@ -796,9 +928,206 @@ export default function PurchasesPage() {
           </div>
         </div>
       </div>
+    </TabsContent>
+
+    <TabsContent value="vinculacion" className="space-y-6 outline-none">
+      {/* VINCULACIÓN DE CÓDIGOS DE PROVEEDOR UI */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* FORMULARIO MANUAL (IZQUIERDA) */}
+        <div className="lg:col-span-4 space-y-4">
+          <Card className="border shadow-sm rounded-2xl bg-card">
+            <CardHeader className="p-6">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Link2 className="text-blue-600" size={18} />
+                Vincular Código Manualmente
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Asocie un código que viene en las facturas de su proveedor con un SKU interno de su catálogo Nexway.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Código de Proveedor / DTE</Label>
+                <Input 
+                  placeholder="Ej: COD-PROV-123" 
+                  value={supplierCodeInput} 
+                  onChange={(e) => setSupplierCodeInput(e.target.value)}
+                  className="h-11 bg-muted border-none rounded-xl font-bold placeholder:text-muted-foreground/50 uppercase text-foreground"
+                />
+              </div>
+
+              <div className="space-y-2 relative">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">SKU Interno de Destino</Label>
+                <Input 
+                  placeholder="Buscar por SKU o Nombre..." 
+                  value={internalSkuInput} 
+                  onChange={(e) => setInternalSkuInput(e.target.value)}
+                  className="h-11 bg-muted border-none rounded-xl font-bold placeholder:text-muted-foreground/50 uppercase text-foreground"
+                />
+                {internalSkuInput && !inventory.some(p => p.sku === internalSkuInput.trim().toUpperCase()) && (
+                  <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-card border rounded-xl shadow-xl max-h-48 overflow-y-auto p-1 divide-y divide-border">
+                    {inventory
+                      .filter(p => 
+                        p.sku.toLowerCase().includes(internalSkuInput.toLowerCase()) || 
+                        p.name.toLowerCase().includes(internalSkuInput.toLowerCase())
+                      )
+                      .slice(0, 10)
+                      .map(p => (
+                        <button
+                          key={p.sku}
+                          type="button"
+                          onClick={() => setInternalSkuInput(p.sku)}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-muted rounded-lg flex justify-between font-bold text-foreground"
+                        >
+                          <span>{p.sku}</span>
+                          <span className="text-[10px] text-muted-foreground font-normal truncate max-w-[180px]">{p.name}</span>
+                        </button>
+                      ))}
+                    {inventory.filter(p => 
+                      p.sku.toLowerCase().includes(internalSkuInput.toLowerCase()) || 
+                      p.name.toLowerCase().includes(internalSkuInput.toLowerCase())
+                    ).length === 0 && (
+                      <div className="p-3 text-center text-xs text-muted-foreground italic">No se encontraron productos</div>
+                    )}
+                  </div>
+                )}
+                
+                {internalSkuInput && inventory.some(p => p.sku === internalSkuInput.trim().toUpperCase()) && (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] font-bold text-emerald-600 dark:text-emerald-400 animate-in fade-in">
+                    Producto Seleccionado: {inventory.find(p => p.sku === internalSkuInput.trim().toUpperCase())?.name}
+                  </div>
+                )}
+              </div>
+
+              <Button 
+                onClick={handleSaveManualMapping}
+                disabled={savingMapping || !supplierCodeInput.trim() || !internalSkuInput.trim()}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95 border-none"
+              >
+                {savingMapping ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
+                GUARDAR VINCULACIÓN
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* LISTA & JSON EDITOR (DERECHA) */}
+        <div className="lg:col-span-8">
+          <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
+            <Tabs defaultValue="tabla" className="w-full">
+              <CardHeader className="p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/20">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Link2 className="text-blue-600" size={18} />
+                    Equivalencias de Catálogo
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">Consulte y administre el mapeo masivo de SKU de proveedores.</CardDescription>
+                </div>
+                <TabsList className="bg-slate-100 dark:bg-muted p-0.5 rounded-lg flex self-start sm:self-center">
+                  <TabsTrigger value="tabla" className="text-[10px] font-bold px-3 py-1.5 rounded-md">Lista de Vínculos</TabsTrigger>
+                  <TabsTrigger value="json" className="text-[10px] font-bold px-3 py-1.5 rounded-md">Editor JSON</TabsTrigger>
+                </TabsList>
+              </CardHeader>
+              
+              {/* SUBTAB TABLA DE EQUIVALENCIAS */}
+              <TabsContent value="tabla" className="m-0 outline-none">
+                <div className="p-4 border-b flex items-center gap-2 bg-muted/10">
+                  <Search size={16} className="text-muted-foreground" />
+                  <Input 
+                    placeholder="Buscar por código de proveedor o SKU interno..." 
+                    value={mappingSearch}
+                    onChange={(e) => setMappingSearch(e.target.value)}
+                    className="h-9 bg-card border text-xs rounded-lg shadow-sm w-full md:max-w-md text-foreground"
+                  />
+                </div>
+                
+                <div className="overflow-x-auto max-h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase px-6">Código de Proveedor</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">SKU Interno Nexway</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Producto Maestro</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase px-6">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(() => {
+                        const s = mappingSearch.toLowerCase().trim();
+                        const list = (savedMappings || []).filter(m => 
+                          m.supplierCode.toLowerCase().includes(s) || 
+                          m.internalSku.toLowerCase().includes(s)
+                        );
+                        if (list.length === 0) {
+                          return (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center py-16 text-muted-foreground italic text-xs">
+                                {s ? 'No se encontraron vinculaciones coincidentes.' : 'No hay equivalencias de proveedores registradas.'}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }
+                        return list.map((m: any) => {
+                          const prod = inventory.find(p => p.sku === m.internalSku);
+                          return (
+                            <TableRow key={m.supplierCode} className="hover:bg-muted/30">
+                              <TableCell className="px-6 font-mono font-bold text-xs text-blue-600 dark:text-blue-400">{m.supplierCode}</TableCell>
+                              <TableCell className="font-mono font-bold text-xs text-foreground">{m.internalSku}</TableCell>
+                              <TableCell className="text-xs font-bold text-muted-foreground max-w-[200px] truncate">{prod?.name || 'Desconocido'}</TableCell>
+                              <TableCell className="text-right px-6">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => handleDeleteMapping(m.supplierCode)}
+                                  className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-lg border-none"
+                                >
+                                  <Trash2 size={14} />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        });
+                      })()}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+
+              {/* SUBTAB EDITOR JSON */}
+              <TabsContent value="json" className="m-0 outline-none p-6 space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Estructura JSON Mappings</Label>
+                  <p className="text-[10px] text-muted-foreground leading-normal mb-2">
+                    Edite o cargue masivamente vinculaciones en formato JSON. El formato debe ser un arreglo de objetos con las propiedades <code>"supplier_code"</code> e <code>"internal_sku"</code>.
+                  </p>
+                  <textarea 
+                    rows={12}
+                    value={jsonMappingsInput}
+                    onChange={(e) => setJsonMappingsInput(e.target.value)}
+                    className="w-full font-mono text-xs p-4 border rounded-2xl bg-slate-900 text-slate-100 placeholder:text-slate-700 outline-none resize-none shadow-inner"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleSaveJsonMappings}
+                  disabled={savingJsonMappings || !jsonMappingsInput.trim()}
+                  className="h-11 px-6 bg-slate-900 dark:bg-white dark:text-slate-900 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all w-full md:w-auto border-none"
+                >
+                  {savingJsonMappings ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
+                  IMPORTAR & GUARDAR JSON
+                </Button>
+              </TabsContent>
+            </Tabs>
+          </Card>
+        </div>
+
+      </div>
+    </TabsContent>
+  </Tabs>
 
       <Dialog open={isUncreatedDialogOpen} onOpenChange={setIsUncreatedDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-4 overflow-hidden rounded-3xl border shadow-xl">
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-4 overflow-hidden rounded-2xl border shadow-xl">
           <DialogHeader className="px-1 pt-1">
             <DialogTitle className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
               <AlertTriangle className="text-amber-500" size={20} />
@@ -816,12 +1145,10 @@ export default function PurchasesPage() {
                 const priceVal = selectedUncreatedPrice[p.sku] || '';
                 const suggestedPrice = (p.cost * 1.3).toFixed(2);
                 return (
-                  <div key={p.sku} className="p-4 border rounded-2xl bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex-1 space-y-1">
+                  <div key={index} className="p-4 border rounded-2xl bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-mono text-[10px] font-bold text-primary border-primary/20 bg-primary/5">
-                          {p.sku}
-                        </Badge>
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Cód. Prov: {p.originalProviderCode || p.sku}</span>
                         <span className="text-xs font-bold text-muted-foreground">
                           Costo: ${p.cost.toFixed(2)}
                         </span>
@@ -830,6 +1157,21 @@ export default function PurchasesPage() {
                         </span>
                       </div>
                       <h4 className="text-sm font-bold text-foreground leading-snug">{p.name}</h4>
+                      
+                      <div className="space-y-1 max-w-[200px]">
+                        <Label className="text-[9px] font-bold uppercase text-muted-foreground">SKU Nexway Destino</Label>
+                        <Input 
+                          placeholder="SKU Destino"
+                          value={p.sku} 
+                          onChange={(e) => {
+                            const newSku = e.target.value.toUpperCase();
+                            setUncreatedDteProducts(prev => prev.map((item, idx) => 
+                              idx === index ? { ...item, sku: newSku } : item
+                            ));
+                          }}
+                          className="h-8 text-xs font-bold bg-card rounded-xl border uppercase"
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[280px] md:min-w-[340px]">

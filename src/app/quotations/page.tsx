@@ -222,7 +222,7 @@ export default function QuotationsPage() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Panel Izquierdo: Resumen y Totales */}
           <div className="lg:col-span-4 space-y-4">
-            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
+            <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
               <CardHeader className="bg-orange-600 text-white p-5">
                 <div className="flex justify-between items-center mb-2">
                   <CardTitle className="text-base font-bold">Resumen del Cliente</CardTitle>

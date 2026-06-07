@@ -173,7 +173,7 @@ export default function QuedanPage() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Panel Izquierdo: Formulario de Emisión */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+          <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
             <CardHeader className="bg-purple-600 text-white p-6">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -300,7 +300,7 @@ export default function QuedanPage() {
             />
           </div>
 
-          <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+          <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader className="bg-slate-50 sticky top-0 z-10">

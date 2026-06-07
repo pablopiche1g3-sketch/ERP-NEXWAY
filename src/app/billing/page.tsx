@@ -69,34 +69,67 @@ type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito' | 'Che
 
 export default function BillingPage() {
   const db = useFirestore();
-  const { user } = useUser();
+  const { user, role } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  const isUserAdmin = role === 'admin' || role === 'gerencia';
 
   // Caja/Bodega activa del usuario logueado
   const [activeStation, setActiveStation] = useState<any | null>(null);
   const [activeWarehouse, setActiveWarehouse] = useState<any | null>(null);
+  const [availableStations, setAvailableStations] = useState<any[]>([]);
 
   // Cargar la caja asignada al usuario desde system_config + profiles
   useEffect(() => {
     const loadUserStation = async () => {
       if (!user?.email) return;
-      // Buscar el perfil del usuario para obtener station_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('station_id')
-        .eq('email', user.email)
-        .maybeSingle();
-      if (!profile?.station_id) return;
 
-      // Buscar la estación en system_config
+      // Buscar las estaciones en system_config
       const { data: stConf } = await supabase
         .from('system_config')
         .select('value')
         .eq('key', 'pos_stations')
         .maybeSingle();
       const stations: any[] = stConf?.value || [];
-      const station = stations.find((s: any) => s.id === profile.station_id);
+      setAvailableStations(stations);
+
+      // Buscar el perfil del usuario para obtener station_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('station_id')
+        .eq('email', user.email)
+        .maybeSingle();
+
+      if (profile?.station_id) {
+        const station = stations.find((s: any) => s.id === profile.station_id);
+        if (station) {
+          setActiveStation(station);
+          // Cargar info de la bodega
+          const { data: wh } = await supabase
+            .from('warehouses')
+            .select('*')
+            .eq('id', station.warehouse_id)
+            .maybeSingle();
+          setActiveWarehouse(wh || null);
+        }
+      }
+    };
+    loadUserStation();
+  }, [user]);
+
+  const handleAssignStation = async (stationId: string) => {
+    if (!user?.email) return;
+    try {
+      // 1. Update profiles table
+      const { error } = await supabase
+        .from('profiles')
+        .update({ station_id: stationId })
+        .eq('email', user.email);
+
+      if (error) throw error;
+
+      // 2. Update local state
+      const station = availableStations.find((s: any) => s.id === stationId);
       if (station) {
         setActiveStation(station);
         // Cargar info de la bodega
@@ -106,10 +139,25 @@ export default function BillingPage() {
           .eq('id', station.warehouse_id)
           .maybeSingle();
         setActiveWarehouse(wh || null);
+
+        setSearchTerm('');
+        setInventory([]);
+        setCart([]);
+
+        toast({
+          title: "Caja Asignada",
+          description: `Se asignó la caja '${station.name}' (Bodega: ${station.warehouse_name || wh?.name || 'Asociada'}).`
+        });
       }
-    };
-    loadUserStation();
-  }, [user]);
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: "Error al asignar caja",
+        description: err.message || "No se pudo actualizar la caja asignada."
+      });
+    }
+  };
   const configRef = useMemo(() => doc(db, 'system', 'module_config'), [db]);
   const { data: config } = useDoc<any>(configRef);
 
@@ -232,6 +280,14 @@ export default function BillingPage() {
   // Estados para datos cargados desde Supabase
   const [cashConfig, setCashConfig] = useState<any>({ cashFloat: 100 });
   const [inventory, setInventory] = useState<any[]>([]);
+  const [pendingIncomingQty, setPendingIncomingQty] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (activeWarehouse) {
+      loadBillingData();
+    }
+  }, [activeWarehouse]);
+
   const [salesAll, setSalesAll] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -321,8 +377,36 @@ export default function BillingPage() {
         .from('journal')
         .select('*')
         .eq('type', 'Ingreso')
-        .like('description', 'Abono a Crédito [%');
       setJournalPayments(jData || []);
+
+      // Cargar cash_config desde system_config
+      const { data: cashConfData } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'cash_config')
+        .maybeSingle();
+      if (cashConfData?.value) {
+        setCashConfig(cashConfData.value);
+      }
+
+      // Cargar pre-traslados / traslados en tránsito
+      const { data: pendingTransfers } = await supabase
+        .from('transfers')
+        .select('*')
+        .in('status', ['PETICION', 'ENVIADO']);
+      
+      const incomingMap: Record<string, number> = {};
+      const activeWhName = activeWarehouse?.name || activeStation?.warehouse_name;
+      if (activeWhName) {
+        (pendingTransfers || []).forEach((t: any) => {
+          if (t.destination === activeWhName) {
+            (t.items || []).forEach((item: any) => {
+              incomingMap[item.sku] = (incomingMap[item.sku] || 0) + (parseFloat(item.quantity) || 0);
+            });
+          }
+        });
+      }
+      setPendingIncomingQty(incomingMap);
 
     } catch (e: any) {
       console.error('Error al cargar datos en facturación:', e);
@@ -617,12 +701,14 @@ export default function BillingPage() {
     if (deductWh) {
       for (const item of cart) {
         const product = inventory.find(p => p.sku === item.sku);
-        const available = product ? (product.bodegas?.[deductWh.name] || 0) : 0;
+        const physical = product ? (product.bodegas?.[deductWh.name] || 0) : 0;
+        const pendingIncoming = pendingIncomingQty[item.sku] || 0;
+        const available = physical + pendingIncoming;
         if (available < item.quantity) {
           toast({ 
             variant: "destructive", 
             title: "Stock Insuficiente Detectado", 
-            description: `El producto "${item.name}" no tiene existencias suficientes en "${deductWh.name}". Disponible: ${available}, Solicitado: ${item.quantity}.` 
+            description: `El producto "${item.name}" no tiene existencias físicas ni en pre-traslados suficientes en "${deductWh.name}". Disponible: ${physical} (Físico) + ${pendingIncoming} (En Tránsito), Solicitado: ${item.quantity}.` 
           });
           return;
         }
@@ -666,12 +752,14 @@ export default function BillingPage() {
       });
 
       for (const item of cart) {
-        const available = stockMap[item.sku] || 0;
+        const physical = stockMap[item.sku] || 0;
+        const pendingIncoming = pendingIncomingQty[item.sku] || 0;
+        const available = physical + pendingIncoming;
         if (available < item.quantity) {
           toast({
             variant: "destructive",
             title: "Stock Insuficiente",
-            description: `El producto "${item.name}" (${item.sku}) no tiene suficiente stock en la bodega "${deductWh.name}". Disponible: ${available}, Requerido: ${item.quantity}.`
+            description: `El producto "${item.name}" (${item.sku}) no tiene suficiente stock físico ni pre-traslados en la bodega "${deductWh.name}". Disponible: ${physical} (Físico) + ${pendingIncoming} (En Tránsito), Requerido: ${item.quantity}.`
           });
           setIsProcessing(false);
           return;
@@ -718,9 +806,8 @@ export default function BillingPage() {
       // 3. Update Inventory Stock (subtract purchased quantity from assigned warehouse)
       if (deductWh) {
         for (const item of cart) {
-          const product = inventory.find(p => p.sku === item.sku);
-          const currentStock = product ? (product.bodegas[deductWh.name] || 0) : 0;
-          const newQty = Math.max(0, currentStock - item.quantity);
+          const currentStock = stockMap[item.sku] || 0;
+          const newQty = currentStock - item.quantity; // Allow negative stock for pending pre-transfers
 
           await supabase
             .from('inventory_stock')
@@ -921,7 +1008,28 @@ export default function BillingPage() {
             )}
           </div>
         </div>
-        <ModeToggle />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider hidden sm:inline whitespace-nowrap">Estación/Caja:</span>
+            <Select 
+              value={activeStation?.id || ''} 
+              onValueChange={handleAssignStation}
+              disabled={!isUserAdmin}
+            >
+              <SelectTrigger className="h-9 w-[180px] text-xs rounded-xl bg-card border font-bold text-foreground">
+                <SelectValue placeholder="Seleccionar Caja..." />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {availableStations.map((station: any) => (
+                  <SelectItem key={station.id} value={station.id} className="text-xs font-bold">
+                    {station.name} ({station.warehouse_name})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <ModeToggle />
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto print:hidden">
@@ -963,7 +1071,7 @@ export default function BillingPage() {
           <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-8 outline-none animate-in fade-in duration-300">
             {/* Columna Izquierda: POS Carrito (Ancho: 5/12) */}
             <div className="lg:col-span-5 space-y-6">
-              <Card className="border border-slate-200/60 dark:border-zinc-800/60 rounded-[28px] overflow-hidden bg-white dark:bg-zinc-900/60 shadow-sm">
+              <Card className="border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl overflow-hidden bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md shadow-sm">
                 <CardHeader className="bg-[#0F172A] text-white p-6 dark:bg-zinc-950/40">
                   <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Resumen de Venta</CardTitle>
@@ -1054,7 +1162,7 @@ export default function BillingPage() {
               <Button 
                 onClick={handleOpenCheckout} 
                 disabled={cart.length === 0}
-                className="w-full h-16 rounded-[22px] bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-750 hover:to-indigo-750 text-white font-black text-sm tracking-widest shadow-xl shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-98 transition-all uppercase font-headline"
+                className="w-full h-16 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-750 hover:to-indigo-750 text-white font-black text-sm tracking-widest shadow-xl shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-98 transition-all uppercase font-headline"
               >
                 FINALIZAR Y NOTIFICAR
               </Button>
@@ -1076,7 +1184,7 @@ export default function BillingPage() {
               </div>
 
               {/* Cliente y DTE */}
-              <Card className="p-4 bg-white dark:bg-zinc-900/60 rounded-[24px] border border-slate-200/60 dark:border-zinc-800/60 flex flex-col sm:flex-row gap-4">
+              <Card className="p-4 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-zinc-800/60 flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 space-y-1.5">
                   <Label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Cliente Receptor</Label>
                   <div className="flex gap-2">
@@ -1136,7 +1244,7 @@ export default function BillingPage() {
                       setSearchTerm(e.target.value);
                       if (!e.target.value) setInventory([]);
                     }} 
-                    className="pl-10 h-12 bg-white dark:bg-zinc-900/60 border-slate-200/60 dark:border-zinc-800/60 shadow-sm rounded-2xl text-xs md:text-sm font-semibold focus-visible:ring-indigo-500" 
+                    className="pl-10 h-12 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md border-slate-200/60 dark:border-zinc-800/60 shadow-sm rounded-2xl text-xs md:text-sm font-semibold focus-visible:ring-indigo-500" 
                   />
                   {/* Absolute search results dropdown */}
                   {inventory.length > 0 && searchTerm.trim() !== "" && (
@@ -1170,7 +1278,7 @@ export default function BillingPage() {
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase">Detalle de productos</h3>
                 
-                <Card className="border border-slate-200/60 dark:border-zinc-800/60 rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900/60 shadow-sm">
+                <Card className="border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl overflow-hidden bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md shadow-sm">
                   <div className="overflow-x-auto no-scrollbar">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-zinc-950/20 border-b border-slate-100 dark:border-zinc-800">
@@ -1219,7 +1327,7 @@ export default function BillingPage() {
               </div>
 
               {/* Fila de Totales en el Pie */}
-              <div className="grid grid-cols-3 gap-6 p-5 rounded-[24px] bg-slate-100/50 dark:bg-zinc-950/40 border border-slate-200/50 dark:border-zinc-800/40">
+              <div className="grid grid-cols-3 gap-6 p-5 rounded-2xl bg-slate-100/50 dark:bg-zinc-950/40 border border-slate-200/50 dark:border-zinc-800/40">
                 <div className="space-y-0.5">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Subtotal</span>
                   <p className="text-sm font-black text-foreground font-headline">${totalCart.toFixed(2)}</p>
@@ -1240,7 +1348,7 @@ export default function BillingPage() {
           {/* TAB NOTA CREDITO */}
           <TabsContent value="nota_credito" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
              <div className="lg:col-span-5 space-y-4">
-                <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-card border">
+                <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-card border">
                    <CardHeader className="bg-rose-700 text-white p-5">
                       <CardTitle className="text-sm font-bold">Nota de Crédito (Ajuste)</CardTitle>
                       <p className="text-4xl font-black">${adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
@@ -1346,7 +1454,7 @@ export default function BillingPage() {
           {/* TAB NOTA DEBITO */}
           <TabsContent value="nota_debito" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
              <div className="lg:col-span-5 space-y-4">
-                <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-card border">
+                <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-card border">
                    <CardHeader className="bg-amber-600 text-white p-5">
                       <CardTitle className="text-sm font-bold">Nota de Débito (Cargo Extra)</CardTitle>
                       <p className="text-4xl font-black">${adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
@@ -1454,7 +1562,7 @@ export default function BillingPage() {
 
            {/* TAB HISTORIAL */}
           <TabsContent value="historial" className="outline-none">
-            <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
+            <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
               <div className="p-4 border-b bg-muted/20">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase">Consejo de uso</p>
                 <p className="text-[11px] text-muted-foreground">Haz **doble clic** sobre cualquier venta en la lista para ver el detalle de los productos facturados e imprimir el comprobante en PDF.</p>
@@ -1488,7 +1596,7 @@ export default function BillingPage() {
             </Card>
 
             <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-              <DialogContent className="max-w-2xl rounded-3xl border shadow-xl flex flex-col gap-4 overflow-hidden max-h-[90vh]">
+              <DialogContent className="max-w-2xl rounded-2xl border shadow-xl flex flex-col gap-4 overflow-hidden max-h-[90vh]">
                 <DialogHeader>
                   <DialogTitle className="text-lg font-black tracking-tight text-foreground flex items-center justify-between">
                     <span>Detalle de Facturación</span>
@@ -1683,7 +1791,7 @@ export default function BillingPage() {
               
               {/* Conteo de Billetes/Monedas */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border-slate-100 dark:border-border">
+                <Card className="border shadow-sm rounded-2xl overflow-hidden bg-card border-slate-100 dark:border-border">
                   <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5 flex flex-row items-center justify-between">
                     <div>
                       <CardTitle className="text-sm font-black flex items-center gap-2">
@@ -1814,25 +1922,25 @@ export default function BillingPage() {
                 
                 {/* Modern KPI summary cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Card className="p-4 border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                  <Card className="p-4 border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border">
                     <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Fondo Base</p>
                     <p className="text-lg font-black text-blue-600 mt-1">${(cashConfig?.cashFloat || 0).toFixed(2)}</p>
                     <span className="text-[9px] text-slate-400 block mt-0.5">Fondo inicial asignado</span>
                   </Card>
                   
-                  <Card className="p-4 border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                  <Card className="p-4 border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border">
                     <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Ventas Sistema</p>
                     <p className="text-lg font-black text-emerald-600 mt-1">${systemCashSales.toFixed(2)}</p>
                     <span className="text-[9px] text-slate-400 block mt-0.5">En caja (Efectivo)</span>
                   </Card>
 
-                  <Card className="p-4 border shadow-sm rounded-3xl bg-white dark:bg-card border-slate-100 dark:border-border">
+                  <Card className="p-4 border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border">
                     <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground tracking-wider">Egresos Caja</p>
                     <p className="text-lg font-black text-rose-500 mt-1">-${totalExpenses.toFixed(2)}</p>
                     <span className="text-[9px] text-slate-400 block mt-0.5">Gastos menores liquidados</span>
                   </Card>
 
-                  <Card className={`p-4 border shadow-md rounded-3xl transition-all duration-300 ${
+                  <Card className={`p-4 border shadow-md rounded-2xl transition-all duration-300 ${
                     cashDifference === 0 
                       ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-400' 
                       : cashDifference < 0 
@@ -1850,7 +1958,7 @@ export default function BillingPage() {
                 </div>
 
                 {/* Conciliación de Otros Medios de Pago */}
-                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border-slate-100 dark:border-border">
+                <Card className="border shadow-sm rounded-2xl overflow-hidden bg-card border-slate-100 dark:border-border">
                   <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-4 border-b dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <CardIcon size={18} className="text-blue-400" /> Conciliación de Medios Electrónicos y Crédito
@@ -1955,7 +2063,7 @@ export default function BillingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                   {/* Gastos de Caja */}
-                  <Card className="border shadow-sm rounded-3xl bg-card border-slate-100 dark:border-border">
+                  <Card className="border shadow-sm rounded-2xl bg-card border-slate-100 dark:border-border">
                     <CardHeader className="p-5 border-b dark:border-border flex flex-row items-center gap-2">
                       <TrendingDown size={18} className="text-rose-500" /> 
                       <div>
@@ -1983,7 +2091,7 @@ export default function BillingPage() {
                   </Card>
 
                   {/* Acciones de Arqueo */}
-                  <Card className="border shadow-sm rounded-3xl bg-card border-slate-100 dark:border-border p-5 flex flex-col justify-between space-y-4">
+                  <Card className="border shadow-sm rounded-2xl bg-card border-slate-100 dark:border-border p-5 flex flex-col justify-between space-y-4">
                     <div className="space-y-2">
                       <h4 className="text-xs font-black text-slate-800 dark:text-foreground uppercase tracking-wider">Finalizar Turno</h4>
                       <p className="text-[10px] text-slate-400 leading-normal">
@@ -2020,7 +2128,7 @@ export default function BillingPage() {
               
               {/* Cuentas por Cobrar / Ventas al Crédito */}
               <div className="lg:col-span-8 space-y-4">
-                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border-slate-100 dark:border-border">
+                <Card className="border shadow-sm rounded-2xl overflow-hidden bg-card border-slate-100 dark:border-border">
                   <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5 flex flex-row items-center justify-between">
                     <div>
                       <CardTitle className="text-sm font-black flex items-center gap-2">
@@ -2106,7 +2214,7 @@ export default function BillingPage() {
 
               {/* Historial de Abonos Recientes */}
               <div className="lg:col-span-4 space-y-4">
-                <Card className="border shadow-sm rounded-3xl overflow-hidden bg-card border-slate-100 dark:border-border">
+                <Card className="border shadow-sm rounded-2xl overflow-hidden bg-card border-slate-100 dark:border-border">
                   <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-4 border-b dark:border-border flex flex-row items-center justify-between">
                     <div>
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -2264,7 +2372,7 @@ export default function BillingPage() {
 
       {/* CHECKOUT DIALOG */}
       <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-        <DialogContent className="rounded-3xl max-w-md p-6 bg-card border shadow-2xl">
+        <DialogContent className="rounded-2xl max-w-md p-6 bg-card border shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black">Confirmar Venta</DialogTitle>
             <DialogDescription>El DTE será notificado al cliente vía correo.</DialogDescription>
@@ -2312,7 +2420,7 @@ export default function BillingPage() {
           const saldoPendiente = selectedSaleForAbono.total - totalAbonado;
 
           return (
-            <DialogContent className="rounded-3xl max-w-md p-6 bg-card border shadow-2xl border-slate-100 dark:border-border">
+            <DialogContent className="rounded-2xl max-w-md p-6 bg-card border shadow-2xl border-slate-100 dark:border-border">
               <DialogHeader>
                 <DialogTitle className="text-xl font-black flex items-center gap-2 text-slate-900 dark:text-foreground">
                   <Coins size={20} className="text-indigo-600 dark:text-indigo-400" /> Registrar Abono a Crédito
@@ -2396,7 +2504,7 @@ export default function BillingPage() {
 
       {/* Diálogo de Importar Cotización */}
       <Dialog open={showQuotationsDialog} onOpenChange={setShowQuotationsDialog}>
-        <DialogContent className="max-w-2xl bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 rounded-3xl p-6">
+        <DialogContent className="max-w-2xl bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 rounded-2xl p-6">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-800 dark:text-slate-200 font-headline flex items-center gap-2">
               <FileText size={20} className="text-indigo-500" />
@@ -2452,7 +2560,7 @@ function MockFrecuenteCard({ name, sku, stock, price, onClick }: {
   return (
     <div 
       onClick={onClick}
-      className="bg-white dark:bg-zinc-900/60 p-4 rounded-[22px] shadow-sm border border-slate-200/60 dark:border-zinc-800/60 hover:border-indigo-500/30 dark:hover:border-indigo-500/30 hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between aspect-square group relative"
+      className="bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-200/60 dark:border-zinc-800/60 hover:border-indigo-500/30 dark:hover:border-indigo-500/30 hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between aspect-square group relative"
     >
       <div className="space-y-1">
         <span className="text-[9px] font-bold text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded-full border border-indigo-500/10 font-mono">{sku}</span>

@@ -54,6 +54,7 @@ export default function TransfersPage() {
   const [authorizedBy, setAuthorizedBy] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<TransferItem[]>([]);
+  const [isPreTransfer, setIsPreTransfer] = useState(false);
 
   // Estados de datos
   const [inventory, setInventory] = useState<any[]>([]);
@@ -180,24 +181,88 @@ export default function TransfersPage() {
         destination: transferType === 'INTERNO' ? destinationWarehouse : destinationStore,
         authorized_by: authorizedBy,
         items: cart,
-        status: 'COMPLETADO'
+        status: isPreTransfer ? 'PETICION' : 'COMPLETADO'
       };
 
       const { error: insertErr } = await supabase.from('transfers').insert(transferData);
       if (insertErr) throw insertErr;
 
-      // 2. Lógica de Inventario Multibodega
-      const whOrigen = warehouses.find(w => w.name === sourceWarehouse);
-      const whDestino = transferType === 'INTERNO' ? warehouses.find(w => w.name === destinationWarehouse) : null;
+      // 2. Lógica de Inventario Multibodega (Solo si no es pre-traslado)
+      if (!isPreTransfer) {
+        const whOrigen = warehouses.find(w => w.name === sourceWarehouse);
+        const whDestino = transferType === 'INTERNO' ? warehouses.find(w => w.name === destinationWarehouse) : null;
 
+        if (!whOrigen) {
+          toast({ variant: "destructive", title: "Error", description: "No se encontró la bodega de origen." });
+          setIsProcessing(false);
+          return;
+        }
+
+        for (const item of cart) {
+          // Restar de bodega origen
+          const { data: stockOrig } = await supabase
+            .from('inventory_stock')
+            .select('*')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', whOrigen.id)
+            .maybeSingle();
+
+          const currentOrigQty = stockOrig ? parseFloat(stockOrig.quantity) || 0 : 0;
+          await supabase.from('inventory_stock').upsert({
+            sku: item.sku,
+            warehouse_id: whOrigen.id,
+            quantity: Math.max(0, currentOrigQty - item.quantity)
+          }, { onConflict: 'sku,warehouse_id' });
+
+          // Sumar a bodega de destino si es traslado interno
+          if (transferType === 'INTERNO' && whDestino) {
+            const { data: stockDest } = await supabase
+              .from('inventory_stock')
+              .select('*')
+              .eq('sku', item.sku)
+              .eq('warehouse_id', whDestino.id)
+              .maybeSingle();
+
+            const currentDestQty = stockDest ? parseFloat(stockDest.quantity) || 0 : 0;
+            await supabase.from('inventory_stock').upsert({
+              sku: item.sku,
+              warehouse_id: whDestino.id,
+              quantity: currentDestQty + item.quantity
+            }, { onConflict: 'sku,warehouse_id' });
+          }
+        }
+      }
+
+      toast({ 
+        title: isPreTransfer ? "Petición Registrada" : "Traslado Procesado", 
+        description: isPreTransfer ? "El pre-traslado ha sido registrado como Petición." : "El movimiento ha sido registrado exitosamente." 
+      });
+      setCart([]);
+      setSourceWarehouse('');
+      setDestinationWarehouse('');
+      setDestinationStore('');
+      setAuthorizedBy('');
+      setIsPreTransfer(false);
+      await loadData();
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el traslado." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSendTransfer = async (transfer: any) => {
+    setIsProcessing(true);
+    try {
+      const whOrigen = warehouses.find(w => w.name === transfer.source);
       if (!whOrigen) {
         toast({ variant: "destructive", title: "Error", description: "No se encontró la bodega de origen." });
         setIsProcessing(false);
         return;
       }
 
-      for (const item of cart) {
-        // Restar de bodega origen
+      for (const item of transfer.items) {
         const { data: stockOrig } = await supabase
           .from('inventory_stock')
           .select('*')
@@ -211,9 +276,31 @@ export default function TransfersPage() {
           warehouse_id: whOrigen.id,
           quantity: Math.max(0, currentOrigQty - item.quantity)
         }, { onConflict: 'sku,warehouse_id' });
+      }
 
-        // Sumar a bodega de destino si es traslado interno
-        if (transferType === 'INTERNO' && whDestino) {
+      const { error } = await supabase
+        .from('transfers')
+        .update({ status: 'ENVIADO' })
+        .eq('id', transfer.id);
+
+      if (error) throw error;
+
+      toast({ title: "Mercadería Enviada", description: "El stock fue descargado de la bodega de origen y está en tránsito." });
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo realizar el envío." });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReceiveTransfer = async (transfer: any) => {
+    setIsProcessing(true);
+    try {
+      const whDestino = warehouses.find(w => w.name === transfer.destination);
+      if (whDestino) {
+        for (const item of transfer.items) {
           const { data: stockDest } = await supabase
             .from('inventory_stock')
             .select('*')
@@ -230,16 +317,18 @@ export default function TransfersPage() {
         }
       }
 
-      toast({ title: "Traslado Procesado", description: "El movimiento ha sido registrado exitosamente." });
-      setCart([]);
-      setSourceWarehouse('');
-      setDestinationWarehouse('');
-      setDestinationStore('');
-      setAuthorizedBy('');
+      const { error } = await supabase
+        .from('transfers')
+        .update({ status: 'RECIBIDO' })
+        .eq('id', transfer.id);
+
+      if (error) throw error;
+
+      toast({ title: "Mercadería Recepcionada", description: "El stock fue cargado exitosamente en el destino." });
       await loadData();
-    } catch (e) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el traslado." });
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo completar la recepción." });
     } finally {
       setIsProcessing(false);
     }
@@ -272,7 +361,7 @@ export default function TransfersPage() {
 
           <TabsContent value="nuevo" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
             <div className="lg:col-span-5 space-y-4">
-              <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
+              <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
                 <CardHeader className="bg-indigo-900 text-white p-5">
                   <div className="flex justify-between items-center mb-2">
                     <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -355,7 +444,7 @@ export default function TransfersPage() {
 
             <div className="lg:col-span-7 space-y-4">
               <Card className="border-none shadow-sm rounded-2xl bg-white p-6">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-4">
                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo de Traslado</Label>
                        <div className="flex gap-2">
@@ -376,6 +465,26 @@ export default function TransfersPage() {
                        </div>
                     </div>
                     
+                    <div className="space-y-4">
+                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Modalidad de Envío</Label>
+                       <div className="flex gap-2">
+                          <Button 
+                            variant={!isPreTransfer ? 'default' : 'outline'} 
+                            className="flex-1 rounded-xl h-12 text-xs font-bold"
+                            onClick={() => setIsPreTransfer(false)}
+                          >
+                             Directo
+                          </Button>
+                          <Button 
+                            variant={isPreTransfer ? 'default' : 'outline'} 
+                            className="flex-1 rounded-xl h-12 text-xs font-bold"
+                            onClick={() => setIsPreTransfer(true)}
+                          >
+                             Pre-traslado
+                          </Button>
+                       </div>
+                    </div>
+
                     <div className="space-y-4">
                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ruta Logística</Label>
                        <div className="flex items-center gap-3">
@@ -444,7 +553,7 @@ export default function TransfersPage() {
           </TabsContent>
 
           <TabsContent value="historial" className="space-y-4 outline-none">
-            <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden">
+            <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
               <Table>
                 <TableHeader className="bg-slate-50">
                   <TableRow>
@@ -485,9 +594,41 @@ export default function TransfersPage() {
                       </TableCell>
                       <TableCell className="text-xs font-bold">{t.authorizedBy}</TableCell>
                       <TableCell className="text-center px-6">
-                        <Badge className="bg-emerald-100 text-emerald-600 text-[9px] font-black">
-                           <CheckCircle2 size={10} className="mr-1" /> {t.status}
-                        </Badge>
+                        <div className="flex items-center justify-center gap-2">
+                          {t.status === 'PETICION' ? (
+                            <>
+                              <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[9px] font-black">
+                                PETICIÓN
+                              </Badge>
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleSendTransfer(t)} 
+                                disabled={isProcessing}
+                                className="h-7 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] rounded-lg border-none"
+                              >
+                                Enviar
+                              </Button>
+                            </>
+                          ) : t.status === 'ENVIADO' ? (
+                            <>
+                              <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[9px] font-black">
+                                EN TRÁNSITO
+                              </Badge>
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleReceiveTransfer(t)} 
+                                disabled={isProcessing}
+                                className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg border-none"
+                              >
+                                Recepcionar
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[9px] font-black">
+                              <CheckCircle2 size={10} className="mr-1" /> {t.status}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -211,7 +211,7 @@ export default function SuppliersPage() {
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         <div className="lg:col-span-4 space-y-4">
-          <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
+          <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
             <CardHeader className="bg-emerald-700 text-white p-6">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Building2 size={20} />
@@ -324,7 +324,7 @@ export default function SuppliersPage() {
             />
           </div>
 
-          <Card className="border shadow-sm rounded-3xl bg-card overflow-hidden">
+          <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader className="bg-muted/50 sticky top-0 z-10">

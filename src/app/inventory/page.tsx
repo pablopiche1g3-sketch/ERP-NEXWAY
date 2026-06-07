@@ -230,108 +230,6 @@ export default function InventoryMasterPage() {
     }
   };
 
-  const handleSaveManualMapping = async () => {
-    if (!supplierCodeInput.trim() || !internalSkuInput.trim()) {
-      toast({ variant: 'destructive', title: 'Campos Vacíos', description: 'Por favor complete ambos campos.' });
-      return;
-    }
-
-    const supCode = supplierCodeInput.trim().toUpperCase();
-    const intSku = internalSkuInput.trim().toUpperCase();
-
-    // Validar que el SKU interno existe en el inventario
-    const exists = inventory.some(p => p.sku === intSku);
-    if (!exists) {
-      toast({ variant: 'destructive', title: 'SKU No Válido', description: `El SKU interno "${intSku}" no existe en el catálogo maestro.` });
-      return;
-    }
-
-    setSavingMapping(true);
-    try {
-      const { error } = await supabase
-        .from('supplier_mappings')
-        .upsert({
-          supplier_code: supCode,
-          internal_sku: intSku,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'supplier_code'
-        });
-
-      if (error) throw error;
-
-      toast({ title: 'Vinculación Guardada', description: `Se vinculó el código "${supCode}" al SKU "${intSku}" exitosamente.` });
-      setSupplierCodeInput('');
-      setInternalSkuInput('');
-      await loadSupabaseData();
-    } catch (err: any) {
-      console.error(err);
-      toast({ variant: 'destructive', title: 'Error al vincular', description: err.message || 'No se pudo guardar la vinculación.' });
-    } finally {
-      setSavingMapping(false);
-    }
-  };
-
-  const handleDeleteMapping = async (supplierCode: string) => {
-    if (!confirm(`¿Estás seguro de que deseas eliminar la vinculación para el código de proveedor "${supplierCode}"?`)) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('supplier_mappings')
-        .delete()
-        .eq('supplier_code', supplierCode);
-
-      if (error) throw error;
-
-      toast({ title: 'Vinculación Eliminada', description: `Se eliminó el código "${supplierCode}" exitosamente.` });
-      await loadSupabaseData();
-    } catch (err: any) {
-      console.error(err);
-      toast({ variant: 'destructive', title: 'Error al eliminar', description: err.message || 'No se pudo eliminar la vinculación.' });
-    }
-  };
-
-  const handleSaveJsonMappings = async () => {
-    try {
-      const parsed = JSON.parse(jsonMappingsInput);
-      if (!Array.isArray(parsed)) {
-        throw new Error('El JSON debe ser un arreglo de objetos.');
-      }
-
-      // Validar estructura
-      for (const item of parsed) {
-        if (!item.supplier_code || !item.internal_sku) {
-          throw new Error('Cada objeto del JSON debe contener "supplier_code" e "internal_sku".');
-        }
-      }
-
-      setSavingJsonMappings(true);
-
-      // Upsert masivo
-      const payload = parsed.map(item => ({
-        supplier_code: item.supplier_code.trim().toUpperCase(),
-        internal_sku: item.internal_sku.trim().toUpperCase(),
-        updated_at: new Date().toISOString()
-      }));
-
-      const { error } = await supabase
-        .from('supplier_mappings')
-        .upsert(payload, { onConflict: 'supplier_code' });
-
-      if (error) throw error;
-
-      toast({ title: 'JSON Importado', description: `Se actualizaron/insertaron ${payload.length} equivalencias exitosamente.` });
-      await loadSupabaseData();
-    } catch (err: any) {
-      console.error(err);
-      toast({ variant: 'destructive', title: 'Error de JSON', description: err.message || 'El formato JSON es inválido o no se pudo guardar.' });
-    } finally {
-      setSavingJsonMappings(false);
-    }
-  };
-
   // Vinculación States
   const [supplierItems, setSupplierItems] = useState<SupplierItem[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -414,12 +312,6 @@ export default function InventoryMasterPage() {
   };
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [savedMappings, setSavedMappings] = useState<any[]>([]);
-  const [supplierCodeInput, setSupplierCodeInput] = useState('');
-  const [internalSkuInput, setInternalSkuInput] = useState('');
-  const [mappingSearch, setMappingSearch] = useState('');
-  const [jsonMappingsInput, setJsonMappingsInput] = useState('');
-  const [savingMapping, setSavingMapping] = useState(false);
-  const [savingJsonMappings, setSavingJsonMappings] = useState(false);
   const [companyMappings, setCompanyMappings] = useState<any[]>([]);
   const [loadingInv, setLoadingInv] = useState(true);
   const [loadingCompMappings, setLoadingCompMappings] = useState(true);
@@ -513,10 +405,6 @@ export default function InventoryMasterPage() {
           internalSku: m.internal_sku,
           updatedAt: m.updated_at
         })));
-        setJsonMappingsInput(JSON.stringify(mappingsList.map(m => ({
-          supplier_code: m.supplier_code,
-          internal_sku: m.internal_sku
-        })), null, 2));
       }
 
       // 5. Obtener vinculaciones de empresas
@@ -1158,16 +1046,13 @@ export default function InventoryMasterPage() {
                 <Settings2 size={14} className="mr-2" /> Bodegas
               </TabsTrigger>
             )}
-            <TabsTrigger value="vinculacion" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-              <Link2 size={14} className="mr-2" /> Vinculación de Códigos
-            </TabsTrigger>
           </TabsList>
  
           {/* TAB EXISTENCIAS CON FILTRO DE STOCK POR BODEGA */}
           <TabsContent value="existencia" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-1 space-y-4">
-                <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border h-fit hidden lg:block">
+                <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-card border h-fit hidden lg:block">
                   <CardHeader>
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Warehouse size={18} className="text-blue-600" /> Bodega de Consulta
@@ -1221,7 +1106,7 @@ export default function InventoryMasterPage() {
                   />
                 </div>
  
-                <Card className="border-none shadow-sm rounded-3xl bg-white dark:bg-card border overflow-hidden">
+                <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-card border overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-muted/50">
@@ -1295,7 +1180,7 @@ export default function InventoryMasterPage() {
               // CATÁLOGO MAESTRO
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Plus className="text-blue-400" size={18} /> Registro de Códigos Autorizados
@@ -1376,7 +1261,7 @@ export default function InventoryMasterPage() {
                     </CardContent>
                   </Card>
  
-                  <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-5 rounded-3xl space-y-2">
+                  <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-5 rounded-2xl space-y-2">
                     <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-bold">
                       <Info size={16} />
                       <span className="text-xs uppercase tracking-tight">Catálogo Único</span>
@@ -1398,7 +1283,7 @@ export default function InventoryMasterPage() {
                     />
                   </div>
  
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                     <ScrollArea className="h-[500px]">
                       <Table>
                         <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
@@ -1440,7 +1325,7 @@ export default function InventoryMasterPage() {
               // CÓDIGOS INTERNOS DE EMPRESAS
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Link2 className="text-blue-400" size={18} /> Mapeo de Código por Empresa
@@ -1503,7 +1388,7 @@ export default function InventoryMasterPage() {
                     </CardContent>
                   </Card>
 
-                  <div className="bg-slate-900 text-white p-5 rounded-3xl space-y-2">
+                  <div className="bg-slate-900 text-white p-5 rounded-2xl space-y-2">
                     <div className="flex items-center gap-2 text-blue-400 font-bold">
                       <Info size={16} />
                       <span className="text-xs uppercase tracking-tight">Utilidad Comercial</span>
@@ -1525,7 +1410,7 @@ export default function InventoryMasterPage() {
                     />
                   </div>
 
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                     <ScrollArea className="h-[500px]">
                       <Table>
                         <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
@@ -1576,7 +1461,7 @@ export default function InventoryMasterPage() {
               
               {/* Formulario Izquierdo: Editor de Producto */}
               <div className="lg:col-span-7 space-y-6">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                   <CardHeader className="bg-emerald-900 dark:bg-emerald-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Tag className="text-emerald-400" size={18} /> Editor de Producto
@@ -1742,7 +1627,7 @@ export default function InventoryMasterPage() {
                   />
                 </div>
 
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                   <ScrollArea className="h-[500px]">
                     <Table>
                       <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
@@ -1793,7 +1678,7 @@ export default function InventoryMasterPage() {
  
            {/* TAB ENTRADAS */}
            <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-             <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
+             <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card h-fit">
                <CardHeader className="p-5 md:p-6">
                  <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
                    <Zap size={18} className="text-amber-500" /> Entrada Rápida de Stock
@@ -1835,7 +1720,7 @@ export default function InventoryMasterPage() {
                </CardContent>
              </Card>
  
-             <div className="bg-blue-600 dark:bg-blue-900/30 rounded-3xl p-6 md:p-8 text-white flex flex-col justify-center border border-blue-500/20">
+             <div className="bg-blue-600 dark:bg-blue-900/30 rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center border border-blue-500/20">
                <History size={40} className="mb-4 text-blue-200" />
                <h3 className="text-lg md:text-xl font-bold mb-2">¿Emergencia de Stock?</h3>
                <p className="text-blue-100 dark:text-blue-300 text-xs md:text-sm leading-relaxed mb-6">
@@ -1854,7 +1739,7 @@ export default function InventoryMasterPage() {
                {/* Columna Izquierda: Crear Bodega y Vincular Producto */}
                <div className="lg:col-span-4 space-y-6">
                  {/* Tarjeta 1: Crear Bodega */}
-                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
+                 <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card h-fit">
                    <CardHeader className="p-5">
                      <CardTitle className="text-sm font-bold flex items-center gap-2">
                        <Warehouse size={16} className="text-blue-600" /> Crear Almacén / Bodega
@@ -1896,7 +1781,7 @@ export default function InventoryMasterPage() {
                  </Card>
 
                  {/* Tarjeta 2: Vincular Producto a Bodega */}
-                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-fit">
+                 <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card h-fit">
                    <CardHeader className="p-5">
                      <CardTitle className="text-sm font-bold flex items-center gap-2">
                        <Link2 size={16} className="text-blue-600" /> Vincular Producto a Bodega
@@ -1964,7 +1849,7 @@ export default function InventoryMasterPage() {
 
                {/* Columna Derecha: Vista de Productos por Bodega */}
                <div className="lg:col-span-8 space-y-4">
-                 <Card className="p-4 bg-white dark:bg-card border shadow-sm rounded-3xl flex justify-between items-center">
+                 <Card className="p-4 bg-white dark:bg-card border shadow-sm rounded-2xl flex justify-between items-center">
                    <div className="space-y-1">
                      <Label className="text-[9px] font-black uppercase text-slate-400">Ver Productos en Bodega</Label>
                      <Select value={selectedWhView} onValueChange={setSelectedWhView}>
@@ -1985,7 +1870,7 @@ export default function InventoryMasterPage() {
                    </div>
                  </Card>
 
-                 <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                 <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                    <ScrollArea className="h-[480px]">
                      <Table>
                        <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
@@ -2046,7 +1931,7 @@ export default function InventoryMasterPage() {
                 
                 {/* Panel Izquierdo: Carga y Progreso */}
                 <div className="lg:col-span-5 space-y-6">
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
                       <div className="flex justify-between items-center">
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -2138,7 +2023,7 @@ export default function InventoryMasterPage() {
                   </Card>
 
                   {/* NUEVO CARD: LIMPIEZA DE CATÁLOGO EXISTENTE */}
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                     <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Trash2 size={18} className="text-rose-455 dark:text-rose-400" /> Limpieza de Catálogo
@@ -2163,7 +2048,7 @@ export default function InventoryMasterPage() {
 
                 {/* Panel Derecho: Previsualización / Catálogo en Sistema */}
                 <div className="lg:col-span-7 space-y-4">
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                     <Tabs defaultValue="excel" className="w-full">
                       
                       {/* Header Integrado de Sub-pestañas */}
@@ -2298,7 +2183,7 @@ export default function InventoryMasterPage() {
 
             {/* TAB KARDEX DE ALMACEN */}
             <TabsContent value="kardex" className="space-y-6 outline-none animate-in fade-in duration-300">
-              <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+              <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card">
                 <CardHeader className="p-6 border-b">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <History className="text-blue-600" size={18} />
@@ -2368,7 +2253,7 @@ export default function InventoryMasterPage() {
             <TabsContent value="toma-fisica" className="space-y-6 outline-none animate-in fade-in duration-300">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-5 space-y-4">
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card">
                     <CardHeader className="p-6 border-b">
                       <CardTitle className="text-base font-bold flex items-center gap-2">
                         <ClipboardList className="text-blue-600" size={18} />
@@ -2473,7 +2358,7 @@ export default function InventoryMasterPage() {
                 </div>
 
                 <div className="lg:col-span-7">
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                     <CardHeader className="p-6 border-b">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Warehouse className="text-blue-600" size={18} />
@@ -2545,203 +2430,6 @@ export default function InventoryMasterPage() {
                 </div>
               </div>
             </TabsContent>
-
-            {/* TAB VINCULACIÓN DE CÓDIGOS DE PROVEEDOR */}
-            <TabsContent value="vinculacion" className="space-y-6 outline-none animate-in fade-in duration-300">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* FORMULARIO MANUAL (IZQUIERDA) */}
-                <div className="lg:col-span-4 space-y-4">
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
-                    <CardHeader className="p-6">
-                      <CardTitle className="text-sm font-bold flex items-center gap-2">
-                        <Link2 className="text-blue-600" size={18} />
-                        Vincular Código Manualmente
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        Asocie un código que viene en las facturas de su proveedor con un SKU interno de su catálogo.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Código de Proveedor / DTE</Label>
-                        <Input 
-                          placeholder="Ej: COD-PROV-123" 
-                          value={supplierCodeInput} 
-                          onChange={(e) => setSupplierCodeInput(e.target.value)}
-                          className="h-11 bg-slate-50 border-slate-100 rounded-xl font-bold placeholder:text-slate-400 placeholder:font-normal uppercase"
-                        />
-                      </div>
-
-                      <div className="space-y-2 relative">
-                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">SKU Interno de Destino</Label>
-                        <Input 
-                          placeholder="Buscar por SKU o Nombre..." 
-                          value={internalSkuInput} 
-                          onChange={(e) => setInternalSkuInput(e.target.value)}
-                          className="h-11 bg-slate-50 border-slate-100 rounded-xl font-bold placeholder:text-slate-400 placeholder:font-normal uppercase"
-                        />
-                        {/* Dropdown sugerido si se empieza a escribir */}
-                        {internalSkuInput && !inventory.some(p => p.sku === internalSkuInput.trim().toUpperCase()) && (
-                          <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-slate-900 border rounded-xl shadow-xl max-h-48 overflow-y-auto p-1 divide-y">
-                            {inventory
-                              .filter(p => 
-                                p.sku.toLowerCase().includes(internalSkuInput.toLowerCase()) || 
-                                p.name.toLowerCase().includes(internalSkuInput.toLowerCase())
-                              )
-                              .slice(0, 10)
-                              .map(p => (
-                                <button
-                                  key={p.sku}
-                                  type="button"
-                                  onClick={() => setInternalSkuInput(p.sku)}
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg flex justify-between font-bold"
-                                >
-                                  <span>{p.sku}</span>
-                                  <span className="text-[10px] text-slate-400 font-normal truncate max-w-[180px]">{p.name}</span>
-                                </button>
-                              ))}
-                            {inventory.filter(p => 
-                              p.sku.toLowerCase().includes(internalSkuInput.toLowerCase()) || 
-                              p.name.toLowerCase().includes(internalSkuInput.toLowerCase())
-                            ).length === 0 && (
-                              <div className="p-3 text-center text-xs text-slate-400 italic">No se encontraron productos</div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {internalSkuInput && inventory.some(p => p.sku === internalSkuInput.trim().toUpperCase()) && (
-                          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-xl text-[10px] font-bold text-emerald-800 dark:text-emerald-400 animate-in fade-in">
-                            Producto Seleccionado: {inventory.find(p => p.sku === internalSkuInput.trim().toUpperCase())?.name}
-                          </div>
-                        )}
-                      </div>
-
-                      <Button 
-                        onClick={handleSaveManualMapping}
-                        disabled={savingMapping || !supplierCodeInput.trim() || !internalSkuInput.trim()}
-                        className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95"
-                      >
-                        {savingMapping ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
-                        GUARDAR VINCULACIÓN
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* LISTA & JSON EDITOR (DERECHA) */}
-                <div className="lg:col-span-8">
-                  <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
-                    <Tabs defaultValue="tabla" className="w-full">
-                      <CardHeader className="p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <CardTitle className="text-sm font-bold flex items-center gap-2">
-                            <Link2 className="text-blue-600" size={18} />
-                            Equivalencias de Catálogo
-                          </CardTitle>
-                          <CardDescription className="text-xs">Consulte y administre el mapeo masivo de SKU de proveedores.</CardDescription>
-                        </div>
-                        <TabsList className="bg-slate-100 dark:bg-muted p-0.5 rounded-lg flex self-start sm:self-center">
-                          <TabsTrigger value="tabla" className="text-[10px] font-bold px-3 py-1.5 rounded-md">Lista de Vínculos</TabsTrigger>
-                          <TabsTrigger value="json" className="text-[10px] font-bold px-3 py-1.5 rounded-md">Editor JSON</TabsTrigger>
-                        </TabsList>
-                      </CardHeader>
-                      
-                      {/* SUBTAB TABLA DE EQUIVALENCIAS */}
-                      <TabsContent value="tabla" className="m-0 outline-none">
-                        <div className="p-4 border-b flex items-center gap-2 bg-slate-50 dark:bg-muted/10">
-                          <Search size={16} className="text-slate-400" />
-                          <Input 
-                            placeholder="Buscar por código de proveedor o SKU interno..." 
-                            value={mappingSearch}
-                            onChange={(e) => setMappingSearch(e.target.value)}
-                            className="h-9 bg-white dark:bg-slate-900 border-slate-200 text-xs rounded-lg shadow-sm w-full md:max-w-md"
-                          />
-                        </div>
-                        
-                        <div className="overflow-x-auto max-h-[500px]">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="text-[10px] font-black uppercase px-6">Código de Proveedor</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase">SKU Interno Nexway</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase">Producto Maestro</TableHead>
-                                <TableHead className="text-right text-[10px] font-black uppercase px-6">Acción</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {(() => {
-                                const s = mappingSearch.toLowerCase().trim();
-                                const list = (savedMappings || []).filter(m => 
-                                  m.supplierCode.toLowerCase().includes(s) || 
-                                  m.internalSku.toLowerCase().includes(s)
-                                );
-                                if (list.length === 0) {
-                                  return (
-                                    <TableRow>
-                                      <TableCell colSpan={4} className="text-center py-16 text-slate-400 italic text-xs">
-                                        {s ? 'No se encontraron vinculaciones coincidentes.' : 'No hay equivalencias de proveedores registradas.'}
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                }
-                                return list.map((m: any) => {
-                                  const prod = inventory.find(p => p.sku === m.internalSku);
-                                  return (
-                                    <TableRow key={m.supplierCode} className="hover:bg-slate-50 dark:hover:bg-muted/30">
-                                      <TableCell className="px-6 font-mono font-bold text-xs text-blue-600 dark:text-blue-400">{m.supplierCode}</TableCell>
-                                      <TableCell className="font-mono font-bold text-xs">{m.internalSku}</TableCell>
-                                      <TableCell className="text-xs font-bold text-slate-500 dark:text-slate-400 max-w-[200px] truncate">{prod?.name || 'Desconocido'}</TableCell>
-                                      <TableCell className="text-right px-6">
-                                        <Button 
-                                          variant="ghost" 
-                                          size="icon" 
-                                          onClick={() => handleDeleteMapping(m.supplierCode)}
-                                          className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
-                                        >
-                                          <Trash2 size={14} />
-                                        </Button>
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                });
-                              })()}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </TabsContent>
-
-                      {/* SUBTAB EDITOR JSON */}
-                      <TabsContent value="json" className="m-0 outline-none p-6 space-y-4">
-                        <div className="space-y-1">
-                          <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Estructura JSON Mappings</Label>
-                          <p className="text-[10px] text-slate-400 leading-normal mb-2">
-                            Edite o cargue masivamente vinculaciones en formato JSON. El formato debe ser un arreglo de objetos con las propiedades <code>"supplier_code"</code> e <code>"internal_sku"</code>.
-                          </p>
-                          <textarea 
-                            rows={12}
-                            value={jsonMappingsInput}
-                            onChange={(e) => setJsonMappingsInput(e.target.value)}
-                            className="w-full font-mono text-xs p-4 border rounded-2xl bg-slate-900 text-slate-100 placeholder:text-slate-700 outline-none resize-none shadow-inner"
-                          />
-                        </div>
-
-                        <Button 
-                          onClick={handleSaveJsonMappings}
-                          disabled={savingJsonMappings || !jsonMappingsInput.trim()}
-                          className="h-11 px-6 bg-slate-900 dark:bg-white dark:text-slate-900 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all w-full md:w-auto"
-                        >
-                          {savingJsonMappings ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
-                          IMPORTAR & GUARDAR JSON
-                        </Button>
-                      </TabsContent>
-                    </Tabs>
-                  </Card>
-                </div>
-
-              </div>
-            </TabsContent>
-
           </Tabs>
         </div>
       </div>

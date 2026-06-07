@@ -503,7 +503,7 @@ export default function InstitutionalModulePage() {
           <TabsContent value="overview" className="space-y-6 outline-none">
             {/* Metric Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-3xl">
+              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-2xl">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-bold text-slate-500">Ingresos Totales</CardTitle>
                   <DollarSign className="w-4 h-4 text-blue-500" />
@@ -519,7 +519,7 @@ export default function InstitutionalModulePage() {
                 <div className="absolute bottom-0 left-0 h-1 bg-blue-500 w-full" />
               </Card>
 
-              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-3xl">
+              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-2xl">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-bold text-slate-500">Costos Totales</CardTitle>
                   <TrendingDown className="w-4 h-4 text-rose-500" />
@@ -533,7 +533,7 @@ export default function InstitutionalModulePage() {
                 <div className="absolute bottom-0 left-0 h-1 bg-rose-500 w-full" />
               </Card>
 
-              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-3xl">
+              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-2xl">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-bold text-slate-500">Beneficio Neto</CardTitle>
                   <TrendingUp className="w-4 h-4 text-emerald-500" />
@@ -547,7 +547,7 @@ export default function InstitutionalModulePage() {
                 <div className="absolute bottom-0 left-0 h-1 bg-emerald-500 w-full" />
               </Card>
 
-              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-3xl">
+              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-2xl">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-bold text-slate-500">Margen de Beneficio</CardTitle>
                   <Target className="w-4 h-4 text-purple-500" />
@@ -565,7 +565,7 @@ export default function InstitutionalModulePage() {
             </div>
 
             {/* Chart Section */}
-            <Card className="w-full bg-white dark:bg-card border shadow-sm rounded-3xl">
+            <Card className="w-full bg-white dark:bg-card border shadow-sm rounded-2xl">
               <CardHeader>
                 <CardTitle className="font-bold text-lg">Actividad Financiera Reciente</CardTitle>
                 <CardDescription>Visualización de los últimos flujos de compras y ventas institucionales.</CardDescription>
@@ -601,7 +601,7 @@ export default function InstitutionalModulePage() {
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="flex h-full items-center justify-center text-muted-foreground border-2 border-dashed rounded-3xl">
+                    <div className="flex h-full items-center justify-center text-muted-foreground border-2 border-dashed rounded-2xl">
                       No hay transacciones disponibles para visualización en el gráfico.
                     </div>
                   )}
@@ -612,7 +612,7 @@ export default function InstitutionalModulePage() {
 
           <TabsContent value="billing" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
              <div className="lg:col-span-5 space-y-4">
-                <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-card border">
+                <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-card border">
                   <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
                     <CardTitle className="text-base font-bold">Terminal Institucional</CardTitle>
                     <p className="text-4xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
@@ -719,7 +719,7 @@ export default function InstitutionalModulePage() {
                   <PlusCircle size={16} className="mr-2" /> Aperturar Proyecto
                </Button>
             </div>
-            <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card overflow-hidden">
+            <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
                <Table>
                   <TableHeader className="bg-muted/50">
                      <TableRow>
@@ -776,7 +776,7 @@ export default function InstitutionalModulePage() {
 
           <TabsContent value="costs" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
              <div className="lg:col-span-4 space-y-4">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card">
                    <CardHeader className="bg-slate-900 text-white p-5 rounded-t-3xl">
                       <CardTitle className="text-sm">Registro Manual de Costos</CardTitle>
                    </CardHeader>
@@ -818,7 +818,7 @@ export default function InstitutionalModulePage() {
                 </Card>
              </div>
              <div className="lg:col-span-8">
-                <Card className="border shadow-sm rounded-3xl bg-white dark:bg-card h-full">
+                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card h-full">
                    <CardHeader className="border-b p-5">
                       <CardTitle className="text-sm">Detalle de Suministros (Factura Física)</CardTitle>
                    </CardHeader>
@@ -868,7 +868,7 @@ export default function InstitutionalModulePage() {
                       <Card className="p-5 bg-rose-600 text-white"><p className="text-[10px] opacity-60">Costos Directos</p><p className="text-2xl font-black">${allPurchases?.filter(p => p.projectId === selectedProjectId).reduce((acc, p) => acc + p.total, 0).toLocaleString() || '0'}</p></Card>
                       <Card className="p-5 bg-emerald-600 text-white"><p className="text-[10px] opacity-60">Utilidad Bruta</p><p className="text-2xl font-black">${( (projects?.find(p => p.id === selectedProjectId)?.totalBudget || 0) - (allPurchases?.filter(p => p.projectId === selectedProjectId).reduce((acc, p) => acc + p.total, 0) || 0) ).toLocaleString()}</p></Card>
                    </div>
-                   <Card className="border rounded-3xl overflow-hidden bg-white">
+                   <Card className="border rounded-2xl overflow-hidden bg-white">
                       <Table>
                          <TableHeader className="bg-muted/50"><TableRow><TableHead>Documento</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Monto</TableHead></TableRow></TableHeader>
                          <TableBody>
@@ -883,7 +883,7 @@ export default function InstitutionalModulePage() {
           </TabsContent>
 
           <TabsContent value="ledger" className="outline-none">
-             <Card className="border rounded-3xl bg-card overflow-hidden">
+             <Card className="border rounded-2xl bg-card overflow-hidden">
                 <Table>
                    <TableHeader className="bg-muted/50"><TableRow><TableHead className="px-6">Fecha</TableHead><TableHead>Proyecto</TableHead><TableHead>Documento</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right px-6">Monto</TableHead></TableRow></TableHeader>
                    <TableBody>
@@ -905,7 +905,7 @@ export default function InstitutionalModulePage() {
 
       {/* MODAL CREAR PROYECTO */}
       <Dialog open={isProjectModalOpen} onOpenChange={setIsProjectModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-3xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-2xl">
            <DialogHeader className="p-6 bg-slate-900 text-white">
               <DialogTitle className="text-xl font-bold flex items-center gap-2"><Briefcase className="text-blue-400"/> Apertura de Expediente Institucional</DialogTitle>
               <DialogDescription className="text-slate-400">Complete los datos de la Orden de Compra y suministros comprometidos.</DialogDescription>
