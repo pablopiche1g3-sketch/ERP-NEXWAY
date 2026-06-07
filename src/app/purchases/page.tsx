@@ -58,6 +58,8 @@ export default function PurchasesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   
+  const [activeTab, setActiveTab] = useState('registro');
+  const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [pedidoId, setPedidoId] = useState('');
   const [generationCode, setGenerationCode] = useState('');
   const [docType, setDocType] = useState<'FACTURA' | 'CCF'>('FACTURA');
@@ -478,6 +480,43 @@ export default function PurchasesPage() {
     setPurchaseItems(prev => prev.filter(item => item.sku !== sku));
   };
 
+  const loadDraftPurchase = async (p: any) => {
+    try {
+      setLoading(true);
+      const whName = warehouses.find(w => w.id === p.warehouse_id)?.name || '';
+      const provName = p.suppliers?.name || p.supplier_name || '';
+
+      setEditingPurchaseId(p.id);
+      setPedidoId(p.order_id || '');
+      setSupplierName(provName);
+      setEnteredBy(p.entered_by || '');
+      setWarehouse(whName);
+      setPaymentMethod(p.payment_method || 'Efectivo');
+      setCreditDays(p.credit_days || '');
+      setDocType(p.document_type || 'FACTURA');
+      setGenerationCode(p.document_number || '');
+      
+      const mappedItems = (p.purchase_items || []).map((item: any) => {
+        const prod = inventory.find(i => i.sku === item.sku);
+        return {
+          id: prod ? prod.id : item.sku,
+          sku: item.sku,
+          name: prod ? prod.name : 'Desconocido',
+          quantity: item.quantity,
+          cost: item.cost
+        };
+      });
+      setPurchaseItems(mappedItems);
+      setActiveTab('registro');
+      toast({ title: 'Borrador cargado', description: 'El borrador se cargó para editar.' });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar el borrador.' });
+    } finally {
+      setLoading(false);
+      setIsDetailsDialogOpen(false);
+    }
+  };
+
   const savePurchase = async (status: 'PENDIENTE' | 'CERRADA') => {
     if (purchaseItems.length === 0) {
       toast({ variant: "destructive", title: "Error", description: "No hay productos en la compra." });
@@ -507,28 +546,60 @@ export default function PurchasesPage() {
         return;
       }
 
-      // 1. Insert into public.purchases
-      const { data: insertedPurch, error: purchErr } = await supabase
-        .from('purchases')
-        .insert({
-          order_id: pedidoId,
-          supplier_id: selectedSup ? selectedSup.id : null,
-          entered_by: enteredBy,
-          warehouse_id: selectedWh.id,
-          total: totalPurchase,
-          status: status,
-          payment_method: paymentMethod,
-          credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
-          payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO')
-        })
-        .select()
-        .single();
+      let purchaseIdToUse = editingPurchaseId;
 
-      if (purchErr) throw purchErr;
+      if (editingPurchaseId) {
+        // ACTUALIZAR BORRADOR EXISTENTE
+        const { data: updatedPurch, error: purchErr } = await supabase
+          .from('purchases')
+          .update({
+            supplier_id: selectedSup ? selectedSup.id : null,
+            entered_by: enteredBy,
+            warehouse_id: selectedWh.id,
+            total: totalPurchase,
+            status: status,
+            payment_method: paymentMethod,
+            credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
+            payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO'),
+            document_type: docType,
+            document_number: generationCode
+          })
+          .eq('id', editingPurchaseId)
+          .select()
+          .single();
+
+        if (purchErr) throw purchErr;
+        
+        // Eliminar items anteriores
+        await supabase.from('purchase_items').delete().eq('purchase_id', editingPurchaseId);
+        
+      } else {
+        // CREAR NUEVO
+        const { data: insertedPurch, error: purchErr } = await supabase
+          .from('purchases')
+          .insert({
+            order_id: pedidoId,
+            supplier_id: selectedSup ? selectedSup.id : null,
+            entered_by: enteredBy,
+            warehouse_id: selectedWh.id,
+            total: totalPurchase,
+            status: status,
+            payment_method: paymentMethod,
+            credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
+            payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO'),
+            document_type: docType,
+            document_number: generationCode
+          })
+          .select()
+          .single();
+
+        if (purchErr) throw purchErr;
+        purchaseIdToUse = insertedPurch.id;
+      }
 
       // 2. Insert items into public.purchase_items
       const itemsToInsert = purchaseItems.map(item => ({
-        purchase_id: insertedPurch.id,
+        purchase_id: purchaseIdToUse,
         sku: item.sku,
         quantity: item.quantity,
         cost: item.cost,
@@ -571,6 +642,7 @@ export default function PurchasesPage() {
       setSupplierName('');
       setPaymentMethod('Efectivo');
       setCreditDays('');
+      setEditingPurchaseId(null);
       const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const randPart = Math.floor(1000 + Math.random() * 9000);
       setPedidoId(`ORD-${datePart}-${randPart}`);
@@ -727,7 +799,7 @@ export default function PurchasesPage() {
         <ModeToggle />
       </div>
 
-      <Tabs defaultValue="registro" className="max-w-7xl mx-auto space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-7xl mx-auto space-y-6">
         <TabsList className="bg-slate-100 dark:bg-muted p-1 rounded-2xl flex w-fit gap-2">
           <TabsTrigger value="registro" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
             <ClipboardList size={14} className="mr-2" /> Registro de Compra
@@ -1109,17 +1181,29 @@ export default function PurchasesPage() {
                       </TableCell>
                       <TableCell className="text-center text-xs text-muted-foreground">{dateStr}</TableCell>
                       <TableCell className="text-right px-6">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => {
-                            setSelectedPurchase(p);
-                            setIsDetailsDialogOpen(true);
-                          }}
-                          className="h-8 text-[10px] font-bold rounded-lg"
-                        >
-                          Ver Detalle
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          {p.status === 'PENDIENTE' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => loadDraftPurchase(p)}
+                              className="h-8 text-[10px] font-bold rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                            >
+                              Editar Borrador
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setSelectedPurchase(p);
+                              setIsDetailsDialogOpen(true);
+                            }}
+                            className="h-8 text-[10px] font-bold rounded-lg"
+                          >
+                            Ver Detalle
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -1521,7 +1605,18 @@ export default function PurchasesPage() {
             </div>
           )}
 
-          <DialogFooter className="border-t pt-3">
+          <DialogFooter className="border-t pt-3 flex items-center justify-between">
+            <div>
+              {selectedPurchase?.status === 'PENDIENTE' && (
+                <Button 
+                  variant="default"
+                  onClick={() => loadDraftPurchase(selectedPurchase)}
+                  className="rounded-xl h-9 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Continuar Editando Borrador
+                </Button>
+              )}
+            </div>
             <Button 
               variant="outline" 
               onClick={() => setIsDetailsDialogOpen(false)}
