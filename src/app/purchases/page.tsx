@@ -397,9 +397,13 @@ export default function PurchasesPage() {
     setPedidoId(`ORD-${datePart}-${randPart}`);
   }, []);
 
-  const totalPurchase = useMemo(() => 
+  const subtotalPurchase = useMemo(() => 
     purchaseItems.reduce((acc, item) => acc + (item.cost * item.quantity), 0), [purchaseItems]
   );
+
+  const ivaPurchase = useMemo(() => subtotalPurchase * 0.13, [subtotalPurchase]);
+
+  const totalPurchase = useMemo(() => subtotalPurchase * 1.13, [subtotalPurchase]);
 
   const handleAddItem = async () => {
     if (!skuSearch) return;
@@ -895,9 +899,19 @@ export default function PurchasesPage() {
                   <CardTitle className="text-sm font-bold text-foreground">Items del Pedido</CardTitle>
                   <Badge variant="secondary" className="font-mono text-[10px]">{purchaseItems.length} ítems</Badge>
                 </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-[9px] font-black uppercase text-muted-foreground">Total de Inversión</p>
-                  <p className="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400">${totalPurchase.toFixed(2)}</p>
+                <div className="flex flex-wrap gap-6 text-left sm:text-right">
+                  <div>
+                    <p className="text-[8px] font-black uppercase text-muted-foreground">Subtotal (Neto)</p>
+                    <p className="text-xs font-bold text-foreground">${subtotalPurchase.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black uppercase text-muted-foreground">IVA (13%)</p>
+                    <p className="text-xs font-bold text-foreground">${ivaPurchase.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-muted-foreground">Total (Con IVA)</p>
+                    <p className="text-lg md:text-xl font-black text-emerald-600 dark:text-emerald-400">${totalPurchase.toFixed(2)}</p>
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -908,8 +922,8 @@ export default function PurchasesPage() {
                     <TableHead className="text-[10px] font-black uppercase px-6">SKU</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Producto</TableHead>
                     <TableHead className="text-center text-[10px] font-black uppercase">Cant.</TableHead>
-                    <TableHead className="text-right text-[10px] font-black uppercase">Costo Un.</TableHead>
-                    <TableHead className="text-right text-[10px] font-black uppercase">Subtotal</TableHead>
+                    <TableHead className="text-right text-[10px] font-black uppercase">Costo Un. (Sin/Con IVA)</TableHead>
+                    <TableHead className="text-right text-[10px] font-black uppercase">Subtotal (Sin/Con IVA)</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -925,8 +939,14 @@ export default function PurchasesPage() {
                       <TableCell className="px-6 font-mono font-bold text-muted-foreground text-[11px]">{item.sku}</TableCell>
                       <TableCell className="font-bold text-foreground text-xs">{item.name}</TableCell>
                       <TableCell className="text-center font-bold text-foreground text-xs">{item.quantity}</TableCell>
-                      <TableCell className="text-right font-bold text-muted-foreground text-xs">${item.cost.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-black text-foreground text-xs">${(item.cost * item.quantity).toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-bold text-muted-foreground text-xs">
+                        <span className="text-foreground">${item.cost.toFixed(2)}</span>
+                        <span className="text-[10px] text-muted-foreground ml-1">/ ${(item.cost * 1.13).toFixed(2)}</span>
+                      </TableCell>
+                      <TableCell className="text-right font-black text-foreground text-xs">
+                        <span>${(item.cost * item.quantity).toFixed(2)}</span>
+                        <span className="text-[10px] text-muted-foreground font-normal ml-1">/ ${((item.cost * item.quantity) * 1.13).toFixed(2)}</span>
+                      </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => removeItem(item.sku)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
                           <Trash2 size={14} />
