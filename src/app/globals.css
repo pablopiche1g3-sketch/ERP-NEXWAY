@@ -79,11 +79,11 @@
   @apply border-slate-800/60;
 }
 
-/* Glassmorphism Styles */
+/* Glassmorphism Styles - Optimized for performance */
 .glass-card {
-  @apply bg-white/30 dark:bg-black/30 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.1)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all duration-300;
+  @apply bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-lg transition-colors duration-200 transform-gpu;
 }
 
 .glass-input {
-  @apply bg-white/30 dark:bg-black/30 backdrop-blur-lg border border-white/40 dark:border-white/10 focus:bg-white/40 dark:focus:bg-black/40 focus:border-white/60 dark:focus:border-white/30 transition-all duration-200 outline-none;
+  @apply bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 focus:bg-white/60 dark:focus:bg-slate-800/60 focus:border-white/80 dark:focus:border-slate-500/80 transition-colors duration-200 outline-none shadow-sm transform-gpu;
 }
