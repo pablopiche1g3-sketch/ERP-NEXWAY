@@ -552,7 +552,7 @@ export default function PurchasesPage() {
                 sku: product.sku,
                 name: product.name,
                 quantity: parseFloat(item.cantidad || item.quantity) || 0,
-                cost: parseFloat(item.precioUnitario) || 0
+                cost: parseFloat(item.precioUni || item.precioUnitario) || 0
               });
               detectedCount++;
             } else {
@@ -561,7 +561,7 @@ export default function PurchasesPage() {
                 originalProviderCode: rawCode,
                 name: item.descripcion || 'Producto sin nombre',
                 quantity: parseFloat(item.cantidad || item.quantity) || 0,
-                cost: parseFloat(item.precioUnitario) || 0
+                cost: parseFloat(item.precioUni || item.precioUnitario) || 0
               });
             }
           });
@@ -590,7 +590,7 @@ export default function PurchasesPage() {
                 sku: product.sku,
                 name: product.name,
                 quantity: parseFloat(item.cantidad || item.quantity) || 0,
-                cost: parseFloat(item.precioUnitario || item.price || item.cost) || 0
+                cost: parseFloat(item.precioUni || item.precioUnitario || item.price || item.cost) || 0
               });
               detectedCount++;
             } else {
@@ -599,7 +599,7 @@ export default function PurchasesPage() {
                 originalProviderCode: rawCode,
                 name: item.name || item.descripcion || 'Producto sin nombre',
                 quantity: parseFloat(item.cantidad || item.quantity) || 0,
-                cost: parseFloat(item.precioUnitario || item.price || item.cost) || 0
+                cost: parseFloat(item.precioUni || item.precioUnitario || item.price || item.cost) || 0
               });
             }
           });
