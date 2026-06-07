@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeftRight, 
   ArrowLeft, 
@@ -31,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { ModeToggle } from '@/components/mode-toggle';
 
 interface TransferItem {
   id: string;
@@ -335,36 +335,37 @@ export default function TransfersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090D16] p-4 md:p-6 lg:p-8 font-body select-none transition-colors duration-300">
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm" onClick={() => router.push('/')}>
-            <ArrowLeft className="text-slate-600" size={20} />
+          <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-zinc-900/60 shadow-sm border border-slate-200 dark:border-zinc-800" onClick={() => router.push('/')}>
+            <ArrowLeft className="text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 font-headline">Centro de Traslados</h1>
-            <p className="text-slate-500 text-sm">Gestión de logística interna e inter-sucursal</p>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground font-headline leading-tight">Centro de Traslados</h1>
+            <p className="text-muted-foreground text-xs md:text-sm">Gestión de logística interna e inter-sucursal</p>
           </div>
         </div>
+        <ModeToggle />
       </div>
 
       <div className="max-w-7xl mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
-            <TabsTrigger value="nuevo" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+          <TabsList className="bg-white/80 dark:bg-zinc-900/60 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 flex w-fit gap-2">
+            <TabsTrigger value="nuevo" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all text-xs md:text-sm">
               <Plus size={14} className="mr-2"/> Nuevo Traslado
             </TabsTrigger>
-            <TabsTrigger value="historial" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+            <TabsTrigger value="historial" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all text-xs md:text-sm">
               <History size={14} className="mr-2"/> Historial Logístico
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="nuevo" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
+          <TabsContent value="nuevo" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none animate-in fade-in duration-300">
             <div className="lg:col-span-5 space-y-4">
-              <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
-                <CardHeader className="bg-indigo-900 text-white p-5">
+              <Card className="border border-slate-200/60 dark:border-zinc-800/60 shadow-md rounded-2xl overflow-hidden bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md">
+                <CardHeader className="bg-indigo-900 dark:bg-indigo-950 text-white p-5">
                   <div className="flex justify-between items-center mb-2">
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <ClipboardList size={18} /> Detalle del Traslado
                     </CardTitle>
                     <Badge variant="outline" className="text-[10px] text-indigo-400 border-indigo-400 uppercase">
@@ -375,7 +376,7 @@ export default function TransfersPage() {
                 <CardContent className="p-0">
                   <ScrollArea className="h-[300px]">
                     <Table>
-                      <TableHeader className="bg-slate-50">
+                      <TableHeader className="bg-slate-50/50 dark:bg-zinc-950/40 sticky top-0 z-10">
                         <TableRow>
                           <TableHead className="w-[50px] text-[10px] px-3 text-center">Cant</TableHead>
                           <TableHead className="text-[10px]">Producto</TableHead>
@@ -385,29 +386,29 @@ export default function TransfersPage() {
                       <TableBody>
                         {cart.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={3} className="text-center py-20 text-slate-400 italic text-xs">
+                            <TableCell colSpan={3} className="text-center py-20 text-muted-foreground italic text-xs">
                               Seleccione productos para trasladar
                             </TableCell>
                           </TableRow>
                         ) : cart.map((item) => (
-                          <TableRow key={item.id}>
+                          <TableRow key={item.id} className="hover:bg-muted/30">
                             <TableCell className="px-3">
                               <Input 
                                 type="number" 
                                 value={item.quantity}
                                 onFocus={e => e.target.select()}
                                 onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                                className="h-8 w-14 text-center font-bold text-indigo-600 rounded-lg"
+                                className="h-8 w-14 text-center font-bold text-indigo-600 dark:text-indigo-400 rounded-lg bg-card border"
                               />
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col">
-                                <span className="font-bold text-xs">{item.name}</span>
-                                <span className="text-[9px] text-slate-400 uppercase font-mono">{item.sku}</span>
+                                <span className="font-bold text-xs text-foreground">{item.name}</span>
+                                <span className="text-[9px] text-muted-foreground uppercase font-mono">{item.sku}</span>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)} className="h-8 w-8 text-slate-300 hover:text-rose-500">
+                              <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)} className="h-8 w-8 text-muted-foreground hover:text-rose-500">
                                 <Trash2 size={14} />
                               </Button>
                             </TableCell>
@@ -416,16 +417,16 @@ export default function TransfersPage() {
                       </TableBody>
                     </Table>
                   </ScrollArea>
-                  <div className="p-6 border-t bg-slate-50/50 space-y-4">
+                  <div className="p-6 border-t bg-slate-50/20 dark:bg-zinc-950/20 space-y-4">
                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Responsable / Autorizado por</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Responsable / Autorizado por</Label>
                         <div className="relative">
-                           <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                           <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
                            <Input 
                               placeholder="Nombre de quien autoriza..." 
                               value={authorizedBy}
                               onChange={e => setAuthorizedBy(e.target.value)}
-                              className="h-10 pl-9 bg-white rounded-xl text-xs font-bold"
+                              className="h-10 pl-9 bg-card border rounded-xl text-xs font-bold text-foreground"
                            />
                         </div>
                      </div>
@@ -433,7 +434,7 @@ export default function TransfersPage() {
                 </CardContent>
               </Card>
               <Button 
-                className="w-full h-16 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg shadow-xl" 
+                className="w-full h-16 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg shadow-xl border-none active:scale-95 transition-all" 
                 disabled={isProcessing || cart.length === 0}
                 onClick={handleProcessTransfer}
               >
@@ -443,21 +444,21 @@ export default function TransfersPage() {
             </div>
 
             <div className="lg:col-span-7 space-y-4">
-              <Card className="border-none shadow-sm rounded-2xl bg-white p-6">
+              <Card className="border border-slate-200/60 dark:border-zinc-800/60 shadow-md rounded-2xl bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md p-6">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-4">
-                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo de Traslado</Label>
-                       <div className="flex gap-2">
+                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Tipo de Traslado</Label>
+                       <div className="flex gap-4">
                           <Button 
                             variant={transferType === 'INTERNO' ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12"
+                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm"
                             onClick={() => setTransferType('INTERNO')}
                           >
                              <Warehouse size={16} className="mr-2" /> Interno
                           </Button>
                           <Button 
                             variant={transferType === 'INTERTIENDA' ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12"
+                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm"
                             onClick={() => setTransferType('INTERTIENDA')}
                           >
                              <Truck size={16} className="mr-2" /> Inter-Tienda
@@ -466,18 +467,18 @@ export default function TransfersPage() {
                     </div>
                     
                     <div className="space-y-4">
-                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Modalidad de Envío</Label>
-                       <div className="flex gap-2">
+                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Envío</Label>
+                       <div className="flex gap-4">
                           <Button 
                             variant={!isPreTransfer ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12 text-xs font-bold"
+                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm"
                             onClick={() => setIsPreTransfer(false)}
                           >
                              Directo
                           </Button>
                           <Button 
                             variant={isPreTransfer ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12 text-xs font-bold"
+                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm"
                             onClick={() => setIsPreTransfer(true)}
                           >
                              Pre-traslado
@@ -486,36 +487,38 @@ export default function TransfersPage() {
                     </div>
 
                     <div className="space-y-4">
-                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ruta Logística</Label>
+                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Ruta Logística</Label>
                        <div className="flex items-center gap-3">
                           <div className="flex-1">
                              <Select value={sourceWarehouse} onValueChange={setSourceWarehouse}>
-                                <SelectTrigger className="rounded-xl h-12 bg-slate-50"><SelectValue placeholder="Origen" /></SelectTrigger>
-                                <SelectContent>
+                                <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Origen" /></SelectTrigger>
+                                <SelectContent className="rounded-xl">
                                    {warehouses?.map((wh: any) => (
                                       <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
                                    ))}
                                 </SelectContent>
                              </Select>
                           </div>
-                          <ArrowRight size={20} className="text-slate-300" />
+                          <ArrowRight size={20} className="text-muted-foreground" />
                           <div className="flex-1">
                              {transferType === 'INTERNO' ? (
                                 <Select value={destinationWarehouse} onValueChange={setDestinationWarehouse}>
-                                   <SelectTrigger className="rounded-xl h-12 bg-slate-50"><SelectValue placeholder="Destino" /></SelectTrigger>
-                                   <SelectContent>
-                                      {warehouses?.map((wh: any) => (
+                                   <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Destino" /></SelectTrigger>
+                                   <SelectContent className="rounded-xl">
+                                      {warehouses?.filter(w => w.name !== sourceWarehouse).map((wh: any) => (
                                          <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
                                       ))}
                                    </SelectContent>
                                 </Select>
                              ) : (
-                                <Input 
-                                   placeholder="Sucursal Destino..." 
-                                   value={destinationStore}
-                                   onChange={e => setDestinationStore(e.target.value)}
-                                   className="h-12 rounded-xl bg-slate-50 font-bold text-xs"
-                                />
+                                <Select value={destinationStore} onValueChange={setDestinationStore}>
+                                   <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Tienda Destino" /></SelectTrigger>
+                                   <SelectContent className="rounded-xl">
+                                      {warehouses?.filter(w => w.name !== sourceWarehouse).map((wh: any) => (
+                                         <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
+                                      ))}
+                                   </SelectContent>
+                                </Select>
                              )}
                           </div>
                        </div>
@@ -524,12 +527,12 @@ export default function TransfersPage() {
               </Card>
 
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                 <Input 
                   placeholder="Buscar productos en inventario..." 
                   value={searchTerm} 
                   onChange={e => setSearchTerm(e.target.value)} 
-                  className="pl-12 h-12 bg-white border-none shadow-sm rounded-2xl" 
+                  className="pl-12 h-12 bg-card border rounded-2xl text-xs text-foreground" 
                 />
               </div>
 
@@ -552,37 +555,37 @@ export default function TransfersPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="historial" className="space-y-4 outline-none">
-            <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
+          <TabsContent value="historial" className="space-y-4 outline-none animate-in fade-in duration-300">
+            <Card className="border border-slate-200/60 dark:border-zinc-800/60 shadow-md rounded-2xl bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md overflow-hidden">
               <Table>
-                <TableHeader className="bg-slate-50">
+                <TableHeader className="bg-slate-50/50 dark:bg-zinc-950/40 sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="px-6">Fecha / Hora</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Ruta (Origen &rarr; Destino)</TableHead>
-                    <TableHead>Productos</TableHead>
-                    <TableHead>Autoriza</TableHead>
-                    <TableHead className="text-center px-6">Estado</TableHead>
+                    <TableHead className="px-6 text-xs text-muted-foreground">Fecha / Hora</TableHead>
+                    <TableHead className="text-xs text-muted-foreground">Tipo</TableHead>
+                    <TableHead className="text-xs text-muted-foreground">Ruta (Origen &rarr; Destino)</TableHead>
+                    <TableHead className="text-xs text-muted-foreground">Productos</TableHead>
+                    <TableHead className="text-xs text-muted-foreground">Autoriza</TableHead>
+                    <TableHead className="text-center px-6 text-xs text-muted-foreground">Estado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {transfers?.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-20 text-slate-400 italic">No hay traslados registrados.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic text-xs">No hay traslados registrados.</TableCell></TableRow>
                   ) : transfers?.map((t: any) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="px-6 text-xs text-slate-500">
+                    <TableRow key={t.id} className="hover:bg-muted/30">
+                      <TableCell className="px-6 text-xs text-muted-foreground font-medium">
                         {new Date(t.timestamp).toLocaleDateString()} {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`text-[9px] font-black ${t.type === 'INTERNO' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                        <Badge variant="outline" className={`text-[9px] font-black ${t.type === 'INTERNO' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'}`}>
                           {t.type}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 text-xs font-bold">
+                        <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                           <span>{t.source}</span>
-                          <ArrowRight size={12} className="text-slate-400" />
-                          <span className="text-indigo-600">{t.destination}</span>
+                          <ArrowRight size={12} className="text-muted-foreground" />
+                          <span className="text-indigo-600 dark:text-indigo-400">{t.destination}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -592,7 +595,7 @@ export default function TransfersPage() {
                             ))}
                          </div>
                       </TableCell>
-                      <TableCell className="text-xs font-bold">{t.authorizedBy}</TableCell>
+                      <TableCell className="text-xs font-bold text-foreground">{t.authorizedBy}</TableCell>
                       <TableCell className="text-center px-6">
                         <div className="flex items-center justify-center gap-2">
                           {t.status === 'PETICION' ? (

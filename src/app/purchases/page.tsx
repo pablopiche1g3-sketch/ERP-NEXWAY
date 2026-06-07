@@ -248,32 +248,75 @@ export default function PurchasesPage() {
     const priceVal = parseFloat(selectedUncreatedPrice[p.sku] || '0') || (p.cost * 1.3); // default PVP is Cost * 1.3
 
     try {
-      // 1. Insert in public.inventory
-      const { data, error } = await supabase
-        .from('inventory')
-        .insert({
-          sku: p.sku,
-          name: p.name,
-          category: category,
-          price: priceVal
-        })
-        .select()
-        .single();
+      const existingProduct = inventory.find(inv => inv.sku === p.sku.trim().toUpperCase());
 
-      if (error) throw error;
+      if (existingProduct) {
+        // If the SKU already exists, we just create the supplier mapping!
+        if (p.originalProviderCode) {
+          const { error: mappingError } = await supabase
+            .from('supplier_mappings')
+            .upsert({
+              supplier_code: p.originalProviderCode,
+              internal_sku: existingProduct.sku
+            });
+          if (mappingError) throw mappingError;
 
-      // 2. Insert equivalence in public.supplier_mappings if originalProviderCode exists
-      if (p.originalProviderCode) {
-        const { error: mappingError } = await supabase
-          .from('supplier_mappings')
-          .upsert({
-            supplier_code: p.originalProviderCode,
-            internal_sku: p.sku
+          // Update local saved mappings
+          setSavedMappings(prev => {
+            const exists = prev.some(m => m.supplierCode === p.originalProviderCode);
+            if (exists) {
+              return prev.map(m => m.supplierCode === p.originalProviderCode ? { ...m, internalSku: existingProduct.sku } : m);
+            }
+            return [...prev, { supplierCode: p.originalProviderCode, internalSku: existingProduct.sku }];
           });
-        
-        if (mappingError) {
-          console.error('Error inserting supplier mapping:', mappingError);
-        } else {
+        }
+
+        // Add to cart using the existing product details
+        setPurchaseItems(prev => {
+          const existing = prev.find(item => item.sku === existingProduct.sku);
+          if (existing) {
+            return prev.map(item => 
+              item.sku === existingProduct.sku ? { ...item, quantity: item.quantity + p.quantity, cost: p.cost } : item
+            );
+          }
+          return [...prev, {
+            id: existingProduct.id,
+            sku: existingProduct.sku,
+            name: existingProduct.name,
+            quantity: p.quantity,
+            cost: p.cost
+          }];
+        });
+
+        toast({ 
+          title: "Vínculo Sincronizado", 
+          description: `Se vinculó el código del proveedor ${p.originalProviderCode} al SKU existente ${existingProduct.sku}.` 
+        });
+      } else {
+        // If it doesn't exist, proceed with inserting the new product in inventory
+        const { data, error } = await supabase
+          .from('inventory')
+          .insert({
+            sku: p.sku,
+            name: p.name,
+            category: category,
+            price: priceVal
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // 2. Insert equivalence in public.supplier_mappings
+        if (p.originalProviderCode) {
+          const { error: mappingError } = await supabase
+            .from('supplier_mappings')
+            .upsert({
+              supplier_code: p.originalProviderCode,
+              internal_sku: p.sku
+            });
+          if (mappingError) throw mappingError;
+
           setSavedMappings(prev => {
             const exists = prev.some(m => m.supplierCode === p.originalProviderCode);
             if (exists) {
@@ -282,45 +325,45 @@ export default function PurchasesPage() {
             return [...prev, { supplierCode: p.originalProviderCode, internalSku: p.sku }];
           });
         }
-      }
 
-      // 3. Add to local inventory state so it behaves normally in later steps
-      const newInventoryItem = {
-        id: p.sku,
-        sku: p.sku,
-        name: p.name,
-        category: category,
-        price: priceVal,
-        quantity: 0,
-        bodegas: {}
-      };
-      setInventory(prev => [...prev, newInventoryItem]);
-
-      // 3. Add to purchaseItems (cart)
-      setPurchaseItems(prev => {
-        const existing = prev.find(item => item.sku === p.sku);
-        if (existing) {
-          return prev.map(item => 
-            item.sku === p.sku ? { ...item, quantity: item.quantity + p.quantity, cost: p.cost } : item
-          );
-        }
-        return [...prev, {
+        // 3. Add to local inventory state
+        const newInventoryItem = {
           id: p.sku,
           sku: p.sku,
           name: p.name,
-          quantity: p.quantity,
-          cost: p.cost
-        }];
-      });
+          category: category,
+          price: priceVal,
+          quantity: 0,
+          bodegas: {}
+        };
+        setInventory(prev => [...prev, newInventoryItem]);
 
-      // 4. Remove from queue
+        // 3. Add to cart
+        setPurchaseItems(prev => {
+          const existing = prev.find(item => item.sku === p.sku);
+          if (existing) {
+            return prev.map(item => 
+              item.sku === p.sku ? { ...item, quantity: item.quantity + p.quantity, cost: p.cost } : item
+            );
+          }
+          return [...prev, {
+            id: p.sku,
+            sku: p.sku,
+            name: p.name,
+            quantity: p.quantity,
+            cost: p.cost
+          }];
+        });
+
+        toast({ 
+          title: "Producto Creado", 
+          description: `El código ${p.sku} se creó y vinculó a la cuenta '${category}'.` 
+        });
+      }
+
+      // Remove from queue
       const updatedQueue = uncreatedDteProducts.filter((_, idx) => idx !== productIndex);
       setUncreatedDteProducts(updatedQueue);
-
-      toast({ 
-        title: "Producto Creado", 
-        description: `El código ${p.sku} se creó y vinculó a la cuenta '${category}'.` 
-      });
 
       if (updatedQueue.length === 0) {
         setIsUncreatedDialogOpen(false);
@@ -329,8 +372,8 @@ export default function PurchasesPage() {
       console.error(err);
       toast({ 
         variant: "destructive", 
-        title: "Error al crear", 
-        description: err.message || "No se pudo registrar el producto en Supabase." 
+        title: "Error al registrar", 
+        description: err.message || "No se pudo vincular el producto." 
       });
     }
   };
