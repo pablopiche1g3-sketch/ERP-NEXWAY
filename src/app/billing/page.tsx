@@ -597,7 +597,7 @@ export default function BillingPage() {
     });
   };
 
-  const handleOpenCheckout = () => {
+  const handleOpenCheckout = async () => {
     if (cart.length === 0) {
       toast({ variant: "destructive", title: "Carrito vacío" });
       return;
@@ -605,19 +605,38 @@ export default function BillingPage() {
 
     const deductWh = activeWarehouse || (warehouses.length > 0 ? warehouses[0] : null);
     if (deductWh) {
-      for (const item of cart) {
-        const product = inventory.find(p => p.sku === item.sku);
-        const physical = product ? (product.bodegas?.[deductWh.name] || 0) : 0;
-        const pendingIncoming = pendingIncomingQty[item.sku] || 0;
-        const available = physical + pendingIncoming;
-        if (available < item.quantity) {
-          toast({ 
-            variant: "destructive", 
-            title: "Stock Insuficiente Detectado", 
-            description: `El producto "${item.name}" no tiene existencias físicas ni en pre-traslados suficientes en "${deductWh.name}". Disponible: ${physical} (Físico) + ${pendingIncoming} (En Tránsito), Solicitado: ${item.quantity}.` 
-          });
-          return;
+      try {
+        const skusInCart = cart.map(i => i.sku);
+        const { data: dbStocks, error: stockCheckErr } = await supabase
+          .from('inventory_stock')
+          .select('*')
+          .eq('warehouse_id', deductWh.id)
+          .in('sku', skusInCart);
+
+        if (stockCheckErr) throw stockCheckErr;
+
+        const stockMap: Record<string, number> = {};
+        (dbStocks || []).forEach(s => {
+          stockMap[s.sku] = parseFloat(s.quantity) || 0;
+        });
+
+        for (const item of cart) {
+          const physical = stockMap[item.sku] || 0;
+          const pendingIncoming = pendingIncomingQty[item.sku] || 0;
+          const available = physical + pendingIncoming;
+          if (available < item.quantity) {
+            toast({ 
+              variant: "destructive", 
+              title: "Stock Insuficiente Detectado", 
+              description: `El producto "${item.name}" no tiene existencias físicas ni en pre-traslados suficientes en "${deductWh.name}". Disponible: ${physical} (Físico) + ${pendingIncoming} (En Tránsito), Solicitado: ${item.quantity}.` 
+            });
+            return;
+          }
         }
+      } catch (err) {
+        console.error(err);
+        toast({ variant: "destructive", title: "Error de Validación", description: "No se pudo verificar el stock." });
+        return;
       }
     }
 
@@ -791,21 +810,25 @@ export default function BillingPage() {
       if (type === 'CREDITO' && warehouses.length > 0) {
         const defaultWh = warehouses[0];
         for (const item of adjustmentForm.items) {
-          const product = inventory?.find((p: any) => p.sku === item.sku);
-          if (product) {
-            const currentStock = product.bodegas[defaultWh.name] || 0;
-            const newQty = currentStock + item.quantity;
+          const { data: stRecord } = await supabase
+            .from('inventory_stock')
+            .select('quantity')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', defaultWh.id)
+            .maybeSingle();
 
-            await supabase
-              .from('inventory_stock')
-              .upsert({
-                sku: item.sku,
-                warehouse_id: defaultWh.id,
-                quantity: newQty
-              }, {
-                onConflict: 'sku,warehouse_id'
-              });
-          }
+          const currentStock = stRecord ? (parseFloat(stRecord.quantity) || 0) : 0;
+          const newQty = currentStock + item.quantity;
+
+          await supabase
+            .from('inventory_stock')
+            .upsert({
+              sku: item.sku,
+              warehouse_id: defaultWh.id,
+              quantity: newQty
+            }, {
+              onConflict: 'sku,warehouse_id'
+            });
         }
       }
 
