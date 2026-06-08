@@ -776,33 +776,33 @@ export default function PurchasesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-slate-100 to-blue-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
       {/* Background glow animations */}
-      <div className="absolute top-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-500/5 dark:bg-blue-500/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[35vw] h-[35vw] rounded-full bg-emerald-500/5 dark:bg-emerald-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 blur-[120px] pointer-events-none" />
       
-      <div className="relative z-10 max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-card shadow-sm border" onClick={() => router.push('/')}>
-            <ArrowLeft className="text-foreground" size={20} />
+          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-white/10 hover:bg-white/10 dark:hover:bg-white/10" onClick={() => router.push('/')}>
+            <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
           </Button>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-foreground font-headline leading-tight">Módulo de Compras</h1>
-            <p className="text-muted-foreground text-xs md:text-sm">Registro de compra operativa con soporte Hacienda DTE V3</p>
+            <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Módulo de Compras</h1>
+            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Registro de compra operativa con soporte Hacienda DTE V3</p>
           </div>
         </div>
         <ModeToggle />
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-7xl mx-auto space-y-6">
-        <TabsList className="bg-slate-100 dark:bg-muted p-1 rounded-2xl flex w-fit gap-2">
-          <TabsTrigger value="registro" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-7xl mx-auto space-y-6 relative z-10">
+        <TabsList className="bg-transparent p-0 border-b border-white/10 w-full justify-start h-auto rounded-none gap-2">
+          <TabsTrigger value="registro" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-transparent">
             <ClipboardList size={14} className="mr-2" /> Registro de Compra
           </TabsTrigger>
-          <TabsTrigger value="historial" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
+          <TabsTrigger value="historial" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-transparent">
             <Calendar size={14} className="mr-2" /> Historial de Ingresos
           </TabsTrigger>
-          <TabsTrigger value="vinculacion" className="rounded-xl px-6 py-2.5 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all">
+          <TabsTrigger value="vinculacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-transparent">
             <Link2 size={14} className="mr-2" /> Vinculación de Códigos
           </TabsTrigger>
         </TabsList>
@@ -811,326 +811,316 @@ export default function PurchasesPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <div className="lg:col-span-4 space-y-6">
-              <Card className="glass-card rounded-2xl overflow-hidden">
-            <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <ClipboardList size={18} className="text-blue-400" />
-                  Control de Pedido
-                </CardTitle>
-                <span className="text-[10px] font-mono opacity-60">{pedidoId}</span>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Proveedor</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                    <Input 
-                      placeholder="Seleccione proveedor..." 
-                      value={supplierName}
-                      onChange={e => setSupplierName(e.target.value)}
-                      className="h-10 pl-9 bg-muted border-none rounded-xl text-xs font-bold text-foreground"
-                    />
+              <div className="flex flex-col gap-2.5">
+                <div className="rounded-t-[11px] p-[13px_16px] flex items-center justify-between bg-indigo-500/25 border border-indigo-500/35 border-b-0">
+                  <div className="flex items-center gap-2 text-[13px] font-semibold text-[#a5a8ff]">
+                    <ClipboardList size={15} /> Control de Pedido
                   </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-card border">
-                        <Search size={16} />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0" align="end">
-                      <div className="p-3 border-b"><Input placeholder="Buscar proveedor..." value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)} className="h-8 text-xs bg-muted border-none" /></div>
-                      <ScrollArea className="h-60">
-                        <div className="p-1">
-                          {filteredSuppliers.length === 0 ? (
-                            <div className="p-4 text-center text-muted-foreground text-[10px] italic">No se encontraron proveedores</div>
-                          ) : filteredSuppliers.map((s: any) => (
-                            <div key={s.id} onClick={() => selectSupplier(s)} className="p-3 hover:bg-muted cursor-pointer rounded-lg transition-colors group">
-                              <span className="text-[11px] font-bold text-foreground group-hover:text-primary block">{s.name}</span>
-                              <span className="text-[9px] text-muted-foreground font-mono">NIT: {s.nit}</span>
+                  <span className="text-[10px] text-white/35 font-mono tracking-[0.5px]">{pedidoId}</span>
+                </div>
+                
+                <div className="rounded-b-[11px] p-4 flex flex-col gap-3.5 bg-white/5 backdrop-blur-md border border-white/10 mt-[-10px]">
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Proveedor</div>
+                    <div className="flex gap-2">
+                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] flex-1 relative">
+                        <Building2 size={14} className="text-white/20" />
+                        <Input 
+                          placeholder="Seleccione proveedor..." 
+                          value={supplierName}
+                          onChange={e => setSupplierName(e.target.value)}
+                          className="h-full bg-transparent border-none text-[12.5px] text-white/70 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
+                        />
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-[40px] w-[40px] rounded-lg bg-white/5 border border-white/10 text-white/20 hover:bg-white/10 hover:text-white/40">
+                            <Search size={14} />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0 border-white/10 bg-[#0a0a14]" align="end">
+                          <div className="p-3 border-b border-white/10"><Input placeholder="Buscar proveedor..." value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)} className="h-8 text-xs bg-white/5 border-none text-white placeholder:text-white/30" /></div>
+                          <ScrollArea className="h-60">
+                            <div className="p-1">
+                              {filteredSuppliers.length === 0 ? (
+                                <div className="p-4 text-center text-white/30 text-[10px] italic">No se encontraron proveedores</div>
+                              ) : filteredSuppliers.map((s: any) => (
+                                <div key={s.id} onClick={() => selectSupplier(s)} className="p-3 hover:bg-white/5 cursor-pointer rounded-lg transition-colors group">
+                                  <span className="text-[11px] font-bold text-white group-hover:text-indigo-400 block">{s.name}</span>
+                                  <span className="text-[9px] text-white/30 font-mono">NIT: {s.nit}</span>
+                                </div>
+                              ))}
                             </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Encargado de ingreso</div>
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px]">
+                      <User size={14} className="text-white/20" />
+                      <Input 
+                        placeholder="Nombre completo..." 
+                        value={enteredBy}
+                        onChange={e => setEnteredBy(e.target.value)}
+                        className="h-full bg-transparent border-none text-[12.5px] text-white/70 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Tipo documento</div>
+                      <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                        <SelectTrigger className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-[9px_12px] h-[40px] text-[12.5px] text-white/60 shadow-none">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="border-white/10 bg-[#0a0a14] text-white">
+                          <SelectItem value="FACTURA">FACTURA</SelectItem>
+                          <SelectItem value="CCF">CCF</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Bodega destino</div>
+                      <Select value={warehouse} onValueChange={setWarehouse}>
+                        <SelectTrigger className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-[9px_12px] h-[40px] text-[12.5px] text-white/60 shadow-none">
+                          <SelectValue placeholder="Seleccione..." />
+                        </SelectTrigger>
+                        <SelectContent className="border-white/10 bg-[#0a0a14] text-white">
+                          {warehouses?.map((wh: any) => (
+                            <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
                           ))}
-                        </div>
-                      </ScrollArea>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">DTE / Cód. Generación</div>
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px]">
+                      <FileCode size={14} className="text-white/20" />
+                      <Input 
+                        placeholder="GEN-123456..." 
+                        value={generationCode}
+                        onChange={e => setGenerationCode(e.target.value)}
+                        className="h-full bg-transparent border-none text-[12.5px] font-mono text-white/70 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="h-[1px] bg-white/5" />
+
+                  <div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Forma de pago</div>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => setPaymentMethod('Efectivo')} className={`flex items-center gap-1.5 p-[7px_12px] rounded-lg text-[11.5px] font-medium transition-all ${paymentMethod === 'Efectivo' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#7c7fff]' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10'}`}>
+                        <Wallet size={13} /> Efectivo
+                      </button>
+                      <button onClick={() => setPaymentMethod('Transferencia')} className={`flex items-center gap-1.5 p-[7px_12px] rounded-lg text-[11.5px] font-medium transition-all ${paymentMethod === 'Transferencia' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#7c7fff]' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10'}`}>
+                        <Landmark size={13} /> Transf.
+                      </button>
+                      <button onClick={() => setPaymentMethod('Credito')} className={`flex items-center gap-1.5 p-[7px_12px] rounded-lg text-[11.5px] font-medium transition-all ${paymentMethod === 'Credito' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#7c7fff]' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10'}`}>
+                        <CreditCard size={13} /> Crédito
+                      </button>
+                    </div>
+                    {paymentMethod === 'Credito' && (
+                       <div className="mt-3 flex items-center gap-2 animate-in fade-in">
+                         <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-indigo-400">Plazo:</div>
+                         <Input type="number" value={creditDays} onFocus={e => e.target.select()} onChange={e => setCreditDays(e.target.value)} className="h-[30px] w-20 bg-white/5 border-white/10 text-[11.5px] text-white placeholder:text-white/30" placeholder="0" />
+                         <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">Días</div>
+                       </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[11px] p-[14px_16px] bg-white/5 backdrop-blur-md border border-white/10">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">Cargar DTE V3</div>
+                  <Popover>
+                    <PopoverTrigger asChild><Info size={14} className="text-white/20 hover:text-white/40 cursor-pointer" /></PopoverTrigger>
+                    <PopoverContent className="w-64 text-[10px] space-y-2 border-white/10 bg-[#0a0a14] text-white">
+                       <p className="font-bold text-indigo-400">Hacienda El Salvador V3:</p>
+                       <p className="text-white/60">Extrae automáticamente proveedor, códigos de productos, cantidades y precios directamente desde el archivo oficial del Ministerio.</p>
                     </PopoverContent>
                   </Popover>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Encargado de Ingreso</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                  <Input 
-                    placeholder="Nombre completo..." 
-                    value={enteredBy}
-                    onChange={e => setEnteredBy(e.target.value)}
-                    className="h-10 pl-9 bg-muted border-none rounded-xl text-xs text-foreground"
-                  />
+                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".json" />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full p-[11px] rounded-xl bg-white/5 border border-white/10 text-white/65 hover:bg-white/10 text-[12.5px] font-semibold flex items-center justify-center gap-2 tracking-[0.3px] transition-all"
+                >
+                  <FileJson size={15} className="text-[#7c7fff]" />
+                  <div className="text-center">
+                    <div>IMPORTAR DTE V3 (JSON)</div>
+                    <span className="block text-[10px] font-normal text-white/30 mt-0.5">Soporta Ministerio de Hacienda SV</span>
+                  </div>
+                </button>
+                
+                <div className="h-[1px] bg-white/5 my-3" />
+                
+                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-2.5">Agregar manualmente</div>
+                <div className="grid grid-cols-[1fr_60px_80px] gap-1.5 mb-2">
+                  <Input placeholder="SKU..." value={skuSearch} onChange={e => setSkuSearch(e.target.value.toUpperCase())} className="bg-white/5 border-white/10 rounded-lg p-[8px_10px] text-[12px] text-white/70 h-[36px]" />
+                  <Input type="number" value={manualQty} onFocus={e => e.target.select()} onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} className="bg-white/5 border-white/10 rounded-lg p-[8px_10px] text-[12px] text-white/70 text-center h-[36px]" />
+                  <Input type="number" placeholder="0.00" value={manualPrice} onFocus={e => e.target.select()} onChange={e => setManualPrice(e.target.value)} className="bg-white/5 border-white/10 rounded-lg p-[8px_10px] text-[12px] text-emerald-400 text-right h-[36px]" />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Tipo Documento</Label>
-                  <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                    <SelectTrigger className="h-10 rounded-xl bg-muted border-none text-xs text-foreground">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FACTURA">FACTURA</SelectItem>
-                      <SelectItem value="CCF">CCF</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-[60px_60px_1fr] gap-1.5 mb-2.5 px-1">
+                  <div className="text-[9px] text-white/25 uppercase tracking-[0.5px]">SKU</div>
+                  <div className="text-[9px] text-white/25 uppercase tracking-[0.5px]">Cant.</div>
+                  <div className="text-[9px] text-white/25 uppercase tracking-[0.5px]">Costo</div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Bodega Destino</Label>
-                  <Select value={warehouse} onValueChange={setWarehouse}>
-                    <SelectTrigger className="h-10 rounded-xl bg-muted border-none text-xs text-foreground">
-                      <SelectValue placeholder="Seleccione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {warehouses?.map((wh: any) => (
-                        <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <button onClick={handleAddItem} className="w-full p-[9px] rounded-lg bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/70 text-[12px] font-medium flex items-center justify-center gap-1.5 transition-all">
+                  <Plus size={14} className="text-white/30" /> Añadir a la Lista
+                </button>
               </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">DTE / Cód. Generación</Label>
-                <div className="relative">
-                  <FileCode className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                  <Input 
-                    placeholder="GEN-123456..." 
-                    value={generationCode}
-                    onChange={e => setGenerationCode(e.target.value)}
-                    className="h-10 pl-9 bg-muted border-none rounded-xl text-xs font-mono text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div className="p-4 bg-muted/40 rounded-2xl border space-y-4">
-                 <Label className="text-[10px] font-black uppercase text-muted-foreground block mb-2 tracking-widest">Forma de Pago</Label>
-                 <div className="flex gap-2">
-                    <Button variant={paymentMethod === 'Efectivo' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Efectivo')} className="flex-1 h-9 text-[9px] font-bold rounded-xl transition-all shadow-sm">
-                      <Wallet size={12} className="mr-1.5" /> Efectivo
-                    </Button>
-                    <Button variant={paymentMethod === 'Transferencia' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Transferencia')} className="flex-1 h-9 text-[9px] font-bold rounded-xl transition-all shadow-sm">
-                      <Landmark size={12} className="mr-1.5" /> Transf.
-                    </Button>
-                    <Button variant={paymentMethod === 'Credito' ? 'default' : 'outline'} size="sm" onClick={() => setPaymentMethod('Credito')} className="flex-1 h-9 text-[9px] font-bold rounded-xl transition-all shadow-sm">
-                      <CreditCard size={12} className="mr-1.5" /> Crédito
-                    </Button>
-                 </div>
-                 {paymentMethod === 'Credito' && (
-                   <div className="space-y-2 animate-in fade-in slide-in-from-top-2 pt-2 border-t">
-                      <Label className="text-[10px] font-bold text-primary uppercase">Plazo de Crédito</Label>
-                      <div className="flex items-center gap-2">
-                        <Calendar size={14} className="text-muted-foreground" />
-                        <Input type="number" value={creditDays} onFocus={e => e.target.select()} onChange={e => setCreditDays(e.target.value)} className="h-8 bg-card font-bold text-xs" placeholder="0" />
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Días</span>
-                      </div>
-                   </div>
-                 )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-               <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cargar DTE V3</Label>
-               <Popover>
-                  <PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><Info size={14} /></Button></PopoverTrigger>
-                  <PopoverContent className="w-64 text-[10px] space-y-2">
-                     <p className="font-bold">Hacienda El Salvador V3:</p>
-                     <p>Extrae automáticamente proveedor, códigos de productos, cantidades y precios directamente desde el archivo oficial del Ministerio.</p>
-                  </PopoverContent>
-               </Popover>
-            </div>
-            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".json" />
-            <Button 
-              className="w-full h-14 bg-slate-900 dark:bg-blue-600 rounded-2xl font-bold shadow-xl flex flex-col items-center justify-center gap-0.5 text-white" 
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <div className="flex items-center gap-2">
-                 <FileJson size={20} />
-                 <span>IMPORTAR DTE V3 (JSON)</span>
-              </div>
-              <span className="text-[9px] opacity-60 font-medium">Soporta Ministerio de Hacienda SV</span>
-            </Button>
-            
-            <div className="mt-8 pt-6 border-t space-y-4">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground block tracking-widest">Agregar Manualmente</Label>
-              <div className="grid grid-cols-4 gap-2">
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-[9px] font-bold uppercase text-muted-foreground">SKU</Label>
-                  <Input placeholder="SKU..." value={skuSearch} onChange={e => setSkuSearch(e.target.value.toUpperCase())} className="h-10 bg-muted border-none font-bold text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-bold uppercase text-muted-foreground">Cant.</Label>
-                  <Input type="number" value={manualQty} onFocus={e => e.target.select()} onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} className="h-10 bg-muted border-none font-bold text-center text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-bold uppercase text-muted-foreground">Costo</Label>
-                  <Input type="number" placeholder="0.00" value={manualPrice} onFocus={e => e.target.select()} onChange={e => setManualPrice(e.target.value)} className="h-10 bg-muted border-none font-bold text-emerald-600 dark:text-emerald-400 text-xs" />
-                </div>
-              </div>
-              <Button onClick={handleAddItem} variant="outline" className="w-full h-10 border-primary/20 text-primary rounded-xl font-bold text-xs">
-                <Plus size={16} className="mr-2" />
-                Añadir a la Lista
-              </Button>
-            </div>
-          </Card>
         </div>
 
-        <div className="lg:col-span-8 space-y-6">
-          <Card className="glass-card rounded-2xl overflow-hidden h-[550px] flex flex-col">
-            <CardHeader className="bg-muted/30 border-b px-6 py-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex items-center gap-4">
-                  <CardTitle className="text-sm font-bold text-foreground">Items del Pedido</CardTitle>
-                  <Badge variant="secondary" className="font-mono text-[10px]">{purchaseItems.length} ítems</Badge>
-                </div>
-                <div className="flex flex-wrap gap-6 text-left sm:text-right">
-                  <div>
-                    <p className="text-[8px] font-black uppercase text-muted-foreground">Subtotal (Neto)</p>
-                    <p className="text-xs font-bold text-foreground">${subtotalPurchase.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black uppercase text-muted-foreground">IVA (13%)</p>
-                    <p className="text-xs font-bold text-foreground">${ivaPurchase.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black uppercase text-muted-foreground">Total (Con IVA)</p>
-                    <p className="text-lg md:text-xl font-black text-emerald-600 dark:text-emerald-400">${totalPurchase.toFixed(2)}</p>
-                  </div>
-                </div>
+        <div className="lg:col-span-8 flex flex-col gap-2.5">
+          <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between p-[12px_18px] gap-4">
+            <div className="flex items-center gap-3 text-white">
+              <div className="text-[13px] font-semibold">Ítems del Pedido</div>
+              <span className="bg-indigo-500/20 text-[#a5a8ff] text-[10px] font-mono p-[2px_8px] rounded-full border border-indigo-500/30">{purchaseItems.length} ítems</span>
+            </div>
+            
+            <div className="flex gap-6 text-right">
+              <div>
+                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-white/40 mb-0.5">Subtotal</div>
+                <div className="text-[12.5px] font-bold text-white/90">${subtotalPurchase.toFixed(2)}</div>
               </div>
-            </CardHeader>
+              <div>
+                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-white/40 mb-0.5">IVA (13%)</div>
+                <div className="text-[12.5px] font-bold text-white/90">${ivaPurchase.toFixed(2)}</div>
+              </div>
+              <div>
+                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-white/40 mb-0.5">Total Neto</div>
+                <div className="text-[16px] font-black text-[#63e2b7] tracking-[0.5px]">${totalPurchase.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 h-[450px] flex flex-col overflow-hidden">
             <ScrollArea className="flex-1">
               <Table>
-                <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
-                  <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase px-6">SKU</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Producto</TableHead>
-                    <TableHead className="text-center text-[10px] font-black uppercase">Cant.</TableHead>
-                    <TableHead className="text-right text-[10px] font-black uppercase">Costo Un. (Sin/Con IVA)</TableHead>
-                    <TableHead className="text-right text-[10px] font-black uppercase">Subtotal (Sin/Con IVA)</TableHead>
-                    <TableHead className="w-10"></TableHead>
+                <TableHeader className="sticky top-0 bg-[#161430]/90 backdrop-blur-sm z-10">
+                  <TableRow className="border-b border-white/10 hover:bg-transparent">
+                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px] px-4">SKU</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px]">Producto</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px] text-center">Cant.</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px] text-right">Costo (S/C)</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px] text-right">Subtotal</TableHead>
+                    <TableHead className="w-[40px] h-[36px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {purchaseItems.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-24 text-muted-foreground italic text-xs">
+                    <TableRow className="border-b border-white/5 hover:bg-transparent">
+                      <TableCell colSpan={6} className="text-center py-24 text-white/30 italic text-[11px]">
                         No hay productos seleccionados. Importe un DTE V3 o agréguelos manualmente.
                       </TableCell>
                     </TableRow>
                   ) : purchaseItems.map((item) => (
-                    <TableRow key={item.sku} className="hover:bg-muted/30">
-                      <TableCell className="px-6 font-mono font-bold text-muted-foreground text-[11px]">{item.sku}</TableCell>
-                      <TableCell className="font-bold text-foreground text-xs">{item.name}</TableCell>
-                      <TableCell className="text-center font-bold text-foreground text-xs">{item.quantity}</TableCell>
-                      <TableCell className="text-right font-bold text-muted-foreground text-xs">
-                        <span className="text-foreground">${item.cost.toFixed(2)}</span>
-                        <span className="text-[10px] text-muted-foreground ml-1">/ ${(item.cost * 1.13).toFixed(2)}</span>
+                    <TableRow key={item.sku} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <TableCell className="px-4 font-mono font-bold text-white/40 text-[11px]">{item.sku}</TableCell>
+                      <TableCell className="font-bold text-white/80 text-[12px]">{item.name}</TableCell>
+                      <TableCell className="text-center font-bold text-white/80 text-[12px]">{item.quantity}</TableCell>
+                      <TableCell className="text-right font-medium text-white/60 text-[11.5px]">
+                        <span className="text-white/90">${item.cost.toFixed(2)}</span>
+                        <span className="text-[9.5px] text-white/30 ml-1">/ ${(item.cost * 1.13).toFixed(2)}</span>
                       </TableCell>
-                      <TableCell className="text-right font-black text-foreground text-xs">
+                      <TableCell className="text-right font-black text-white/90 text-[12.5px]">
                         <span>${(item.cost * item.quantity).toFixed(2)}</span>
-                        <span className="text-[10px] text-muted-foreground font-normal ml-1">/ ${((item.cost * item.quantity) * 1.13).toFixed(2)}</span>
+                        <span className="text-[9.5px] text-white/30 font-medium ml-1">/ ${((item.cost * item.quantity) * 1.13).toFixed(2)}</span>
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => removeItem(item.sku)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                          <Trash2 size={14} />
-                        </Button>
+                        <button onClick={() => removeItem(item.sku)} className="h-7 w-7 rounded-md flex items-center justify-center text-white/20 hover:text-[#ff5c5c] hover:bg-[#ff5c5c]/10 transition-all">
+                          <Trash2 size={13} />
+                        </button>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </ScrollArea>
-          </Card>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Button 
-              variant="outline" 
-              className="h-14 md:h-16 rounded-2xl border-2 font-black text-muted-foreground text-base md:text-lg hover:border-primary hover:text-primary transition-all bg-card"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+            <button 
+              className="h-[46px] rounded-xl flex items-center justify-center gap-2 bg-white/5 border border-white/10 text-[13px] font-bold text-white/50 hover:bg-white/10 hover:text-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || purchaseItems.length === 0}
               onClick={() => savePurchase('PENDIENTE')}
             >
-              <Save size={20} className="mr-2" />
+              <Save size={16} />
               Borrador Pendiente
-            </Button>
-            <Button 
-              className="h-14 md:h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base md:text-lg shadow-xl transition-all group border-none"
+            </button>
+            <button 
+              className="h-[46px] rounded-xl flex items-center justify-center gap-2 bg-emerald-500/30 border border-emerald-500/40 text-[13px] font-bold text-[#63e2b7] hover:bg-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
               disabled={loading || purchaseItems.length === 0}
               onClick={() => savePurchase('CERRADA')}
             >
-              {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 size={20} className="mr-2 group-hover:scale-110" />}
-              Cerrar e Ingresar Stock
-            </Button>
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} className="group-hover:scale-110 transition-transform" />}
+              Cerrar e Ingresar
+            </button>
           </div>
 
-          <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 flex items-start gap-3">
-             <AlertTriangle className="text-amber-600 dark:text-amber-400 mt-1" size={20} />
-             <div>
-                <p className="text-[11px] font-bold text-amber-900 dark:text-amber-300 uppercase tracking-tight">Aviso de Operación</p>
-                <p className="text-[10px] text-amber-800 dark:text-amber-400/80 leading-relaxed">
-                  Al **Borrador Pendiente**, la compra queda registrada pero el stock no cambia. 
-                  Al **Cerrar e Ingresar**, el stock se carga inmediatamente al inventario maestro y queda disponible para venta.
-                </p>
-             </div>
+          <div className="rounded-[11px] p-[12px_16px] bg-[#d97706]/10 border border-[#d97706]/20 flex gap-3 mt-1">
+            <AlertTriangle className="text-[#fbbf24] mt-0.5 shrink-0" size={16} />
+            <div>
+              <div className="text-[10px] font-bold text-[#fbbf24] uppercase tracking-[0.5px] mb-1">Aviso de Operación</div>
+              <div className="text-[11px] text-[#fbbf24]/70 leading-[1.6]">Al "Borrador Pendiente", la compra queda registrada pero el stock no cambia. Al "Cerrar e Ingresar", el stock se carga inmediatamente al inventario maestro y queda disponible para venta.</div>
+            </div>
           </div>
         </div>
       </div>
     </TabsContent>
 
     <TabsContent value="historial" className="space-y-6 outline-none">
-      <Card className="glass-card rounded-2xl">
-        <CardHeader className="p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/20">
+      <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 flex flex-col overflow-hidden">
+        <div className="p-[18px_24px] border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Calendar className="text-blue-600" size={18} />
+            <div className="text-[13px] font-bold text-white flex items-center gap-2">
+              <Calendar className="text-indigo-400" size={16} />
               Historial de Ingresos de Compra
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">Consulte los ingresos históricos de productos y compras operativas Nexway.</CardDescription>
+            </div>
+            <div className="text-[11px] text-white/50 mt-1">Consulte los ingresos históricos de productos y compras operativas.</div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2 bg-slate-100 dark:bg-muted p-1 rounded-xl">
-              <Button variant={historyStatusFilter === 'TODOS' ? 'default' : 'ghost'} size="sm" onClick={() => setHistoryStatusFilter('TODOS')} className="text-xs font-bold rounded-lg h-8">TODOS</Button>
-              <Button variant={historyStatusFilter === 'PENDIENTE' ? 'default' : 'ghost'} size="sm" onClick={() => setHistoryStatusFilter('PENDIENTE')} className="text-xs font-bold rounded-lg h-8">BORRADOR</Button>
-              <Button variant={historyStatusFilter === 'CERRADA' ? 'default' : 'ghost'} size="sm" onClick={() => setHistoryStatusFilter('CERRADA')} className="text-xs font-bold rounded-lg h-8">INGRESADA</Button>
+            <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 p-1 rounded-[10px]">
+              <button onClick={() => setHistoryStatusFilter('TODOS')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'TODOS' ? 'bg-indigo-500/30 text-[#a5a8ff] shadow-sm' : 'text-white/50 hover:text-white/80'}`}>TODOS</button>
+              <button onClick={() => setHistoryStatusFilter('PENDIENTE')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'PENDIENTE' ? 'bg-indigo-500/30 text-[#a5a8ff] shadow-sm' : 'text-white/50 hover:text-white/80'}`}>BORRADOR</button>
+              <button onClick={() => setHistoryStatusFilter('CERRADA')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'CERRADA' ? 'bg-indigo-500/30 text-[#a5a8ff] shadow-sm' : 'text-white/50 hover:text-white/80'}`}>INGRESADA</button>
             </div>
           </div>
-        </CardHeader>
-
-        <div className="p-4 border-b flex items-center gap-2 bg-muted/10">
-          <Search size={16} className="text-muted-foreground" />
-          <Input 
-            placeholder="Buscar por ID de Pedido, Proveedor o Encargado..." 
-            value={historySearch}
-            onChange={(e) => setHistorySearch(e.target.value)}
-            className="h-9 bg-card border text-xs rounded-lg shadow-sm w-full md:max-w-md text-foreground"
-          />
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="p-4 border-b border-white/5 flex items-center gap-3 bg-white/5">
+          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[8px_12px] w-full md:max-w-md">
+            <Search size={14} className="text-white/30" />
+            <Input 
+              placeholder="Buscar por ID de Pedido, Proveedor o Encargado..." 
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              className="h-auto bg-transparent border-none text-[12px] text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/30"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto min-h-[400px]">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-[10px] font-black uppercase px-6">ID Pedido / Orden</TableHead>
-                <TableHead className="text-[10px] font-black uppercase">Proveedor</TableHead>
-                <TableHead className="text-[10px] font-black uppercase">Encargado</TableHead>
-                <TableHead className="text-[10px] font-black uppercase">Bodega</TableHead>
-                <TableHead className="text-[10px] font-black uppercase">Método Pago</TableHead>
-                <TableHead className="text-[10px] font-black uppercase">Monto Total</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-center">Estado</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-center">Fecha de Creación</TableHead>
-                <TableHead className="w-24 text-right px-6"></TableHead>
+            <TableHeader className="bg-[#161430]/90 backdrop-blur-sm">
+              <TableRow className="border-b border-white/10 hover:bg-transparent">
+                <TableHead className="text-[10px] font-semibold text-white/40 uppercase px-6 h-[40px]">ID Pedido</TableHead>
+                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Proveedor</TableHead>
+                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Encargado</TableHead>
+                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Bodega</TableHead>
+                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Método Pago</TableHead>
+                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Monto Total</TableHead>
+                <TableHead className="text-[10px] font-semibold text-white/40 uppercase text-center h-[40px]">Estado</TableHead>
+                <TableHead className="text-[10px] font-semibold text-white/40 uppercase text-center h-[40px]">Fecha de Creación</TableHead>
+                <TableHead className="w-24 px-6 h-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1150,8 +1140,8 @@ export default function PurchasesPage() {
                 }
                 if (list.length === 0) {
                   return (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-20 text-muted-foreground italic text-xs">
+                    <TableRow className="border-b border-white/5 hover:bg-transparent">
+                      <TableCell colSpan={9} className="text-center py-20 text-white/30 italic text-[11px]">
                         No se encontraron registros de compra.
                       </TableCell>
                     </TableRow>
@@ -1162,42 +1152,38 @@ export default function PurchasesPage() {
                   const provName = p.suppliers?.name || p.supplier_name || 'Sin Proveedor';
                   const dateStr = p.created_at ? new Date(p.created_at).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' }) : 'N/A';
                   return (
-                    <TableRow key={p.id} className="hover:bg-muted/30">
-                      <TableCell className="px-6 font-mono font-bold text-xs text-foreground">{p.order_id}</TableCell>
-                      <TableCell className="font-bold text-xs text-foreground">{provName}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{p.entered_by || 'N/A'}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-bold">{whName}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{p.payment_method} {p.credit_days ? `(${p.credit_days} d)` : ''}</TableCell>
-                      <TableCell className="text-xs font-black text-emerald-600 dark:text-emerald-400">${parseFloat(p.total).toFixed(2)}</TableCell>
+                    <TableRow key={p.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <TableCell className="px-6 font-mono font-bold text-[11px] text-white/80">{p.order_id}</TableCell>
+                      <TableCell className="font-bold text-[11.5px] text-white/90">{provName}</TableCell>
+                      <TableCell className="text-[11px] text-white/50">{p.entered_by || 'N/A'}</TableCell>
+                      <TableCell className="text-[11px] text-indigo-300 font-medium">{whName}</TableCell>
+                      <TableCell className="text-[11px] text-white/50">{p.payment_method} {p.credit_days ? `(${p.credit_days}d)` : ''}</TableCell>
+                      <TableCell className="text-[12.5px] font-black text-[#63e2b7]">${parseFloat(p.total).toFixed(2)}</TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={p.status === 'CERRADA' ? 'default' : 'secondary'} className={p.status === 'CERRADA' ? 'bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-[9px] font-bold' : 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border border-amber-500/20 rounded-md text-[9px] font-bold'}>
+                        <span className={`px-[8px] py-[3px] rounded-md text-[9px] font-bold uppercase tracking-[0.5px] ${p.status === 'CERRADA' ? 'bg-emerald-500/20 text-[#63e2b7] border border-emerald-500/30' : 'bg-[#d97706]/20 text-[#fbbf24] border border-[#d97706]/30'}`}>
                           {p.status === 'CERRADA' ? 'INGRESADA' : 'BORRADOR'}
-                        </Badge>
+                        </span>
                       </TableCell>
-                      <TableCell className="text-center text-xs text-muted-foreground">{dateStr}</TableCell>
+                      <TableCell className="text-center text-[10.5px] text-white/40">{dateStr}</TableCell>
                       <TableCell className="text-right px-6">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1.5">
                           {p.status === 'PENDIENTE' && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <button 
                               onClick={() => loadDraftPurchase(p)}
-                              className="h-8 text-[10px] font-bold rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                              className="px-2 py-1.5 text-[9.5px] font-bold rounded-lg border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 transition-colors uppercase tracking-[0.5px]"
                             >
-                              Editar Borrador
-                            </Button>
+                              Editar
+                            </button>
                           )}
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <button 
                             onClick={() => {
                               setSelectedPurchase(p);
                               setIsDetailsDialogOpen(true);
                             }}
-                            className="h-8 text-[10px] font-bold rounded-lg"
+                            className="px-2 py-1.5 text-[9.5px] font-bold rounded-lg bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/90 transition-colors uppercase tracking-[0.5px]"
                           >
-                            Ver Detalle
-                          </Button>
+                            Detalle
+                          </button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1207,46 +1193,49 @@ export default function PurchasesPage() {
             </TableBody>
           </Table>
         </div>
-      </Card>
+      </div>
     </TabsContent>
 
     <TabsContent value="vinculacion" className="space-y-6 outline-none">
-      {/* VINCULACIÓN DE CÓDIGOS DE PROVEEDOR UI */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* FORMULARIO MANUAL (IZQUIERDA) */}
         <div className="lg:col-span-4 space-y-4">
-          <Card className="glass-card rounded-2xl">
-            <CardHeader className="p-6">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Link2 className="text-blue-600" size={18} />
+          <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 overflow-hidden">
+            <div className="p-4 border-b border-white/10 bg-indigo-500/10">
+              <div className="text-[13px] font-bold text-white flex items-center gap-2">
+                <Link2 className="text-indigo-400" size={16} />
                 Vincular Código Manualmente
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Asocie un código que viene en las facturas de su proveedor con un SKU interno de su catálogo Nexway.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Código de Proveedor / DTE</Label>
-                <Input 
-                  placeholder="Ej: COD-PROV-123" 
-                  value={supplierCodeInput} 
-                  onChange={(e) => setSupplierCodeInput(e.target.value)}
-                  className="h-11 bg-muted border-none rounded-xl font-bold placeholder:text-muted-foreground/50 uppercase text-foreground"
-                />
+              </div>
+              <div className="text-[11px] text-white/50 mt-1">
+                Asocie un código de proveedor con un SKU interno.
+              </div>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="space-y-1.5">
+                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">Código de Proveedor / DTE</div>
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px]">
+                  <Input 
+                    placeholder="Ej: COD-PROV-123" 
+                    value={supplierCodeInput} 
+                    onChange={(e) => setSupplierCodeInput(e.target.value)}
+                    className="h-full bg-transparent border-none text-[12.5px] font-bold text-white/90 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20 uppercase"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2 relative">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">SKU Interno de Destino</Label>
-                <Input 
-                  placeholder="Buscar por SKU o Nombre..." 
-                  value={internalSkuInput} 
-                  onChange={(e) => setInternalSkuInput(e.target.value)}
-                  className="h-11 bg-muted border-none rounded-xl font-bold placeholder:text-muted-foreground/50 uppercase text-foreground"
-                />
+              <div className="space-y-1.5 relative">
+                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">SKU Interno de Destino</div>
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px]">
+                  <Input 
+                    placeholder="Buscar por SKU o Nombre..." 
+                    value={internalSkuInput} 
+                    onChange={(e) => setInternalSkuInput(e.target.value)}
+                    className="h-full bg-transparent border-none text-[12.5px] font-bold text-white/90 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20 uppercase"
+                  />
+                </div>
                 {internalSkuInput && !inventory.some(p => p.sku === internalSkuInput.trim().toUpperCase()) && (
-                  <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-card border rounded-xl shadow-xl max-h-48 overflow-y-auto p-1 divide-y divide-border">
+                  <div className="absolute z-50 left-0 right-0 top-[100%] mt-1 bg-[#161430] border border-white/10 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1 divide-y divide-white/5">
                     {inventory
                       .filter(p => 
                         p.sku.toLowerCase().includes(internalSkuInput.toLowerCase()) || 
@@ -1258,78 +1247,80 @@ export default function PurchasesPage() {
                           key={p.sku}
                           type="button"
                           onClick={() => setInternalSkuInput(p.sku)}
-                          className="w-full text-left px-3 py-2 text-xs hover:bg-muted rounded-lg flex justify-between font-bold text-foreground"
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 rounded-lg flex justify-between font-bold text-white"
                         >
-                          <span>{p.sku}</span>
-                          <span className="text-[10px] text-muted-foreground font-normal truncate max-w-[180px]">{p.name}</span>
+                          <span className="text-indigo-300">{p.sku}</span>
+                          <span className="text-[10px] text-white/40 font-normal truncate max-w-[150px]">{p.name}</span>
                         </button>
                       ))}
                     {inventory.filter(p => 
                       p.sku.toLowerCase().includes(internalSkuInput.toLowerCase()) || 
                       p.name.toLowerCase().includes(internalSkuInput.toLowerCase())
                     ).length === 0 && (
-                      <div className="p-3 text-center text-xs text-muted-foreground italic">No se encontraron productos</div>
+                      <div className="p-3 text-center text-[10px] text-white/30 italic">No se encontraron productos</div>
                     )}
                   </div>
                 )}
                 
                 {internalSkuInput && inventory.some(p => p.sku === internalSkuInput.trim().toUpperCase()) && (
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] font-bold text-emerald-600 dark:text-emerald-400 animate-in fade-in">
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] font-bold text-[#63e2b7] animate-in fade-in">
                     Producto Seleccionado: {inventory.find(p => p.sku === internalSkuInput.trim().toUpperCase())?.name}
                   </div>
                 )}
               </div>
 
-              <Button 
+              <button 
                 onClick={handleSaveManualMapping}
                 disabled={savingMapping || !supplierCodeInput.trim() || !internalSkuInput.trim()}
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95 border-none"
+                className="w-full h-10 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-all active:scale-95 border-none disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {savingMapping ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
+                {savingMapping ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                 GUARDAR VINCULACIÓN
-              </Button>
-            </CardContent>
-          </Card>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* LISTA & JSON EDITOR (DERECHA) */}
         <div className="lg:col-span-8">
-          <Card className="glass-card rounded-2xl overflow-hidden">
-            <Tabs defaultValue="tabla" className="w-full">
-              <CardHeader className="p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/20">
+          <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 overflow-hidden flex flex-col h-full">
+            <Tabs defaultValue="tabla" className="w-full flex flex-col h-full">
+              <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-transparent">
                 <div>
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <Link2 className="text-blue-600" size={18} />
+                  <div className="text-[13px] font-bold text-white flex items-center gap-2">
+                    <Link2 className="text-indigo-400" size={16} />
                     Equivalencias de Catálogo
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">Consulte y administre el mapeo masivo de SKU de proveedores.</CardDescription>
+                  </div>
+                  <div className="text-[11px] text-white/50 mt-1">Consulte y administre el mapeo masivo de SKU.</div>
                 </div>
-                <TabsList className="bg-slate-100 dark:bg-muted p-0.5 rounded-lg flex self-start sm:self-center">
-                  <TabsTrigger value="tabla" className="text-[10px] font-bold px-3 py-1.5 rounded-md">Lista de Vínculos</TabsTrigger>
-                  <TabsTrigger value="json" className="text-[10px] font-bold px-3 py-1.5 rounded-md">Editor JSON</TabsTrigger>
+                <TabsList className="bg-white/5 p-1 rounded-[10px] border border-white/10 flex">
+                  <TabsTrigger value="tabla" className="text-[10px] font-bold px-3 py-1.5 rounded-md data-[state=active]:bg-indigo-500/30 data-[state=active]:text-[#a5a8ff] text-white/50">Lista de Vínculos</TabsTrigger>
+                  <TabsTrigger value="json" className="text-[10px] font-bold px-3 py-1.5 rounded-md data-[state=active]:bg-indigo-500/30 data-[state=active]:text-[#a5a8ff] text-white/50">Editor JSON</TabsTrigger>
                 </TabsList>
-              </CardHeader>
+              </div>
               
               {/* SUBTAB TABLA DE EQUIVALENCIAS */}
-              <TabsContent value="tabla" className="m-0 outline-none">
-                <div className="p-4 border-b flex items-center gap-2 bg-muted/10">
-                  <Search size={16} className="text-muted-foreground" />
-                  <Input 
-                    placeholder="Buscar por código de proveedor o SKU interno..." 
-                    value={mappingSearch}
-                    onChange={(e) => setMappingSearch(e.target.value)}
-                    className="h-9 bg-card border text-xs rounded-lg shadow-sm w-full md:max-w-md text-foreground"
-                  />
+              <TabsContent value="tabla" className="m-0 outline-none flex-1 flex flex-col">
+                <div className="p-4 border-b border-white/5 flex items-center gap-3 bg-white/5">
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[8px_12px] w-full md:max-w-md">
+                    <Search size={14} className="text-white/30" />
+                    <Input 
+                      placeholder="Buscar por código de proveedor o SKU interno..." 
+                      value={mappingSearch}
+                      onChange={(e) => setMappingSearch(e.target.value)}
+                      className="h-auto bg-transparent border-none text-[12px] text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/30"
+                    />
+                  </div>
                 </div>
                 
-                <div className="overflow-x-auto max-h-[500px]">
+                <div className="overflow-x-auto min-h-[300px]">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-[10px] font-black uppercase px-6">Código de Proveedor</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">SKU Interno Nexway</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Producto Maestro</TableHead>
-                        <TableHead className="text-right text-[10px] font-black uppercase px-6">Acción</TableHead>
+                    <TableHeader className="bg-[#161430]/90 backdrop-blur-sm">
+                      <TableRow className="border-b border-white/10 hover:bg-transparent">
+                        <TableHead className="text-[10px] font-semibold text-white/40 uppercase px-6 h-[40px]">Código Proveedor</TableHead>
+                        <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">SKU Interno</TableHead>
+                        <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Producto Maestro</TableHead>
+                        <TableHead className="text-right text-[10px] font-semibold text-white/40 uppercase px-6 h-[40px]">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1341,8 +1332,8 @@ export default function PurchasesPage() {
                         );
                         if (list.length === 0) {
                           return (
-                            <TableRow>
-                              <TableCell colSpan={4} className="text-center py-16 text-muted-foreground italic text-xs">
+                            <TableRow className="border-b border-white/5 hover:bg-transparent">
+                              <TableCell colSpan={4} className="text-center py-16 text-white/30 italic text-[11px]">
                                 {s ? 'No se encontraron vinculaciones coincidentes.' : 'No hay equivalencias de proveedores registradas.'}
                               </TableCell>
                             </TableRow>
@@ -1351,19 +1342,17 @@ export default function PurchasesPage() {
                         return list.map((m: any) => {
                           const prod = inventory.find(p => p.sku === m.internalSku);
                           return (
-                            <TableRow key={m.supplierCode} className="hover:bg-muted/30">
-                              <TableCell className="px-6 font-mono font-bold text-xs text-blue-600 dark:text-blue-400">{m.supplierCode}</TableCell>
-                              <TableCell className="font-mono font-bold text-xs text-foreground">{m.internalSku}</TableCell>
-                              <TableCell className="text-xs font-bold text-muted-foreground max-w-[200px] truncate">{prod?.name || 'Desconocido'}</TableCell>
+                            <TableRow key={m.supplierCode} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                              <TableCell className="px-6 font-mono font-bold text-[11px] text-indigo-400">{m.supplierCode}</TableCell>
+                              <TableCell className="font-mono font-bold text-[11px] text-white/90">{m.internalSku}</TableCell>
+                              <TableCell className="text-[11px] font-medium text-white/50 max-w-[200px] truncate">{prod?.name || 'Desconocido'}</TableCell>
                               <TableCell className="text-right px-6">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
+                                <button 
                                   onClick={() => handleDeleteMapping(m.supplierCode)}
-                                  className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-lg border-none"
+                                  className="h-7 w-7 rounded-md inline-flex items-center justify-center text-white/20 hover:text-[#ff5c5c] hover:bg-[#ff5c5c]/10 transition-all"
                                 >
-                                  <Trash2 size={14} />
-                                </Button>
+                                  <Trash2 size={13} />
+                                </button>
                               </TableCell>
                             </TableRow>
                           );
@@ -1376,30 +1365,30 @@ export default function PurchasesPage() {
 
               {/* SUBTAB EDITOR JSON */}
               <TabsContent value="json" className="m-0 outline-none p-6 space-y-4">
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Estructura JSON Mappings</Label>
-                  <p className="text-[10px] text-muted-foreground leading-normal mb-2">
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">Estructura JSON Mappings</div>
+                  <p className="text-[10.5px] text-white/50 leading-normal mb-2">
                     Edite o cargue masivamente vinculaciones en formato JSON. El formato debe ser un arreglo de objetos con las propiedades <code>"supplier_code"</code> e <code>"internal_sku"</code>.
                   </p>
                   <textarea 
                     rows={12}
                     value={jsonMappingsInput}
                     onChange={(e) => setJsonMappingsInput(e.target.value)}
-                    className="w-full font-mono text-xs p-4 border rounded-2xl bg-slate-900 text-slate-100 placeholder:text-slate-700 outline-none resize-none shadow-inner"
+                    className="w-full font-mono text-[11px] p-4 border rounded-xl bg-black/40 border-white/10 text-white/80 placeholder:text-white/20 outline-none resize-none"
                   />
                 </div>
 
-                <Button 
+                <button 
                   onClick={handleSaveJsonMappings}
                   disabled={savingJsonMappings || !jsonMappingsInput.trim()}
-                  className="h-11 px-6 bg-slate-900 dark:bg-white dark:text-slate-900 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all w-full md:w-auto border-none"
+                  className="h-10 px-6 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-lg shadow-lg active:scale-95 transition-all w-full md:w-auto flex items-center justify-center gap-2 text-[12px] disabled:opacity-50"
                 >
-                  {savingJsonMappings ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
+                  {savingJsonMappings ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                   IMPORTAR & GUARDAR JSON
-                </Button>
+                </button>
               </TabsContent>
             </Tabs>
-          </Card>
+          </div>
         </div>
 
       </div>
