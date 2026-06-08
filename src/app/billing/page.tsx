@@ -34,7 +34,8 @@ import {
   Package,
   Store,
   Warehouse,
-  Clock
+  Clock,
+  Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -378,6 +379,13 @@ export default function BillingPage() {
         };
       });
 
+      if (mappedInventory.length === 1 && mappedInventory[0].sku.toLowerCase() === searchTerm.trim().toLowerCase()) {
+        addToCart(mappedInventory[0]);
+        setSearchTerm('');
+        setInventory([]);
+        return;
+      }
+
       setInventory(mappedInventory);
     } catch (err) {
       console.error(err);
@@ -471,7 +479,7 @@ export default function BillingPage() {
   , [salesAll]);
 
   // Cart Functions
-  const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
+  const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * (Number(item.quantity) || 0)), 0), [cart]);
 
   // Cálculos de Deuda Financiera y Límites de Crédito
   const { pendingCreditInvoices, outstandingDebt } = useMemo(() => {
@@ -597,6 +605,15 @@ export default function BillingPage() {
     });
   };
 
+  const updateCartQuantity = (id: string, qty: number | string) => {
+    const numQty = typeof qty === 'string' ? (qty === '' ? '' : parseFloat(qty)) : qty;
+    setCart(prev => prev.map(item => item.id === id ? { ...item, quantity: numQty === '' ? '' : (numQty || 0) } : item));
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
+
   const handleOpenCheckout = async () => {
     if (cart.length === 0) {
       toast({ variant: "destructive", title: "Carrito vacío" });
@@ -624,7 +641,7 @@ export default function BillingPage() {
           const physical = stockMap[item.sku] || 0;
           const pendingIncoming = pendingIncomingQty[item.sku] || 0;
           const available = physical + pendingIncoming;
-          if (available < item.quantity) {
+          if (available < (Number(item.quantity) || 0)) {
             toast({ 
               variant: "destructive", 
               title: "Stock Insuficiente Detectado", 
@@ -680,7 +697,7 @@ export default function BillingPage() {
         const physical = stockMap[item.sku] || 0;
         const pendingIncoming = pendingIncomingQty[item.sku] || 0;
         const available = physical + pendingIncoming;
-        if (available < item.quantity) {
+        if (available < (Number(item.quantity) || 0)) {
           toast({
             variant: "destructive",
             title: "Stock Insuficiente",
@@ -717,9 +734,9 @@ export default function BillingPage() {
       const itemsToInsert = cart.map(item => ({
         sale_id: insertedSale.id,
         sku: item.sku,
-        quantity: item.quantity,
+        quantity: Number(item.quantity) || 0,
         price: item.price,
-        subtotal: item.quantity * item.price
+        subtotal: (Number(item.quantity) || 0) * item.price
       }));
 
       const { error: itemsErr } = await supabase
@@ -732,7 +749,7 @@ export default function BillingPage() {
       if (deductWh) {
         for (const item of cart) {
           const currentStock = stockMap[item.sku] || 0;
-          const newQty = currentStock - item.quantity; // Allow negative stock for pending pre-transfers
+          const newQty = currentStock - (Number(item.quantity) || 0); // Allow negative stock for pending pre-transfers
 
           await supabase
             .from('inventory_stock')
@@ -763,7 +780,7 @@ export default function BillingPage() {
           docType: docType,
           docNumber: correlative,
           total: totalCart,
-          items: cart.map(i => ({ name: i.name, quantity: i.quantity, price: i.price }))
+          items: cart.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0, price: i.price }))
         });
       }
 
@@ -1231,7 +1248,7 @@ export default function BillingPage() {
                         >
                           <div className="flex flex-col gap-0.5">
                             <span className="text-xs font-bold text-slate-800 dark:text-white/80">{p.name}</span>
-                            <span className="text-[9px] text-slate-500 dark:text-white/40 font-mono">SKU: {p.sku} • Stock: {p.quantity}</span>
+                            <span className="text-[9px] text-slate-500 dark:text-white/40 font-mono">SKU: {p.sku} {p.category ? `• Ref: ${p.category}` : ''} • Stock: {p.quantity}</span>
                           </div>
                           <span className="text-xs font-bold text-blue-600 dark:text-[#7c7fff]">${p.price.toFixed(2)}</span>
                         </div>
@@ -1276,12 +1293,23 @@ export default function BillingPage() {
                           <TableCell className="text-xs font-mono text-slate-400 dark:text-white/40">{item.sku}</TableCell>
                           <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-white/60">${item.price.toFixed(2)}</TableCell>
                           <TableCell className="text-center">
-                            <span className="text-xs font-bold text-slate-800 dark:text-white/80 bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-lg">
-                              {item.quantity}
-                            </span>
+                            <Input
+                              type="number"
+                              min="1"
+                              className="w-16 h-7 text-xs text-center mx-auto bg-slate-100 dark:bg-white/10 border-transparent focus:border-blue-500 rounded-lg text-slate-800 dark:text-white/80 font-bold"
+                              value={item.quantity === 0 ? '' : item.quantity}
+                              onChange={(e) => updateCartQuantity(item.id, e.target.value)}
+                            />
                           </TableCell>
                           <TableCell className="text-right text-xs font-medium text-slate-400 dark:text-white/40">$0.00</TableCell>
-                          <TableCell className="text-right text-xs font-bold text-blue-600 dark:text-[#7c7fff] pr-6">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                          <TableCell className="text-right pr-2">
+                            <div className="flex items-center justify-end gap-3">
+                              <span className="text-xs font-bold text-blue-600 dark:text-[#7c7fff]">${(item.price * (Number(item.quantity) || 0)).toFixed(2)}</span>
+                              <button onClick={() => removeFromCart(item.id)} className="text-slate-400 hover:text-rose-500 transition-colors p-1">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1407,7 +1435,7 @@ export default function BillingPage() {
                              >
                                <div className="flex flex-col gap-0.5">
                                  <span className="text-xs font-bold text-slate-800 dark:text-white/80">{p.name}</span>
-                                 <span className="text-[9px] text-slate-500 dark:text-white/40 font-mono">SKU: {p.sku}</span>
+                                 <span className="text-[9px] text-slate-500 dark:text-white/40 font-mono">SKU: {p.sku} {p.category ? `• Ref: ${p.category}` : ''} • Stock: {p.quantity}</span>
                                </div>
                                <span className="text-xs font-bold text-rose-600 dark:text-rose-400">${p.price.toFixed(2)}</span>
                              </div>
@@ -1524,7 +1552,7 @@ export default function BillingPage() {
                              >
                                <div className="flex flex-col gap-0.5">
                                  <span className="text-xs font-bold text-slate-800 dark:text-white/80">{p.name}</span>
-                                 <span className="text-[9px] text-slate-500 dark:text-white/40 font-mono">SKU: {p.sku}</span>
+                                 <span className="text-[9px] text-slate-500 dark:text-white/40 font-mono">SKU: {p.sku} {p.category ? `• Ref: ${p.category}` : ''} • Stock: {p.quantity}</span>
                                </div>
                                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">${p.price.toFixed(2)}</span>
                              </div>
