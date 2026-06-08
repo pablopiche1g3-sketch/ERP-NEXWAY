@@ -186,20 +186,24 @@ export default function SuppliersPage() {
   }, [searchTerm, suppliers]);
 
   return (
-    <div className="min-h-screen bg-transparent">
-      <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+      {/* Background glow animations */}
+      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-tint-glow1/10 dark:bg-tint-glow1/20 blur-[120px] transform-gpu pointer-events-none" />
+      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-tint-glow2/10 dark:bg-tint-glow2/15 blur-[120px] transform-gpu pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full bg-card shadow-sm hover:bg-accent border" 
+            className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-white/10 hover:bg-white/10 dark:hover:bg-white/10" 
             onClick={() => router.push('/')}
           >
-            <ArrowLeft className="text-foreground" size={20} />
+            <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
           </Button>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-foreground">Directorio de Proveedores</h1>
-            <p className="text-muted-foreground text-xs md:text-sm">Gestión de suministrantes y condiciones tributarias</p>
+            <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Directorio de Proveedores</h1>
+            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Gestión de suministrantes y condiciones tributarias</p>
           </div>
         </div>
         <ModeToggle />
@@ -207,13 +211,13 @@ export default function SuppliersPage() {
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 relative z-10">
         <div className="lg:col-span-4 space-y-4">
-          <Card className="glass-card rounded-2xl overflow-hidden">
-            <CardHeader className="bg-emerald-700 text-white p-6">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Building2 size={20} />
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border-white/10 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-200 dark:border-white/10 p-6 bg-slate-50 dark:bg-white/5">
+              <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+                <Building2 size={20} className="text-indigo-600 dark:text-emerald-500" />
                 Nuevo Proveedor
               </CardTitle>
-              <CardDescription className="text-emerald-100/80">Ingrese los datos legales para facturación</CardDescription>
+              <CardDescription className="text-slate-500 dark:text-slate-400 text-xs">Ingrese los datos legales para facturación</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={handleCreateSupplier} className="space-y-4">
@@ -225,7 +229,7 @@ export default function SuppliersPage() {
                       placeholder="Ej. Suministros Industriales S.A."
                       value={form.name}
                       onChange={e => setForm({...form, name: e.target.value})}
-                      className="h-10 pl-9 bg-muted border-none rounded-xl text-xs font-bold"
+                      className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                     />
                   </div>
                 </div>
@@ -237,7 +241,7 @@ export default function SuppliersPage() {
                       placeholder="NIT..." 
                       value={form.nit}
                       onChange={e => setForm({...form, nit: e.target.value})}
-                      className="h-10 bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                      className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -246,7 +250,7 @@ export default function SuppliersPage() {
                       placeholder="NRC..." 
                       value={form.nrc}
                       onChange={e => setForm({...form, nrc: e.target.value})}
-                      className="h-10 bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                      className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-white"
                     />
                   </div>
                 </div>
@@ -257,20 +261,20 @@ export default function SuppliersPage() {
                     placeholder="Giro..." 
                     value={form.giro}
                     onChange={e => setForm({...form, giro: e.target.value})}
-                    className="h-10 bg-muted border-none rounded-xl text-xs font-bold"
+                    className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border">
-                    <Label className="text-[9px] font-bold uppercase text-foreground">Retención</Label>
+                  <div className="flex items-center justify-between p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl shadow-sm dark:shadow-none">
+                    <Label className="text-[9px] font-bold uppercase text-slate-800 dark:text-white">Retención</Label>
                     <Switch 
                       checked={form.applyRetention}
                       onCheckedChange={(val) => setForm({...form, applyRetention: val})}
                     />
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border">
-                    <Label className="text-[9px] font-bold uppercase text-foreground">Percepción</Label>
+                  <div className="flex items-center justify-between p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl shadow-sm dark:shadow-none">
+                    <Label className="text-[9px] font-bold uppercase text-slate-800 dark:text-white">Percepción</Label>
                     <Switch 
                       checked={form.applyPerception}
                       onCheckedChange={(val) => setForm({...form, applyPerception: val})}
@@ -286,7 +290,7 @@ export default function SuppliersPage() {
                       placeholder="Email..." 
                       value={form.email}
                       onChange={e => setForm({...form, email: e.target.value})}
-                      className="h-10 bg-muted border-none rounded-xl text-xs"
+                      className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -295,12 +299,12 @@ export default function SuppliersPage() {
                       placeholder="Tel..." 
                       value={form.phone}
                       onChange={e => setForm({...form, phone: e.target.value})}
-                      className="h-10 bg-muted border-none rounded-xl text-xs"
+                      className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 rounded-xl font-bold text-white shadow-lg shadow-emerald-700/20 active:scale-95 transition-all">
+                <Button type="submit" className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20 dark:shadow-emerald-700/20 active:scale-95 transition-all">
                   <Plus size={18} className="mr-2" />
                   Registrar Proveedor
                 </Button>
@@ -311,24 +315,24 @@ export default function SuppliersPage() {
 
         <div className="lg:col-span-8 space-y-4">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-muted-foreground" size={18} />
             <Input 
               placeholder="Buscar por razón social o NIT..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-10 md:h-12 glass-input border shadow-sm rounded-2xl text-xs md:text-sm"
+              className="pl-12 h-10 md:h-12 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-xs md:text-sm text-slate-800 dark:text-white"
             />
           </div>
 
-          <Card className="glass-card rounded-2xl overflow-hidden">
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border-white/10 shadow-sm rounded-2xl overflow-hidden">
             <ScrollArea className="h-[600px]">
               <Table>
-                <TableHeader className="bg-muted/50 sticky top-0 z-10">
+                <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 border-b border-slate-200 dark:border-white/10 shadow-sm">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase px-4 md:px-6">Proveedor</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Tributos</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Retención</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Percepción</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase px-4 md:px-6 text-slate-700 dark:text-white">Proveedor</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-700 dark:text-white">Tributos</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-700 dark:text-white">Retención</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-700 dark:text-white">Percepción</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -342,17 +346,17 @@ export default function SuppliersPage() {
                       </TableCell>
                     </TableRow>
                   ) : filteredSuppliers.map((supplier: any) => (
-                    <TableRow key={supplier.id} className="hover:bg-muted/30 transition-colors">
+                    <TableRow key={supplier.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-100 dark:border-white/5 transition-colors">
                       <TableCell className="px-4 md:px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-foreground text-xs">{supplier.name}</span>
-                          <span className="text-[9px] text-muted-foreground">{supplier.email || 'Sin correo'}</span>
+                          <span className="font-bold text-slate-800 dark:text-white text-xs">{supplier.name}</span>
+                          <span className="text-[9px] text-slate-500 dark:text-slate-400">{supplier.email || 'Sin correo'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-mono font-bold text-foreground">NIT: {supplier.nit}</span>
-                          <span className="text-[10px] font-mono font-bold text-muted-foreground">NRC: {supplier.nrc}</span>
+                          <span className="text-[10px] font-mono font-bold text-slate-800 dark:text-white">NIT: {supplier.nit}</span>
+                          <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">NRC: {supplier.nrc}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -362,7 +366,7 @@ export default function SuppliersPage() {
                             onCheckedChange={(val) => handleUpdateSupplierField(supplier.id, 'applyRetention', val)}
                             className="scale-75"
                           />
-                          <span className={`text-[9px] font-black ${supplier.applyRetention ? 'text-amber-500' : 'text-muted-foreground/30'}`}>1%</span>
+                          <span className={`text-[9px] font-black ${supplier.applyRetention ? 'text-amber-500' : 'text-slate-400 dark:text-slate-600'}`}>1%</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -372,7 +376,7 @@ export default function SuppliersPage() {
                             onCheckedChange={(val) => handleUpdateSupplierField(supplier.id, 'applyPerception', val)}
                             className="scale-75"
                           />
-                          <span className={`text-[9px] font-black ${supplier.applyPerception ? 'text-blue-500' : 'text-muted-foreground/30'}`}>1%</span>
+                          <span className={`text-[9px] font-black ${supplier.applyPerception ? 'text-indigo-500 dark:text-sky-500' : 'text-slate-400 dark:text-slate-600'}`}>1%</span>
                         </div>
                       </TableCell>
                       <TableCell className="px-4">
@@ -380,7 +384,7 @@ export default function SuppliersPage() {
                           variant="ghost" 
                           size="icon" 
                           onClick={() => handleDeleteSupplier(supplier.id)}
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          className="h-8 w-8 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-white/10 rounded-lg"
                         >
                           <Trash2 size={14} />
                         </Button>

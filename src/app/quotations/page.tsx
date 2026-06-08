@@ -17,8 +17,10 @@ import {
   User,
   BadgeInfo,
   Printer,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-react';
+import { ModeToggle } from '@/components/ModeToggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -201,28 +203,35 @@ export default function QuotationsPage() {
   return (
     <>
       {/* VISTA EN PANTALLA (OCULTA AL IMPRIMIR) */}
-      <div className="min-h-screen bg-transparent">
-        <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 relative z-10">
+      <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden print:hidden">
+        {/* Background glow animations */}
+        <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-tint-glow1/10 dark:bg-tint-glow1/20 blur-[120px] transform-gpu pointer-events-none" />
+        <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-tint-glow2/10 dark:bg-tint-glow2/15 blur-[120px] transform-gpu pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="rounded-full bg-white shadow-sm hover:bg-slate-100" 
+              className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10" 
               onClick={() => router.push('/')}
             >
-              <ArrowLeft className="text-slate-600" size={20} />
+              <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
             </Button>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 font-headline">Presupuestos y Cotizaciones</h1>
-              <p className="text-slate-500 text-xs sm:text-sm">Generación de precios sin afectar inventario físico</p>
+              <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Presupuestos y Cotizaciones</h1>
+              <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Generación de precios sin afectar inventario físico</p>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <ModeToggle />
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 print:hidden">
           {/* Panel Izquierdo: Resumen y Totales */}
           <div className="lg:col-span-4 space-y-4">
-            <Card className="glass-card rounded-2xl overflow-hidden">
+            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
               <CardHeader className="bg-orange-600 text-white p-5">
                 <div className="flex justify-between items-center mb-2">
                   <CardTitle className="text-base font-bold">Resumen del Cliente</CardTitle>
@@ -243,7 +252,7 @@ export default function QuotationsPage() {
               <CardContent className="p-0">
                 <ScrollArea className="h-[400px]">
                   <Table>
-                    <TableHeader className="bg-slate-50">
+                    <TableHeader className="bg-slate-50 dark:bg-white/5">
                       <TableRow>
                         <TableHead className="w-[40px] text-[10px] font-bold px-3 text-center">CANT</TableHead>
                         <TableHead className="text-[10px] font-bold">DESCRIPCIÓN</TableHead>
@@ -259,7 +268,7 @@ export default function QuotationsPage() {
                           </TableCell>
                         </TableRow>
                       ) : quoteItems.map((item) => (
-                        <TableRow key={item.id} className="hover:bg-slate-50 border-b border-slate-50">
+                        <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-b border-slate-50 dark:border-white/5">
                           <TableCell className="px-3">
                             <Input 
                               type="number" 
@@ -271,7 +280,7 @@ export default function QuotationsPage() {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1">
-                              <span className="font-bold text-slate-900 text-[11px] leading-tight">{item.name}</span>
+                              <span className="font-bold text-slate-900 dark:text-white text-[11px] leading-tight">{item.name}</span>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-[9px] font-mono text-slate-400">{item.sku}</span>
                                 <span className="text-[9px] text-slate-500 font-medium">P. Unit: $</span>
@@ -281,12 +290,12 @@ export default function QuotationsPage() {
                                   value={item.price} 
                                   onFocus={e => e.target.select()}
                                   onChange={e => updatePrice(item.id, parseFloat(e.target.value) || 0)}
-                                  className="w-16 h-5 px-1 py-0 text-center font-bold text-slate-900 text-[10px] bg-slate-50 border border-slate-200 rounded focus:border-orange-500 focus:outline-none"
+                                  className="w-16 h-5 px-1 py-0 text-center font-bold text-slate-900 dark:text-white text-[10px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded focus:border-orange-500 focus:outline-none"
                                 />
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right font-bold text-slate-900 text-[11px]">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-bold text-slate-900 dark:text-white text-[11px]">${(item.price * item.quantity).toFixed(2)}</TableCell>
                           <TableCell className="px-2 text-center">
                             <Button variant="ghost" size="icon" onClick={() => removeFromQuote(item.id)} className="h-6 w-6 text-slate-300 hover:text-rose-500">
                               <Trash2 size={12} />
@@ -298,16 +307,16 @@ export default function QuotationsPage() {
                   </Table>
                 </ScrollArea>
 
-                <div className="p-4 border-t border-white/10 border-slate-100 bg-slate-50/50 space-y-2">
+                <div className="p-4 border-t border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-black/20 space-y-2">
                   <div className="flex justify-between text-xs text-slate-500">
                     <span>Subtotal Gravado:</span>
-                    <span className="font-bold text-slate-900">${subtotal.toFixed(2)}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">${subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-xs text-slate-500">
                     <span>IVA (13%):</span>
-                    <span className="font-bold text-slate-900">${iva.toFixed(2)}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">${iva.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-white/10 border-slate-100">
+                  <div className="flex justify-between text-sm font-black text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-white/10">
                     <span>VALIDEZ: 15 DÍAS</span>
                     <span className="text-orange-600">${total.toFixed(2)}</span>
                   </div>
@@ -327,8 +336,8 @@ export default function QuotationsPage() {
 
           {/* Panel Derecho: Información, Producto Sin Existencia y Catálogo Maestro */}
           <div className="lg:col-span-8 space-y-4">
-            <Card className="glass-card rounded-2xl overflow-hidden">
-              <div className="bg-slate-50 border-b border-slate-100 px-4 py-2 flex items-center justify-between">
+            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 px-4 py-2 flex items-center justify-between">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Solicitante</span>
                 <FileText size={14} className="text-slate-300" />
               </div>
@@ -341,7 +350,7 @@ export default function QuotationsPage() {
                     placeholder="Ej. Comercial Los Robles..." 
                     value={customerName}
                     onChange={e => setCustomerName(e.target.value)}
-                    className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -352,7 +361,7 @@ export default function QuotationsPage() {
                     placeholder="0000-000000-000-0" 
                     value={customerNit}
                     onChange={e => setCustomerNit(e.target.value)}
-                    className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs font-mono text-slate-800 dark:text-white"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -363,15 +372,15 @@ export default function QuotationsPage() {
                     placeholder="Registro Contribuyente" 
                     value={customerNrc}
                     onChange={e => setCustomerNrc(e.target.value)}
-                    className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs font-mono text-slate-800 dark:text-white"
                   />
                 </div>
               </CardContent>
             </Card>
 
             {/* SECCIÓN: PRODUCTO SIN EXISTENCIA / PERSONALIZADO */}
-            <Card className="glass-card rounded-2xl overflow-hidden border-l-4 border-orange-500">
-              <div className="bg-slate-50/50 border-b border-slate-100 px-4 py-2.5 flex items-center justify-between">
+            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm border-l-4 border-l-orange-500">
+              <div className="bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 px-4 py-2.5 flex items-center justify-between">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                   <Calculator size={12} className="text-orange-500" />
                   Agregar Producto Sin Existencia / Especial
@@ -385,7 +394,7 @@ export default function QuotationsPage() {
                     placeholder="Ej. Abrazadera especial 1/2 pulgada..." 
                     value={customName}
                     onChange={e => setCustomName(e.target.value)}
-                    className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
                   />
                 </div>
                 <div className="sm:col-span-3 space-y-1.5">
@@ -405,7 +414,7 @@ export default function QuotationsPage() {
                     placeholder="0.00" 
                     value={customPrice}
                     onChange={e => setCustomPrice(e.target.value)}
-                    className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold"
+                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -420,7 +429,7 @@ export default function QuotationsPage() {
             </Card>
 
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-2">
-              <h2 className="text-sm font-bold text-slate-700 uppercase tracking-tight flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-700 dark:text-white uppercase tracking-tight flex items-center gap-2">
                 <Package size={16} className="text-blue-500" />
                 Catálogo de Códigos Autorizados
               </h2>
@@ -431,7 +440,7 @@ export default function QuotationsPage() {
                     placeholder="Buscar por SKU o nombre (Presiona Enter)..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-10 glass-input border-none shadow-sm rounded-xl text-sm font-medium"
+                    className="pl-10 h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-xl text-sm font-medium text-slate-800 dark:text-white"
                   />
                 </div>
                 <Button type="submit" className="h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-4 font-bold shrink-0">
@@ -455,7 +464,7 @@ export default function QuotationsPage() {
                   <div 
                     key={product.id}
                     onClick={() => addToQuote(product)}
-                    className="glass-card p-3 rounded-2xl hover:border-orange-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between min-h-[145px] h-auto gap-2"
+                    className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-3 rounded-2xl hover:border-orange-400 dark:hover:border-orange-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between min-h-[145px] h-auto gap-2"
                   >
                     <div className="flex justify-between items-start">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50 text-blue-500 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">

@@ -559,7 +559,9 @@ export default function PurchasesPage() {
             status: status,
             payment_method: paymentMethod,
             credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
-            payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO')
+            payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO'),
+            document_type: docType,
+            document_number: generationCode
           })
           .eq('id', editingPurchaseId)
           .select()
@@ -583,7 +585,9 @@ export default function PurchasesPage() {
             status: status,
             payment_method: paymentMethod,
             credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
-            payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO')
+            payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO'),
+            document_type: docType,
+            document_number: generationCode
           })
           .select()
           .single();
@@ -669,7 +673,9 @@ export default function PurchasesPage() {
 
         if (json.identificacion && json.emisor && json.cuerpoDocumento) {
           setSupplierName(json.emisor.nombre || '');
-          setGenerationCode(json.identificacion.codigoGeneracion || '');
+          const dteGen = json.identificacion.codigoGeneracion || '';
+          const dteCtrl = json.identificacion.numeroControl || '';
+          setGenerationCode(dteCtrl ? `${dteCtrl} | ${dteGen}` : dteGen);
           setDocType(json.identificacion.tipoDte === '03' ? 'CCF' : 'FACTURA');
           
           json.cuerpoDocumento?.forEach((item: any) => {
@@ -778,8 +784,8 @@ export default function PurchasesPage() {
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
       {/* Background glow animations */}
-      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-tint-glow1/10 dark:bg-tint-glow1/20 blur-[120px] transform-gpu pointer-events-none" />
+      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-tint-glow2/10 dark:bg-tint-glow2/15 blur-[120px] transform-gpu pointer-events-none" />
       
       <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">

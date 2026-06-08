@@ -65,6 +65,11 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        tint: {
+          glow1: 'rgb(var(--tint-glow-1) / <alpha-value>)',
+          glow2: 'rgb(var(--tint-glow-2) / <alpha-value>)',
+          text: 'rgb(var(--tint-text) / <alpha-value>)',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

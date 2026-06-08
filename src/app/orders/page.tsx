@@ -974,23 +974,27 @@ export default function OrdersPage() {
   }, [supplierSearchQuery, suppliers]);
 
   return (
-    <div className="min-h-screen bg-transparent">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+      {/* Background glow animations */}
+      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-tint-glow1/10 dark:bg-tint-glow1/20 blur-[120px] transform-gpu pointer-events-none" />
+      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-tint-glow2/10 dark:bg-tint-glow2/15 blur-[120px] transform-gpu pointer-events-none" />
+
       {/* HEADER PRINCIPAL */}
-      <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+      <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           {!isStandalone && isAdmin && (
             <Button 
               variant="ghost" 
               size="icon" 
-              className="rounded-full glass hover:bg-white/10 border-white/10 text-white" 
+              className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-white/10 hover:bg-white/10 dark:hover:bg-white/10" 
               onClick={() => router.push('/')}
             >
-              <ArrowLeft className="text-white" size={20} />
+              <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
             </Button>
           )}
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">Centro de Requisición & Pedidos</h1>
+              <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Centro de Requisición & Pedidos</h1>
               {activeTenant && (
                 <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full text-amber-600 dark:text-amber-400 text-[10px] font-bold shadow-sm animate-pulse">
                   <span>CLIENTE: {activeTenant.toUpperCase()}</span>
@@ -1007,7 +1011,7 @@ export default function OrdersPage() {
                 </div>
               )}
             </div>
-            <p className="text-slate-400 text-xs md:text-sm">Gestión de órdenes de pedidos internas entre tiendas y externas con proveedores</p>
+            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Gestión de órdenes de pedidos internas entre tiendas y externas con proveedores</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1027,19 +1031,19 @@ export default function OrdersPage() {
 
       <div className="max-w-7xl mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
-          <TabsList className="glass-card p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar shadow-sm">
             {config?.['orders_interno'] !== false && (
-              <TabsTrigger value="interno" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger value="interno" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
                 <Warehouse size={14} className="mr-2" /> Pedidos Internos (Tiendas)
               </TabsTrigger>
             )}
             {config?.['orders_externo'] !== false && (
-              <TabsTrigger value="externo" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger value="externo" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
                 <Truck size={14} className="mr-2" /> Pedidos Externos (Proveedores)
               </TabsTrigger>
             )}
             {config?.['orders_cargar-codigos'] !== false && (
-              <TabsTrigger value="cargar-codigos" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger value="cargar-codigos" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
                 <FileSpreadsheet size={14} className="mr-2" /> Cargar Códigos (Excel)
               </TabsTrigger>
             )}
@@ -1051,8 +1055,8 @@ export default function OrdersPage() {
               
               {/* Formulario Nueva Requisición */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="glass-card rounded-2xl overflow-hidden">
-                  <CardHeader className="bg-violet-900 dark:bg-violet-950 text-white p-5">
+                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+                  <CardHeader className="bg-indigo-600 dark:bg-violet-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <ClipboardList size={18} className="text-violet-400" /> Nueva Requisición entre Sucursales
                     </CardTitle>
@@ -1066,7 +1070,7 @@ export default function OrdersPage() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bodega (la que da el material)</Label>
                           <Select value={intSourceWh} onValueChange={setIntSourceWh}>
-                            <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white">
                               <SelectValue placeholder="Origen..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1080,7 +1084,7 @@ export default function OrdersPage() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bodega (que solicita)</Label>
                           <Select value={intDestWh} onValueChange={setIntDestWh}>
-                            <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white">
                               <SelectValue placeholder="Destino..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1100,13 +1104,13 @@ export default function OrdersPage() {
                             placeholder="Nombre del encargado..." 
                             value={intRequestedBy}
                             onChange={e => setIntRequestedBy(e.target.value)}
-                            className="pl-9 h-11 glass-input rounded-xl text-xs font-bold"
+                            className="pl-9 h-11 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                           />
                         </div>
                       </div>
 
                       {/* Buscador de items para añadir */}
-                      <div className="p-4 bg-white/5 border-b border-white/10 rounded-2xl border space-y-3">
+                      <div className="p-4 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-2xl border space-y-3">
                         <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block">Agregar Producto Manual</Label>
                         
                         <div className="space-y-3">
@@ -1128,11 +1132,11 @@ export default function OrdersPage() {
                                     setIntIsManual(true);
                                   }
                                 }}
-                                className="h-9 glass-card text-xs font-bold uppercase"
+                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-800 dark:text-white"
                               />
                               {/* Autocomplete Suggestions */}
                               {intItemSku.trim().length > 0 && !inventory?.some((p: any) => p.sku === intItemSku.trim().toUpperCase()) && (
-                                <div className="absolute z-20 w-full glass-card border rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
+                                <div className="absolute z-20 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
                                   {inventory
                                     ?.filter((p: any) => p.sku.toLowerCase().includes(intItemSku.toLowerCase()) || p.name.toLowerCase().includes(intItemSku.toLowerCase()))
                                     .slice(0, 5)
@@ -1158,7 +1162,7 @@ export default function OrdersPage() {
                                 type="number" 
                                 value={intItemQty} 
                                 onChange={e => setIntItemQty(e.target.value)}
-                                className="h-9 glass-card text-center text-xs font-bold"
+                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center text-xs font-bold text-slate-800 dark:text-white"
                               />
                             </div>
                           </div>
@@ -1169,7 +1173,7 @@ export default function OrdersPage() {
                               value={intItemName}
                               onChange={e => setIntItemName(e.target.value)}
                               disabled={!intIsManual && intItemSku.trim() !== ''}
-                              className="h-9 glass-card text-xs font-bold"
+                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white"
                             />
                             {intIsManual && intItemSku.trim().length > 0 && (
                               <span className="text-[9px] text-amber-500 font-bold flex items-center gap-1 mt-0.5">
@@ -1183,7 +1187,7 @@ export default function OrdersPage() {
                           type="button" 
                           onClick={handleIntAddItem} 
                           variant="outline" 
-                          className="w-full h-9 border-violet-500/20 text-violet-600 dark:text-violet-400 font-bold text-xs rounded-xl mt-2"
+                          className="w-full h-9 border-indigo-200 dark:border-violet-500/20 text-indigo-600 dark:text-violet-400 bg-white hover:bg-indigo-50 dark:bg-transparent dark:hover:bg-white/5 font-bold text-xs rounded-xl mt-2"
                         >
                           <Plus size={14} className="mr-1.5" /> Agregar a Lista
                         </Button>
@@ -1193,14 +1197,14 @@ export default function OrdersPage() {
                       {intItems.length > 0 && (
                         <div className="space-y-2 pt-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Ítems Solicitados</Label>
-                          <ScrollArea className="h-32 border rounded-xl glass-input/20">
+                          <ScrollArea className="h-32 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-white/5">
                             <Table>
                               <TableBody>
                                                                   {intItems.map((item, idx) => (
-                                  <TableRow key={item.sku} className="hover:bg-transparent">
-                                    <TableCell className="py-2 text-[10px] font-mono font-bold text-slate-600 dark:text-muted-foreground">{item.sku}</TableCell>
-                                    <TableCell className="py-2 text-[11px] font-bold text-slate-800 dark:text-foreground">{item.name}</TableCell>
-                                    <TableCell className="py-2 text-center text-[10px] font-black">{item.quantity} un.</TableCell>
+                                  <TableRow key={item.sku} className="hover:bg-slate-100 dark:hover:bg-white/10 border-slate-100 dark:border-white/5">
+                                    <TableCell className="py-2 text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">{item.sku}</TableCell>
+                                    <TableCell className="py-2 text-[11px] font-bold text-slate-800 dark:text-white">{item.name}</TableCell>
+                                    <TableCell className="py-2 text-center text-[10px] font-black text-slate-700 dark:text-white">{item.quantity} un.</TableCell>
                                     <TableCell className="py-2 text-right">
                                       <Button 
                                         variant="ghost" 
@@ -1221,7 +1225,7 @@ export default function OrdersPage() {
 
                       <Button 
                         type="submit" 
-                        className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg text-xs"
+                        className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 dark:bg-violet-600 dark:hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 dark:shadow-violet-600/20 text-xs transition-all active:scale-95"
                         disabled={loading || intItems.length === 0}
                       >
                         {loading ? <Loader2 className="animate-spin mr-2" /> : <ClipboardList className="mr-2" size={16} />}
@@ -1240,14 +1244,14 @@ export default function OrdersPage() {
                     placeholder="Buscar requisición por código, bodega o encargado..." 
                     value={internalSearchFilter}
                     onChange={e => setInternalSearchFilter(e.target.value)}
-                    className="pl-12 h-12 glass-input border-none shadow-sm rounded-2xl text-xs md:text-sm"
+                    className="pl-12 h-12 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl text-xs md:text-sm text-slate-800 dark:text-white"
                   />
                 </div>
 
-                <Card className="glass-card rounded-2xl overflow-hidden">
+                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
                   <ScrollArea className="h-[520px]">
                     <Table>
-                      <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10">
+                      <TableHeader className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
                         <TableRow>
                           <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">Código / Fecha</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase">Ruta</TableHead>
@@ -1265,21 +1269,21 @@ export default function OrdersPage() {
                             </TableCell>
                           </TableRow>
                         ) : filteredInternalOrders.map((o: any) => (
-                          <TableRow key={o.id} className="hover:bg-white/10 border-b border-white/5">
+                          <TableRow key={o.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-200 dark:border-white/5 transition-colors">
                             <TableCell className="px-4 md:px-6 py-4">
                               <div className="flex flex-col">
-                                <span className="font-mono font-black text-xs text-slate-700 dark:text-foreground">{o.code}</span>
-                                <span className="text-[9px] text-slate-400 font-bold">{new Date(o.createdAt).toLocaleDateString()}</span>
+                                <span className="font-mono font-black text-xs text-slate-800 dark:text-white">{o.code}</span>
+                                <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold">{new Date(o.createdAt).toLocaleDateString()}</span>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-foreground">
+                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-800 dark:text-white">
                                 <span>{o.sourceWarehouse}</span>
                                 <ArrowRight size={10} className="text-slate-400" />
-                                <span className="text-violet-600">{o.destinationWarehouse}</span>
+                                <span className="text-indigo-600 dark:text-violet-400">{o.destinationWarehouse}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-xs font-bold text-slate-400">{o.requestedBy}</TableCell>
+                            <TableCell className="text-xs font-bold text-slate-500 dark:text-slate-400">{o.requestedBy}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant="outline" className="text-[9px] bg-slate-50 border-slate-200">
                                 {o.items?.length || 0} productos
@@ -1356,8 +1360,8 @@ export default function OrdersPage() {
               
               {/* Formulario Nueva Orden Proveedor */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="glass-card rounded-2xl overflow-hidden">
-                  <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
+                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+                  <CardHeader className="border-b border-slate-200 dark:border-white/10 text-white bg-indigo-600 dark:bg-white/5 p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Building2 size={18} className="text-violet-400" /> Nueva Orden de Pedido a Proveedor
                     </CardTitle>
@@ -1376,7 +1380,7 @@ export default function OrdersPage() {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button type="button" size="sm" variant="outline" className="h-8 rounded-xl text-[10px] font-black border-indigo-200 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 glass-card">
+                          <Button type="button" size="sm" variant="outline" className="h-8 rounded-xl text-[10px] font-black border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-transparent hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shadow-sm dark:shadow-none">
                             <Plus size={12} className="mr-1" /> Importar Requisición
                           </Button>
                         </PopoverTrigger>
@@ -1419,7 +1423,7 @@ export default function OrdersPage() {
                               placeholder="Seleccione de la lista..." 
                               value={extSupplier}
                               onChange={e => setExtSupplier(e.target.value)}
-                              className="h-10 pl-9 glass-input rounded-xl text-xs font-bold"
+                              className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                             />
                           </div>
                           <Popover>
@@ -1463,7 +1467,7 @@ export default function OrdersPage() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Bodega de Recepción</Label>
                           <Select value={extDestWh} onValueChange={setExtDestWh}>
-                            <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white">
                               <SelectValue placeholder="Bodega..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1482,14 +1486,14 @@ export default function OrdersPage() {
                               placeholder="Nombre..." 
                               value={extRequestedBy}
                               onChange={e => setExtRequestedBy(e.target.value)}
-                              className="pl-8 h-10 glass-input rounded-xl text-xs font-bold"
+                              className="pl-8 h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                             />
                           </div>
                         </div>
                       </div>
 
                       {/* Configuración de Envíos & Firmas */}
-                      <div className="p-4 bg-white/5 border-b border-white/10 rounded-2xl border space-y-3">
+                      <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl space-y-3">
                         <div className="flex justify-between items-center">
                           <Label className="text-[10px] font-black uppercase text-slate-500 block tracking-widest">Configuración de Envío & Firmas</Label>
                           <Button 
@@ -1516,7 +1520,7 @@ export default function OrdersPage() {
                               value={extSupplierEmail}
                               onChange={e => setExtSupplierEmail(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 glass-card text-xs font-bold"
+                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1527,7 +1531,7 @@ export default function OrdersPage() {
                               value={extFromEmail}
                               onChange={e => setExtFromEmail(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 glass-card text-xs font-bold"
+                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
                             />
                           </div>
                         </div>
@@ -1540,7 +1544,7 @@ export default function OrdersPage() {
                               value={extSupplierPhone}
                               onChange={e => setExtSupplierPhone(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 glass-card text-xs font-bold"
+                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1550,7 +1554,7 @@ export default function OrdersPage() {
                               value={extAuthorizedBy}
                               onChange={e => setExtAuthorizedBy(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 glass-card text-xs font-bold"
+                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
                             />
                           </div>
                         </div>
@@ -1563,7 +1567,7 @@ export default function OrdersPage() {
                               value={extDigitizedBy}
                               onChange={e => setExtDigitizedBy(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 glass-card text-xs font-bold"
+                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
                             />
                           </div>
                           <div className="flex items-center justify-start text-[9px] text-slate-400 font-semibold italic pl-1 pt-4">
@@ -1575,7 +1579,7 @@ export default function OrdersPage() {
                       </div>
 
                       {/* Cargar Ítems Manualmente */}
-                      <div className="p-4 bg-white/5 border-b border-white/10 rounded-2xl border space-y-3">
+                      <div className="p-4 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-2xl border space-y-3">
                         <Label className="text-[10px] font-black uppercase text-slate-500 block tracking-widest">Agregar Producto Manual</Label>
                         
                         <div className="space-y-3">
@@ -1597,11 +1601,11 @@ export default function OrdersPage() {
                                     setExtIsManual(true);
                                   }
                                 }}
-                                className="h-9 glass-card text-xs font-bold uppercase"
+                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-800 dark:text-white"
                               />
                               {/* Autocomplete Suggestions */}
                               {extItemSku.trim().length > 0 && !inventory?.some((p: any) => p.sku === extItemSku.trim().toUpperCase()) && (
-                                <div className="absolute z-20 w-full glass-card border rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
+                                <div className="absolute z-20 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
                                   {inventory
                                     ?.filter((p: any) => p.sku.toLowerCase().includes(extItemSku.toLowerCase()) || p.name.toLowerCase().includes(extItemSku.toLowerCase()))
                                     .slice(0, 5)
@@ -1627,7 +1631,7 @@ export default function OrdersPage() {
                                 type="number" 
                                 value={extItemQty} 
                                 onChange={e => setExtItemQty(e.target.value)}
-                                className="h-9 glass-card text-center text-xs font-bold"
+                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center text-xs font-bold text-slate-800 dark:text-white"
                               />
                             </div>
                           </div>
@@ -1640,7 +1644,7 @@ export default function OrdersPage() {
                                 value={extItemName}
                                 onChange={e => setExtItemName(e.target.value)}
                                 disabled={!extIsManual && extItemSku.trim() !== ''}
-                                className="h-9 glass-card text-xs font-bold"
+                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
                               />
                             </div>
                             <div className="space-y-1">
@@ -1650,7 +1654,7 @@ export default function OrdersPage() {
                                 placeholder="0.00"
                                 value={extItemCost} 
                                 onChange={e => setExtItemCost(e.target.value)}
-                                className="h-9 glass-card text-right text-xs font-bold text-emerald-600"
+                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-right text-xs font-bold text-emerald-600"
                               />
                             </div>
                             <div className="space-y-1">
@@ -1659,7 +1663,7 @@ export default function OrdersPage() {
                                 placeholder="Ej: COT-102"
                                 value={extItemQuote} 
                                 onChange={e => setExtItemQuote(e.target.value)}
-                                className="h-9 glass-card text-xs font-bold text-slate-800"
+                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white"
                               />
                             </div>
                           </div>
@@ -1675,7 +1679,7 @@ export default function OrdersPage() {
                           type="button" 
                           onClick={handleExtAddItem} 
                           variant="outline" 
-                          className="w-full h-9 border-violet-500/20 text-violet-600 dark:text-violet-400 font-bold text-xs rounded-xl mt-2"
+                          className="w-full h-9 border-indigo-200 dark:border-violet-500/20 text-indigo-600 dark:text-violet-400 bg-white hover:bg-indigo-50 dark:bg-transparent dark:hover:bg-white/5 font-bold text-xs rounded-xl mt-2"
                         >
                           <Plus size={14} className="mr-1.5" /> Agregar Ítem
                         </Button>
@@ -1688,13 +1692,13 @@ export default function OrdersPage() {
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Detalle de Pedido</Label>
                             <span className="text-xs font-black text-emerald-600">Total: ${extItems.reduce((acc, item) => acc + ((item.cost || 0) * item.quantity), 0).toFixed(2)}</span>
                           </div>
-                          <ScrollArea className="h-32 border rounded-xl glass-input/20">
+                          <ScrollArea className="h-32 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-white/5">
                             <Table>
                               <TableBody>
                                                                  {extItems.map((item, idx) => (
-                                  <TableRow key={item.sku} className="hover:bg-transparent">
-                                    <TableCell className="py-2 text-[10px] font-mono font-bold text-slate-600 dark:text-muted-foreground">{item.sku}</TableCell>
-                                    <TableCell className="py-2 text-[11px] font-bold text-slate-800 dark:text-foreground">
+                                  <TableRow key={item.sku} className="hover:bg-slate-100 dark:hover:bg-white/10 border-slate-100 dark:border-white/5">
+                                    <TableCell className="py-2 text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">{item.sku}</TableCell>
+                                    <TableCell className="py-2 text-[11px] font-bold text-slate-800 dark:text-white">
                                       {item.name}
                                       {item.quoteNumber && (
                                         <Badge variant="outline" className="text-[8px] bg-indigo-50 border-indigo-150 text-indigo-600 ml-1.5 font-bold h-4 px-1 py-0 select-none">
@@ -1724,7 +1728,7 @@ export default function OrdersPage() {
 
                       <Button 
                         type="submit" 
-                        className="w-full h-12 bg-slate-900 dark:bg-violet-600 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg text-xs"
+                        className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 dark:bg-violet-600 dark:hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 dark:shadow-violet-600/20 text-xs transition-all active:scale-95"
                         disabled={loading || extItems.length === 0}
                       >
                         {loading ? <Loader2 className="animate-spin mr-2" /> : <Plus className="mr-2" size={16} />}
@@ -1743,14 +1747,14 @@ export default function OrdersPage() {
                     placeholder="Buscar orden externa por código, proveedor o bodega..." 
                     value={externalSearchFilter}
                     onChange={e => setExternalSearchFilter(e.target.value)}
-                    className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
+                    className="pl-12 h-12 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl text-xs md:text-sm text-slate-800 dark:text-white"
                   />
                 </div>
 
-                <Card className="glass-card rounded-2xl overflow-hidden">
+                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
                   <ScrollArea className="h-[520px]">
                     <Table>
-                      <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10">
+                      <TableHeader className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
                         <TableRow>
                           <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">Código / Fecha</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase">Proveedor</TableHead>
@@ -1768,15 +1772,15 @@ export default function OrdersPage() {
                             </TableCell>
                           </TableRow>
                         ) : filteredSupplierOrders.map((o: any) => (
-                          <TableRow key={o.id} className="hover:bg-white/10 border-b border-white/5">
+                          <TableRow key={o.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-200 dark:border-white/5 transition-colors">
                             <TableCell className="px-4 md:px-6 py-4">
                               <div className="flex flex-col">
-                                <span className="font-mono font-black text-xs text-slate-700 dark:text-foreground">{o.code}</span>
-                                <span className="text-[9px] text-slate-400 font-bold">{new Date(o.createdAt).toLocaleDateString()}</span>
+                                <span className="font-mono font-black text-xs text-slate-800 dark:text-white">{o.code}</span>
+                                <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold">{new Date(o.createdAt).toLocaleDateString()}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-xs font-bold text-slate-800 dark:text-foreground">{o.supplier}</TableCell>
-                            <TableCell className="text-xs font-semibold text-slate-400 flex items-center gap-1 mt-3">
+                            <TableCell className="text-xs font-bold text-slate-800 dark:text-white">{o.supplier}</TableCell>
+                            <TableCell className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-3">
                               <Warehouse size={12} className="text-slate-400" />
                               <span>{o.destinationWarehouse}</span>
                             </TableCell>
@@ -1806,7 +1810,7 @@ export default function OrdersPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-7 w-7 text-slate-400 hover:text-blue-500" 
+                                  className="h-7 w-7 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-lg" 
                                   onClick={() => {
                                     setSelectedOrderForPreview(o);
                                     setPreviewType('externo');
@@ -1818,7 +1822,7 @@ export default function OrdersPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20" 
+                                  className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded-lg" 
                                   title="Descargar Excel (.xlsx)"
                                   onClick={() => handleDownloadExcel(o)}
                                 >
@@ -1827,7 +1831,7 @@ export default function OrdersPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-7 w-7 text-slate-400 hover:text-rose-500" 
+                                  className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg" 
                                   onClick={() => handleDeleteSupplierOrder(o.id)}
                                   title="Eliminar Orden"
                                 >
@@ -1852,8 +1856,8 @@ export default function OrdersPage() {
               
               {/* Cargador e Instrucciones */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="glass-card rounded-2xl overflow-hidden">
-                  <CardHeader className="bg-violet-900 dark:bg-violet-950 text-white p-5">
+                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+                  <CardHeader className="bg-indigo-600 dark:bg-violet-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <FileSpreadsheet size={18} className="text-violet-400" /> Carga Masiva de Códigos
                     </CardTitle>
@@ -1865,7 +1869,7 @@ export default function OrdersPage() {
                       <Label className="text-[10px] font-black uppercase text-violet-600 dark:text-violet-400 tracking-widest block flex items-center gap-1.5 font-sans">
                         <UploadCloud size={14} /> Seleccionar Excel (.xlsx)
                       </Label>
-                      <div className="relative border-2 border-dashed border-violet-200 dark:border-violet-850 hover:border-violet-500 rounded-xl p-6 text-center cursor-pointer transition-all glass-card">
+                      <div className="relative border-2 border-dashed border-indigo-200 dark:border-violet-850 hover:border-indigo-500 dark:hover:border-violet-500 bg-white/50 dark:bg-white/5 rounded-xl p-6 text-center cursor-pointer transition-all">
                         <input 
                           type="file" 
                           accept=".xlsx, .xls" 
@@ -1910,8 +1914,8 @@ export default function OrdersPage() {
 
               {/* Vista Previa de Códigos a Registrar */}
               <div className="lg:col-span-7 space-y-4">
-                <Card className="glass-card rounded-2xl overflow-hidden">
-                  <div className="p-4 bg-white/10 border-b border-white/10 sticky top-0 border-b flex justify-between items-center z-10">
+                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 bg-slate-50 dark:bg-white/10 border-b border-slate-200 dark:border-white/10 sticky top-0 flex justify-between items-center z-10">
                     <span className="text-[10px] font-black text-slate-700 dark:text-foreground uppercase tracking-widest">Vista Previa de Importación</span>
                     <div className="flex items-center gap-2">
                       {bulkCodes.length > 0 && (
@@ -1947,8 +1951,8 @@ export default function OrdersPage() {
                             </TableCell>
                           </TableRow>
                         ) : bulkCodes.map((item, idx) => (
-                          <TableRow key={item.sku} className="hover:bg-white/10 border-b border-white/5">
-                            <TableCell className="px-4 md:px-6 py-3 font-mono font-black text-xs text-slate-700 dark:text-foreground">
+                          <TableRow key={item.sku} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-200 dark:border-white/5 transition-colors">
+                            <TableCell className="px-4 md:px-6 py-3 font-mono font-black text-xs text-slate-800 dark:text-white">
                               {item.sku}
                             </TableCell>
                             <TableCell className="text-xs font-bold text-slate-400">
@@ -1982,7 +1986,7 @@ export default function OrdersPage() {
       {/* ==================== MODAL DE VISTA PREVIA & IMPRESIÓN DE ORDEN ==================== */}
       {selectedOrderForPreview && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="glass-card border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
             
             {/* Header Modal */}
             <div className="p-5 bg-slate-900 text-white flex justify-between items-center">

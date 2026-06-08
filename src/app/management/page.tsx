@@ -29,8 +29,11 @@ import {
   UserCheck,
   Award,
   ChevronDown,
+  MonitorIcon,
+  LogOut,
   Settings
 } from 'lucide-react';
+import { ModeToggle } from '@/components/ModeToggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -652,17 +655,22 @@ export default function ManagementPage() {
   }, [activeTab]);
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 transition-colors duration-300">
-      <div className="max-w-4xl mx-auto mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+      {/* Background glow animations */}
+      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-tint-glow1/10 dark:bg-tint-glow1/20 blur-[120px] transform-gpu pointer-events-none" />
+      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-tint-glow2/10 dark:bg-tint-glow2/15 blur-[120px] transform-gpu pointer-events-none" />
+
+      <div className="max-w-4xl mx-auto flex items-center justify-between mb-8 gap-4 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-card shadow-sm border" onClick={() => router.push('/')}>
+          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Gerencia y Control</h1>
-            <p className="text-muted-foreground text-sm">Configuración global del sistema</p>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground font-headline leading-tight">Gerencia y Control</h1>
+            <p className="text-muted-foreground text-xs md:text-sm">Configuración global del sistema</p>
           </div>
         </div>
+        <ModeToggle />
       </div>
 
       <div className="max-w-4xl mx-auto">
@@ -997,7 +1005,7 @@ export default function ManagementPage() {
                           placeholder="Nombre de usuario (ej: carlos)" 
                           value={preAssignEmail}
                           onChange={(e) => setPreAssignEmail(e.target.value)}
-                          className="h-10 pl-10 text-xs font-bold glass rounded-xl border-white/10-border"
+                          className="h-10 pl-10 text-xs font-bold bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl"
                         />
                       </div>
                     </div>
@@ -1011,7 +1019,7 @@ export default function ManagementPage() {
                           placeholder="Contraseña (mín. 5 caracteres)" 
                           value={preAssignPassword}
                           onChange={(e) => setPreAssignPassword(e.target.value)}
-                          className="h-10 pl-10 text-xs font-bold glass rounded-xl border-white/10-border"
+                          className="h-10 pl-10 text-xs font-bold bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl"
                         />
                       </div>
                     </div>

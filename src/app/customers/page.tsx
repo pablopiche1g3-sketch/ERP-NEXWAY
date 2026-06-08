@@ -34,6 +34,7 @@ import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ModeToggle } from '@/components/mode-toggle';
 
 const GIROS_AUTORIZADOS = [
   "Venta de partes, piezas y accesorios para vehículos automotores",
@@ -235,42 +236,47 @@ export default function CustomersPage() {
   }, [searchTerm, customers]);
 
   return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
-      <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between relative z-10">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+      {/* Background glow animations */}
+      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-tint-glow1/10 dark:bg-tint-glow1/20 blur-[120px] transform-gpu pointer-events-none" />
+      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-tint-glow2/10 dark:bg-tint-glow2/15 blur-[120px] transform-gpu pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full glass hover:bg-white/10 border-white/10 text-white" 
+            className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-white/10 hover:bg-white/10 dark:hover:bg-white/10" 
             onClick={() => router.push('/')}
           >
-            <ArrowLeft className="text-white" size={20} />
+            <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-white">Registro de Clientes</h1>
-            <p className="text-slate-400 text-sm">Gestión de carteras y datos tributarios</p>
+            <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Registro de Clientes</h1>
+            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Gestión de carteras y datos tributarios</p>
           </div>
         </div>
+        <ModeToggle />
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
         <div className="lg:col-span-5 space-y-4">
-          <Card className="glass-card rounded-2xl overflow-hidden">
-            <CardHeader className="border-b border-white/10 text-white p-6 bg-white/5">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Plus size={20} className="text-sky-400" />
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border-white/10 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-200 dark:border-white/10 p-6 bg-slate-50 dark:bg-white/5">
+              <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+                <Plus size={20} className="text-indigo-600 dark:text-sky-400" />
                 Alta de Cliente
               </CardTitle>
-              <CardDescription className="text-slate-400 text-xs">Seleccione el tipo de contribuyente</CardDescription>
+              <CardDescription className="text-slate-500 dark:text-slate-400 text-xs">Seleccione el tipo de contribuyente</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
               <Tabs defaultValue="cf" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-2 mb-6 glass rounded-xl p-1">
-                  <TabsTrigger value="cf" className="rounded-lg data-[state=active]:bg-white/10 data-[state=active]:text-white text-xs">
+                <TabsList className="grid grid-cols-2 mb-6 bg-slate-100 dark:bg-white/5 rounded-xl p-1">
+                  <TabsTrigger value="cf" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-white/10 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white text-xs data-[state=active]:shadow-sm">
                     <User size={14} className="mr-2" />
                     Consumidor Final
                   </TabsTrigger>
-                  <TabsTrigger value="ccf" className="rounded-lg data-[state=active]:bg-sky-500/30 data-[state=active]:text-white text-xs">
+                  <TabsTrigger value="ccf" className="rounded-lg data-[state=active]:bg-indigo-600 dark:data-[state=active]:bg-sky-500/30 data-[state=active]:text-white text-xs data-[state=active]:shadow-sm">
                     <Building2 size={14} className="mr-2" />
                     Crédito Fiscal
                   </TabsTrigger>
@@ -287,7 +293,7 @@ export default function CustomersPage() {
                         placeholder={activeTab === 'cf' ? "Ej. Juan Pérez" : "Ej. Industrias El Salvador S.A."}
                         value={form.name}
                         onChange={e => setForm({...form, name: e.target.value})}
-                        className="h-10 pl-9 glass-input rounded-xl text-xs font-bold"
+                        className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                       />
                     </div>
                   </div>
@@ -302,7 +308,7 @@ export default function CustomersPage() {
                             placeholder="0000-000000-000-0" 
                             value={form.nit}
                             onChange={e => setForm({...form, nit: e.target.value})}
-                            className="h-10 pl-9 glass-input rounded-xl text-xs font-mono font-bold"
+                            className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-white"
                           />
                         </div>
                       </div>
@@ -314,7 +320,7 @@ export default function CustomersPage() {
                             placeholder="Registro..." 
                             value={form.nrc}
                             onChange={e => setForm({...form, nrc: e.target.value})}
-                            className="h-10 pl-9 glass-input rounded-xl text-xs font-mono font-bold"
+                            className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-white"
                           />
                         </div>
                       </div>
@@ -325,15 +331,15 @@ export default function CustomersPage() {
                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial Autorizado</Label>
                       <Select value={form.giro} onValueChange={(val) => setForm({...form, giro: val})}>
-                        <SelectTrigger className="h-11 glass border-white/10 rounded-xl text-[11px] font-bold text-white">
+                        <SelectTrigger className="h-11 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[11px] font-bold text-slate-800 dark:text-white">
                           <div className="flex items-center gap-2">
                             <Briefcase className="text-slate-400" size={14} />
                             <SelectValue placeholder="Seleccione giro de Hacienda..." />
                           </div>
                         </SelectTrigger>
-                        <SelectContent className="max-w-[400px] glass text-white">
+                        <SelectContent className="max-w-[400px] bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-800 dark:text-white">
                           {GIROS_AUTORIZADOS.map((giro, idx) => (
-                            <SelectItem key={idx} value={giro} className="text-[11px] py-3 text-white focus:bg-white/10 hover:bg-white/10">
+                            <SelectItem key={idx} value={giro} className="text-[11px] py-3 text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">
                               {giro}
                             </SelectItem>
                           ))}
@@ -352,7 +358,7 @@ export default function CustomersPage() {
                           placeholder="correo@ejemplo.com" 
                           value={form.email}
                           onChange={e => setForm({...form, email: e.target.value})}
-                          className="h-10 pl-9 glass-input rounded-xl text-xs"
+                          className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
                         />
                       </div>
                     </div>
@@ -364,7 +370,7 @@ export default function CustomersPage() {
                           placeholder="2222-0000" 
                           value={form.phone}
                           onChange={e => setForm({...form, phone: e.target.value})}
-                          className="h-10 pl-9 glass-input rounded-xl text-xs font-bold"
+                          className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                         />
                       </div>
                     </div>
@@ -378,19 +384,19 @@ export default function CustomersPage() {
                         placeholder="Ubicación del cliente..."
                         value={form.address}
                         onChange={e => setForm({...form, address: e.target.value})}
-                        className="w-full min-h-[60px] pl-9 pt-2.5 glass-input rounded-xl text-xs outline-none transition-all text-white"
+                        className="w-full min-h-[60px] pl-9 pt-2.5 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs outline-none transition-all text-slate-800 dark:text-white"
                       />
                     </div>
                   </div>
 
                   {/* Sección de Control de Crédito Premium */}
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-                    <h4 className="text-[10px] font-black uppercase text-sky-400 tracking-widest flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400"></span> Control de Crédito (Gerencia)
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-indigo-600 dark:text-sky-400 tracking-widest flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-sky-400"></span> Control de Crédito (Gerencia)
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                      <div className="flex items-center justify-between p-2 glass rounded-xl border border-white/10">
-                        <span className="text-[11px] font-bold text-slate-300">¿Autorizar Crédito?</span>
+                      <div className="flex items-center justify-between p-2 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none">
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">¿Autorizar Crédito?</span>
                         <Switch 
                           checked={form.is_authorized_credit}
                           onCheckedChange={val => setForm({...form, is_authorized_credit: val})}
@@ -405,13 +411,13 @@ export default function CustomersPage() {
                           value={form.credit_limit}
                           onChange={e => setForm({...form, credit_limit: e.target.value})}
                           disabled={!form.is_authorized_credit}
-                          className="h-9 glass-input rounded-xl text-xs font-bold text-sky-400"
+                          className="h-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-indigo-600 dark:text-sky-400 disabled:opacity-50"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-500 rounded-xl font-bold text-white shadow-lg shadow-sky-500/20 transition-all">
+                  <Button type="submit" className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 dark:bg-sky-600 dark:hover:bg-sky-500 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20 dark:shadow-sky-500/20 transition-all">
                     <Users size={18} className="mr-2" />
                     Registrar en Cartera
                   </Button>
@@ -428,18 +434,18 @@ export default function CustomersPage() {
               placeholder="Buscar por nombre o NIT..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 glass-input rounded-2xl text-xs md:text-sm"
+              className="pl-12 h-12 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-xs md:text-sm text-slate-800 dark:text-white"
             />
           </div>
 
-          <Card className="glass-card rounded-2xl overflow-hidden">
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border-white/10 shadow-sm rounded-2xl overflow-hidden">
             <ScrollArea className="h-[550px]">
               <Table>
-                <TableHeader className="bg-white/10 sticky top-0 z-10 border-b border-white/10">
+                <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 border-b border-slate-200 dark:border-white/10 shadow-sm">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase px-6 text-white">Receptor</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-white">Tipo / Giro</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-right text-white">Contacto</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase px-6 text-slate-700 dark:text-white">Receptor</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-700 dark:text-white">Tipo / Giro</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-right text-slate-700 dark:text-white">Contacto</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -453,11 +459,11 @@ export default function CustomersPage() {
                       </TableCell>
                     </TableRow>
                   ) : filteredCustomers.map((customer: any) => (
-                    <TableRow key={customer.id} className="hover:bg-white/10 border-white/5">
+                    <TableRow key={customer.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-100 dark:border-white/5">
                       <TableCell className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-white text-xs">{customer.name}</span>
-                          <span className="text-[10px] font-mono text-slate-400">{customer.nit || 'Consumidor Final'}</span>
+                          <span className="font-bold text-slate-800 dark:text-white text-xs">{customer.name}</span>
+                          <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{customer.nit || 'Consumidor Final'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -516,7 +522,7 @@ export default function CustomersPage() {
                               });
                               setIsEditOpen(true);
                             }}
-                            className="h-8 w-8 text-slate-400 hover:text-sky-400 hover:bg-white/10 rounded-lg"
+                            className="h-8 w-8 text-slate-400 hover:text-indigo-600 dark:hover:text-sky-400 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg"
                           >
                             <Pencil size={13} />
                           </Button>
@@ -524,7 +530,7 @@ export default function CustomersPage() {
                             variant="ghost" 
                             size="icon" 
                             onClick={() => handleDeleteCustomer(customer.id)}
-                            className="h-8 w-8 text-slate-400 hover:text-rose-400 hover:bg-white/10 rounded-lg"
+                            className="h-8 w-8 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-white/10 rounded-lg"
                           >
                             <Trash2 size={13} />
                           </Button>
@@ -541,13 +547,13 @@ export default function CustomersPage() {
 
       {/* Diálogo de Edición de Cliente Premium */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-lg glass text-white border border-white/10 rounded-2xl overflow-hidden p-6 max-h-[90vh] flex flex-col shadow-2xl">
-          <DialogHeader className="pb-4 border-b border-white/10">
-            <DialogTitle className="flex items-center gap-2 text-white text-lg font-black uppercase tracking-tight">
-              <Pencil className="text-sky-500" size={20} />
+        <DialogContent className="max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden p-6 max-h-[90vh] flex flex-col shadow-2xl">
+          <DialogHeader className="pb-4 border-b border-slate-200 dark:border-white/10">
+            <DialogTitle className="flex items-center gap-2 text-slate-800 dark:text-white text-lg font-black uppercase tracking-tight">
+              <Pencil className="text-indigo-600 dark:text-sky-500" size={20} />
               Editar Cliente
             </DialogTitle>
-            <DialogDescription className="text-slate-400 text-xs text-left">
+            <DialogDescription className="text-slate-500 dark:text-slate-400 text-xs text-left">
               Actualice los datos comerciales y de crédito de la cuenta seleccionada.
             </DialogDescription>
           </DialogHeader>
@@ -557,7 +563,7 @@ export default function CustomersPage() {
               <Input 
                 value={editForm.name}
                 onChange={e => setEditForm({...editForm, name: e.target.value})}
-                className="h-10 glass-input rounded-xl text-xs font-bold"
+                className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                 required
               />
             </div>
@@ -566,10 +572,10 @@ export default function CustomersPage() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</Label>
                 <Select value={editForm.type} onValueChange={val => setEditForm({...editForm, type: val})}>
-                  <SelectTrigger className="h-10 glass border-white/10 rounded-xl text-xs font-bold text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="glass text-white">
-                    <SelectItem value="Individual" className="text-white focus:bg-white/10 hover:bg-white/10">Individual</SelectItem>
-                    <SelectItem value="Empresa" className="text-white focus:bg-white/10 hover:bg-white/10">Empresa</SelectItem>
+                  <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
+                    <SelectItem value="Individual" className="text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">Individual</SelectItem>
+                    <SelectItem value="Empresa" className="text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">Empresa</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -577,10 +583,10 @@ export default function CustomersPage() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría</Label>
                 <Select value={editForm.category} onValueChange={val => setEditForm({...editForm, category: val})}>
-                  <SelectTrigger className="h-10 glass border-white/10 rounded-xl text-xs font-bold text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="glass text-white">
-                    <SelectItem value="Consumidor Final" className="text-white focus:bg-white/10 hover:bg-white/10">Consumidor Final</SelectItem>
-                    <SelectItem value="Crédito Fiscal" className="text-white focus:bg-white/10 hover:bg-white/10">Crédito Fiscal</SelectItem>
+                  <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
+                    <SelectItem value="Consumidor Final" className="text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">Consumidor Final</SelectItem>
+                    <SelectItem value="Crédito Fiscal" className="text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">Crédito Fiscal</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -594,7 +600,7 @@ export default function CustomersPage() {
                     placeholder="NIT..." 
                     value={editForm.nit}
                     onChange={e => setEditForm({...editForm, nit: e.target.value})}
-                    className="h-10 glass-input rounded-xl text-xs font-mono font-bold"
+                    className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-white"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -603,7 +609,7 @@ export default function CustomersPage() {
                     placeholder="NRC..." 
                     value={editForm.nrc}
                     onChange={e => setEditForm({...editForm, nrc: e.target.value})}
-                    className="h-10 glass-input rounded-xl text-xs font-mono font-bold"
+                    className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-white"
                   />
                 </div>
               </div>
@@ -613,10 +619,10 @@ export default function CustomersPage() {
               <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial</Label>
                 <Select value={editForm.giro} onValueChange={val => setEditForm({...editForm, giro: val})}>
-                  <SelectTrigger className="h-10 glass border-white/10 rounded-xl text-xs font-bold text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="max-w-[400px] glass text-white">
+                  <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-w-[400px] bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
                     {GIROS_AUTORIZADOS.map((giro, idx) => (
-                      <SelectItem key={idx} value={giro} className="text-[11px] py-2 text-white focus:bg-white/10 hover:bg-white/10">{giro}</SelectItem>
+                      <SelectItem key={idx} value={giro} className="text-[11px] py-2 text-slate-800 dark:text-white focus:bg-slate-100 dark:focus:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/10">{giro}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -630,7 +636,7 @@ export default function CustomersPage() {
                   type="email" 
                   value={editForm.email}
                   onChange={e => setEditForm({...editForm, email: e.target.value})}
-                  className="h-10 glass-input rounded-xl text-xs"
+                  className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
                 />
               </div>
               <div className="space-y-1.5">
@@ -638,7 +644,7 @@ export default function CustomersPage() {
                 <Input 
                   value={editForm.phone}
                   onChange={e => setEditForm({...editForm, phone: e.target.value})}
-                  className="h-10 glass-input rounded-xl text-xs font-bold"
+                  className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
                 />
               </div>
             </div>
@@ -649,18 +655,18 @@ export default function CustomersPage() {
                 placeholder="Dirección..."
                 value={editForm.address}
                 onChange={e => setEditForm({...editForm, address: e.target.value})}
-                className="w-full min-h-[50px] p-2.5 glass-input rounded-xl text-xs outline-none transition-all text-white"
+                className="w-full min-h-[50px] p-2.5 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs outline-none transition-all text-slate-800 dark:text-white"
               />
             </div>
 
             {/* Crédito */}
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-              <h4 className="text-[10px] font-black uppercase text-sky-400 tracking-widest flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-sky-500"></span> Control de Crédito
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-3">
+              <h4 className="text-[10px] font-black uppercase text-indigo-600 dark:text-sky-400 tracking-widest flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-sky-500"></span> Control de Crédito
               </h4>
               <div className="grid grid-cols-2 gap-4 items-center">
-                <div className="flex items-center justify-between p-2 glass rounded-xl border border-white/10">
-                  <span className="text-[11px] font-bold text-slate-300">¿Autorizar?</span>
+                <div className="flex items-center justify-between p-2 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none">
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">¿Autorizar?</span>
                   <Switch 
                     checked={editForm.is_authorized_credit}
                     onCheckedChange={val => setEditForm({...editForm, is_authorized_credit: val})}
@@ -674,25 +680,25 @@ export default function CustomersPage() {
                     value={editForm.credit_limit}
                     onChange={e => setEditForm({...editForm, credit_limit: e.target.value})}
                     disabled={!editForm.is_authorized_credit}
-                    className="h-9 glass-input rounded-xl text-xs font-bold text-sky-400"
+                    className="h-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-indigo-600 dark:text-sky-400 disabled:opacity-50"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 gap-2 border-t border-white/10">
+            <div className="flex justify-end pt-2 gap-2 border-t border-slate-200 dark:border-white/10">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setIsEditOpen(false)}
-                className="rounded-xl text-xs text-white hover:bg-white/10"
+                className="rounded-xl text-xs text-slate-600 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={isSavingEdit}
-                className="bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs px-5 shadow-md shadow-sky-500/20"
+                className="bg-indigo-600 hover:bg-indigo-700 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl text-xs px-5 shadow-md shadow-indigo-500/20 dark:shadow-sky-500/20"
               >
                 {isSavingEdit ? <Loader2 className="animate-spin mr-1" size={14} /> : null}
                 Guardar Cambios

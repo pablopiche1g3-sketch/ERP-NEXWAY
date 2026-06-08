@@ -335,10 +335,14 @@ export default function TransfersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent">
-      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4 relative z-10">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+      {/* Background glow animations */}
+      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-tint-glow1/10 dark:bg-tint-glow1/20 blur-[120px] transform-gpu pointer-events-none" />
+      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-tint-glow2/10 dark:bg-tint-glow2/15 blur-[120px] transform-gpu pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-zinc-900/60 shadow-sm border border-slate-200 dark:border-zinc-800" onClick={() => router.push('/')}>
+          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
           </Button>
           <div>
@@ -351,7 +355,7 @@ export default function TransfersPage() {
 
       <div className="max-w-7xl mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="glass-card p-1 rounded-2xl flex w-fit gap-2">
+          <TabsList className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-1 rounded-2xl flex w-fit gap-2">
             <TabsTrigger value="nuevo" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all text-xs md:text-sm">
               <Plus size={14} className="mr-2"/> Nuevo Traslado
             </TabsTrigger>
@@ -362,7 +366,7 @@ export default function TransfersPage() {
 
           <TabsContent value="nuevo" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none animate-in fade-in duration-300">
             <div className="lg:col-span-5 space-y-4">
-              <Card className="glass-card rounded-2xl overflow-hidden">
+              <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden">
                 <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                   <div className="flex justify-between items-center mb-2">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -444,41 +448,41 @@ export default function TransfersPage() {
             </div>
 
             <div className="lg:col-span-7 space-y-4">
-              <Card className="glass-card rounded-2xl p-6">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Tipo de Traslado</Label>
-                       <div className="flex gap-4">
+                       <div className="flex gap-2">
                           <Button 
                             variant={transferType === 'INTERNO' ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm"
+                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
                             onClick={() => setTransferType('INTERNO')}
                           >
-                             <Warehouse size={16} className="mr-2" /> Interno
+                             <Warehouse size={16} className="mr-1 lg:mr-2" /> Interno
                           </Button>
                           <Button 
                             variant={transferType === 'INTERTIENDA' ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm"
+                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
                             onClick={() => setTransferType('INTERTIENDA')}
                           >
-                             <Truck size={16} className="mr-2" /> Inter-Tienda
+                             <Truck size={16} className="mr-1 lg:mr-2" /> Inter-Tienda
                           </Button>
                        </div>
                     </div>
                     
                     <div className="space-y-4">
                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Envío</Label>
-                       <div className="flex gap-4">
+                       <div className="flex gap-2">
                           <Button 
                             variant={!isPreTransfer ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm"
+                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
                             onClick={() => setIsPreTransfer(false)}
                           >
                              Directo
                           </Button>
                           <Button 
                             variant={isPreTransfer ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm"
+                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
                             onClick={() => setIsPreTransfer(true)}
                           >
                              Pre-traslado
@@ -486,7 +490,7 @@ export default function TransfersPage() {
                        </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-4 md:col-span-2">
                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Ruta Logística</Label>
                        <div className="flex items-center gap-3">
                           <div className="flex-1">
@@ -538,14 +542,14 @@ export default function TransfersPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {filteredInventory.map((p: any) => (
-                  <div key={p.id} onClick={() => addToCart(p)} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:border-indigo-400 cursor-pointer transition-all flex flex-col justify-between aspect-square group">
+                  <div key={p.id} onClick={() => addToCart(p)} className="bg-white dark:bg-white/5 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-white/10 hover:border-indigo-400 dark:hover:border-indigo-400 cursor-pointer transition-all flex flex-col justify-between aspect-square group">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400">{p.sku}</p>
                       <h3 className="text-xs font-bold text-slate-900 leading-tight line-clamp-2 h-8">{p.name}</h3>
                     </div>
                     <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
-                      <Badge variant="secondary" className="text-[9px] bg-slate-50 text-slate-500">{p.quantity} un.</Badge>
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                      <Badge variant="secondary" className="text-[9px] bg-slate-50 dark:bg-white/10 text-slate-500 dark:text-slate-300">{p.quantity} un.</Badge>
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white dark:group-hover:text-white transition-all">
                         <Plus size={16} />
                       </div>
                     </div>

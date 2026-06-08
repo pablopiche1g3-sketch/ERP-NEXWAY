@@ -16,8 +16,10 @@ import {
   FileText,
   ListPlus,
   Receipt,
-  Loader2
+  Loader2,
+  LogOut
 } from 'lucide-react';
+import { ModeToggle } from '@/components/ModeToggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -157,23 +159,35 @@ export default function QuedanPage() {
   }, [searchTerm, quedans]);
 
   return (
-    <div className="min-h-screen bg-transparent">
-      <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between relative z-10">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+      {/* Background glow animations */}
+      <div className="absolute top-[-80px] left-[250px] w-[500px] h-[500px] rounded-full bg-tint-glow1/10 dark:bg-tint-glow1/20 blur-[120px] transform-gpu pointer-events-none" />
+      <div className="absolute bottom-[40px] right-[80px] w-[350px] h-[350px] rounded-full bg-tint-glow2/10 dark:bg-tint-glow2/15 blur-[120px] transform-gpu pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm" onClick={() => router.push('/')}>
-            <ArrowLeft className="text-slate-600" size={20} />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10" 
+            onClick={() => router.push('/')}
+          >
+            <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 font-headline">Área de Quedan</h1>
-            <p className="text-slate-500 text-sm">Programación consolidada de pagos a proveedores</p>
+            <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Área de Quedan</h1>
+            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Programación consolidada de pagos a proveedores</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <ModeToggle />
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
         {/* Panel Izquierdo: Formulario de Emisión */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="glass-card rounded-2xl overflow-hidden">
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
             <CardHeader className="bg-purple-600 text-white p-6">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -200,7 +214,7 @@ export default function QuedanPage() {
                       placeholder="Nombre del proveedor o razón social..." 
                       value={supplier}
                       onChange={e => setSupplier(e.target.value)}
-                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                      className="h-10 pl-9 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
                     />
                   </div>
                 </div>
@@ -213,14 +227,14 @@ export default function QuedanPage() {
                       type="date"
                       value={dueDate}
                       onChange={e => setDueDate(e.target.value)}
-                      className="h-10 pl-9 bg-slate-50 border-slate-100 rounded-xl text-xs"
+                      className="h-10 pl-9 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Área para agregar facturas */}
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+              <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 space-y-4">
                 <Label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Añadir Facturas y Montos</Label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -229,7 +243,7 @@ export default function QuedanPage() {
                       placeholder="No. Factura" 
                       value={currentInvoiceNum}
                       onChange={e => setCurrentInvoiceNum(e.target.value)}
-                      className="h-9 pl-9 bg-white border-slate-200 rounded-lg text-xs"
+                      className="h-9 pl-9 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-lg text-xs text-slate-800 dark:text-white"
                     />
                   </div>
                   <div className="relative w-32">
@@ -239,7 +253,7 @@ export default function QuedanPage() {
                       placeholder="Monto" 
                       value={currentInvoiceAmount}
                       onChange={e => setCurrentInvoiceAmount(e.target.value)}
-                      className="h-9 pl-8 bg-white border-slate-200 rounded-lg text-xs font-bold"
+                      className="h-9 pl-8 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold text-slate-800 dark:text-white"
                     />
                   </div>
                   <Button 
@@ -257,10 +271,10 @@ export default function QuedanPage() {
                 {invoices.length > 0 && (
                   <div className="mt-4 border-t border-white/10 border-slate-200 pt-4 space-y-2">
                     {invoices.map((inv, index) => (
-                      <div key={inv.number} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
+                      <div key={inv.number} className="flex justify-between items-center bg-white dark:bg-white/5 p-2 rounded-lg border border-slate-100 dark:border-white/10">
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-600">FAC: {inv.number}</span>
-                          <span className="text-xs font-black text-slate-900">${inv.amount.toFixed(2)}</span>
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">FAC: {inv.number}</span>
+                          <span className="text-xs font-black text-slate-900 dark:text-white">${inv.amount.toFixed(2)}</span>
                         </div>
                         <Button 
                           variant="ghost" 
@@ -296,14 +310,14 @@ export default function QuedanPage() {
               placeholder="Buscar por proveedor en historial..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 glass-input border-none shadow-sm rounded-2xl text-sm"
+              className="pl-12 h-12 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl text-sm text-slate-800 dark:text-white"
             />
           </div>
 
-          <Card className="glass-card rounded-2xl overflow-hidden">
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
             <ScrollArea className="h-[600px]">
               <Table>
-                <TableHeader className="bg-slate-50 sticky top-0 z-10">
+                <TableHeader className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 border-b border-slate-200 dark:border-white/10">
                   <TableRow>
                     <TableHead className="text-[10px] font-black uppercase px-6">Proveedor / Detalle</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-center">Vencimiento</TableHead>
@@ -322,13 +336,13 @@ export default function QuedanPage() {
                       </TableCell>
                     </TableRow>
                   ) : filteredQuedans.map((q: any) => (
-                    <TableRow key={q.id} className="hover:bg-slate-50/50">
+                    <TableRow key={q.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-b border-slate-200 dark:border-white/5">
                       <TableCell className="px-6 py-4">
                         <div className="flex flex-col gap-1">
-                          <span className="font-bold text-slate-900 text-xs">{q.supplier}</span>
+                          <span className="font-bold text-slate-900 dark:text-white text-xs">{q.supplier}</span>
                           <div className="flex flex-wrap gap-1">
                             {q.invoices?.map((inv: any, idx: number) => (
-                              <Badge key={inv.number} variant="secondary" className="text-[8px] font-mono px-1.5 h-4 bg-slate-100 text-slate-500">
+                              <Badge key={inv.number} variant="secondary" className="text-[8px] font-mono px-1.5 h-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
                                 {inv.number}
                               </Badge>
                             ))}
@@ -337,12 +351,12 @@ export default function QuedanPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex flex-col items-center">
-                          <span className="text-xs font-bold text-slate-600">{q.dueDate}</span>
+                          <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{q.dueDate}</span>
                           <span className="text-[9px] text-slate-400 uppercase font-black">Vencimiento</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-black text-slate-900 text-sm">
+                        <span className="font-black text-slate-900 dark:text-white text-sm">
                           ${(q.totalAmount || 0).toFixed(2)}
                         </span>
                       </TableCell>
