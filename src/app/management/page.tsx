@@ -68,6 +68,7 @@ export default function ManagementPage() {
   const [preAssignEmail, setPreAssignEmail] = useState('');
   const [preAssignPassword, setPreAssignPassword] = useState('');
   const [preAssignRole, setPreAssignRole] = useState('vendedor');
+  const [preAssignBranchId, setPreAssignBranchId] = useState('');
 
   // Estados de datos
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -536,12 +537,16 @@ export default function ManagementPage() {
       );
       
       if (existingUser) {
-        // Si el usuario ya existe, solo actualizamos su rol en la tabla profiles
-        const { error } = await supabase.from('profiles').update({ role: preAssignRole }).eq('id', existingUser.id);
+        // Si el usuario ya existe, actualizamos su rol y sucursal en la tabla profiles
+        const updatePayload: any = { role: preAssignRole };
+        if (preAssignBranchId) {
+          updatePayload.branch_id = preAssignBranchId === '__none' ? null : preAssignBranchId;
+        }
+        const { error } = await supabase.from('profiles').update(updatePayload).eq('id', existingUser.id);
         if (error) throw error;
         toast({ 
           title: "Usuario Actualizado", 
-          description: `El usuario ya estaba registrado. Se actualizó su rol a ${ROLE_NAMES[preAssignRole]}.` 
+          description: `El usuario ya estaba registrado. Se actualizó su rol a ${ROLE_NAMES[preAssignRole]} y sucursal.` 
         });
       } else {
         // Si es un usuario nuevo, la contraseña es obligatoria
@@ -569,7 +574,8 @@ export default function ManagementPage() {
           body: JSON.stringify({
             username: usernameToAssign,
             password: preAssignPassword,
-            role: preAssignRole
+            role: preAssignRole,
+            branch_id: preAssignBranchId === '__none' ? null : preAssignBranchId
           })
         });
 
@@ -585,6 +591,7 @@ export default function ManagementPage() {
       }
       setPreAssignEmail('');
       setPreAssignPassword('');
+      setPreAssignBranchId('');
       await loadData();
     } catch (error: any) {
       console.error('Error al gestionar rol/usuario:', error);
@@ -1242,6 +1249,24 @@ export default function ManagementPage() {
                           <SelectItem value="bodeguero">Bodeguero</SelectItem>
                           <SelectItem value="motociclista">Motociclista</SelectItem>
                           <SelectItem value="pedidos">Solo Pedidos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="w-full lg:w-[200px] space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sucursal Asignada</Label>
+                      <Select 
+                        value={preAssignBranchId || '__none'} 
+                        onValueChange={(val) => setPreAssignBranchId(val === '__none' ? '' : val)}
+                      >
+                        <SelectTrigger className="w-full h-10 bg-background border-border rounded-xl text-xs font-bold">
+                          <SelectValue placeholder="Sin sucursal" />
+                        </SelectTrigger>
+                        <SelectContent className="dark:bg-[#0a0a14] dark:border-white/10">
+                          <SelectItem value="__none">Sin sucursal</SelectItem>
+                          {branches.map((b: any) => (
+                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authErr }, { status: 401 });
     }
 
-    const { username, password, role, station_id } = await request.json();
+    const { username, password, role, station_id, branch_id } = await request.json();
 
     if (!username || !password || !role) {
       return NextResponse.json(
@@ -94,7 +94,8 @@ export async function POST(request: Request) {
         id: newUser.id,
         email: formattedEmail,
         role: role,
-        station_id: station_id || null
+        station_id: station_id || null,
+        branch_id: branch_id || null
       });
 
     if (profileError) {
