@@ -41,7 +41,7 @@ function BarcodePreview({ sku }: { sku: string }) {
   });
 
   return (
-    <div className="bg-slate-50 dark:bg-muted/30 p-4 rounded-2xl border shadow-inner flex flex-col items-center gap-2 mt-4 animate-in fade-in slide-in-from-top-2 border-slate-200 dark:border-slate-800">
+    <div className="bg-white/5 border-b border-white/10 p-4 rounded-2xl border shadow-inner flex flex-col items-center gap-2 mt-4 animate-in fade-in slide-in-from-top-2 border-slate-200 dark:border-slate-800">
       <div className="flex h-12 items-end justify-center gap-[1.5px] w-full px-4 bg-white p-2 rounded-lg">
         {bars.map((bar, idx) => (
           bar === 0 ? (
@@ -981,24 +981,20 @@ export default function InventoryMasterPage() {
   }, [inventory, selectedWhView]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-emerald-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-emerald-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
-      {/* Orbes decorativos */}
-      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[40vw] h-[40vw] rounded-full bg-emerald-500/5 dark:bg-emerald-500/8 blur-[130px]" />
-      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-blue-500/5 dark:bg-blue-500/8 blur-[110px]" />
-      <div className="pointer-events-none fixed top-[45%] left-[35%] w-[18vw] h-[18vw] rounded-full bg-teal-500/3 dark:bg-teal-500/5 blur-[90px]" />
+    <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full bg-white dark:bg-card shadow-sm hover:bg-slate-100 border border-slate-150" 
+            className="rounded-full glass hover:bg-white/10 border-white/10 text-white" 
             onClick={() => router.push('/')}
           >
-            <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
+            <ArrowLeft className="text-white" size={20} />
           </Button>
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-foreground tracking-tight">Centro Logístico & Catálogo</h1>
-            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Administración de stock por bodega, códigos maestros de empresas y almacenes</p>
+            <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">Centro Logístico & Catálogo</h1>
+            <p className="text-slate-400 text-xs md:text-sm">Administración de stock por bodega, códigos maestros de empresas y almacenes</p>
           </div>
         </div>
       </div>
@@ -1082,7 +1078,7 @@ export default function InventoryMasterPage() {
                 </Card>
                 <div className="lg:hidden">
                   <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
-                    <SelectTrigger className="w-full rounded-xl bg-white dark:bg-card h-11 border-none shadow-sm text-xs font-bold">
+                    <SelectTrigger className="w-full rounded-xl glass-card h-11 border-none shadow-sm text-xs font-bold">
                       <SelectValue placeholder="Filtrar por bodega" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1109,7 +1105,7 @@ export default function InventoryMasterPage() {
                 <Card className="glass-card rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader className="bg-slate-50 dark:bg-muted/50">
+                      <TableHeader className="bg-white/10 border-b border-white/10">
                         <TableRow>
                           <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">SKU</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase">Producto</TableHead>
@@ -1133,15 +1129,15 @@ export default function InventoryMasterPage() {
                             ? item.quantity 
                             : (item.bodegas?.[selectedWarehouse] || 0);
                           return (
-                            <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30 transition-colors">
+                            <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5 transition-colors">
                               <TableCell className="px-4 md:px-6 font-mono font-bold text-slate-600 dark:text-muted-foreground text-[10px] md:text-[11px] whitespace-nowrap">{item.sku}</TableCell>
-                              <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs min-w-[120px]">{item.name}</TableCell>
+                              <TableCell className="font-bold text-white text-xs min-w-[120px]">{item.name}</TableCell>
                               <TableCell className="text-center">
                                 <Badge className={`font-black text-[9px] h-5 ${stockToShow <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
                                   {stockToShow} un.
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-right px-4 md:px-6 font-bold text-slate-900 dark:text-foreground text-xs whitespace-nowrap">
+                              <TableCell className="text-right px-4 md:px-6 font-bold text-white text-xs whitespace-nowrap">
                                 ${(item.price || 0).toFixed(2)}
                               </TableCell>
                             </TableRow>
@@ -1157,7 +1153,7 @@ export default function InventoryMasterPage() {
  
           {/* TAB MAESTRO CON INTEGRACIÓN DE CÓDIGOS DE EMPRESAS */}
           <TabsContent value="maestro" className="space-y-4 outline-none">
-            <div className="flex gap-2 bg-slate-100 dark:bg-muted p-1 rounded-xl w-fit">
+            <div className="flex gap-2 glass p-1 rounded-xl w-fit">
               <Button 
                 variant={maestroSubTab === 'catalogo' ? 'default' : 'ghost'} 
                 size="sm" 
@@ -1180,8 +1176,8 @@ export default function InventoryMasterPage() {
               // CATÁLOGO MAESTRO
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
-                    <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                  <Card className="glass-card rounded-2xl overflow-hidden">
+                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Plus className="text-blue-400" size={18} /> Registro de Códigos Autorizados
                       </CardTitle>
@@ -1198,7 +1194,7 @@ export default function InventoryMasterPage() {
                                 placeholder="EJ: ACC-001" 
                                 value={productForm.sku}
                                 onChange={e => setProductForm({...productForm, sku: e.target.value.toUpperCase()})}
-                                className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl font-bold text-xs"
+                                className="pl-9 h-11 glass-input rounded-xl font-bold text-xs"
                               />
                             </div>
                             <Button 
@@ -1221,7 +1217,7 @@ export default function InventoryMasterPage() {
                             placeholder="Descripción completa..." 
                             value={productForm.name}
                             onChange={e => setProductForm({...productForm, name: e.target.value})}
-                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs"
+                            className="h-11 glass-input rounded-xl text-xs"
                           />
                         </div>
  
@@ -1231,7 +1227,7 @@ export default function InventoryMasterPage() {
                             value={productForm.category} 
                             onValueChange={(val) => setProductForm({...productForm, category: val})}
                           >
-                            <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs">
+                            <SelectTrigger className="h-11 glass-input rounded-xl text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1261,7 +1257,7 @@ export default function InventoryMasterPage() {
                     </CardContent>
                   </Card>
  
-                  <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-5 rounded-2xl space-y-2">
+                  <div className="bg-blue-500/15 border border-blue-500/20 text-blue-300 p-5 rounded-2xl space-y-2">
                     <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-bold">
                       <Info size={16} />
                       <span className="text-xs uppercase tracking-tight">Catálogo Único</span>
@@ -1279,14 +1275,14 @@ export default function InventoryMasterPage() {
                       placeholder="Buscar en el catálogo maestro..." 
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
-                      className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs"
+                      className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs"
                     />
                   </div>
  
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="glass-card rounded-2xl overflow-hidden">
                     <ScrollArea className="h-[500px]">
                       <Table>
-                        <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                        <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
                           <TableRow>
                             <TableHead className="px-6 text-[10px] font-black uppercase">SKU Autorizado</TableHead>
                             <TableHead className="text-[10px] font-black uppercase">Descripción</TableHead>
@@ -1300,13 +1296,13 @@ export default function InventoryMasterPage() {
                           ) : filteredItems.length === 0 ? (
                             <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">No hay productos en el maestro.</TableCell></TableRow>
                           ) : filteredItems.map((item) => (
-                            <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                            <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
                               <TableCell className="px-6 py-4">
                                 <Badge variant="outline" className="font-mono font-black text-[10px] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-muted-foreground">
                                   {item.sku}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">{item.name}</TableCell>
+                              <TableCell className="font-bold text-white text-xs">{item.name}</TableCell>
                               <TableCell><Badge variant="secondary" className="text-[8px] font-bold uppercase">{item.category}</Badge></TableCell>
                               <TableCell className="px-4">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteProduct(item.id)}>
@@ -1325,8 +1321,8 @@ export default function InventoryMasterPage() {
               // CÓDIGOS INTERNOS DE EMPRESAS
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
-                    <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                  <Card className="glass-card rounded-2xl overflow-hidden">
+                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Link2 className="text-blue-400" size={18} /> Mapeo de Código por Empresa
                       </CardTitle>
@@ -1340,7 +1336,7 @@ export default function InventoryMasterPage() {
                             value={companyForm.masterSku} 
                             onValueChange={(val) => setCompanyForm({...companyForm, masterSku: val})}
                           >
-                            <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold">
                               <SelectValue placeholder="Seleccione SKU..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1359,7 +1355,7 @@ export default function InventoryMasterPage() {
                             placeholder="Ej. Cemento del Norte S.A..." 
                             value={companyForm.companyName}
                             onChange={e => setCompanyForm({...companyForm, companyName: e.target.value})}
-                            className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
+                            className="h-11 glass-input rounded-xl text-xs font-bold"
                           />
                         </div>
 
@@ -1371,7 +1367,7 @@ export default function InventoryMasterPage() {
                               placeholder="Ej: COD-CEM-409" 
                               value={companyForm.companySku}
                               onChange={e => setCompanyForm({...companyForm, companySku: e.target.value})}
-                              className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                              className="pl-9 h-11 glass-input rounded-xl text-xs font-mono font-bold"
                             />
                           </div>
                         </div>
@@ -1406,14 +1402,14 @@ export default function InventoryMasterPage() {
                       placeholder="Buscar por Empresa, SKU Maestro o Código Interno..." 
                       value={companySearchTerm}
                       onChange={e => setCompanySearchTerm(e.target.value)}
-                      className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs"
+                      className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs"
                     />
                   </div>
 
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="glass-card rounded-2xl overflow-hidden">
                     <ScrollArea className="h-[500px]">
                       <Table>
-                        <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                        <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
                           <TableRow>
                             <TableHead className="px-6 text-[10px] font-black uppercase">SKU Maestro</TableHead>
                             <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
@@ -1428,11 +1424,11 @@ export default function InventoryMasterPage() {
                           ) : filteredCompanyMappings.length === 0 ? (
                             <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400 italic text-xs">No hay vinculaciones de empresas registradas.</TableCell></TableRow>
                           ) : filteredCompanyMappings.map((map) => (
-                            <TableRow key={map.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                            <TableRow key={map.id} className="hover:bg-white/10 border-b border-white/5">
                               <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
                                 {map.masterSku}
                               </TableCell>
-                              <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">{map.productName}</TableCell>
+                              <TableCell className="font-bold text-white text-xs">{map.productName}</TableCell>
                               <TableCell className="font-semibold text-xs text-slate-700 dark:text-foreground">{map.companyName}</TableCell>
                               <TableCell>
                                 <Badge className="bg-blue-50 text-blue-700 border border-blue-150 font-mono font-black text-[10px]">
@@ -1461,19 +1457,19 @@ export default function InventoryMasterPage() {
               
               {/* Formulario Izquierdo: Editor de Producto */}
               <div className="lg:col-span-7 space-y-6">
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
-                  <CardHeader className="bg-emerald-900 dark:bg-emerald-950 text-white p-5">
+                <Card className="glass-card rounded-2xl overflow-hidden">
+                  <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Tag className="text-emerald-400" size={18} /> Editor de Producto
                     </CardTitle>
-                    <CardDescription className="text-emerald-100/70 text-xs">
+                    <CardDescription className="text-slate-450 text-xs">
                       Selecciona un producto de la lista para modificar su nombre, precio, categoría y vinculación con el proveedor.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
                     {selectedPriceProduct ? (
                       <div className="space-y-6">
-                        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 space-y-2 flex justify-between items-center">
+                        <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 text-emerald-300 space-y-2 flex justify-between items-center">
                           <div>
                             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">Editando</span>
                             <p className="text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-200 mt-1">SKU Interno: {selectedPriceProduct.sku}</p>
@@ -1485,20 +1481,20 @@ export default function InventoryMasterPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Nombre del Producto</Label>
-                            <Input value={productNameValue} onChange={e => setProductNameValue(e.target.value)} className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Nombre del Producto</Label>
+                            <Input value={productNameValue} onChange={e => setProductNameValue(e.target.value)} className="h-11 glass-input rounded-xl text-xs font-bold" />
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Marca</Label>
-                            <Input value={productBrand} onChange={e => setProductBrand(e.target.value)} placeholder="Ej. Sony, Samsung..." className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Marca</Label>
+                            <Input value={productBrand} onChange={e => setProductBrand(e.target.value)} placeholder="Ej. Sony, Samsung..." className="h-11 glass-input rounded-xl text-xs font-bold" />
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Tipo</Label>
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Tipo</Label>
                             <Select value={productType} onValueChange={setProductType}>
-                              <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
                               <SelectContent className="rounded-xl">
                                 <SelectItem value="Terminado">Terminado</SelectItem>
                                 <SelectItem value="Materia Prima">Materia Prima</SelectItem>
@@ -1508,9 +1504,9 @@ export default function InventoryMasterPage() {
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Categoría / Área Contable</Label>
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Categoría / Área Contable</Label>
                             <Select value={selectedPriceCategory} onValueChange={setSelectedPriceCategory}>
-                              <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
                               <SelectContent className="rounded-xl">
                                 <SelectItem value="Inventario de Mercadería">Inventario</SelectItem>
                                 <SelectItem value="Gastos de Administración">Gtos. Admin</SelectItem>
@@ -1521,9 +1517,9 @@ export default function InventoryMasterPage() {
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Unidad</Label>
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Unidad</Label>
                             <Select value={productUnit} onValueChange={setProductUnit}>
-                              <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
                               <SelectContent className="rounded-xl">
                                 <SelectItem value="Unidad">Unidad</SelectItem>
                                 <SelectItem value="Kilogramo">Kilogramo</SelectItem>
@@ -1538,14 +1534,14 @@ export default function InventoryMasterPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Costo (Sin Impuesto)</Label>
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Costo (Sin Impuesto)</Label>
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-muted-foreground">$</span>
-                              <Input type="number" placeholder="0.00" value={productCost} onChange={e => setProductCost(e.target.value)} className="pl-7 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300" />
+                              <Input type="number" placeholder="0.00" value={productCost} onChange={e => setProductCost(e.target.value)} className="pl-7 h-11 glass-input rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300" />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Precio Venta (PVP)</Label>
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Precio Venta (PVP)</Label>
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-emerald-600 dark:text-emerald-400">$</span>
                               <Input type="number" placeholder="0.00" value={priceValue} onChange={e => setPriceValue(e.target.value)} className="pl-7 h-11 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-black text-emerald-700 dark:text-emerald-400" />
@@ -1553,46 +1549,46 @@ export default function InventoryMasterPage() {
                           </div>
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-zinc-800 pt-4 mt-2">
+                        <div className="border-t border-white/10 border-slate-100 dark:border-zinc-800 pt-4 mt-2">
                           <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Warehouse size={14}/> Control de Inventario</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="space-y-2">
-                              <Label className="text-[10px] font-black uppercase text-slate-450">Min. Stock</Label>
-                              <Input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                              <Label className="text-[10px] font-black uppercase text-slate-400">Min. Stock</Label>
+                              <Input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="h-10 glass-input rounded-xl text-xs font-bold" />
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-[10px] font-black uppercase text-slate-450">Max. Stock</Label>
-                              <Input type="number" value={maxStock} onChange={e => setMaxStock(e.target.value)} className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                              <Label className="text-[10px] font-black uppercase text-slate-400">Max. Stock</Label>
+                              <Input type="number" value={maxStock} onChange={e => setMaxStock(e.target.value)} className="h-10 glass-input rounded-xl text-xs font-bold" />
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-[10px] font-black uppercase text-slate-450">Punto Pedido</Label>
-                              <Input type="number" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="h-10 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-bold" />
+                              <Label className="text-[10px] font-black uppercase text-slate-400">Punto Pedido</Label>
+                              <Input type="number" value={reorderPoint} onChange={e => setReorderPoint(e.target.value)} className="h-10 bg-amber-500/15 border border-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-bold" />
                             </div>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div className="space-y-2">
-                              <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Ubicación Física</Label>
-                              <Input value={productLocation} onChange={e => setProductLocation(e.target.value)} placeholder="Ej. Estante A, Pasillo 3" className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold" />
+                              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Ubicación Física</Label>
+                              <Input value={productLocation} onChange={e => setProductLocation(e.target.value)} placeholder="Ej. Estante A, Pasillo 3" className="h-10 glass-input rounded-xl text-xs font-bold" />
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Código del Proveedor</Label>
-                              <Input value={selectedPriceSupplierSku} onChange={e => setSelectedPriceSupplierSku(e.target.value)} placeholder="Código externo..." className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold" />
+                              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Código del Proveedor</Label>
+                              <Input value={selectedPriceSupplierSku} onChange={e => setSelectedPriceSupplierSku(e.target.value)} placeholder="Código externo..." className="h-10 glass-input rounded-xl text-xs font-mono font-bold" />
                             </div>
                           </div>
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-zinc-800 pt-4 mt-2">
+                        <div className="border-t border-white/10 border-slate-100 dark:border-zinc-800 pt-4 mt-2">
                           <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Tag size={14}/> Propiedades</h4>
                           <div className="flex flex-wrap gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-muted px-3 py-2 rounded-xl">
+                            <label className="flex items-center gap-2 cursor-pointer glass-input px-3 py-2 rounded-xl">
                               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
                               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Activo</span>
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-muted px-3 py-2 rounded-xl">
+                            <label className="flex items-center gap-2 cursor-pointer glass-input px-3 py-2 rounded-xl">
                               <input type="checkbox" checked={isService} onChange={e => setIsService(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
                               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Servicio</span>
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-muted px-3 py-2 rounded-xl">
+                            <label className="flex items-center gap-2 cursor-pointer glass-input px-3 py-2 rounded-xl">
                               <input type="checkbox" checked={isExempt} onChange={e => setIsExempt(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
                               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Exento (Sin IVA)</span>
                             </label>
@@ -1623,14 +1619,14 @@ export default function InventoryMasterPage() {
                     placeholder="Buscar por SKU o descripción..." 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs"
+                    className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs"
                   />
                 </div>
 
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <ScrollArea className="h-[500px]">
                     <Table>
-                      <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                      <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
                         <TableRow>
                           <TableHead className="px-6 text-[10px] font-black uppercase">SKU</TableHead>
                           <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
@@ -1649,12 +1645,12 @@ export default function InventoryMasterPage() {
                           <TableRow 
                             key={item.id} 
                             onClick={() => handleSelectPriceProduct(item.sku)}
-                            className="hover:bg-slate-50 dark:hover:bg-muted/30 cursor-pointer transition-colors"
+                            className="hover:bg-white/10 border-b border-white/5 cursor-pointer transition-colors"
                           >
                             <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
                               {item.sku}
                             </TableCell>
-                            <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">
+                            <TableCell className="font-bold text-white text-xs">
                               {item.name}
                             </TableCell>
                             <TableCell>
@@ -1678,7 +1674,7 @@ export default function InventoryMasterPage() {
  
            {/* TAB ENTRADAS */}
            <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-             <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card h-fit">
+             <Card className="glass-card rounded-2xl h-fit">
                <CardHeader className="p-5 md:p-6">
                  <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
                    <Zap size={18} className="text-amber-500" /> Entrada Rápida de Stock
@@ -1693,7 +1689,7 @@ export default function InventoryMasterPage() {
                        placeholder="SKU..." 
                        value={quickEntry.sku}
                        onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
-                       className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-base md:text-lg font-bold text-xs"
+                       className="glass-input h-10 md:h-12 text-base md:text-lg font-bold text-xs"
                      />
                    </div>
                    <div className="space-y-2">
@@ -1704,7 +1700,7 @@ export default function InventoryMasterPage() {
                        value={quickEntry.quantity}
                        onFocus={e => e.target.select()}
                        onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
-                       className="bg-slate-50 dark:bg-muted border-none h-10 md:h-12 text-lg font-black text-blue-600 dark:text-blue-400"
+                       className="glass-input h-10 md:h-12 text-lg font-black text-blue-600 dark:text-blue-400"
                      />
                    </div>
                    {selectedWarehouse !== 'Todas' && (
@@ -1739,7 +1735,7 @@ export default function InventoryMasterPage() {
                {/* Columna Izquierda: Crear Bodega y Vincular Producto */}
                <div className="lg:col-span-4 space-y-6">
                  {/* Tarjeta 1: Crear Bodega */}
-                 <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card h-fit">
+                 <Card className="glass-card rounded-2xl h-fit">
                    <CardHeader className="p-5">
                      <CardTitle className="text-sm font-bold flex items-center gap-2">
                        <Warehouse size={16} className="text-blue-600" /> Crear Almacén / Bodega
@@ -1754,7 +1750,7 @@ export default function InventoryMasterPage() {
                            placeholder="Ej. Sucursal Santa Tecla..." 
                            value={warehouseName}
                            onChange={e => setWarehouseName(e.target.value)}
-                           className="bg-slate-50 dark:bg-muted border-none h-10 text-xs font-bold"
+                           className="glass-input h-10 text-xs font-bold"
                          />
                          <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold rounded-xl text-xs text-white">
                            CREAR
@@ -1768,7 +1764,7 @@ export default function InventoryMasterPage() {
                          {warehouses?.length === 0 ? (
                            <p className="text-[9px] text-slate-400 italic">No hay bodegas configuradas.</p>
                          ) : warehouses?.map((wh: any) => (
-                           <div key={wh.id} className="flex justify-between items-center bg-slate-50 dark:bg-muted/30 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                           <div key={wh.id} className="flex justify-between items-center bg-white/5 border-b border-white/10 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
                              <span className="text-[11px] font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
                              <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-rose-500 rounded-md" onClick={() => handleDeleteWarehouse(wh.id)}>
                                <Trash2 size={12} />
@@ -1781,7 +1777,7 @@ export default function InventoryMasterPage() {
                  </Card>
 
                  {/* Tarjeta 2: Vincular Producto a Bodega */}
-                 <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card h-fit">
+                 <Card className="glass-card rounded-2xl h-fit">
                    <CardHeader className="p-5">
                      <CardTitle className="text-sm font-bold flex items-center gap-2">
                        <Link2 size={16} className="text-blue-600" /> Vincular Producto a Bodega
@@ -1796,7 +1792,7 @@ export default function InventoryMasterPage() {
                            value={linkForm.warehouseName}
                            onValueChange={(val) => setLinkForm({ ...linkForm, warehouseName: val })}
                          >
-                           <SelectTrigger className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                           <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
                              <SelectValue placeholder="Seleccione..." />
                            </SelectTrigger>
                            <SelectContent>
@@ -1813,7 +1809,7 @@ export default function InventoryMasterPage() {
                            value={linkForm.productSku}
                            onValueChange={(val) => setLinkForm({ ...linkForm, productSku: val })}
                          >
-                           <SelectTrigger className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                           <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
                              <SelectValue placeholder="Seleccione SKU..." />
                            </SelectTrigger>
                            <SelectContent>
@@ -1830,7 +1826,7 @@ export default function InventoryMasterPage() {
                            type="number"
                            value={linkForm.initialStock}
                            onChange={e => setLinkForm({ ...linkForm, initialStock: e.target.value })}
-                           className="bg-slate-50 dark:bg-muted border-none h-10 text-xs font-black text-blue-600 dark:text-blue-400"
+                           className="glass-input h-10 text-xs font-black text-blue-600 dark:text-blue-400"
                          />
                        </div>
 
@@ -1849,11 +1845,11 @@ export default function InventoryMasterPage() {
 
                {/* Columna Derecha: Vista de Productos por Bodega */}
                <div className="lg:col-span-8 space-y-4">
-                 <Card className="p-4 bg-white dark:bg-card border shadow-sm rounded-2xl flex justify-between items-center">
+                 <Card className="p-4 glass-card border shadow-sm rounded-2xl flex justify-between items-center">
                    <div className="space-y-1">
                      <Label className="text-[9px] font-black uppercase text-slate-400">Ver Productos en Bodega</Label>
                      <Select value={selectedWhView} onValueChange={setSelectedWhView}>
-                       <SelectTrigger className="w-52 h-9 text-xs rounded-xl bg-slate-50 dark:bg-muted border-none font-bold">
+                       <SelectTrigger className="w-52 h-9 text-xs rounded-xl glass-input font-bold">
                          <SelectValue />
                        </SelectTrigger>
                        <SelectContent>
@@ -1870,10 +1866,10 @@ export default function InventoryMasterPage() {
                    </div>
                  </Card>
 
-                 <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                 <Card className="glass-card rounded-2xl overflow-hidden">
                    <ScrollArea className="h-[480px]">
                      <Table>
-                       <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                       <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
                          <TableRow>
                            <TableHead className="px-6 text-[10px] font-black uppercase">SKU</TableHead>
                            <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
@@ -1891,11 +1887,11 @@ export default function InventoryMasterPage() {
                          ) : productsInSelectedWarehouse.map((item) => {
                            const qtyInWh = selectedWhView === 'Todas' ? item.quantity : (item.bodegas?.[selectedWhView] || 0);
                            return (
-                             <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                             <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
                                <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
                                  {item.sku}
                                </TableCell>
-                               <TableCell className="font-bold text-slate-900 dark:text-foreground text-xs">{item.name}</TableCell>
+                               <TableCell className="font-bold text-white text-xs">{item.name}</TableCell>
                                <TableCell className="text-center">
                                  <Badge className={`font-black text-[10px] h-6 ${qtyInWh <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
                                    {qtyInWh} un.
@@ -1931,8 +1927,8 @@ export default function InventoryMasterPage() {
                 
                 {/* Panel Izquierdo: Carga y Progreso */}
                 <div className="lg:col-span-5 space-y-6">
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
-                    <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                  <Card className="glass-card rounded-2xl overflow-hidden">
+                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <div className="flex justify-between items-center">
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
                           <Upload className="text-blue-400" size={18} /> Carga Masiva (SKU + Desc)
@@ -1973,7 +1969,7 @@ export default function InventoryMasterPage() {
                       </div>
 
                       {bulkValidProducts.length > 0 && (
-                        <div className="space-y-4 border-t pt-4 border-slate-100 dark:border-slate-800">
+                        <div className="space-y-4 border-t border-white/10 pt-4 border-slate-100 dark:border-slate-800">
                           <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900">
                             <div className="flex items-center gap-2">
                               <CheckCircle2 className="text-emerald-500" size={18} />
@@ -2001,7 +1997,7 @@ export default function InventoryMasterPage() {
                                 <span>{bulkProgressText}</span>
                                 <span>{bulkProgressPercent}%</span>
                               </div>
-                              <div className="w-full bg-slate-100 dark:bg-muted rounded-full h-2 overflow-hidden">
+                              <div className="w-full glass rounded-full h-2 overflow-hidden">
                                 <div 
                                   className="bg-blue-600 h-full transition-all duration-150 rounded-full" 
                                   style={{ width: `${bulkProgressPercent}%` }}
@@ -2023,8 +2019,8 @@ export default function InventoryMasterPage() {
                   </Card>
 
                   {/* NUEVO CARD: LIMPIEZA DE CATÁLOGO EXISTENTE */}
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
-                    <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                  <Card className="glass-card rounded-2xl overflow-hidden">
+                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Trash2 size={18} className="text-rose-455 dark:text-rose-400" /> Limpieza de Catálogo
                       </CardTitle>
@@ -2048,11 +2044,11 @@ export default function InventoryMasterPage() {
 
                 {/* Panel Derecho: Previsualización / Catálogo en Sistema */}
                 <div className="lg:col-span-7 space-y-4">
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="glass-card rounded-2xl overflow-hidden">
                     <Tabs defaultValue="excel" className="w-full">
                       
                       {/* Header Integrado de Sub-pestañas */}
-                      <div className="p-4 bg-slate-50 dark:bg-muted/50 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                      <div className="p-4 bg-white/10 border-b border-white/10 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <TabsList className="bg-muted/80 p-0.5 rounded-xl border flex w-fit">
                           <TabsTrigger value="excel" className="rounded-lg text-[10px] font-bold px-3 py-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                             Por Importar ({bulkValidProducts.length})
@@ -2094,7 +2090,7 @@ export default function InventoryMasterPage() {
                       <TabsContent value="excel" className="outline-none m-0">
                         <ScrollArea className="h-[550px]">
                           <Table>
-                            <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10 shadow-sm">
+                            <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
                               <TableRow>
                                 <TableHead className="text-[10px] font-black uppercase whitespace-nowrap px-4 py-3">CÓDIGO (SKU)</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase whitespace-nowrap px-4 py-3">DESCRIPCIÓN</TableHead>
@@ -2108,7 +2104,7 @@ export default function InventoryMasterPage() {
                                   </TableCell>
                                 </TableRow>
                               ) : bulkValidProducts.slice(0, 50).map((row, idx) => (
-                                <TableRow key={row.sku} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                                <TableRow key={row.sku} className="hover:bg-white/10 border-b border-white/5">
                                   <TableCell className="text-[11px] font-bold text-slate-700 dark:text-muted-foreground whitespace-nowrap px-4 py-2.5 font-mono">
                                     {row.sku}
                                   </TableCell>
@@ -2149,11 +2145,11 @@ export default function InventoryMasterPage() {
                                   </TableCell>
                                 </TableRow>
                               ) : filteredSystemInventory.map((item) => (
-                                <TableRow key={item.sku} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                                <TableRow key={item.sku} className="hover:bg-white/10 border-b border-white/5">
                                   <TableCell className="px-4 md:px-6 py-3 font-mono font-black text-xs text-slate-700 dark:text-foreground">
                                     {item.sku}
                                   </TableCell>
-                                  <TableCell className="text-xs font-bold text-slate-500 dark:text-muted-foreground">
+                                  <TableCell className="text-xs font-bold text-slate-400">
                                     {item.name}
                                   </TableCell>
                                   <TableCell className="text-center py-1.5 px-2">
@@ -2183,7 +2179,7 @@ export default function InventoryMasterPage() {
 
             {/* TAB KARDEX DE ALMACEN */}
             <TabsContent value="kardex" className="space-y-6 outline-none animate-in fade-in duration-300">
-              <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card">
+              <Card className="glass-card rounded-2xl">
                 <CardHeader className="p-6 border-b">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <History className="text-blue-600" size={18} />
@@ -2204,7 +2200,7 @@ export default function InventoryMasterPage() {
                     </div>
                   </div>
                   <Table>
-                    <TableHeader className="bg-slate-50 dark:bg-muted/50">
+                    <TableHeader className="bg-white/10 border-b border-white/10">
                       <TableRow>
                         <TableHead className="text-[10px] font-black uppercase px-6">Fecha</TableHead>
                         <TableHead className="text-[10px] font-black uppercase">Código SKU</TableHead>
@@ -2217,7 +2213,7 @@ export default function InventoryMasterPage() {
                     <TableBody>
                       {!searchTerm.trim() ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-16 text-slate-450 italic text-xs font-medium">
+                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs font-medium">
                             Digite un código de SKU o nombre en la barra de búsqueda para ver sus movimientos en el Kardex.
                           </TableCell>
                         </TableRow>
@@ -2228,7 +2224,7 @@ export default function InventoryMasterPage() {
                           </TableCell>
                         </TableRow>
                       ) : filteredItems.map((item: any) => (
-                        <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                        <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
                           <TableCell className="px-6 text-[11px] font-mono text-slate-400">
                             {item.createdAt ? new Date(item.createdAt).toLocaleString('es-SV') : new Date().toLocaleString('es-SV')}
                           </TableCell>
@@ -2253,7 +2249,7 @@ export default function InventoryMasterPage() {
             <TabsContent value="toma-fisica" className="space-y-6 outline-none animate-in fade-in duration-300">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-5 space-y-4">
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card">
+                  <Card className="glass-card rounded-2xl">
                     <CardHeader className="p-6 border-b">
                       <CardTitle className="text-base font-bold flex items-center gap-2">
                         <ClipboardList className="text-blue-600" size={18} />
@@ -2358,7 +2354,7 @@ export default function InventoryMasterPage() {
                 </div>
 
                 <div className="lg:col-span-7">
-                  <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                  <Card className="glass-card rounded-2xl overflow-hidden">
                     <CardHeader className="p-6 border-b">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Warehouse className="text-blue-600" size={18} />
@@ -2367,7 +2363,7 @@ export default function InventoryMasterPage() {
                       <CardDescription className="text-xs">Vea la distribución de existencias físicas en sus diferentes almacenes.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
-                      <div className="p-4 border-b flex items-center gap-4 bg-slate-50 dark:bg-muted/10">
+                      <div className="p-4 border-b flex items-center gap-4 bg-white/5 border-b border-white/10">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Filtrar por Bodega:</span>
                         <Select value={selectedWhView} onValueChange={setSelectedWhView}>
                           <SelectTrigger className="w-[180px] h-9 bg-white dark:bg-slate-900 border-slate-200 text-xs font-bold rounded-lg shadow-sm">
@@ -2400,7 +2396,7 @@ export default function InventoryMasterPage() {
                           ) : productsInSelectedWarehouse.map((p: any) => {
                             const whQty = selectedWhView === 'Todas' ? (p.quantity || 0) : (p.bodegas?.[selectedWhView] || 0);
                             return (
-                              <TableRow key={p.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                              <TableRow key={p.id} className="hover:bg-white/10 border-b border-white/5">
                                 <TableCell className="px-6 font-mono font-bold text-xs">{p.sku}</TableCell>
                                 <TableCell className="font-bold text-xs">{p.name}</TableCell>
                                 <TableCell className="text-center">

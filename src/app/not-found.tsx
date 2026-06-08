@@ -95,11 +95,11 @@ export default function NotFound() {
 
         {/* Site Map (Mapa del Sitio - Navigation) */}
         <div className="w-full max-w-2xl bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/60 rounded-2xl p-6 md:p-8 shadow-xl">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-6 text-left border-b border-slate-100 dark:border-slate-800/80 pb-2">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400/80 mb-6 text-left border-b border-slate-100 dark:border-slate-800/80 pb-2">
             Mapa del Sitio
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Link href="/" className="group text-left p-3.5 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/50 flex items-start gap-3">
+            <Link href="/" className="group text-left p-3.5 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors border border-t border-white/10ransparent hover:border-slate-200/50 dark:hover:border-slate-800/50 flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <Home size={18} />
               </div>
@@ -109,7 +109,7 @@ export default function NotFound() {
               </div>
             </Link>
 
-            <Link href="/orders" className="group text-left p-3.5 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/50 flex items-start gap-3">
+            <Link href="/orders" className="group text-left p-3.5 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors border border-t border-white/10ransparent hover:border-slate-200/50 dark:hover:border-slate-800/50 flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <ClipboardList size={18} />
               </div>
@@ -119,7 +119,7 @@ export default function NotFound() {
               </div>
             </Link>
 
-            <Link href="/login" className="group text-left p-3.5 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/50 flex items-start gap-3">
+            <Link href="/login" className="group text-left p-3.5 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors border border-t border-white/10ransparent hover:border-slate-200/50 dark:hover:border-slate-800/50 flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <LogIn size={18} />
               </div>
@@ -129,7 +129,7 @@ export default function NotFound() {
               </div>
             </Link>
 
-            <a href="mailto:soporte@nexway.com" className="group text-left p-3.5 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/50 flex items-start gap-3">
+            <a href="mailto:soporte@nexway.com" className="group text-left p-3.5 rounded-2xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors border border-t border-white/10ransparent hover:border-slate-200/50 dark:hover:border-slate-800/50 flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <HelpCircle size={18} />
               </div>
@@ -143,7 +143,7 @@ export default function NotFound() {
       </main>
 
       {/* Footer */}
-      <footer className="max-w-6xl w-full mx-auto flex flex-col sm:flex-row justify-between items-center py-6 border-t border-slate-100 dark:border-slate-900 text-xs text-slate-400 gap-3">
+      <footer className="max-w-6xl w-full mx-auto flex flex-col sm:flex-row justify-between items-center py-6 border-t border-white/10 border-slate-100 dark:border-slate-900 text-xs text-slate-400 gap-3">
         <p>© 2026 NexWay ERP. Todos los derechos reservados.</p>
         <div className="flex gap-4">
           <Link href="/" className="hover:text-slate-600 dark:hover:text-slate-200 transition-colors">Inicio</Link>

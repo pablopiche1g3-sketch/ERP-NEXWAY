@@ -201,11 +201,7 @@ export default function QuotationsPage() {
   return (
     <>
       {/* VISTA EN PANTALLA (OCULTA AL IMPRIMIR) */}
-      <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-orange-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-orange-950/10 p-4 sm:p-6 print:hidden relative overflow-x-hidden">
-        {/* Orbes decorativos */}
-        <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[38vw] h-[38vw] rounded-full bg-orange-500/5 dark:bg-orange-500/8 blur-[130px]" />
-        <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-amber-500/5 dark:bg-amber-500/8 blur-[110px]" />
-        <div className="pointer-events-none fixed top-[40%] left-[35%] w-[16vw] h-[16vw] rounded-full bg-yellow-500/3 dark:bg-yellow-500/5 blur-[80px]" />
+      <div className="min-h-screen bg-transparent">
         <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 relative z-10">
           <div className="flex items-center gap-4">
             <Button 
@@ -302,7 +298,7 @@ export default function QuotationsPage() {
                   </Table>
                 </ScrollArea>
 
-                <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2">
+                <div className="p-4 border-t border-white/10 border-slate-100 bg-slate-50/50 space-y-2">
                   <div className="flex justify-between text-xs text-slate-500">
                     <span>Subtotal Gravado:</span>
                     <span className="font-bold text-slate-900">${subtotal.toFixed(2)}</span>
@@ -311,7 +307,7 @@ export default function QuotationsPage() {
                     <span>IVA (13%):</span>
                     <span className="font-bold text-slate-900">${iva.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-100">
+                  <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-white/10 border-slate-100">
                     <span>VALIDEZ: 15 DÍAS</span>
                     <span className="text-orange-600">${total.toFixed(2)}</span>
                   </div>
@@ -475,7 +471,7 @@ export default function QuotationsPage() {
                       <p className="text-[9px] font-bold text-blue-500 mt-1 uppercase">Código Maestro</p>
                     </div>
 
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10 border-slate-50">
                       <span className="text-sm font-black text-slate-900">${(product.price || 0).toFixed(2)}</span>
                       <div className="w-6 h-6 bg-slate-100 text-slate-400 rounded-lg flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-all">
                         <Plus size={12} />
@@ -577,7 +573,7 @@ export default function QuotationsPage() {
               <span>IVA (13%):</span>
               <span className="font-semibold text-slate-800">${iva.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
+            <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-white/10 border-slate-200">
               <span>TOTAL NETO (USD):</span>
               <span className="text-base font-black text-slate-900">${total.toFixed(2)}</span>
             </div>
@@ -585,7 +581,7 @@ export default function QuotationsPage() {
         </div>
 
         {/* SECCIÓN DE FIRMAS */}
-        <div className="grid grid-cols-2 gap-12 mt-20 pt-10 border-t border-slate-100 text-center text-xs">
+        <div className="grid grid-cols-2 gap-12 mt-20 pt-10 border-t border-white/10 border-slate-100 text-center text-xs">
           <div className="space-y-1.5">
             <div className="w-48 border-b border-slate-400 mx-auto h-8"></div>
             <p className="font-bold text-slate-700">Firma Autorizada y Sello</p>

@@ -190,33 +190,29 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-blue-50/30 dark:from-[#0f0c29] dark:via-[#302b63] dark:to-[#24243e] p-4 md:p-8 lg:p-10 font-body select-none transition-colors duration-300 relative overflow-hidden">
-      {/* Orbes de fondo decorativos optimizados */}
-      <div className="pointer-events-none fixed top-[-80px] left-[100px] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.25)_0%,transparent_70%)] hidden dark:block" />
-      <div className="pointer-events-none fixed bottom-[20px] right-[200px] w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.18)_0%,transparent_70%)] hidden dark:block" />
-      <div className="pointer-events-none fixed top-[-15%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-blue-500/5 blur-[140px] dark:hidden" />
+    <div className="min-h-screen bg-transparent p-4 md:p-8 lg:p-10 font-body select-none transition-colors duration-300 relative overflow-hidden">
       
       {/* Header Dashboard al Estilo Mockup */}
       <header className="flex flex-col gap-5 mb-8 relative z-10">
         <div className="flex justify-between items-start gap-4">
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white font-headline">
+            <h1 className="text-xl md:text-2xl font-black text-white font-headline">
               ¡Bienvenido de vuelta! 👋
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-0.5">
+            <p className="text-slate-400 text-xs md:text-sm mt-0.5">
               Centro de operaciones NexWay
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <ModeToggle />
             {/* Perfil del Administrador (Solo Icono en Móvil) */}
-            <div className="hidden sm:flex items-center gap-2.5 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md border border-slate-200 dark:border-zinc-800 p-1.5 pr-3.5 rounded-xl">
+            <div className="hidden sm:flex items-center gap-2.5 glass p-1.5 pr-3.5 rounded-xl">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-500 text-white flex items-center justify-center font-black text-xs uppercase shadow-md shadow-indigo-500/10">
                 AD
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-[10px] font-black text-slate-800 dark:text-white leading-tight">Admin</span>
-                <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-0.5">
+                <span className="text-[10px] font-black text-white leading-tight">Admin</span>
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mt-0.5">
                   {ROLE_PERMISSIONS[userRole] ? 'Colaborador' : 'Administrador'}
                 </span>
               </div>
@@ -231,18 +227,18 @@ export default function Home() {
         <div className="flex items-center gap-3 w-full">
           {/* Buscador */}
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
             <Input 
               type="text" 
               placeholder="Buscar..." 
-              className="h-11 pl-10 pr-4 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md border-slate-200 dark:border-zinc-800 text-xs font-medium rounded-xl focus-visible:ring-indigo-500 transition-colors w-full"
+              className="h-11 pl-10 pr-4 glass-input text-xs font-medium rounded-xl focus-visible:ring-indigo-500 transition-colors w-full"
             />
           </div>
 
           {/* Botón Filtrar */}
           <Button 
             variant="outline" 
-            className="h-11 px-4 bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 shrink-0"
+            className="h-11 px-4 glass text-xs font-bold text-slate-300 rounded-xl hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-2 shrink-0"
           >
             <SlidersHorizontal size={14} />
             <span className="hidden sm:inline">Filtrar</span>
@@ -250,19 +246,17 @@ export default function Home() {
         </div>
       </header>
 
-
-
       {/* Contenedor central: Módulos principales con glows */}
       <Card className="glass-card rounded-2xl mb-8 overflow-hidden relative z-10">
-        <div className="p-6 border-b border-slate-100 dark:border-zinc-800/80 flex items-center justify-between flex-wrap gap-4">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider font-headline">Módulos principales</h2>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-normal mt-0.5">Accede rápidamente a las funciones más utilizadas.</p>
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider font-headline">Módulos principales</h2>
+            <p className="text-[11px] text-slate-400 leading-normal mt-0.5">Accede rápidamente a las funciones más utilizadas.</p>
           </div>
           <Button 
             variant="outline" 
             onClick={() => router.push('/management')}
-            className="h-9 px-4 bg-slate-50/80 dark:bg-zinc-900/40 backdrop-blur-md border-slate-100 dark:border-zinc-800/80 rounded-xl text-xs font-bold hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-1.5"
+            className="h-9 px-4 glass rounded-xl text-xs font-bold hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-1.5"
           >
             <ShieldCheck size={14} /> Ajustar Módulos
           </Button>
@@ -275,14 +269,14 @@ export default function Home() {
                 <div 
                   key={m.id}
                   onClick={() => handleModuleClick(m.id, m.path, m.title)}
-                  className={`bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/60 dark:border-white/10 p-5 rounded-xl flex items-center justify-between gap-4 cursor-pointer group transition-colors duration-200 relative overflow-hidden hover:bg-slate-50 dark:hover:bg-white/10 transform-gpu`}
+                  className={`glass p-5 rounded-xl flex items-center justify-between gap-4 cursor-pointer group transition-all duration-200 relative overflow-hidden hover:bg-white/10 hover:border-white/25 transform-gpu`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className={`w-12 h-12 shrink-0 ${m.iconBg} rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105`}>
                       {m.icon}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-xs font-black text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-snug flex items-center gap-1.5">
+                      <h3 className="text-xs font-black text-white group-hover:text-indigo-400 transition-colors leading-snug flex items-center gap-1.5">
                         {m.title}
                         {!hasModuleAccess && (
                           <Badge variant="outline" className="text-[7px] px-1 h-3.5 border-amber-500/20 text-amber-500 bg-amber-500/5">
@@ -290,17 +284,16 @@ export default function Home() {
                           </Badge>
                         )}
                       </h3>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate leading-normal mt-0.5">{m.description}</p>
+                      <p className="text-[10px] text-slate-400 truncate leading-normal mt-0.5">{m.description}</p>
                     </div>
                   </div>
-                  <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all duration-300 shrink-0" />
+                  <ChevronRight size={14} className="text-slate-600 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all duration-300 shrink-0" />
                 </div>
               );
             })}
           </div>
         </CardContent>
       </Card>
-
 
     </div>
   );

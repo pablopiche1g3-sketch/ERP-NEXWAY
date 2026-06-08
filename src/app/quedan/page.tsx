@@ -157,11 +157,7 @@ export default function QuedanPage() {
   }, [searchTerm, quedans]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-purple-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-purple-950/10 p-6 transition-colors duration-300 relative overflow-x-hidden">
-      {/* Orbes decorativos */}
-      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[38vw] h-[38vw] rounded-full bg-purple-500/5 dark:bg-purple-500/8 blur-[130px]" />
-      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-violet-500/5 dark:bg-violet-500/8 blur-[110px]" />
-      <div className="pointer-events-none fixed top-[40%] left-[35%] w-[16vw] h-[16vw] rounded-full bg-fuchsia-500/3 dark:bg-fuchsia-500/5 blur-[80px]" />
+    <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm" onClick={() => router.push('/')}>
@@ -259,7 +255,7 @@ export default function QuedanPage() {
 
                 {/* Lista de facturas agregadas */}
                 {invoices.length > 0 && (
-                  <div className="mt-4 border-t border-slate-200 pt-4 space-y-2">
+                  <div className="mt-4 border-t border-white/10 border-slate-200 pt-4 space-y-2">
                     {invoices.map((inv, index) => (
                       <div key={inv.number} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
                         <div className="flex flex-col">

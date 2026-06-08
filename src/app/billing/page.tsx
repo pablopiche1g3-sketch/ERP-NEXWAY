@@ -888,12 +888,7 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-slate-100 dark:from-[#0a0a14] dark:via-[#12103a] dark:to-[#0a1a14] p-4 md:p-6 transition-colors duration-300 print:bg-white print:p-0 relative overflow-x-hidden text-slate-900 dark:text-white">
-      {/* Orbes decorativos */}
-      <div className="pointer-events-none fixed top-[-100px] left-[300px] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(91,94,244,0.18)_0%,transparent_70%)] hidden dark:block" />
-      <div className="pointer-events-none fixed bottom-[0] right-[100px] w-[350px] h-[350px] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.12)_0%,transparent_70%)] hidden dark:block" />
-      <div className="pointer-events-none fixed top-[50%] left-[40%] w-[18vw] h-[18vw] rounded-full bg-violet-500/3 dark:bg-violet-500/5 blur-[90px] dark:hidden" />
-      
+    <div className="min-h-screen bg-transparent">
       {/* Header Estilo Terminal */}
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 print:hidden relative z-10 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 p-4 px-6 rounded-2xl">
         <div className="flex items-center gap-4">
@@ -1271,7 +1266,7 @@ export default function BillingPage() {
                 </div>
                 
                 {/* Fila de Totales en el Pie de la Tabla */}
-                <div className="flex items-center justify-between p-[14px_16px] border-t border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
+                <div className="flex items-center justify-between p-[14px_16px] border-t border-white/10 border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-[.5px] font-medium">Subtotal</span>
                     <span className="text-[14px] font-semibold text-slate-700 dark:text-white/70">${totalCart.toFixed(2)}</span>
@@ -1644,7 +1639,7 @@ export default function BillingPage() {
                   </div>
                 ) : null}
 
-                <DialogFooter className="border-t pt-3 flex items-center justify-between sm:justify-between gap-3">
+                <DialogFooter className="border-t border-white/10 pt-3 flex items-center justify-between sm:justify-between gap-3">
                   <Button 
                     variant="outline" 
                     className="rounded-xl h-10 text-xs font-bold" 
@@ -1927,24 +1922,24 @@ export default function BillingPage() {
                   </div>
                   <div className="p-0">
                     <Table>
-                      <TableHeader className="bg-slate-50 dark:bg-muted/40">
+                      <TableHeader className="glass-input/40">
                         <TableRow className="border-b dark:border-border">
-                          <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-500 dark:text-muted-foreground">Medio de Pago</TableHead>
-                          <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Ventas Sistema</TableHead>
-                          <TableHead className="text-right text-[10px] uppercase font-black w-36 py-3 text-slate-500 dark:text-muted-foreground">Físico / Vales</TableHead>
-                          <TableHead className="text-right text-[10px] uppercase font-black px-6 py-3 text-slate-500 dark:text-muted-foreground">Diferencia</TableHead>
+                          <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-400">Medio de Pago</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Ventas Sistema</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black w-36 py-3 text-slate-400">Físico / Vales</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black px-6 py-3 text-slate-400">Diferencia</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
-                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-slate-900 dark:text-foreground">
+                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
                             <CardIcon size={14} className="text-blue-500" /> Tarjeta
                           </TableCell>
                           <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCardSales.toFixed(2)}</TableCell>
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-slate-50 dark:bg-muted border-slate-200 dark:border-border" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl glass-input border-slate-200 dark:border-border" 
                               value={physicalCard || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
@@ -1957,14 +1952,14 @@ export default function BillingPage() {
                         </TableRow>
                         
                         <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
-                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-slate-900 dark:text-foreground">
+                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
                             <FileText size={14} className="text-purple-500" /> Cheque
                           </TableCell>
                           <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCheckSales.toFixed(2)}</TableCell>
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-slate-50 dark:bg-muted border-slate-200 dark:border-border" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl glass-input border-slate-200 dark:border-border" 
                               value={physicalCheck || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
@@ -1977,14 +1972,14 @@ export default function BillingPage() {
                         </TableRow>
 
                         <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
-                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-slate-900 dark:text-foreground">
+                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
                             <Landmark size={14} className="text-amber-500" /> Transferencia
                           </TableCell>
                           <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemTransferSales.toFixed(2)}</TableCell>
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-slate-50 dark:bg-muted border-slate-200 dark:border-border" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl glass-input border-slate-200 dark:border-border" 
                               value={physicalTransfer || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
@@ -1997,14 +1992,14 @@ export default function BillingPage() {
                         </TableRow>
 
                         <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-0">
-                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-slate-900 dark:text-foreground">
+                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
                             <Receipt size={14} className="text-teal-500" /> Crédito
                           </TableCell>
                           <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCreditSales.toFixed(2)}</TableCell>
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-slate-50 dark:bg-muted border-slate-200 dark:border-border" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl glass-input border-slate-200 dark:border-border" 
                               value={physicalCredit || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
@@ -2036,15 +2031,15 @@ export default function BillingPage() {
                     </div>
                     <div className="p-5 space-y-4">
                       <div className="flex gap-2">
-                        <Input placeholder="Descripción..." value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} className="h-10 text-xs bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-foreground" />
-                        <Input type="number" placeholder="0.00" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="h-10 w-20 text-xs bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl font-black text-rose-500" />
-                        <Button onClick={addExpense} variant="secondary" size="icon" className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-muted dark:text-foreground hover:bg-slate-200 border-none flex-shrink-0"><Plus size={16}/></Button>
+                        <Input placeholder="Descripción..." value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} className="h-10 text-xs glass-input border-slate-100 dark:border-border rounded-xl text-foreground" />
+                        <Input type="number" placeholder="0.00" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="h-10 w-20 text-xs glass-input border-slate-100 dark:border-border rounded-xl font-black text-rose-500" />
+                        <Button onClick={addExpense} variant="secondary" size="icon" className="h-10 w-10 rounded-xl glass dark:text-foreground hover:bg-slate-200 border-none flex-shrink-0"><Plus size={16}/></Button>
                       </div>
                       <ScrollArea className="h-40 pr-1">
                         {expenses.length === 0 ? (
                           <div className="text-center py-10 text-[11px] text-slate-400 italic">No hay egresos registrados.</div>
                         ) : expenses.map((exp, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-2 hover:bg-slate-50 dark:hover:bg-muted/30 border-b border-slate-50 dark:border-border/30 last:border-0 rounded-lg">
+                          <div key={idx} className="flex justify-between items-center p-2 hover:bg-white/10 border-b border-white/5 border-b border-slate-50 dark:border-border/30 last:border-0 rounded-lg">
                             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{exp.description}</span>
                             <span className="text-xs font-black text-rose-500">-${exp.amount.toFixed(2)}</span>
                           </div>
@@ -2108,14 +2103,14 @@ export default function BillingPage() {
                   <div className="p-0">
                     <div className="overflow-x-auto">
                       <Table>
-                        <TableHeader className="bg-slate-50 dark:bg-muted/40">
+                        <TableHeader className="glass-input/40">
                           <TableRow className="border-b dark:border-border">
-                            <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-500 dark:text-muted-foreground">Factura / Correlativo</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Cliente</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Fecha Venta</TableHead>
-                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Total Venta</TableHead>
-                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Total Abonado</TableHead>
-                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-500 dark:text-muted-foreground">Saldo Pendiente</TableHead>
+                            <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-400">Factura / Correlativo</TableHead>
+                            <TableHead className="text-[10px] uppercase font-black py-3 text-slate-400">Cliente</TableHead>
+                            <TableHead className="text-[10px] uppercase font-black py-3 text-slate-400">Fecha Venta</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Total Venta</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Total Abonado</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Saldo Pendiente</TableHead>
                             <TableHead className="w-24 py-3 px-6"></TableHead>
                           </TableRow>
                         </TableHeader>
@@ -2135,16 +2130,16 @@ export default function BillingPage() {
 
                             return (
                               <TableRow key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
-                                <TableCell className="font-mono font-bold text-xs px-6 py-4 text-slate-900 dark:text-foreground">
+                                <TableCell className="font-mono font-bold text-xs px-6 py-4 text-white">
                                   {s.correlative}
                                 </TableCell>
                                 <TableCell className="font-bold text-xs text-slate-800 dark:text-slate-200">
                                   {s.customer}
                                 </TableCell>
-                                <TableCell className="text-xs text-slate-500 dark:text-muted-foreground">
+                                <TableCell className="text-xs text-slate-400">
                                   {new Date(s.timestamp).toLocaleDateString()}
                                 </TableCell>
-                                <TableCell className="text-right font-bold text-xs text-slate-900 dark:text-foreground">
+                                <TableCell className="text-right font-bold text-xs text-white">
                                   ${s.total.toFixed(2)}
                                 </TableCell>
                                 <TableCell className="text-right font-black text-xs text-emerald-600 dark:text-emerald-400">
@@ -2193,7 +2188,7 @@ export default function BillingPage() {
                       ) : journalPayments.map(j => (
                         <div key={j.id} className="p-4 border-b border-slate-50 dark:border-border/30 last:border-0 hover:bg-slate-50/50 dark:hover:bg-muted/10 transition-all flex flex-col gap-1.5">
                           <div className="flex justify-between items-start">
-                            <span className="text-[10px] font-black text-slate-900 dark:text-foreground line-clamp-2 pr-2">
+                            <span className="text-[10px] font-black text-white line-clamp-2 pr-2">
                               {j.description}
                             </span>
                             <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex-shrink-0">
@@ -2202,7 +2197,7 @@ export default function BillingPage() {
                           </div>
                           <div className="flex justify-between items-center text-[9px] text-slate-400 dark:text-muted-foreground">
                             <span>{new Date(j.created_at).toLocaleDateString()} a las {new Date(j.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                            <Badge variant="outline" className="text-[8px] h-4 py-0 font-bold bg-slate-50 dark:bg-muted text-slate-500">Ingreso Caja</Badge>
+                            <Badge variant="outline" className="text-[8px] h-4 py-0 font-bold glass-input text-slate-500">Ingreso Caja</Badge>
                           </div>
                         </div>
                       ))}
@@ -2231,7 +2226,7 @@ export default function BillingPage() {
                  <div className="flex justify-between"><span>Fondo Inicial:</span> <span className="font-bold">${(cashConfig?.cashFloat || 0).toFixed(2)}</span></div>
                  <div className="flex justify-between"><span>Ventas Efectivo:</span> <span className="font-bold">${systemCashSales.toFixed(2)}</span></div>
                  <div className="flex justify-between"><span>Total Gastos:</span> <span className="font-bold text-red-600">-${totalExpenses.toFixed(2)}</span></div>
-                 <div className="flex justify-between border-t pt-2 text-lg font-black">
+                 <div className="flex justify-between border-t border-white/10 pt-2 text-lg font-black">
                     <span>Esperado en Caja:</span> 
                     <span>${((cashConfig?.cashFloat || 0) + systemCashSales - totalExpenses).toFixed(2)}</span>
                  </div>
@@ -2322,11 +2317,11 @@ export default function BillingPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-20 pt-20">
-           <div className="border-t border-black text-center pt-4">
+           <div className="border-t border-white/10 border-black text-center pt-4">
               <p className="text-sm font-black">Firma Cajero</p>
               <p className="text-[10px] text-gray-500 uppercase">{user?.email || 'Admin'}</p>
            </div>
-           <div className="border-t border-black text-center pt-4">
+           <div className="border-t border-white/10 border-black text-center pt-4">
               <p className="text-sm font-black">Firma Auditoría / Gerencia</p>
               <p className="text-[10px] text-gray-500 uppercase">NexWay Solutions</p>
            </div>
@@ -2385,7 +2380,7 @@ export default function BillingPage() {
           return (
             <DialogContent className="rounded-2xl max-w-md p-6 bg-card border shadow-2xl border-slate-100 dark:border-border">
               <DialogHeader>
-                <DialogTitle className="text-xl font-black flex items-center gap-2 text-slate-900 dark:text-foreground">
+                <DialogTitle className="text-xl font-black flex items-center gap-2 text-white">
                   <Coins size={20} className="text-indigo-600 dark:text-indigo-400" /> Registrar Abono a Crédito
                 </DialogTitle>
                 <DialogDescription className="text-xs dark:text-muted-foreground">
@@ -2394,7 +2389,7 @@ export default function BillingPage() {
               </DialogHeader>
               <div className="space-y-4 py-3">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-slate-50 dark:bg-muted/40 border dark:border-border rounded-xl">
+                  <div className="p-3 glass-input/40 border dark:border-border rounded-xl">
                     <span className="text-[9px] font-black uppercase text-slate-400 block">Total de Venta</span>
                     <span className="text-sm font-black text-slate-950 dark:text-foreground">${selectedSaleForAbono.total.toFixed(2)}</span>
                   </div>
@@ -2405,20 +2400,20 @@ export default function BillingPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Monto del Abono ($)</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Monto del Abono ($)</Label>
                   <Input 
                     type="number" 
                     placeholder="0.00" 
                     value={abonoAmount}
                     onChange={e => setAbonoAmount(e.target.value)}
-                    className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl font-black text-emerald-600 dark:text-emerald-400"
+                    className="h-11 glass-input border-slate-100 dark:border-border rounded-xl font-black text-emerald-600 dark:text-emerald-400"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Método de Pago</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Método de Pago</Label>
                   <Select value={abonoPaymentMethod} onValueChange={setAbonoPaymentMethod}>
-                    <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
+                    <SelectTrigger className="h-11 glass-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2431,12 +2426,12 @@ export default function BillingPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase text-slate-500 dark:text-muted-foreground">Notas del Abono</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Notas del Abono</Label>
                   <Textarea 
                     placeholder="Referencia de pago, detalles..." 
                     value={abonoNotes}
                     onChange={e => setAbonoNotes(e.target.value)}
-                    className="bg-slate-50 dark:bg-muted border-slate-100 dark:border-border rounded-xl text-xs text-foreground"
+                    className="glass-input border-slate-100 dark:border-border rounded-xl text-xs text-foreground"
                     rows={2}
                   />
                 </div>
@@ -2445,7 +2440,7 @@ export default function BillingPage() {
                 <div className="flex gap-3 w-full">
                   <Button 
                     variant="outline"
-                    className="flex-1 h-11 rounded-xl text-xs font-bold border-slate-200 dark:border-border text-foreground bg-white dark:bg-card" 
+                    className="flex-1 h-11 rounded-xl text-xs font-bold border-slate-200 dark:border-border text-foreground glass-card" 
                     onClick={() => setSelectedSaleForAbono(null)}
                   >
                     Cancelar
@@ -2473,7 +2468,7 @@ export default function BillingPage() {
               <FileText size={20} className="text-indigo-500" />
               Importar Cotización
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 dark:text-muted-foreground">
+            <DialogDescription className="text-xs text-slate-400">
               Seleccione un presupuesto pendiente para convertirlo en factura inmediatamente.
             </DialogDescription>
           </DialogHeader>
@@ -2495,7 +2490,7 @@ export default function BillingPage() {
                   <div key={q.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer transition-colors" onClick={() => loadQuotationToCart(q)}>
                     <div>
                       <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{q.quote_number}</h4>
-                      <p className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5"><Users size={12} className="inline mr-1"/>{q.customer_name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5"><Users size={12} className="inline mr-1"/>{q.customer_name}</p>
                       <p className="text-[10px] text-slate-400 mt-1">{new Date(q.created_at).toLocaleString()}</p>
                     </div>
                     <div className="mt-3 sm:mt-0 text-right">

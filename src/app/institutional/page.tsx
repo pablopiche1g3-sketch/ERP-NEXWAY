@@ -468,19 +468,19 @@ export default function InstitutionalModulePage() {
     <div className="min-h-screen bg-slate-50 dark:bg-background p-4 md:p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 print:hidden">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-card shadow-sm border" onClick={() => router.push('/')}>
-            <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
+          <Button variant="ghost" size="icon" className="rounded-full glass-card shadow-sm border" onClick={() => router.push('/')}>
+            <ArrowLeft className="text-white" size={20} />
           </Button>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-foreground font-headline">NexWay Institucional</h1>
-            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Control avanzado de proyectos y envío de DTE</p>
+            <h1 className="text-xl md:text-2xl font-bold text-white font-headline">NexWay Institucional</h1>
+            <p className="text-slate-400 text-xs md:text-sm">Control avanzado de proyectos y envío de DTE</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto print:hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white dark:bg-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="glass-card p-1 rounded-2xl shadow-sm border h-auto flex-wrap w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="overview" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
               <Activity size={14} className="mr-2"/> Resumen
             </TabsTrigger>
@@ -504,7 +504,7 @@ export default function InstitutionalModulePage() {
           <TabsContent value="overview" className="space-y-6 outline-none">
             {/* Metric Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-2xl">
+              <Card className="relative overflow-hidden glass-card border shadow-sm rounded-2xl">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-bold text-slate-500">Ingresos Totales</CardTitle>
                   <DollarSign className="w-4 h-4 text-blue-500" />
@@ -520,7 +520,7 @@ export default function InstitutionalModulePage() {
                 <div className="absolute bottom-0 left-0 h-1 bg-blue-500 w-full" />
               </Card>
 
-              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-2xl">
+              <Card className="relative overflow-hidden glass-card border shadow-sm rounded-2xl">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-bold text-slate-500">Costos Totales</CardTitle>
                   <TrendingDown className="w-4 h-4 text-rose-500" />
@@ -534,7 +534,7 @@ export default function InstitutionalModulePage() {
                 <div className="absolute bottom-0 left-0 h-1 bg-rose-500 w-full" />
               </Card>
 
-              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-2xl">
+              <Card className="relative overflow-hidden glass-card border shadow-sm rounded-2xl">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-bold text-slate-500">Beneficio Neto</CardTitle>
                   <TrendingUp className="w-4 h-4 text-emerald-500" />
@@ -548,7 +548,7 @@ export default function InstitutionalModulePage() {
                 <div className="absolute bottom-0 left-0 h-1 bg-emerald-500 w-full" />
               </Card>
 
-              <Card className="relative overflow-hidden bg-white dark:bg-card border shadow-sm rounded-2xl">
+              <Card className="relative overflow-hidden glass-card border shadow-sm rounded-2xl">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-bold text-slate-500">Margen de Beneficio</CardTitle>
                   <Target className="w-4 h-4 text-purple-500" />
@@ -566,7 +566,7 @@ export default function InstitutionalModulePage() {
             </div>
 
             {/* Chart Section */}
-            <Card className="w-full bg-white dark:bg-card border shadow-sm rounded-2xl">
+            <Card className="w-full glass-card border shadow-sm rounded-2xl">
               <CardHeader>
                 <CardTitle className="font-bold text-lg">Actividad Financiera Reciente</CardTitle>
                 <CardDescription>Visualización de los últimos flujos de compras y ventas institucionales.</CardDescription>
@@ -613,8 +613,8 @@ export default function InstitutionalModulePage() {
 
           <TabsContent value="billing" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
              <div className="lg:col-span-5 space-y-4">
-                <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-card border">
-                  <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                <Card className="border-none shadow-sm rounded-2xl overflow-hidden glass-card border">
+                  <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                     <CardTitle className="text-base font-bold">Terminal Institucional</CardTitle>
                     <p className="text-4xl font-black text-blue-400">${totalCart.toFixed(2)}</p>
                   </CardHeader>
@@ -642,7 +642,7 @@ export default function InstitutionalModulePage() {
                 </Button>
              </div>
              <div className="lg:col-span-7 space-y-4">
-                <Card className="p-4 bg-white dark:bg-card rounded-2xl border space-y-4">
+                <Card className="p-4 glass-card rounded-2xl border space-y-4">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">No. Factura / CCF</Label>
@@ -691,7 +691,7 @@ export default function InstitutionalModulePage() {
                  <form onSubmit={handleSearchInventory} className="relative flex gap-2">
                     <div className="relative flex-1">
                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                       <Input placeholder="Buscar suministros (Presione Enter)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-sm font-medium" />
+                       <Input placeholder="Buscar suministros (Presione Enter)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-12 glass-card border-none shadow-sm rounded-2xl text-sm font-medium" />
                     </div>
                     <Button type="submit" className="h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl px-6 font-bold shrink-0">
                        Buscar
@@ -700,10 +700,10 @@ export default function InstitutionalModulePage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                    {filteredInventory.slice(0, 12).map(p => (
-                     <div key={p.id} onClick={() => setCart([...cart, { ...p, quantity: 1 }])} className="p-3 bg-white dark:bg-card rounded-xl border border-border hover:border-blue-500 cursor-pointer transition-all flex flex-col justify-between aspect-square">
+                     <div key={p.id} onClick={() => setCart([...cart, { ...p, quantity: 1 }])} className="p-3 glass-card rounded-xl border border-border hover:border-blue-500 cursor-pointer transition-all flex flex-col justify-between aspect-square">
                         <p className="text-[9px] font-mono text-muted-foreground">{p.sku}</p>
                         <h4 className="text-[11px] font-bold leading-tight line-clamp-2 h-7">{p.name}</h4>
-                        <div className="mt-2 pt-2 border-t flex justify-between items-center">
+                        <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
                            <span className="font-black text-blue-600">${p.price}</span>
                            <PlusCircle size={14} className="text-blue-500" />
                         </div>
@@ -720,7 +720,7 @@ export default function InstitutionalModulePage() {
                   <PlusCircle size={16} className="mr-2" /> Aperturar Proyecto
                </Button>
             </div>
-            <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+            <Card className="glass-card rounded-2xl overflow-hidden">
                <Table>
                   <TableHeader className="bg-muted/50">
                      <TableRow>
@@ -777,7 +777,7 @@ export default function InstitutionalModulePage() {
 
           <TabsContent value="costs" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
              <div className="lg:col-span-4 space-y-4">
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card">
+                <Card className="glass-card rounded-2xl">
                    <CardHeader className="bg-slate-900 text-white p-5 rounded-t-3xl">
                       <CardTitle className="text-sm">Registro Manual de Costos</CardTitle>
                    </CardHeader>
@@ -797,7 +797,7 @@ export default function InstitutionalModulePage() {
                             <SelectContent>{projects?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                          </Select>
                       </div>
-                      <div className="pt-4 border-t space-y-2">
+                      <div className="pt-4 border-t border-white/10 space-y-2">
                          <Label className="text-[9px] font-bold uppercase">Agregar Suministro</Label>
                          <div className="grid grid-cols-3 gap-2">
                             <Input placeholder="Cant" type="number" value={manualCostQty} onChange={e => setManualCostQty(e.target.value)} className="h-8 text-xs" />
@@ -819,7 +819,7 @@ export default function InstitutionalModulePage() {
                 </Card>
              </div>
              <div className="lg:col-span-8">
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card h-full">
+                <Card className="glass-card rounded-2xl h-full">
                    <CardHeader className="border-b p-5">
                       <CardTitle className="text-sm">Detalle de Suministros (Factura Física)</CardTitle>
                    </CardHeader>
@@ -944,7 +944,7 @@ export default function InstitutionalModulePage() {
                     </ScrollArea>
                  </div>
               </div>
-              <div className="border-t pt-4">
+              <div className="border-t border-white/10 pt-4">
                  <Label className="text-[10px] font-bold uppercase mb-2 block">Detalle de Oferta (Total: {newProject.items.length})</Label>
                  <ScrollArea className="h-[150px] border rounded-2xl p-0">
                     <Table>
@@ -957,7 +957,7 @@ export default function InstitutionalModulePage() {
                  </ScrollArea>
               </div>
            </div>
-           <DialogFooter className="p-6 bg-slate-50 border-t">
+           <DialogFooter className="p-6 bg-slate-50 border-t border-white/10">
               <Button className="w-full h-12 bg-blue-600 rounded-xl font-bold shadow-lg" onClick={handleCreateProject} disabled={isProcessing}>
                  {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />} FINALIZAR APERTURA
               </Button>

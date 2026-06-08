@@ -159,7 +159,7 @@ export default function LoginForm() {
                   </FormLabel>
                   <FormControl>
                     <div className="relative group">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400/80 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
                       <Input 
                         type="text"
                         placeholder="Ingresa tu usuario o correo" 
@@ -185,7 +185,7 @@ export default function LoginForm() {
                   </div>
                   <FormControl>
                     <div className="relative group">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400/80 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
                       <Input
                         type="password"
                         placeholder="••••••••"

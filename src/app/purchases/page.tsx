@@ -796,13 +796,13 @@ export default function PurchasesPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-7xl mx-auto space-y-6 relative z-10">
         <TabsList className="bg-transparent p-0 border-b border-white/10 w-full justify-start h-auto rounded-none gap-2">
-          <TabsTrigger value="registro" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-transparent">
+          <TabsTrigger value="registro" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
             <ClipboardList size={14} className="mr-2" /> Registro de Compra
           </TabsTrigger>
-          <TabsTrigger value="historial" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-transparent">
+          <TabsTrigger value="historial" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
             <Calendar size={14} className="mr-2" /> Historial de Ingresos
           </TabsTrigger>
-          <TabsTrigger value="vinculacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-transparent">
+          <TabsTrigger value="vinculacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
             <Link2 size={14} className="mr-2" /> Vinculación de Códigos
           </TabsTrigger>
         </TabsList>
@@ -1492,7 +1492,7 @@ export default function PurchasesPage() {
             </div>
           </ScrollArea>
 
-          <DialogFooter className="border-t pt-3 flex items-center justify-between sm:justify-between">
+          <DialogFooter className="border-t border-white/10 pt-3 flex items-center justify-between sm:justify-between">
             <span className="text-[10px] text-muted-foreground font-medium">
               * El precio de venta por defecto si se deja en blanco es Costo + 30% de margen.
             </span>
@@ -1589,7 +1589,7 @@ export default function PurchasesPage() {
             </div>
           )}
 
-          <DialogFooter className="border-t pt-3 flex items-center justify-between">
+          <DialogFooter className="border-t border-white/10 pt-3 flex items-center justify-between">
             <div>
               {selectedPurchase?.status === 'PENDIENTE' && (
                 <Button 

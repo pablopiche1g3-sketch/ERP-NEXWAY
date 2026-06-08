@@ -974,12 +974,7 @@ export default function OrdersPage() {
   }, [supplierSearchQuery, suppliers]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-violet-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-violet-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
-      {/* Orbes decorativos */}
-      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[42vw] h-[42vw] rounded-full bg-violet-500/5 dark:bg-violet-500/8 blur-[140px]" />
-      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[110px]" />
-      <div className="pointer-events-none fixed top-[40%] left-[30%] w-[20vw] h-[20vw] rounded-full bg-purple-500/3 dark:bg-purple-500/5 blur-[90px]" />
-      
+    <div className="min-h-screen bg-transparent">
       {/* HEADER PRINCIPAL */}
       <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
         <div className="flex items-center gap-4">
@@ -987,15 +982,15 @@ export default function OrdersPage() {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="rounded-full bg-white dark:bg-card shadow-sm hover:bg-slate-100 border border-slate-150" 
+              className="rounded-full glass hover:bg-white/10 border-white/10 text-white" 
               onClick={() => router.push('/')}
             >
-              <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
+              <ArrowLeft className="text-white" size={20} />
             </Button>
           )}
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-foreground tracking-tight">Centro de Requisición & Pedidos</h1>
+              <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">Centro de Requisición & Pedidos</h1>
               {activeTenant && (
                 <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full text-amber-600 dark:text-amber-400 text-[10px] font-bold shadow-sm animate-pulse">
                   <span>CLIENTE: {activeTenant.toUpperCase()}</span>
@@ -1012,7 +1007,7 @@ export default function OrdersPage() {
                 </div>
               )}
             </div>
-            <p className="text-slate-500 dark:text-muted-foreground text-xs md:text-sm">Gestión de órdenes de pedidos internas entre tiendas y externas con proveedores</p>
+            <p className="text-slate-400 text-xs md:text-sm">Gestión de órdenes de pedidos internas entre tiendas y externas con proveedores</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1071,7 +1066,7 @@ export default function OrdersPage() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bodega (la que da el material)</Label>
                           <Select value={intSourceWh} onValueChange={setIntSourceWh}>
-                            <SelectTrigger className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
                               <SelectValue placeholder="Origen..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1085,7 +1080,7 @@ export default function OrdersPage() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bodega (que solicita)</Label>
                           <Select value={intDestWh} onValueChange={setIntDestWh}>
-                            <SelectTrigger className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
                               <SelectValue placeholder="Destino..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1105,13 +1100,13 @@ export default function OrdersPage() {
                             placeholder="Nombre del encargado..." 
                             value={intRequestedBy}
                             onChange={e => setIntRequestedBy(e.target.value)}
-                            className="pl-9 h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
+                            className="pl-9 h-11 glass-input rounded-xl text-xs font-bold"
                           />
                         </div>
                       </div>
 
                       {/* Buscador de items para añadir */}
-                      <div className="p-4 bg-slate-50 dark:bg-muted/30 rounded-2xl border space-y-3">
+                      <div className="p-4 bg-white/5 border-b border-white/10 rounded-2xl border space-y-3">
                         <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block">Agregar Producto Manual</Label>
                         
                         <div className="space-y-3">
@@ -1133,11 +1128,11 @@ export default function OrdersPage() {
                                     setIntIsManual(true);
                                   }
                                 }}
-                                className="h-9 bg-white dark:bg-card text-xs font-bold uppercase"
+                                className="h-9 glass-card text-xs font-bold uppercase"
                               />
                               {/* Autocomplete Suggestions */}
                               {intItemSku.trim().length > 0 && !inventory?.some((p: any) => p.sku === intItemSku.trim().toUpperCase()) && (
-                                <div className="absolute z-20 w-full bg-white dark:bg-card border rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
+                                <div className="absolute z-20 w-full glass-card border rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
                                   {inventory
                                     ?.filter((p: any) => p.sku.toLowerCase().includes(intItemSku.toLowerCase()) || p.name.toLowerCase().includes(intItemSku.toLowerCase()))
                                     .slice(0, 5)
@@ -1163,7 +1158,7 @@ export default function OrdersPage() {
                                 type="number" 
                                 value={intItemQty} 
                                 onChange={e => setIntItemQty(e.target.value)}
-                                className="h-9 bg-white dark:bg-card text-center text-xs font-bold"
+                                className="h-9 glass-card text-center text-xs font-bold"
                               />
                             </div>
                           </div>
@@ -1174,7 +1169,7 @@ export default function OrdersPage() {
                               value={intItemName}
                               onChange={e => setIntItemName(e.target.value)}
                               disabled={!intIsManual && intItemSku.trim() !== ''}
-                              className="h-9 bg-white dark:bg-card text-xs font-bold"
+                              className="h-9 glass-card text-xs font-bold"
                             />
                             {intIsManual && intItemSku.trim().length > 0 && (
                               <span className="text-[9px] text-amber-500 font-bold flex items-center gap-1 mt-0.5">
@@ -1198,7 +1193,7 @@ export default function OrdersPage() {
                       {intItems.length > 0 && (
                         <div className="space-y-2 pt-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Ítems Solicitados</Label>
-                          <ScrollArea className="h-32 border rounded-xl bg-slate-50 dark:bg-muted/20">
+                          <ScrollArea className="h-32 border rounded-xl glass-input/20">
                             <Table>
                               <TableBody>
                                                                   {intItems.map((item, idx) => (
@@ -1252,7 +1247,7 @@ export default function OrdersPage() {
                 <Card className="glass-card rounded-2xl overflow-hidden">
                   <ScrollArea className="h-[520px]">
                     <Table>
-                      <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">
+                      <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10">
                         <TableRow>
                           <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">Código / Fecha</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase">Ruta</TableHead>
@@ -1270,7 +1265,7 @@ export default function OrdersPage() {
                             </TableCell>
                           </TableRow>
                         ) : filteredInternalOrders.map((o: any) => (
-                          <TableRow key={o.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                          <TableRow key={o.id} className="hover:bg-white/10 border-b border-white/5">
                             <TableCell className="px-4 md:px-6 py-4">
                               <div className="flex flex-col">
                                 <span className="font-mono font-black text-xs text-slate-700 dark:text-foreground">{o.code}</span>
@@ -1284,7 +1279,7 @@ export default function OrdersPage() {
                                 <span className="text-violet-600">{o.destinationWarehouse}</span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-xs font-bold text-slate-500 dark:text-muted-foreground">{o.requestedBy}</TableCell>
+                            <TableCell className="text-xs font-bold text-slate-400">{o.requestedBy}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant="outline" className="text-[9px] bg-slate-50 border-slate-200">
                                 {o.items?.length || 0} productos
@@ -1362,7 +1357,7 @@ export default function OrdersPage() {
               {/* Formulario Nueva Orden Proveedor */}
               <div className="lg:col-span-5 space-y-6">
                 <Card className="glass-card rounded-2xl overflow-hidden">
-                  <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-5">
+                  <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Building2 size={18} className="text-violet-400" /> Nueva Orden de Pedido a Proveedor
                     </CardTitle>
@@ -1381,7 +1376,7 @@ export default function OrdersPage() {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button type="button" size="sm" variant="outline" className="h-8 rounded-xl text-[10px] font-black border-indigo-200 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-card">
+                          <Button type="button" size="sm" variant="outline" className="h-8 rounded-xl text-[10px] font-black border-indigo-200 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 glass-card">
                             <Plus size={12} className="mr-1" /> Importar Requisición
                           </Button>
                         </PopoverTrigger>
@@ -1424,7 +1419,7 @@ export default function OrdersPage() {
                               placeholder="Seleccione de la lista..." 
                               value={extSupplier}
                               onChange={e => setExtSupplier(e.target.value)}
-                              className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
+                              className="h-10 pl-9 glass-input rounded-xl text-xs font-bold"
                             />
                           </div>
                           <Popover>
@@ -1468,7 +1463,7 @@ export default function OrdersPage() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Bodega de Recepción</Label>
                           <Select value={extDestWh} onValueChange={setExtDestWh}>
-                            <SelectTrigger className="h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
                               <SelectValue placeholder="Bodega..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1487,14 +1482,14 @@ export default function OrdersPage() {
                               placeholder="Nombre..." 
                               value={extRequestedBy}
                               onChange={e => setExtRequestedBy(e.target.value)}
-                              className="pl-8 h-10 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
+                              className="pl-8 h-10 glass-input rounded-xl text-xs font-bold"
                             />
                           </div>
                         </div>
                       </div>
 
                       {/* Configuración de Envíos & Firmas */}
-                      <div className="p-4 bg-slate-50 dark:bg-muted/30 rounded-2xl border space-y-3">
+                      <div className="p-4 bg-white/5 border-b border-white/10 rounded-2xl border space-y-3">
                         <div className="flex justify-between items-center">
                           <Label className="text-[10px] font-black uppercase text-slate-500 block tracking-widest">Configuración de Envío & Firmas</Label>
                           <Button 
@@ -1521,7 +1516,7 @@ export default function OrdersPage() {
                               value={extSupplierEmail}
                               onChange={e => setExtSupplierEmail(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-card text-xs font-bold"
+                              className="h-9 glass-card text-xs font-bold"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1532,7 +1527,7 @@ export default function OrdersPage() {
                               value={extFromEmail}
                               onChange={e => setExtFromEmail(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-card text-xs font-bold"
+                              className="h-9 glass-card text-xs font-bold"
                             />
                           </div>
                         </div>
@@ -1545,7 +1540,7 @@ export default function OrdersPage() {
                               value={extSupplierPhone}
                               onChange={e => setExtSupplierPhone(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-card text-xs font-bold"
+                              className="h-9 glass-card text-xs font-bold"
                             />
                           </div>
                           <div className="space-y-1">
@@ -1555,7 +1550,7 @@ export default function OrdersPage() {
                               value={extAuthorizedBy}
                               onChange={e => setExtAuthorizedBy(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-card text-xs font-bold"
+                              className="h-9 glass-card text-xs font-bold"
                             />
                           </div>
                         </div>
@@ -1568,7 +1563,7 @@ export default function OrdersPage() {
                               value={extDigitizedBy}
                               onChange={e => setExtDigitizedBy(e.target.value)}
                               disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-card text-xs font-bold"
+                              className="h-9 glass-card text-xs font-bold"
                             />
                           </div>
                           <div className="flex items-center justify-start text-[9px] text-slate-400 font-semibold italic pl-1 pt-4">
@@ -1580,7 +1575,7 @@ export default function OrdersPage() {
                       </div>
 
                       {/* Cargar Ítems Manualmente */}
-                      <div className="p-4 bg-slate-50 dark:bg-muted/30 rounded-2xl border space-y-3">
+                      <div className="p-4 bg-white/5 border-b border-white/10 rounded-2xl border space-y-3">
                         <Label className="text-[10px] font-black uppercase text-slate-500 block tracking-widest">Agregar Producto Manual</Label>
                         
                         <div className="space-y-3">
@@ -1602,11 +1597,11 @@ export default function OrdersPage() {
                                     setExtIsManual(true);
                                   }
                                 }}
-                                className="h-9 bg-white dark:bg-card text-xs font-bold uppercase"
+                                className="h-9 glass-card text-xs font-bold uppercase"
                               />
                               {/* Autocomplete Suggestions */}
                               {extItemSku.trim().length > 0 && !inventory?.some((p: any) => p.sku === extItemSku.trim().toUpperCase()) && (
-                                <div className="absolute z-20 w-full bg-white dark:bg-card border rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
+                                <div className="absolute z-20 w-full glass-card border rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
                                   {inventory
                                     ?.filter((p: any) => p.sku.toLowerCase().includes(extItemSku.toLowerCase()) || p.name.toLowerCase().includes(extItemSku.toLowerCase()))
                                     .slice(0, 5)
@@ -1632,7 +1627,7 @@ export default function OrdersPage() {
                                 type="number" 
                                 value={extItemQty} 
                                 onChange={e => setExtItemQty(e.target.value)}
-                                className="h-9 bg-white dark:bg-card text-center text-xs font-bold"
+                                className="h-9 glass-card text-center text-xs font-bold"
                               />
                             </div>
                           </div>
@@ -1645,7 +1640,7 @@ export default function OrdersPage() {
                                 value={extItemName}
                                 onChange={e => setExtItemName(e.target.value)}
                                 disabled={!extIsManual && extItemSku.trim() !== ''}
-                                className="h-9 bg-white dark:bg-card text-xs font-bold"
+                                className="h-9 glass-card text-xs font-bold"
                               />
                             </div>
                             <div className="space-y-1">
@@ -1655,7 +1650,7 @@ export default function OrdersPage() {
                                 placeholder="0.00"
                                 value={extItemCost} 
                                 onChange={e => setExtItemCost(e.target.value)}
-                                className="h-9 bg-white dark:bg-card text-right text-xs font-bold text-emerald-600"
+                                className="h-9 glass-card text-right text-xs font-bold text-emerald-600"
                               />
                             </div>
                             <div className="space-y-1">
@@ -1664,7 +1659,7 @@ export default function OrdersPage() {
                                 placeholder="Ej: COT-102"
                                 value={extItemQuote} 
                                 onChange={e => setExtItemQuote(e.target.value)}
-                                className="h-9 bg-white dark:bg-card text-xs font-bold text-slate-800"
+                                className="h-9 glass-card text-xs font-bold text-slate-800"
                               />
                             </div>
                           </div>
@@ -1688,12 +1683,12 @@ export default function OrdersPage() {
 
                       {/* Lista de Ítems */}
                       {extItems.length > 0 && (
-                        <div className="space-y-2 pt-2 border-t">
+                        <div className="space-y-2 pt-2 border-t border-white/10">
                           <div className="flex justify-between items-center">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Detalle de Pedido</Label>
                             <span className="text-xs font-black text-emerald-600">Total: ${extItems.reduce((acc, item) => acc + ((item.cost || 0) * item.quantity), 0).toFixed(2)}</span>
                           </div>
-                          <ScrollArea className="h-32 border rounded-xl bg-slate-50 dark:bg-muted/20">
+                          <ScrollArea className="h-32 border rounded-xl glass-input/20">
                             <Table>
                               <TableBody>
                                                                  {extItems.map((item, idx) => (
@@ -1748,14 +1743,14 @@ export default function OrdersPage() {
                     placeholder="Buscar orden externa por código, proveedor o bodega..." 
                     value={externalSearchFilter}
                     onChange={e => setExternalSearchFilter(e.target.value)}
-                    className="pl-12 h-12 bg-white dark:bg-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
+                    className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs md:text-sm"
                   />
                 </div>
 
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <ScrollArea className="h-[520px]">
                     <Table>
-                      <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">
+                      <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10">
                         <TableRow>
                           <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">Código / Fecha</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase">Proveedor</TableHead>
@@ -1773,7 +1768,7 @@ export default function OrdersPage() {
                             </TableCell>
                           </TableRow>
                         ) : filteredSupplierOrders.map((o: any) => (
-                          <TableRow key={o.id} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                          <TableRow key={o.id} className="hover:bg-white/10 border-b border-white/5">
                             <TableCell className="px-4 md:px-6 py-4">
                               <div className="flex flex-col">
                                 <span className="font-mono font-black text-xs text-slate-700 dark:text-foreground">{o.code}</span>
@@ -1781,7 +1776,7 @@ export default function OrdersPage() {
                               </div>
                             </TableCell>
                             <TableCell className="text-xs font-bold text-slate-800 dark:text-foreground">{o.supplier}</TableCell>
-                            <TableCell className="text-xs font-semibold text-slate-500 dark:text-muted-foreground flex items-center gap-1 mt-3">
+                            <TableCell className="text-xs font-semibold text-slate-400 flex items-center gap-1 mt-3">
                               <Warehouse size={12} className="text-slate-400" />
                               <span>{o.destinationWarehouse}</span>
                             </TableCell>
@@ -1857,7 +1852,7 @@ export default function OrdersPage() {
               
               {/* Cargador e Instrucciones */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
+                <Card className="glass-card rounded-2xl overflow-hidden">
                   <CardHeader className="bg-violet-900 dark:bg-violet-950 text-white p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <FileSpreadsheet size={18} className="text-violet-400" /> Carga Masiva de Códigos
@@ -1870,7 +1865,7 @@ export default function OrdersPage() {
                       <Label className="text-[10px] font-black uppercase text-violet-600 dark:text-violet-400 tracking-widest block flex items-center gap-1.5 font-sans">
                         <UploadCloud size={14} /> Seleccionar Excel (.xlsx)
                       </Label>
-                      <div className="relative border-2 border-dashed border-violet-200 dark:border-violet-850 hover:border-violet-500 rounded-xl p-6 text-center cursor-pointer transition-all bg-white dark:bg-card">
+                      <div className="relative border-2 border-dashed border-violet-200 dark:border-violet-850 hover:border-violet-500 rounded-xl p-6 text-center cursor-pointer transition-all glass-card">
                         <input 
                           type="file" 
                           accept=".xlsx, .xls" 
@@ -1885,7 +1880,7 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    <div className="p-4 bg-slate-50 dark:bg-muted/30 border rounded-2xl text-xs space-y-2 text-slate-600 dark:text-slate-350">
+                    <div className="p-4 bg-white/5 border-b border-white/10 border rounded-2xl text-xs space-y-2 text-slate-600 dark:text-slate-350">
                       <h4 className="font-black text-slate-700 dark:text-foreground text-[10px] uppercase tracking-wider flex items-center gap-1">
                         <Info size={12} className="text-violet-500" /> Formato sugerido de columnas:
                       </h4>
@@ -1915,8 +1910,8 @@ export default function OrdersPage() {
 
               {/* Vista Previa de Códigos a Registrar */}
               <div className="lg:col-span-7 space-y-4">
-                <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card overflow-hidden">
-                  <div className="p-4 bg-slate-50 dark:bg-muted/50 sticky top-0 border-b flex justify-between items-center z-10">
+                <Card className="glass-card rounded-2xl overflow-hidden">
+                  <div className="p-4 bg-white/10 border-b border-white/10 sticky top-0 border-b flex justify-between items-center z-10">
                     <span className="text-[10px] font-black text-slate-700 dark:text-foreground uppercase tracking-widest">Vista Previa de Importación</span>
                     <div className="flex items-center gap-2">
                       {bulkCodes.length > 0 && (
@@ -1952,11 +1947,11 @@ export default function OrdersPage() {
                             </TableCell>
                           </TableRow>
                         ) : bulkCodes.map((item, idx) => (
-                          <TableRow key={item.sku} className="hover:bg-slate-50 dark:hover:bg-muted/30">
+                          <TableRow key={item.sku} className="hover:bg-white/10 border-b border-white/5">
                             <TableCell className="px-4 md:px-6 py-3 font-mono font-black text-xs text-slate-700 dark:text-foreground">
                               {item.sku}
                             </TableCell>
-                            <TableCell className="text-xs font-bold text-slate-500 dark:text-muted-foreground">
+                            <TableCell className="text-xs font-bold text-slate-400">
                               {item.name}
                             </TableCell>
                             <TableCell className="text-center py-1.5 px-2">
@@ -1987,7 +1982,7 @@ export default function OrdersPage() {
       {/* ==================== MODAL DE VISTA PREVIA & IMPRESIÓN DE ORDEN ==================== */}
       {selectedOrderForPreview && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-card border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+          <div className="glass-card border w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
             
             {/* Header Modal */}
             <div className="p-5 bg-slate-900 text-white flex justify-between items-center">
@@ -2026,7 +2021,7 @@ export default function OrdersPage() {
                 </div>
 
                 {/* Detalles de Ruta / Sujeto */}
-                <div className="grid grid-cols-2 gap-6 bg-slate-50 dark:bg-muted/30 p-4 rounded-2xl border">
+                <div className="grid grid-cols-2 gap-6 bg-white/5 border-b border-white/10 p-4 rounded-2xl border">
                   {previewType === 'interno' ? (
                     <>
                       <div>
@@ -2073,7 +2068,7 @@ export default function OrdersPage() {
                 {/* Tabla de Productos */}
                 <div className="border rounded-2xl overflow-hidden mt-4">
                   <Table>
-                    <TableHeader className="bg-slate-50 dark:bg-muted/50">
+                    <TableHeader className="bg-white/10 border-b border-white/10">
                       <TableRow>
                         <TableHead className="px-4 text-[9px] font-black uppercase">SKU</TableHead>
                         <TableHead className="text-[9px] font-black uppercase">Descripción del Producto</TableHead>
@@ -2109,7 +2104,7 @@ export default function OrdersPage() {
                 {/* Total en Orden de Compra */}
                 {previewType === 'externo' && (
                   <div className="flex justify-end pt-4">
-                    <div className="w-64 bg-slate-50 dark:bg-muted/10 p-4 rounded-2xl border text-right">
+                    <div className="w-64 bg-white/5 border-b border-white/10 p-4 rounded-2xl border text-right">
                       <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Total de Inversión</span>
                       <p className="text-2xl font-black text-emerald-600 mt-1">${selectedOrderForPreview.total?.toFixed(2)}</p>
                       <p className="text-[8px] text-slate-400 mt-1 font-semibold">Sujeto a percepción de IVA del 1% si aplica</p>
@@ -2121,26 +2116,26 @@ export default function OrdersPage() {
                 {previewType === 'interno' ? (
                   <div className="pt-12 grid grid-cols-2 gap-12 text-center text-xs text-slate-400">
                     <div className="space-y-4">
-                      <div className="border-t border-dashed w-48 mx-auto pt-2 font-bold text-[10px] uppercase text-slate-500">Firma Encargado</div>
+                      <div className="border-t border-white/10 border-dashed w-48 mx-auto pt-2 font-bold text-[10px] uppercase text-slate-500">Firma Encargado</div>
                       <p className="text-[8px]">Emitido y aprobado digitalmente por {selectedOrderForPreview.requestedBy}</p>
                     </div>
                     <div className="space-y-4">
-                      <div className="border-t border-dashed w-48 mx-auto pt-2 font-bold text-[10px] uppercase text-slate-500">Autorización CD</div>
+                      <div className="border-t border-white/10 border-dashed w-48 mx-auto pt-2 font-bold text-[10px] uppercase text-slate-500">Autorización CD</div>
                       <p className="text-[8px]">NexWay Centro de Control y Despacho</p>
                     </div>
                   </div>
                 ) : (
                   <div className="pt-12 grid grid-cols-3 gap-6 text-center text-[10px] text-slate-400">
                     <div className="space-y-4">
-                      <div className="border-t border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">SOLICITADO POR</div>
+                      <div className="border-t border-white/10 border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">SOLICITADO POR</div>
                       <p className="font-bold text-slate-700 dark:text-slate-350">BODEGA {selectedOrderForPreview.destinationWarehouse?.toUpperCase()}</p>
                     </div>
                     <div className="space-y-4">
-                      <div className="border-t border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">AUTORIZADO POR</div>
+                      <div className="border-t border-white/10 border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">AUTORIZADO POR</div>
                       <p className="font-bold text-slate-700 dark:text-slate-350">{selectedOrderForPreview.authorizedBy || 'JULIO NEFTALI CAÑAS ZELAYA'}</p>
                     </div>
                     <div className="space-y-4">
-                      <div className="border-t border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">DIGITADO POR</div>
+                      <div className="border-t border-white/10 border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">DIGITADO POR</div>
                       <p className="font-bold text-slate-700 dark:text-slate-350">{selectedOrderForPreview.digitizedBy || 'RENE LANGLOIS 74503973'}</p>
                     </div>
                   </div>
@@ -2150,7 +2145,7 @@ export default function OrdersPage() {
             </ScrollArea>
 
             {/* Footer Modal */}
-            <div className="p-4 bg-slate-50 dark:bg-muted/50 border-t flex justify-end gap-3 select-none">
+            <div className="p-4 bg-white/10 border-b border-white/10 border-t border-white/10 flex justify-end gap-3 select-none">
               <Button 
                 variant="outline" 
                 onClick={() => setSelectedOrderForPreview(null)}

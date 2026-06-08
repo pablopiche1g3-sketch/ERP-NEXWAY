@@ -22,7 +22,7 @@ export default function LoginPage() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={40} />
-          <p className="text-slate-400 dark:text-slate-500 text-sm font-medium animate-pulse">
+          <p className="text-slate-400/80 text-sm font-medium animate-pulse">
             Iniciando sesión segura...
           </p>
         </div>

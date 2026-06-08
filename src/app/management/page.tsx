@@ -794,7 +794,7 @@ export default function ManagementPage() {
                             </div>
                           </div>
                           {errorMsg && (
-                            <p className="text-[10px] text-rose-500 font-semibold leading-tight break-words border-t border-rose-500/10 pt-1.5 mt-0.5">
+                            <p className="text-[10px] text-rose-500 font-semibold leading-tight break-words border-t border-white/10 border-rose-500/10 pt-1.5 mt-0.5">
                               {errorMsg}
                             </p>
                           )}
@@ -881,7 +881,7 @@ export default function ManagementPage() {
                 )}
 
                 {/* Formulario nueva caja */}
-                <div className="border-t pt-5 space-y-4">
+                <div className="border-t border-white/10 pt-5 space-y-4">
                   <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">+ Agregar Nueva Caja</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -954,7 +954,7 @@ export default function ManagementPage() {
 
                       {config?.[m.id] !== false && m.tabs && (
                         <div className="ml-6 pl-4 border-l-2 border-slate-200 dark:border-slate-800 space-y-3 pt-2">
-                          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Habilitar Pestañas del Módulo</p>
+                          <p className="text-[10px] font-black text-slate-400/80 uppercase tracking-widest mb-2">Habilitar Pestañas del Módulo</p>
                           {m.tabs.map((tab) => (
                             <div key={tab.id} className="flex items-center justify-between py-1">
                               <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">{tab.label}</Label>
@@ -997,7 +997,7 @@ export default function ManagementPage() {
                           placeholder="Nombre de usuario (ej: carlos)" 
                           value={preAssignEmail}
                           onChange={(e) => setPreAssignEmail(e.target.value)}
-                          className="h-10 pl-10 text-xs font-bold bg-background rounded-xl border-border"
+                          className="h-10 pl-10 text-xs font-bold glass rounded-xl border-white/10-border"
                         />
                       </div>
                     </div>
@@ -1011,7 +1011,7 @@ export default function ManagementPage() {
                           placeholder="Contraseña (mín. 5 caracteres)" 
                           value={preAssignPassword}
                           onChange={(e) => setPreAssignPassword(e.target.value)}
-                          className="h-10 pl-10 text-xs font-bold bg-background rounded-xl border-border"
+                          className="h-10 pl-10 text-xs font-bold glass rounded-xl border-white/10-border"
                         />
                       </div>
                     </div>
@@ -1423,7 +1423,7 @@ export default function ManagementPage() {
 
       <Dialog open={isSqlModalOpen} onOpenChange={setIsSqlModalOpen}>
         <DialogContent className="max-w-2xl bg-slate-950 text-slate-100 border-slate-800 rounded-2xl overflow-hidden p-6 max-h-[85vh] flex flex-col">
-          <DialogHeader className="pb-4 border-b border-slate-800">
+          <DialogHeader className="pb-4 border-b border-white/10 border-slate-800">
             <DialogTitle className="flex items-center gap-2 text-white text-lg font-black uppercase tracking-tight">
               <Terminal className="text-emerald-400" size={20} />
               Script SQL Maestro — NexWay ERP
@@ -1841,7 +1841,7 @@ BEGIN
   END LOOP;
 END $$;`}
           </div>
-          <div className="flex justify-end pt-2 gap-2 border-t border-slate-800">
+          <div className="flex justify-end pt-2 gap-2 border-t border-white/10 border-slate-800">
             <Button
               onClick={() => {
                 navigator.clipboard.writeText(

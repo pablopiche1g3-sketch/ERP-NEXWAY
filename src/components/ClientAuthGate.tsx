@@ -92,7 +92,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background">
+    <div className="flex h-screen w-screen overflow-hidden bg-transparent">
       <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(prev => !prev)} />
       <main className="flex-1 h-full overflow-y-auto no-scrollbar">
         {children}

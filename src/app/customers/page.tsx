@@ -235,24 +235,20 @@ export default function CustomersPage() {
   }, [searchTerm, customers]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-sky-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-sky-950/10 p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
-      {/* Orbes decorativos */}
-      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[38vw] h-[38vw] rounded-full bg-sky-500/5 dark:bg-sky-500/8 blur-[130px]" />
-      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[110px]" />
-      <div className="pointer-events-none fixed top-[45%] left-[35%] w-[16vw] h-[16vw] rounded-full bg-blue-500/3 dark:bg-blue-500/5 blur-[80px]" />
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-x-hidden">
       <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full bg-white dark:bg-card shadow-sm hover:bg-slate-100 border" 
+            className="rounded-full glass hover:bg-white/10 border-white/10 text-white" 
             onClick={() => router.push('/')}
           >
-            <ArrowLeft className="text-slate-600 dark:text-foreground" size={20} />
+            <ArrowLeft className="text-white" size={20} />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-foreground">Registro de Clientes</h1>
-            <p className="text-slate-500 dark:text-muted-foreground text-sm">Gestión de carteras y datos tributarios</p>
+            <h1 className="text-2xl font-bold text-white">Registro de Clientes</h1>
+            <p className="text-slate-400 text-sm">Gestión de carteras y datos tributarios</p>
           </div>
         </div>
       </div>
@@ -260,7 +256,7 @@ export default function CustomersPage() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
         <div className="lg:col-span-5 space-y-4">
           <Card className="glass-card rounded-2xl overflow-hidden">
-            <CardHeader className="bg-slate-900 dark:bg-slate-950 text-white p-6">
+            <CardHeader className="border-b border-white/10 text-white p-6 bg-white/5">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Plus size={20} className="text-sky-400" />
                 Alta de Cliente
@@ -269,12 +265,12 @@ export default function CustomersPage() {
             </CardHeader>
             <CardContent className="p-6">
               <Tabs defaultValue="cf" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-2 mb-6 bg-slate-100 dark:bg-muted rounded-xl p-1">
-                  <TabsTrigger value="cf" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs">
+                <TabsList className="grid grid-cols-2 mb-6 glass rounded-xl p-1">
+                  <TabsTrigger value="cf" className="rounded-lg data-[state=active]:bg-white/10 data-[state=active]:text-white text-xs">
                     <User size={14} className="mr-2" />
                     Consumidor Final
                   </TabsTrigger>
-                  <TabsTrigger value="ccf" className="rounded-lg data-[state=active]:bg-sky-600 data-[state=active]:text-white data-[state=active]:shadow-sm text-xs">
+                  <TabsTrigger value="ccf" className="rounded-lg data-[state=active]:bg-sky-500/30 data-[state=active]:text-white text-xs">
                     <Building2 size={14} className="mr-2" />
                     Crédito Fiscal
                   </TabsTrigger>
@@ -291,7 +287,7 @@ export default function CustomersPage() {
                         placeholder={activeTab === 'cf' ? "Ej. Juan Pérez" : "Ej. Industrias El Salvador S.A."}
                         value={form.name}
                         onChange={e => setForm({...form, name: e.target.value})}
-                        className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
+                        className="h-10 pl-9 glass-input rounded-xl text-xs font-bold"
                       />
                     </div>
                   </div>
@@ -306,7 +302,7 @@ export default function CustomersPage() {
                             placeholder="0000-000000-000-0" 
                             value={form.nit}
                             onChange={e => setForm({...form, nit: e.target.value})}
-                            className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                            className="h-10 pl-9 glass-input rounded-xl text-xs font-mono font-bold"
                           />
                         </div>
                       </div>
@@ -318,7 +314,7 @@ export default function CustomersPage() {
                             placeholder="Registro..." 
                             value={form.nrc}
                             onChange={e => setForm({...form, nrc: e.target.value})}
-                            className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                            className="h-10 pl-9 glass-input rounded-xl text-xs font-mono font-bold"
                           />
                         </div>
                       </div>
@@ -329,15 +325,15 @@ export default function CustomersPage() {
                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial Autorizado</Label>
                       <Select value={form.giro} onValueChange={(val) => setForm({...form, giro: val})}>
-                        <SelectTrigger className="h-11 bg-slate-50 dark:bg-muted border-none rounded-xl text-[11px] font-bold">
+                        <SelectTrigger className="h-11 glass border-white/10 rounded-xl text-[11px] font-bold text-white">
                           <div className="flex items-center gap-2">
                             <Briefcase className="text-slate-400" size={14} />
                             <SelectValue placeholder="Seleccione giro de Hacienda..." />
                           </div>
                         </SelectTrigger>
-                        <SelectContent className="max-w-[400px]">
+                        <SelectContent className="max-w-[400px] glass text-white">
                           {GIROS_AUTORIZADOS.map((giro, idx) => (
-                            <SelectItem key={idx} value={giro} className="text-[11px] py-3">
+                            <SelectItem key={idx} value={giro} className="text-[11px] py-3 text-white focus:bg-white/10 hover:bg-white/10">
                               {giro}
                             </SelectItem>
                           ))}
@@ -356,7 +352,7 @@ export default function CustomersPage() {
                           placeholder="correo@ejemplo.com" 
                           value={form.email}
                           onChange={e => setForm({...form, email: e.target.value})}
-                          className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs"
+                          className="h-10 pl-9 glass-input rounded-xl text-xs"
                         />
                       </div>
                     </div>
@@ -368,7 +364,7 @@ export default function CustomersPage() {
                           placeholder="2222-0000" 
                           value={form.phone}
                           onChange={e => setForm({...form, phone: e.target.value})}
-                          className="h-10 pl-9 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs font-bold"
+                          className="h-10 pl-9 glass-input rounded-xl text-xs font-bold"
                         />
                       </div>
                     </div>
@@ -382,19 +378,19 @@ export default function CustomersPage() {
                         placeholder="Ubicación del cliente..."
                         value={form.address}
                         onChange={e => setForm({...form, address: e.target.value})}
-                        className="w-full min-h-[60px] pl-9 pt-2.5 bg-slate-50 dark:bg-muted border-none rounded-xl text-xs focus:ring-2 focus:ring-sky-500/20 outline-none transition-all dark:text-foreground"
+                        className="w-full min-h-[60px] pl-9 pt-2.5 glass-input rounded-xl text-xs outline-none transition-all text-white"
                       />
                     </div>
                   </div>
 
                   {/* Sección de Control de Crédito Premium */}
-                  <div className="p-4 rounded-2xl bg-slate-50/50 dark:bg-muted/10 border border-slate-100 dark:border-border/60 space-y-3">
-                    <h4 className="text-[10px] font-black uppercase text-sky-600 dark:text-sky-400 tracking-widest flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500"></span> Control de Crédito (Gerencia)
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-sky-400 tracking-widest flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400"></span> Control de Crédito (Gerencia)
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                      <div className="flex items-center justify-between p-2 bg-background dark:bg-muted/30 rounded-xl border border-slate-100 dark:border-border/40 shadow-sm">
-                        <span className="text-[11px] font-bold text-muted-foreground">¿Autorizar Crédito?</span>
+                      <div className="flex items-center justify-between p-2 glass rounded-xl border border-white/10">
+                        <span className="text-[11px] font-bold text-slate-300">¿Autorizar Crédito?</span>
                         <Switch 
                           checked={form.is_authorized_credit}
                           onCheckedChange={val => setForm({...form, is_authorized_credit: val})}
@@ -409,13 +405,13 @@ export default function CustomersPage() {
                           value={form.credit_limit}
                           onChange={e => setForm({...form, credit_limit: e.target.value})}
                           disabled={!form.is_authorized_credit}
-                          className="h-9 bg-background border rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400"
+                          className="h-9 glass-input rounded-xl text-xs font-bold text-sky-400"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-700 rounded-xl font-bold text-white shadow-lg shadow-sky-200 dark:shadow-sky-900/20">
+                  <Button type="submit" className="w-full h-12 bg-sky-600 hover:bg-sky-500 rounded-xl font-bold text-white shadow-lg shadow-sky-500/20 transition-all">
                     <Users size={18} className="mr-2" />
                     Registrar en Cartera
                   </Button>
@@ -432,18 +428,18 @@ export default function CustomersPage() {
               placeholder="Buscar por nombre o NIT..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="pl-12 h-12 glass-input border-none shadow-sm rounded-2xl text-xs md:text-sm"
+              className="pl-12 h-12 glass-input rounded-2xl text-xs md:text-sm"
             />
           </div>
 
           <Card className="glass-card rounded-2xl overflow-hidden">
             <ScrollArea className="h-[550px]">
               <Table>
-                <TableHeader className="bg-slate-50 dark:bg-muted/50 sticky top-0 z-10">
+                <TableHeader className="bg-white/10 sticky top-0 z-10 border-b border-white/10">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase px-6">Receptor</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase">Tipo / Giro</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-right">Contacto</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase px-6 text-white">Receptor</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-white">Tipo / Giro</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-right text-white">Contacto</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -457,43 +453,43 @@ export default function CustomersPage() {
                       </TableCell>
                     </TableRow>
                   ) : filteredCustomers.map((customer: any) => (
-                    <TableRow key={customer.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/30">
+                    <TableRow key={customer.id} className="hover:bg-white/10 border-white/5">
                       <TableCell className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-slate-900 dark:text-foreground text-xs">{customer.name}</span>
+                          <span className="font-bold text-white text-xs">{customer.name}</span>
                           <span className="text-[10px] font-mono text-slate-400">{customer.nit || 'Consumidor Final'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <div className="flex gap-1.5 items-center flex-wrap">
-                            <Badge variant="outline" className={`text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                            <Badge variant="outline" className={`text-[8px] font-black uppercase ${customer.category === 'Crédito Fiscal' ? 'bg-sky-500/20 text-sky-400 border-sky-500/30' : 'bg-white/10 text-slate-300 border-white/10'}`}>
                               {customer.category || customer.type}
                             </Badge>
                             {customer.is_authorized_credit ? (
-                              <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 text-[8px] font-black uppercase">
+                              <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[8px] font-black uppercase">
                                 CRÉDITO AUT: ${(parseFloat(customer.credit_limit) || 0).toFixed(2)}
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-400 dark:text-muted-foreground border-slate-200 dark:border-border">
+                              <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-400 border-white/10">
                                 SIN CRÉDITO
                               </Badge>
                             )}
                           </div>
                           {customer.giro && (
-                            <span className="text-[9px] text-muted-foreground italic truncate max-w-[150px]">{customer.giro}</span>
+                            <span className="text-[9px] text-slate-400 italic truncate max-w-[150px]">{customer.giro}</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right px-6">
                         <div className="flex flex-col items-end gap-0.5">
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-muted-foreground">
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
                             {customer.phone || 'N/A'}
-                            <Phone size={10} className="text-slate-400" />
+                            <Phone size={10} className="text-slate-500" />
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-muted-foreground">
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
                             {customer.email || 'N/A'}
-                            <Mail size={10} className="text-slate-400" />
+                            <Mail size={10} className="text-slate-500" />
                           </div>
                         </div>
                       </TableCell>
@@ -520,7 +516,7 @@ export default function CustomersPage() {
                               });
                               setIsEditOpen(true);
                             }}
-                            className="h-8 w-8 text-slate-400 hover:text-sky-500 hover:bg-slate-100 dark:hover:bg-muted rounded-lg"
+                            className="h-8 w-8 text-slate-400 hover:text-sky-400 hover:bg-white/10 rounded-lg"
                           >
                             <Pencil size={13} />
                           </Button>
@@ -528,7 +524,7 @@ export default function CustomersPage() {
                             variant="ghost" 
                             size="icon" 
                             onClick={() => handleDeleteCustomer(customer.id)}
-                            className="h-8 w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg"
+                            className="h-8 w-8 text-slate-400 hover:text-rose-400 hover:bg-white/10 rounded-lg"
                           >
                             <Trash2 size={13} />
                           </Button>
@@ -545,13 +541,13 @@ export default function CustomersPage() {
 
       {/* Diálogo de Edición de Cliente Premium */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-lg bg-card text-foreground border rounded-2xl overflow-hidden p-6 max-h-[90vh] flex flex-col shadow-2xl">
-          <DialogHeader className="pb-4 border-b">
-            <DialogTitle className="flex items-center gap-2 text-foreground text-lg font-black uppercase tracking-tight">
+        <DialogContent className="max-w-lg glass text-white border border-white/10 rounded-2xl overflow-hidden p-6 max-h-[90vh] flex flex-col shadow-2xl">
+          <DialogHeader className="pb-4 border-b border-white/10">
+            <DialogTitle className="flex items-center gap-2 text-white text-lg font-black uppercase tracking-tight">
               <Pencil className="text-sky-500" size={20} />
               Editar Cliente
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs text-left">
+            <DialogDescription className="text-slate-400 text-xs text-left">
               Actualice los datos comerciales y de crédito de la cuenta seleccionada.
             </DialogDescription>
           </DialogHeader>
@@ -561,7 +557,7 @@ export default function CustomersPage() {
               <Input 
                 value={editForm.name}
                 onChange={e => setEditForm({...editForm, name: e.target.value})}
-                className="h-10 bg-muted border-none rounded-xl text-xs font-bold"
+                className="h-10 glass-input rounded-xl text-xs font-bold"
                 required
               />
             </div>
@@ -570,10 +566,10 @@ export default function CustomersPage() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</Label>
                 <Select value={editForm.type} onValueChange={val => setEditForm({...editForm, type: val})}>
-                  <SelectTrigger className="h-10 bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Individual">Individual</SelectItem>
-                    <SelectItem value="Empresa">Empresa</SelectItem>
+                  <SelectTrigger className="h-10 glass border-white/10 rounded-xl text-xs font-bold text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="glass text-white">
+                    <SelectItem value="Individual" className="text-white focus:bg-white/10 hover:bg-white/10">Individual</SelectItem>
+                    <SelectItem value="Empresa" className="text-white focus:bg-white/10 hover:bg-white/10">Empresa</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -581,10 +577,10 @@ export default function CustomersPage() {
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría</Label>
                 <Select value={editForm.category} onValueChange={val => setEditForm({...editForm, category: val})}>
-                  <SelectTrigger className="h-10 bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Consumidor Final">Consumidor Final</SelectItem>
-                    <SelectItem value="Crédito Fiscal">Crédito Fiscal</SelectItem>
+                  <SelectTrigger className="h-10 glass border-white/10 rounded-xl text-xs font-bold text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="glass text-white">
+                    <SelectItem value="Consumidor Final" className="text-white focus:bg-white/10 hover:bg-white/10">Consumidor Final</SelectItem>
+                    <SelectItem value="Crédito Fiscal" className="text-white focus:bg-white/10 hover:bg-white/10">Crédito Fiscal</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -598,7 +594,7 @@ export default function CustomersPage() {
                     placeholder="NIT..." 
                     value={editForm.nit}
                     onChange={e => setEditForm({...editForm, nit: e.target.value})}
-                    className="h-10 bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                    className="h-10 glass-input rounded-xl text-xs font-mono font-bold"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -607,7 +603,7 @@ export default function CustomersPage() {
                     placeholder="NRC..." 
                     value={editForm.nrc}
                     onChange={e => setEditForm({...editForm, nrc: e.target.value})}
-                    className="h-10 bg-muted border-none rounded-xl text-xs font-mono font-bold"
+                    className="h-10 glass-input rounded-xl text-xs font-mono font-bold"
                   />
                 </div>
               </div>
@@ -617,10 +613,10 @@ export default function CustomersPage() {
               <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Giro Comercial</Label>
                 <Select value={editForm.giro} onValueChange={val => setEditForm({...editForm, giro: val})}>
-                  <SelectTrigger className="h-10 bg-muted border-none rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent className="max-w-[400px]">
+                  <SelectTrigger className="h-10 glass border-white/10 rounded-xl text-xs font-bold text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-w-[400px] glass text-white">
                     {GIROS_AUTORIZADOS.map((giro, idx) => (
-                      <SelectItem key={idx} value={giro} className="text-[11px] py-2">{giro}</SelectItem>
+                      <SelectItem key={idx} value={giro} className="text-[11px] py-2 text-white focus:bg-white/10 hover:bg-white/10">{giro}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -634,7 +630,7 @@ export default function CustomersPage() {
                   type="email" 
                   value={editForm.email}
                   onChange={e => setEditForm({...editForm, email: e.target.value})}
-                  className="h-10 bg-muted border-none rounded-xl text-xs"
+                  className="h-10 glass-input rounded-xl text-xs"
                 />
               </div>
               <div className="space-y-1.5">
@@ -642,7 +638,7 @@ export default function CustomersPage() {
                 <Input 
                   value={editForm.phone}
                   onChange={e => setEditForm({...editForm, phone: e.target.value})}
-                  className="h-10 bg-muted border-none rounded-xl text-xs font-bold"
+                  className="h-10 glass-input rounded-xl text-xs font-bold"
                 />
               </div>
             </div>
@@ -653,18 +649,18 @@ export default function CustomersPage() {
                 placeholder="Dirección..."
                 value={editForm.address}
                 onChange={e => setEditForm({...editForm, address: e.target.value})}
-                className="w-full min-h-[50px] p-2.5 bg-muted border-none rounded-xl text-xs focus:ring-1 outline-none transition-all text-foreground"
+                className="w-full min-h-[50px] p-2.5 glass-input rounded-xl text-xs outline-none transition-all text-white"
               />
             </div>
 
             {/* Crédito */}
-            <div className="p-4 rounded-2xl bg-muted/40 border space-y-3">
-              <h4 className="text-[10px] font-black uppercase text-sky-600 dark:text-sky-400 tracking-widest flex items-center gap-1.5">
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+              <h4 className="text-[10px] font-black uppercase text-sky-400 tracking-widest flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-500"></span> Control de Crédito
               </h4>
               <div className="grid grid-cols-2 gap-4 items-center">
-                <div className="flex items-center justify-between p-2 bg-background rounded-xl border shadow-sm">
-                  <span className="text-[11px] font-bold text-muted-foreground">¿Autorizar?</span>
+                <div className="flex items-center justify-between p-2 glass rounded-xl border border-white/10">
+                  <span className="text-[11px] font-bold text-slate-300">¿Autorizar?</span>
                   <Switch 
                     checked={editForm.is_authorized_credit}
                     onCheckedChange={val => setEditForm({...editForm, is_authorized_credit: val})}
@@ -678,25 +674,25 @@ export default function CustomersPage() {
                     value={editForm.credit_limit}
                     onChange={e => setEditForm({...editForm, credit_limit: e.target.value})}
                     disabled={!editForm.is_authorized_credit}
-                    className="h-9 bg-background border rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400"
+                    className="h-9 glass-input rounded-xl text-xs font-bold text-sky-400"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 gap-2 border-t">
+            <div className="flex justify-end pt-2 gap-2 border-t border-white/10">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setIsEditOpen(false)}
-                className="rounded-xl text-xs"
+                className="rounded-xl text-xs text-white hover:bg-white/10"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={isSavingEdit}
-                className="bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs px-5 shadow-md shadow-sky-500/20"
+                className="bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs px-5 shadow-md shadow-sky-500/20"
               >
                 {isSavingEdit ? <Loader2 className="animate-spin mr-1" size={14} /> : null}
                 Guardar Cambios

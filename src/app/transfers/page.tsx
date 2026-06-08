@@ -335,11 +335,7 @@ export default function TransfersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-white to-indigo-50/30 dark:from-[#060A12] dark:via-[#090D18] dark:to-indigo-950/10 p-4 md:p-6 lg:p-8 font-body select-none transition-colors duration-300 relative overflow-x-hidden">
-      {/* Orbes decorativos */}
-      <div className="pointer-events-none fixed top-[-12%] right-[-8%] w-[40vw] h-[40vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/8 blur-[130px]" />
-      <div className="pointer-events-none fixed bottom-[-10%] left-[-6%] w-[32vw] h-[32vw] rounded-full bg-blue-500/5 dark:bg-blue-500/8 blur-[110px]" />
-      <div className="pointer-events-none fixed top-[40%] left-[35%] w-[18vw] h-[18vw] rounded-full bg-cyan-500/3 dark:bg-cyan-500/5 blur-[80px]" />
+    <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4 relative z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="rounded-full bg-white dark:bg-zinc-900/60 shadow-sm border border-slate-200 dark:border-zinc-800" onClick={() => router.push('/')}>
@@ -367,7 +363,7 @@ export default function TransfersPage() {
           <TabsContent value="nuevo" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none animate-in fade-in duration-300">
             <div className="lg:col-span-5 space-y-4">
               <Card className="glass-card rounded-2xl overflow-hidden">
-                <CardHeader className="bg-indigo-900 dark:bg-indigo-950 text-white p-5">
+                <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                   <div className="flex justify-between items-center mb-2">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <ClipboardList size={18} /> Detalle del Traslado
@@ -421,7 +417,7 @@ export default function TransfersPage() {
                       </TableBody>
                     </Table>
                   </ScrollArea>
-                  <div className="p-6 border-t bg-slate-50/20 dark:bg-zinc-950/20 space-y-4">
+                  <div className="p-6 border-t border-white/10 bg-slate-50/20 dark:bg-zinc-950/20 space-y-4">
                      <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Responsable / Autorizado por</Label>
                         <div className="relative">
@@ -547,7 +543,7 @@ export default function TransfersPage() {
                       <p className="text-[10px] font-bold text-slate-400">{p.sku}</p>
                       <h3 className="text-xs font-bold text-slate-900 leading-tight line-clamp-2 h-8">{p.name}</h3>
                     </div>
-                    <div className="mt-2 pt-2 border-t flex justify-between items-center">
+                    <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
                       <Badge variant="secondary" className="text-[9px] bg-slate-50 text-slate-500">{p.quantity} un.</Badge>
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
                         <Plus size={16} />
