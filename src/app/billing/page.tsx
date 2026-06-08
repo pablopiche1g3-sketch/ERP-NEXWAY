@@ -33,7 +33,8 @@ import {
   Filter,
   Package,
   Store,
-  Warehouse
+  Warehouse,
+  Clock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1287,8 +1288,6 @@ export default function BillingPage() {
               </div>
 
             </div>
-
-            </div>
           </TabsContent>
 
           {/* TAB NOTA CREDITO */}
@@ -2080,7 +2079,7 @@ export default function BillingPage() {
                         </Button>
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2171,7 +2170,6 @@ export default function BillingPage() {
                           })}
                         </TableBody>
                       </Table>
-                    </div>
                     </div>
                   </div>
                 </div>
