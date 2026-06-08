@@ -97,7 +97,7 @@ export default function QuotationsPage() {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
         return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: Number(item.quantity || 0) + 1 } : item
         );
       }
       return [...prev, { 

@@ -598,7 +598,7 @@ export default function BillingPage() {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item => item.id === product.id ? { ...item, quantity: Number(item.quantity || 0) + 1 } : item);
       }
       return [...prev, { id: product.id, name: product.name, sku: product.sku || 'N/A', price: product.price || 0, quantity: 1 }];
     });
@@ -606,7 +606,7 @@ export default function BillingPage() {
 
   const updateCartQuantity = (id: string, qty: number | string) => {
     const numQty = typeof qty === 'string' ? (qty === '' ? '' : parseFloat(qty)) : qty;
-    setCart(prev => prev.map(item => item.id === id ? { ...item, quantity: numQty === '' ? '' : (numQty || 0) } : item));
+    setCart(prev => prev.map(item => item.id === id ? { ...item, quantity: (numQty === '' ? '' : (numQty || 0)) as any } : item));
   };
 
   const removeFromCart = (id: string) => {
