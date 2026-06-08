@@ -26,8 +26,7 @@ export function ModeToggle() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" className="rounded-full shadow-sm bg-background border-border hover:bg-accent transition-all relative overflow-hidden group">
-          <div className="absolute inset-0 bg-tint-glow1/10 group-hover:bg-tint-glow1/20 transition-colors" />
-          <Palette className="h-[1.2rem] w-[1.2rem] text-tint-text transition-all" />
+<Palette className="h-[1.2rem] w-[1.2rem] text-tint-text transition-all" />
           <span className="sr-only">Cambiar tema</span>
         </Button>
       </DropdownMenuTrigger>
