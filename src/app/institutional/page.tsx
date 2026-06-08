@@ -70,7 +70,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
 import { useEffect } from 'react';
-import { ModeToggle } from '@/components/ModeToggle';
+import { ModeToggle } from '@/components/mode-toggle';
 
 interface CartItem {
   id: string;

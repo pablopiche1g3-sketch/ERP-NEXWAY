@@ -33,7 +33,7 @@ import {
   LogOut,
   Settings
 } from 'lucide-react';
-import { ModeToggle } from '@/components/ModeToggle';
+import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
