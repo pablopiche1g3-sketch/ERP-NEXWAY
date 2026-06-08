@@ -83,12 +83,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   };
 
   return (
-    <aside className={`bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-slate-300 flex flex-col h-screen border-r border-slate-200 dark:border-white/10 select-none shrink-0 font-body transition-[width] duration-200 ease-in-out will-change-[width] ${
+    <aside className={`bg-white/40 dark:bg-white/5 backdrop-blur-md text-slate-900 dark:text-slate-300 flex flex-col h-screen border-r border-white/50 dark:border-white/10 select-none shrink-0 font-body transition-[width] duration-200 ease-in-out will-change-[width] ${
       isCollapsed ? 'w-20' : 'w-64'
     }`}>
       {/* Brand Header al Estilo Mockup */}
       {!isCollapsed ? (
-        <div className="p-6 flex items-center justify-between border-b border-slate-200 dark:border-slate-800/40">
+        <div className="p-6 flex items-center justify-between border-b border-white/50 dark:border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline relative group-hover:scale-105 transition-transform duration-200">
               <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
@@ -115,7 +115,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           </Button>
         </div>
       ) : (
-        <div className="p-4 flex flex-col items-center border-b border-slate-200 dark:border-slate-800/40 gap-3">
+        <div className="p-4 flex flex-col items-center border-b border-white/50 dark:border-white/10 gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline">
             <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
               <div className="w-1.5 h-1.5 rounded-full bg-white/95"></div>
@@ -194,7 +194,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* Profile Card / Sign Out */}
       {isCollapsed ? (
-        <div className="p-3 flex flex-col items-center gap-3 bg-slate-100/50 dark:bg-slate-900/40 border-t border-slate-200 dark:border-slate-800/50">
+        <div className="p-3 flex flex-col items-center gap-3 bg-white/30 dark:bg-black/20 border-t border-white/50 dark:border-white/10">
           <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-black uppercase text-xs border border-indigo-500/10" title={user?.email || 'Usuario'}>
             {user?.email?.slice(0, 2) || 'US'}
           </div>
@@ -209,7 +209,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           </Button>
         </div>
       ) : (
-        <div className="p-4 bg-slate-100/50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex items-center justify-between gap-2.5">
+        <div className="p-4 bg-white/30 dark:bg-black/20 border-t border-white/50 dark:border-white/10 flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-black uppercase text-xs border border-indigo-500/10">
               {user?.email?.slice(0, 2) || 'US'}
