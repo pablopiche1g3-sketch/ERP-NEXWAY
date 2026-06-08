@@ -34,7 +34,8 @@ import {
   Package,
   Store,
   Warehouse,
-  Clock
+  Clock,
+  Save
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -661,6 +662,34 @@ export default function BillingPage() {
     setIsCheckoutOpen(true);
   };
 
+  const handleSaveDraft = async () => {
+    if (cart.length === 0) return;
+    setIsProcessing(true);
+    try {
+      const draftNumber = `BORR-${Math.floor(100000 + Math.random() * 900000)}`;
+      const { error } = await supabase
+        .from('quotations')
+        .insert({
+          quote_number: draftNumber,
+          customer_name: customerName || 'Borrador Guardado',
+          items: cart,
+          total: totalCart,
+          status: 'PENDIENTE'
+        });
+      
+      if (error) throw error;
+      toast({ title: "Borrador Guardado", description: "La factura quedó en espera. Puedes cargarla después desde el botón 'Cotización'." });
+      
+      setCart([]);
+      setCustomerName('');
+      setCustomerEmail('');
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error al guardar borrador", description: err.message });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleFinalizeSale = async () => {
     if (paymentMethod === 'Efectivo' && (parseFloat(cashReceived) || 0) < totalCart) {
       toast({ variant: "destructive", title: "Monto Insuficiente" });
@@ -1134,13 +1163,22 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              <button 
-                onClick={handleOpenCheckout} 
-                disabled={cart.length === 0}
-                className="w-full rounded-[11px] p-[15px] text-[14px] font-bold text-white text-center cursor-pointer bg-blue-600/90 hover:bg-blue-600 dark:bg-[#5b5ef4]/35 dark:border dark:border-[#5b5ef4]/50 hover:dark:bg-[#5b5ef4]/50 tracking-[0.3px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 size={16} /> FINALIZAR Y NOTIFICAR
-              </button>
+              <div className="flex gap-3">
+                <button 
+                  onClick={handleSaveDraft} 
+                  disabled={cart.length === 0 || isProcessing}
+                  className="flex-1 rounded-[11px] p-[15px] text-[13px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Save size={16} /> GUARDAR EN ESPERA
+                </button>
+                <button 
+                  onClick={handleOpenCheckout} 
+                  disabled={cart.length === 0 || isProcessing}
+                  className="flex-1 rounded-[11px] p-[15px] text-[13px] font-bold text-white text-center cursor-pointer bg-blue-600/90 hover:bg-blue-600 dark:bg-[#5b5ef4]/35 dark:border dark:border-[#5b5ef4]/50 hover:dark:bg-[#5b5ef4]/50 tracking-[0.3px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} /> FINALIZAR
+                </button>
+              </div>
             </div>
 
             {/* Columna Derecha: Catálogo POS (Ancho: 7/12) */}
