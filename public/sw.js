@@ -7,6 +7,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Simple pass-through fetch handler for PWA requirements
+  // Only intercept GET requests with http/https protocols
+  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
+    return;
+  }
   event.respondWith(fetch(event.request));
 });
