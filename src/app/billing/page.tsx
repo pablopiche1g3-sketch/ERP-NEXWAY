@@ -260,7 +260,11 @@ export default function BillingPage() {
       setCustomers(custData || []);
 
       // Cargar bodegas
-      const { data: whData } = await supabase.from('warehouses').select('*').order('name');
+      let whQuery = supabase.from('warehouses').select('*');
+      if (activeBranchId) {
+        whQuery = whQuery.eq('branch_id', activeBranchId);
+      }
+      const { data: whData } = await whQuery.order('name');
       setWarehouses(whData || []);
 
       // Cargar ventas realizadas
@@ -334,7 +338,11 @@ export default function BillingPage() {
     }
     setLoadingData(true);
     try {
-      const { data: whData } = await supabase.from('warehouses').select('*');
+      let whQuery = supabase.from('warehouses').select('*');
+      if (activeBranchId) {
+        whQuery = whQuery.eq('branch_id', activeBranchId);
+      }
+      const { data: whData } = await whQuery;
       const { data: invData } = await supabase
         .from('inventory')
         .select('*')
@@ -752,11 +760,9 @@ export default function BillingPage() {
           const available = physical + pendingIncoming;
           if (available < (Number(item.quantity) || 0)) {
             toast({ 
-              variant: "destructive", 
-              title: "Stock Insuficiente Detectado", 
-              description: `El producto "${item.name}" no tiene existencias físicas ni en pre-traslados suficientes en "${deductWh.name}". Disponible: ${physical} (Físico) + ${pendingIncoming} (En Tránsito), Solicitado: ${item.quantity}.` 
+              title: "Stock Insuficiente (Aviso)", 
+              description: `El producto "${item.name}" no tiene existencias suficientes en "${deductWh.name}". Se facturará en negativo. Disponible: ${physical}, Solicitado: ${item.quantity}.` 
             });
-            return;
           }
         }
       } catch (err) {
@@ -836,12 +842,9 @@ export default function BillingPage() {
         const available = physical + pendingIncoming;
         if (available < (Number(item.quantity) || 0)) {
           toast({
-            variant: "destructive",
-            title: "Stock Insuficiente",
-            description: `El producto "${item.name}" (${item.sku}) no tiene suficiente stock físico ni pre-traslados en la bodega "${deductWh.name}". Disponible: ${physical} (Físico) + ${pendingIncoming} (En Tránsito), Requerido: ${item.quantity}.`
+            title: "Facturación con Stock Insuficiente",
+            description: `Se registrará stock negativo para "${item.name}". Disponible: ${physical}, Requerido: ${item.quantity}.`
           });
-          setIsProcessing(false);
-          return;
         }
       }
 

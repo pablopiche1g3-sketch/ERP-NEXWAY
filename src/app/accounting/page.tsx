@@ -27,7 +27,8 @@ import {
   FileSpreadsheet,
   TrendingUp as GainIcon,
   Activity,
-  Briefcase
+  Briefcase,
+  Printer
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -188,11 +189,15 @@ export default function AccountingPage() {
       if (!journalErr) {
         const mappedJournal = (journalData || []).map(j => {
           const jLines = !linesErr 
-            ? (linesData || []).filter(l => l.journal_id === j.id).map(l => ({
-                accountCode: l.account_code,
-                debit: parseFloat(l.debit) || 0,
-                credit: parseFloat(l.credit) || 0
-              }))
+            ? (linesData || []).filter(l => l.journal_id === j.id).map(l => {
+                const acc = DEFAULT_CATALOG.find(a => a.code === l.account_code);
+                return {
+                  accountCode: l.account_code,
+                  accountName: acc ? acc.name : 'Cuenta Desconocida',
+                  debit: parseFloat(l.debit) || 0,
+                  credit: parseFloat(l.credit) || 0
+                };
+              })
             : [];
 
           return {
@@ -1042,11 +1047,9 @@ export default function AccountingPage() {
                               </TableCell>
                               <TableCell className="py-4 text-right px-6">
                                 <div className="flex gap-1 justify-end">
-                                  {isAdv && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-muted-foreground hover:text-blue-500" onClick={() => setSelectedAdvEntry(entry)}>
-                                      <Eye size={13} />
-                                    </Button>
-                                  )}
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-muted-foreground hover:text-blue-500" onClick={() => setSelectedAdvEntry(entry)}>
+                                    <Eye size={13} />
+                                  </Button>
                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-muted-foreground hover:text-rose-600" onClick={() => handleDeleteEntry(entry.id)}>
                                     <Trash2 size={13} />
                                   </Button>
@@ -2343,58 +2346,141 @@ export default function AccountingPage() {
       {/* --- DIALOG DETALLE PARTIDA AVANZADA --- */}
       <Dialog open={selectedAdvEntry !== null} onOpenChange={() => setSelectedAdvEntry(null)}>
         {selectedAdvEntry && (
-          <DialogContent className="rounded-2xl max-w-md glass-card border-slate-100 dark:border-border text-foreground">
-            <DialogHeader>
-              <DialogTitle className="text-base font-black text-white flex gap-2">
-                <FileText className="text-blue-600" /> Detalle de Partida
-              </DialogTitle>
-              <DialogDescription className="text-xs dark:text-muted-foreground">
-                Asiento registrado el {new Date(selectedAdvEntry.timestamp).toLocaleDateString()} a las {new Date(selectedAdvEntry.timestamp).toLocaleTimeString()}
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent className="rounded-2xl max-w-lg glass-card border-slate-100 dark:border-border text-foreground overflow-y-auto max-h-[90vh]">
+            <style dangerouslySetInnerHTML={{__html: `
+              @media print {
+                body * {
+                  visibility: hidden;
+                }
+                #print-voucher, #print-voucher * {
+                  visibility: visible;
+                }
+                #print-voucher {
+                  position: absolute;
+                  left: 0;
+                  top: 0;
+                  width: 100%;
+                  background: white !important;
+                  color: black !important;
+                  padding: 24px;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}} />
 
-            <div className="space-y-4 py-2">
-              <div className="glass-input/40 p-3 rounded-2xl border border-slate-100 dark:border-border">
-                <span className="text-[9px] font-bold uppercase text-slate-400 dark:text-muted-foreground block">Concepto</span>
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{selectedAdvEntry.description}</span>
+            <div id="print-voucher" className="space-y-6">
+              {/* Header de impresión */}
+              <div className="border-b pb-4">
+                <h2 className="text-sm font-black tracking-widest text-slate-800 dark:text-white uppercase">ERP NEXWAY</h2>
+                <h3 className="text-xs font-bold text-slate-500 uppercase mt-0.5">Comprobante de Diario Contable</h3>
+                <div className="grid grid-cols-2 gap-2 mt-4 text-[10px] text-slate-600 dark:text-slate-400">
+                  <div>
+                    <span className="font-bold">Fecha de Emisión: </span>
+                    {new Date(selectedAdvEntry.timestamp).toLocaleDateString()}
+                  </div>
+                  <div>
+                    <span className="font-bold">Hora: </span>
+                    {new Date(selectedAdvEntry.timestamp).toLocaleTimeString()}
+                  </div>
+                  <div>
+                    <span className="font-bold">Tipo de Partida: </span>
+                    {selectedAdvEntry.type}
+                  </div>
+                  <div>
+                    <span className="font-bold">Estado: </span>
+                    CERRADO
+                  </div>
+                </div>
               </div>
 
-              <div className="border border-slate-100 dark:border-border rounded-2xl overflow-hidden glass-card">
+              {/* Concepto */}
+              <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-100 dark:border-border">
+                <span className="text-[9px] font-bold uppercase text-slate-400 dark:text-muted-foreground block">Concepto de la Partida</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{selectedAdvEntry.description}</span>
+              </div>
+
+              {/* Detalle de Cuentas */}
+              <div className="border border-slate-100 dark:border-border rounded-xl overflow-hidden bg-slate-50/50 dark:bg-white/5">
                 <Table>
-                  <TableHeader className="bg-white/10 border-b border-white/10">
+                  <TableHeader className="bg-slate-100 dark:bg-zinc-900 border-b">
                     <TableRow className="h-8">
-                      <TableHead className="text-[9px] uppercase font-bold py-1">Cuenta</TableHead>
-                      <TableHead className="w-20 text-[9px] uppercase font-bold py-1">Debe</TableHead>
-                      <TableHead className="w-20 text-[9px] uppercase font-bold py-1">Haber</TableHead>
+                      <TableHead className="text-[9px] uppercase font-black py-1">Cuenta / Código</TableHead>
+                      <TableHead className="w-24 text-[9px] uppercase font-black py-1 text-right">Debe</TableHead>
+                      <TableHead className="w-24 text-[9px] uppercase font-black py-1 text-right">Haber</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedAdvEntry.lines?.map((l: any, i: number) => (
-                      <TableRow key={i} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
-                        <TableCell className="py-2">
-                          <span className="font-mono text-[10px] font-bold text-slate-400 block">{l.accountCode}</span>
-                          <span className="text-[10px] font-medium text-slate-800 dark:text-foreground block">{l.accountName}</span>
-                        </TableCell>
-                        <TableCell className="py-2 text-[10px] font-mono font-bold text-right text-foreground">
-                          {l.debit > 0 ? `$${l.debit.toFixed(2)}` : '-'}
-                        </TableCell>
-                        <TableCell className="py-2 text-[10px] font-mono font-bold text-right text-foreground">
-                          {l.credit > 0 ? `$${l.credit.toFixed(2)}` : '-'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="glass/80 font-bold border-t border-white/10 dark:border-border">
-                      <TableCell className="text-[10px] uppercase font-black">Totales Partida:</TableCell>
-                      <TableCell className="text-[10px] font-mono text-right text-white">${selectedAdvEntry.amount?.toFixed(2)}</TableCell>
-                      <TableCell className="text-[10px] font-mono text-right text-white">${selectedAdvEntry.amount?.toFixed(2)}</TableCell>
+                    {(() => {
+                      const lines = selectedAdvEntry.lines && selectedAdvEntry.lines.length > 0
+                        ? selectedAdvEntry.lines
+                        : selectedAdvEntry.type === 'Ingreso'
+                          ? [
+                              { accountCode: '1101', accountName: 'Efectivo y Equivalentes de Efectivo', debit: selectedAdvEntry.amount, credit: 0 },
+                              { accountCode: '4101', accountName: 'Ventas de Mercadería Gravadas', debit: 0, credit: selectedAdvEntry.amount }
+                            ]
+                          : selectedAdvEntry.type === 'Egreso'
+                            ? [
+                                { accountCode: '6101', accountName: 'Gastos de Administración', debit: selectedAdvEntry.amount, credit: 0 },
+                                { accountCode: '1101', accountName: 'Efectivo y Equivalentes de Efectivo', debit: 0, credit: selectedAdvEntry.amount }
+                              ]
+                            : [];
+                      
+                      return lines.map((l: any, i: number) => (
+                        <TableRow key={i} className="hover:bg-slate-50/50 dark:hover:bg-muted/20">
+                          <TableCell className="py-2">
+                            <span className="font-mono text-[10px] font-bold text-indigo-500 block">{l.accountCode}</span>
+                            <span className="text-[10px] font-semibold text-slate-800 dark:text-foreground block">{l.accountName}</span>
+                          </TableCell>
+                          <TableCell className="py-2 text-[10px] font-mono font-bold text-right text-slate-900 dark:text-white">
+                            {l.debit > 0 ? `$${l.debit.toFixed(2)}` : '-'}
+                          </TableCell>
+                          <TableCell className="py-2 text-[10px] font-mono font-bold text-right text-slate-900 dark:text-white">
+                            {l.credit > 0 ? `$${l.credit.toFixed(2)}` : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ));
+                    })()}
+
+                    {/* Fila de Totales */}
+                    <TableRow className="bg-slate-100 dark:bg-zinc-900 font-bold border-t">
+                      <TableCell className="text-[10px] uppercase font-black text-slate-700 dark:text-slate-300">Totales Partida:</TableCell>
+                      <TableCell className="text-[10px] font-mono text-right text-slate-900 dark:text-white">${selectedAdvEntry.amount?.toFixed(2)}</TableCell>
+                      <TableCell className="text-[10px] font-mono text-right text-slate-900 dark:text-white">${selectedAdvEntry.amount?.toFixed(2)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Bloque de Firmas para Impresión */}
+              <div className="grid grid-cols-3 gap-4 pt-10 text-center text-[9px] text-slate-600 dark:text-slate-400 mt-8">
+                <div className="border-t pt-2">
+                  <p className="font-bold">Preparado Por</p>
+                  <p className="mt-8">Firma / Sello</p>
+                </div>
+                <div className="border-t pt-2">
+                  <p className="font-bold">Revisado Por</p>
+                  <p className="mt-8">Firma / Sello</p>
+                </div>
+                <div className="border-t pt-2">
+                  <p className="font-bold">Autorizado Por</p>
+                  <p className="mt-8">Firma / Sello</p>
+                </div>
+              </div>
             </div>
 
-            <DialogFooter>
-              <Button onClick={() => setSelectedAdvEntry(null)} className="w-full bg-slate-900 dark:bg-slate-800 text-white font-bold h-10 rounded-xl text-xs">
+            <DialogFooter className="flex gap-2 w-full mt-4 no-print">
+              <Button 
+                onClick={() => { if (typeof window !== 'undefined') window.print(); }} 
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-1.5"
+              >
+                <Printer size={13} /> Imprimir Comprobante
+              </Button>
+              <Button 
+                onClick={() => setSelectedAdvEntry(null)} 
+                className="flex-1 bg-slate-900 dark:bg-slate-800 text-white font-bold h-10 rounded-xl text-xs hover:bg-slate-800"
+              >
                 Cerrar Vista
               </Button>
             </DialogFooter>

@@ -268,6 +268,20 @@ export default function InventoryMasterPage() {
   });
 
   const [warehouseName, setWarehouseName] = useState('');
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [warehouseBranchId, setWarehouseBranchId] = useState<string>('');
+
+  useEffect(() => {
+    const handleBranchChanged = () => {
+      if (typeof window !== 'undefined') {
+        setActiveBranchId(localStorage.getItem('active_branch_id'));
+      }
+    };
+    handleBranchChanged();
+    window.addEventListener('branchChanged', handleBranchChanged);
+    return () => window.removeEventListener('branchChanged', handleBranchChanged);
+  }, []);
 
   // Estados para datos cargados desde Supabase
   const [inventory, setInventory] = useState<any[]>([]);
@@ -326,6 +340,13 @@ export default function InventoryMasterPage() {
       if (whErr) throw whErr;
       const whList = whData || [];
       setWarehouses(whList);
+
+      // Obtener sucursales
+      const { data: branchesData } = await supabase
+        .from('branches')
+        .select('*')
+        .order('name');
+      setBranches(branchesData || []);
 
       // Helper function to bypass Supabase 1000-row limit
       const fetchAllRows = async (table: string, orderByCol?: string) => {
@@ -853,11 +874,15 @@ export default function InventoryMasterPage() {
     try {
       const { error } = await supabase
         .from('warehouses')
-        .insert({ name: warehouseName });
+        .insert({ 
+          name: warehouseName,
+          branch_id: warehouseBranchId || activeBranchId || null
+        });
 
       if (error) throw error;
       toast({ title: "Bodega Configurada", description: "La bodega ya está disponible." });
       setWarehouseName('');
+      setWarehouseBranchId('');
       await loadSupabaseData();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error al crear bodega", description: err.message });
@@ -1745,19 +1770,35 @@ export default function InventoryMasterPage() {
                    <CardContent className="p-5 pt-0 space-y-4">
                      <div className="space-y-2">
                        <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
-                       <div className="flex gap-2">
-                         <Input 
-                           placeholder="Ej. Sucursal Santa Tecla..." 
-                           value={warehouseName}
-                           onChange={e => setWarehouseName(e.target.value)}
-                           className="glass-input h-10 text-xs font-bold"
-                         />
-                         <Button onClick={handleCreateWarehouse} className="bg-blue-600 font-bold rounded-xl text-xs text-white">
-                           CREAR
-                         </Button>
-                       </div>
+                       <Input 
+                         placeholder="Ej. Sucursal Santa Tecla..." 
+                         value={warehouseName}
+                         onChange={e => setWarehouseName(e.target.value)}
+                         className="glass-input h-10 text-xs font-bold"
+                       />
                      </div>
- 
+                     
+                     <div className="space-y-2">
+                       <Label className="text-[10px] font-bold uppercase text-slate-400">Sucursal Asociada</Label>
+                       <Select 
+                         value={warehouseBranchId}
+                         onValueChange={setWarehouseBranchId}
+                       >
+                         <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                           <SelectValue placeholder="Seleccione sucursal..." />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {branches?.map((b: any) => (
+                             <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+
+                     <Button onClick={handleCreateWarehouse} className="w-full bg-blue-600 font-bold rounded-xl text-xs text-white h-10">
+                       CREAR BODEGA
+                     </Button>
+
                      <div className="pt-2">
                        <Label className="text-[9px] font-black uppercase text-slate-400 block mb-2">Bodegas Activas</Label>
                        <div className="space-y-1">
@@ -1765,7 +1806,12 @@ export default function InventoryMasterPage() {
                            <p className="text-[9px] text-slate-400 italic">No hay bodegas configuradas.</p>
                          ) : warehouses?.map((wh: any) => (
                            <div key={wh.id} className="flex justify-between items-center bg-white/5 border-b border-white/10 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
-                             <span className="text-[11px] font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
+                             <div className="flex flex-col">
+                               <span className="text-[11px] font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
+                               <span className="text-[9px] text-slate-400">
+                                 {branches.find((b: any) => b.id === wh.branch_id)?.name || 'Sin Sucursal'}
+                               </span>
+                             </div>
                              <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-rose-500 rounded-md" onClick={() => handleDeleteWarehouse(wh.id)}>
                                <Trash2 size={12} />
                              </Button>

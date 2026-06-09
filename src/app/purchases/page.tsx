@@ -11,6 +11,7 @@ import {
   Loader2,
   CheckCircle2,
   FileCode,
+  FileText,
   User,
   CreditCard,
   Calendar,
@@ -99,6 +100,14 @@ export default function PurchasesPage() {
   const [savingMapping, setSavingMapping] = useState(false);
   const [savingJsonMappings, setSavingJsonMappings] = useState(false);
 
+  // Estados para Notas de Crédito de Proveedores
+  const [creditNotes, setCreditNotes] = useState<any[]>([]);
+  const [loadingCreditNotes, setLoadingCreditNotes] = useState(false);
+  const [parsedCreditNote, setParsedCreditNote] = useState<any | null>(null);
+  const [selectedCreditNoteType, setSelectedCreditNoteType] = useState<'DEVOLUCION' | 'AJUSTE_PRECIO'>('DEVOLUCION');
+  const [creditNoteSearch, setCreditNoteSearch] = useState('');
+  const creditNoteFileInputRef = useRef<HTMLInputElement>(null);
+
   // Historial de compras
   const [purchasesHistory, setPurchasesHistory] = useState<any[]>([]);
   const [selectedPurchase, setSelectedPurchase] = useState<any | null>(null);
@@ -112,7 +121,11 @@ export default function PurchasesPage() {
       setLoadingData(true);
 
       // Cargar bodegas
-      const { data: whData } = await supabase.from('warehouses').select('*').order('name');
+      let whQuery = supabase.from('warehouses').select('*');
+      if (activeBranchId) {
+        whQuery = whQuery.eq('branch_id', activeBranchId);
+      }
+      const { data: whData } = await whQuery.order('name');
       setWarehouses(whData || []);
 
       // Cargar proveedores
@@ -195,6 +208,23 @@ export default function PurchasesPage() {
       console.error('Error al cargar datos en compras:', e);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const loadCreditNotes = async () => {
+    setLoadingCreditNotes(true);
+    try {
+      let query = supabase.from('supplier_credit_notes').select('*, suppliers(*)');
+      if (activeBranchId) {
+        query = query.eq('branch_id', activeBranchId);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      setCreditNotes(data || []);
+    } catch (e: any) {
+      console.error('Error al cargar notas de crédito:', e);
+    } finally {
+      setLoadingCreditNotes(false);
     }
   };
 
@@ -425,7 +455,93 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     loadPurchasesData();
+    loadCreditNotes();
   }, [activeBranchId]);
+
+  const handleCreditNoteJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        const id = json.identificacion || {};
+        const emi = json.emisor || {};
+        const res = json.resumen || {};
+        const rawItems = json.cuerpoDocumento || [];
+
+        // Match supplier
+        const matchedSup = suppliers.find(s => 
+          (s.nit && s.nit.replace(/-/g, '') === (emi.nit || '').replace(/-/g, '')) ||
+          (s.name && s.name.toLowerCase() === (emi.nombre || '').toLowerCase())
+        );
+
+        const items = rawItems.map((item: any) => ({
+          sku: item.codigo || 'S/N',
+          name: item.descripcion || 'Sin Descripción',
+          quantity: parseFloat(item.cantidad) || 0,
+          price: parseFloat(item.precioUni) || 0,
+          total: parseFloat(item.ventaGravada || item.compraGravada) || (parseFloat(item.cantidad) * parseFloat(item.precioUni)) || 0
+        }));
+
+        setParsedCreditNote({
+          documentNumber: id.numeroControl || id.codigoGeneracion || `CN-${Date.now()}`,
+          supplierId: matchedSup ? matchedSup.id : null,
+          supplierName: matchedSup ? matchedSup.name : (emi.nombre || 'Proveedor Desconocido'),
+          supplierNit: emi.nit || '',
+          total: parseFloat(res.totalPagar || res.montoTotalOperacion || res.subTotal || 0),
+          items: items
+        });
+
+        toast({ title: "JSON Cargado", description: "La Nota de Crédito se importó correctamente. Por favor revise el desglose antes de guardar." });
+      } catch (err: any) {
+        console.error(err);
+        toast({ variant: "destructive", title: "Error al leer JSON", description: err.message || "Formato de DTE nota de crédito inválido." });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSaveCreditNote = async () => {
+    if (!parsedCreditNote) return;
+    setLoading(true);
+    try {
+      let sId = parsedCreditNote.supplierId;
+      if (!sId) {
+        const sup = suppliers.find(s => s.nit === parsedCreditNote.supplierNit);
+        if (sup) {
+          sId = sup.id;
+        } else {
+          toast({ variant: "destructive", title: "Proveedor no registrado", description: "Debe registrar el proveedor con el NIT del DTE." });
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { error } = await supabase
+        .from('supplier_credit_notes')
+        .insert({
+          supplier_id: sId,
+          document_number: parsedCreditNote.documentNumber,
+          type: selectedCreditNoteType,
+          total: parsedCreditNote.total,
+          items: parsedCreditNote.items,
+          branch_id: activeBranchId || null
+        });
+
+      if (error) throw error;
+      toast({ title: "Nota de Crédito Registrada", description: "Se aplicó con éxito la nota de crédito." });
+      setParsedCreditNote(null);
+      if (creditNoteFileInputRef.current) creditNoteFileInputRef.current.value = '';
+      await loadCreditNotes();
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al guardar", description: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredSuppliers = useMemo(() => {
     if (!suppliers) return [];
@@ -829,6 +945,9 @@ export default function PurchasesPage() {
           </TabsTrigger>
           <TabsTrigger value="vinculacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
             <Link2 size={14} className="mr-2" /> Vinculación de Códigos
+          </TabsTrigger>
+          <TabsTrigger value="credito" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
+            <FileText size={14} className="mr-2" /> Notas de Crédito
           </TabsTrigger>
         </TabsList>
 
@@ -1414,6 +1533,176 @@ export default function PurchasesPage() {
               </TabsContent>
             </Tabs>
           </div>
+        </div>
+
+      </div>
+    </TabsContent>
+
+    <TabsContent value="credito" className="space-y-6 outline-none animate-in fade-in duration-300">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* COLUMNA IZQUIERDA: IMPORTADOR DTE JSON */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+            <CardHeader className="p-0 pb-4 border-b border-white/10 mb-4">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
+                <FileJson className="text-indigo-400" size={16} /> Importador Nota de Crédito
+              </CardTitle>
+              <CardDescription className="text-[11px] text-white/50">Cargue el DTE en formato JSON para procesar la nota de crédito rápidamente.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0 space-y-4 text-white">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-white/40 tracking-wider">Cargar archivo JSON</Label>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer bg-[#000000]/15 dark:bg-black/35 border-white/10 hover:border-indigo-400 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <FileJson className="w-8 h-8 mb-2 text-indigo-400" />
+                      <p className="text-xs text-white/70 font-semibold">Haga clic o arrastre su JSON aquí</p>
+                      <p className="text-[10px] text-white/40">Soporta DTE Nota de Crédito (.json)</p>
+                    </div>
+                    <input 
+                      type="file" 
+                      accept=".json"
+                      ref={creditNoteFileInputRef}
+                      onChange={handleCreditNoteJsonUpload}
+                      className="hidden" 
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {parsedCreditNote && (
+                <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-3">
+                  <h3 className="text-xs font-black text-indigo-300 uppercase tracking-widest border-b border-indigo-500/20 pb-1.5">Vista Previa Nota de Crédito</h3>
+                  
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black uppercase text-white/30 block">N. Comprobante DTE</span>
+                    <span className="text-xs font-bold text-white font-mono">{parsedCreditNote.documentNumber}</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black uppercase text-white/30 block">Proveedor</span>
+                    <span className="text-xs font-bold text-white">{parsedCreditNote.supplierName}</span>
+                    <span className="text-[9px] text-white/50 block font-mono">NIT: {parsedCreditNote.supplierNit}</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-black uppercase text-white/30 tracking-wider">Motivo de Nota de Crédito</Label>
+                    <Select 
+                      value={selectedCreditNoteType}
+                      onValueChange={(val: any) => setSelectedCreditNoteType(val)}
+                    >
+                      <SelectTrigger className="h-10 bg-slate-900/50 border-white/10 text-xs font-bold rounded-xl text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DEVOLUCION" className="text-xs">Devolución de Producto</SelectItem>
+                        <SelectItem value="AJUSTE_PRECIO" className="text-xs">Ajuste de Precio</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5 border-t border-indigo-500/20 pt-3">
+                    <div className="flex justify-between items-center text-xs font-black text-white">
+                      <span>Total Neto:</span>
+                      <span className="text-indigo-400 font-mono text-sm">${parsedCreditNote.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      onClick={handleSaveCreditNote}
+                      disabled={loading}
+                      className="flex-1 h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs"
+                    >
+                      {loading ? <Loader2 className="animate-spin mr-1" /> : null}
+                      APLICAR NOTA
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setParsedCreditNote(null)}
+                      className="flex-1 h-10 border border-white/10 text-white hover:bg-white/5 rounded-xl text-xs"
+                    >
+                      CANCELAR
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* COLUMNA DERECHA: HISTORIAL DE NOTAS DE CRÉDITO */}
+        <div className="lg:col-span-8">
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden">
+            <CardHeader className="p-6 border-b border-white/10 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold text-white">Notas de Crédito Recibidas</CardTitle>
+                <CardDescription className="text-xs text-white/50">Listado de notas de crédito aplicadas a la sucursal activa.</CardDescription>
+              </div>
+              <div className="w-64 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={14} />
+                <Input 
+                  placeholder="Buscar por N. Documento..."
+                  value={creditNoteSearch}
+                  onChange={e => setCreditNoteSearch(e.target.value)}
+                  className="pl-8 h-8 bg-black/20 border-white/10 text-xs text-white rounded-lg placeholder:text-white/30"
+                />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-white/5 border-b border-white/10">
+                  <TableRow>
+                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider pl-6">Fecha</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider">N. Documento</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider">Proveedor</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider">Motivo / Tipo</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider text-right pr-6">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loadingCreditNotes ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-12 text-white/50 italic text-xs">
+                        Cargando notas de crédito...
+                      </TableCell>
+                    </TableRow>
+                  ) : creditNotes.filter(cn => cn.document_number.toLowerCase().includes(creditNoteSearch.toLowerCase())).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-12 text-white/50 italic text-xs">
+                        No hay notas de crédito registradas para esta sucursal.
+                      </TableCell>
+                    </TableRow>
+                  ) : creditNotes.filter(cn => cn.document_number.toLowerCase().includes(creditNoteSearch.toLowerCase())).map((cn: any) => (
+                    <TableRow key={cn.id} className="hover:bg-white/5 border-b border-white/5">
+                      <TableCell className="pl-6 text-xs text-white/70">
+                        {new Date(cn.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono font-bold text-white">
+                        {cn.document_number}
+                      </TableCell>
+                      <TableCell className="text-xs text-white font-semibold">
+                        {cn.suppliers?.name || 'Proveedor Desconocido'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[9px] font-black uppercase ${
+                          cn.type === 'DEVOLUCION' 
+                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/25' 
+                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                        }`}>
+                          {cn.type === 'DEVOLUCION' ? 'Devolución de Producto' : 'Ajuste de Precio'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-right font-mono font-black text-indigo-300 pr-6">
+                        ${parseFloat(cn.total).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </div>
 
       </div>

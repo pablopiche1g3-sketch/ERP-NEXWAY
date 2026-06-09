@@ -43,9 +43,26 @@ interface TransferItem {
 export default function TransfersPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('nuevo');
+  const [activeTab, setActiveTab] = useState('solicitud');
   const [isProcessing, setIsProcessing] = useState(false);
   
+  const [activeBranchId, setActiveBranchId] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('activeBranchId');
+      if (stored) setActiveBranchId(stored);
+    }
+
+    const handleBranchChange = () => {
+      const stored = localStorage.getItem('activeBranchId');
+      if (stored) setActiveBranchId(stored);
+    };
+
+    window.addEventListener('branchChanged', handleBranchChange);
+    return () => window.removeEventListener('branchChanged', handleBranchChange);
+  }, []);
+
   // States para el traslado
   const [transferType, setTransferType] = useState<'INTERNO' | 'INTERTIENDA'>('INTERNO');
   const [sourceWarehouse, setSourceWarehouse] = useState('');
@@ -61,6 +78,24 @@ export default function TransfersPage() {
   const [loadingInv, setLoadingInv] = useState(true);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [transfers, setTransfers] = useState<any[]>([]);
+
+  const sourceWhOptions = useMemo(() => {
+    if (!warehouses) return [];
+    if (activeTab === 'solicitud') {
+      return warehouses.filter(w => w.branch_id !== activeBranchId);
+    } else {
+      return activeBranchId ? warehouses.filter(w => w.branch_id === activeBranchId) : warehouses;
+    }
+  }, [warehouses, activeTab, activeBranchId]);
+
+  const destWhOptions = useMemo(() => {
+    if (!warehouses) return [];
+    if (activeTab === 'solicitud') {
+      return warehouses.filter(w => w.branch_id === activeBranchId);
+    } else {
+      return activeBranchId ? warehouses.filter(w => w.branch_id === activeBranchId) : warehouses;
+    }
+  }, [warehouses, activeTab, activeBranchId]);
 
   const loadData = async () => {
     try {
@@ -175,20 +210,21 @@ export default function TransfersPage() {
     setIsProcessing(true);
     try {
       // 1. Guardar el registro de traslado en public.transfers
+      const isPeticion = activeTab === 'solicitud';
       const transferData = {
         type: transferType,
         source: sourceWarehouse,
         destination: transferType === 'INTERNO' ? destinationWarehouse : destinationStore,
         authorized_by: authorizedBy,
         items: cart,
-        status: isPreTransfer ? 'PETICION' : 'COMPLETADO'
+        status: isPeticion ? 'PETICION' : 'COMPLETADO'
       };
 
       const { error: insertErr } = await supabase.from('transfers').insert(transferData);
       if (insertErr) throw insertErr;
 
-      // 2. Lógica de Inventario Multibodega (Solo si no es pre-traslado)
-      if (!isPreTransfer) {
+      // 2. Lógica de Inventario Multibodega (Solo si no es petición)
+      if (!isPeticion) {
         const whOrigen = warehouses.find(w => w.name === sourceWarehouse);
         const whDestino = transferType === 'INTERNO' ? warehouses.find(w => w.name === destinationWarehouse) : null;
 
@@ -234,8 +270,8 @@ export default function TransfersPage() {
       }
 
       toast({ 
-        title: isPreTransfer ? "Petición Registrada" : "Traslado Procesado", 
-        description: isPreTransfer ? "El pre-traslado ha sido registrado como Petición." : "El movimiento ha sido registrado exitosamente." 
+        title: isPeticion ? "Solicitud Registrada" : "Traslado Procesado", 
+        description: isPeticion ? "La solicitud de traslado ha sido registrada como Petición." : "El movimiento ha sido registrado exitosamente." 
       });
       setCart([]);
       setSourceWarehouse('');
@@ -352,15 +388,19 @@ export default function TransfersPage() {
       <div className="max-w-7xl mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-1 rounded-2xl flex w-fit gap-2">
+            <TabsTrigger value="solicitud" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all text-xs md:text-sm">
+              <Plus size={14} className="mr-2"/> Solicitud de Traslado
+            </TabsTrigger>
             <TabsTrigger value="nuevo" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all text-xs md:text-sm">
-              <Plus size={14} className="mr-2"/> Nuevo Traslado
+              <Plus size={14} className="mr-2"/> Nuevo Traslado Directo
             </TabsTrigger>
             <TabsTrigger value="historial" className="rounded-xl px-8 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all text-xs md:text-sm">
               <History size={14} className="mr-2"/> Historial Logístico
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="nuevo" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none animate-in fade-in duration-300">
+          {(activeTab === 'solicitud' || activeTab === 'nuevo') && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none animate-in fade-in duration-300">
             <div className="lg:col-span-5 space-y-4">
               <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden">
                 <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
@@ -439,7 +479,7 @@ export default function TransfersPage() {
                 onClick={handleProcessTransfer}
               >
                 {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <ArrowLeftRight className="mr-2" />}
-                PROCESAR MOVIMIENTO
+                {activeTab === 'solicitud' ? 'ENVIAR SOLICITUD' : 'PROCESAR MOVIMIENTO'}
               </Button>
             </div>
 
@@ -466,63 +506,65 @@ export default function TransfersPage() {
                        </div>
                     </div>
                     
-                    <div className="space-y-4">
-                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Envío</Label>
-                       <div className="flex gap-2">
-                          <Button 
-                            variant={!isPreTransfer ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
-                            onClick={() => setIsPreTransfer(false)}
-                          >
-                             Directo
-                          </Button>
-                          <Button 
-                            variant={isPreTransfer ? 'default' : 'outline'} 
-                            className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
-                            onClick={() => setIsPreTransfer(true)}
-                          >
-                             Pre-traslado
-                          </Button>
-                       </div>
-                    </div>
-
-                    <div className="space-y-4 md:col-span-2">
-                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Ruta Logística</Label>
-                       <div className="flex items-center gap-3">
-                          <div className="flex-1">
-                             <Select value={sourceWarehouse} onValueChange={setSourceWarehouse}>
-                                <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Origen" /></SelectTrigger>
-                                <SelectContent className="rounded-xl">
-                                   {warehouses?.map((wh: any) => (
-                                      <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
-                                   ))}
-                                </SelectContent>
-                             </Select>
-                          </div>
-                          <ArrowRight size={20} className="text-muted-foreground" />
-                          <div className="flex-1">
-                             {transferType === 'INTERNO' ? (
-                                <Select value={destinationWarehouse} onValueChange={setDestinationWarehouse}>
-                                   <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Destino" /></SelectTrigger>
-                                   <SelectContent className="rounded-xl">
-                                      {warehouses?.filter(w => w.name !== sourceWarehouse).map((wh: any) => (
-                                         <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
-                                      ))}
-                                   </SelectContent>
-                                </Select>
-                             ) : (
-                                <Select value={destinationStore} onValueChange={setDestinationStore}>
-                                   <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Tienda Destino" /></SelectTrigger>
-                                   <SelectContent className="rounded-xl">
-                                      {warehouses?.filter(w => w.name !== sourceWarehouse).map((wh: any) => (
-                                         <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
-                                      ))}
-                                   </SelectContent>
-                                </Select>
-                             )}
+                     {activeTab !== 'solicitud' && (
+                       <div className="space-y-4">
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Envío</Label>
+                          <div className="flex gap-2">
+                             <Button 
+                               variant={!isPreTransfer ? 'default' : 'outline'} 
+                               className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
+                               onClick={() => setIsPreTransfer(false)}
+                             >
+                                Directo
+                             </Button>
+                             <Button 
+                               variant={isPreTransfer ? 'default' : 'outline'} 
+                               className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
+                               onClick={() => setIsPreTransfer(true)}
+                             >
+                                Pre-traslado
+                             </Button>
                           </div>
                        </div>
-                    </div>
+                     )}
+ 
+                     <div className="space-y-4 md:col-span-2">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Ruta Logística</Label>
+                        <div className="flex items-center gap-3">
+                           <div className="flex-1">
+                              <Select value={sourceWarehouse} onValueChange={setSourceWarehouse}>
+                                 <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Origen" /></SelectTrigger>
+                                 <SelectContent className="rounded-xl">
+                                    {sourceWhOptions?.map((wh: any) => (
+                                       <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
+                                    ))}
+                                 </SelectContent>
+                              </Select>
+                           </div>
+                           <ArrowRight size={20} className="text-muted-foreground" />
+                           <div className="flex-1">
+                              {transferType === 'INTERNO' ? (
+                                 <Select value={destinationWarehouse} onValueChange={setDestinationWarehouse}>
+                                    <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Destino" /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                       {destWhOptions?.filter(w => w.name !== sourceWarehouse).map((wh: any) => (
+                                          <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
+                                       ))}
+                                    </SelectContent>
+                                 </Select>
+                              ) : (
+                                 <Select value={destinationStore} onValueChange={setDestinationStore}>
+                                    <SelectTrigger className="rounded-xl h-12 bg-card border text-xs text-foreground"><SelectValue placeholder="Tienda Destino" /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                       {destWhOptions?.filter(w => w.name !== sourceWarehouse).map((wh: any) => (
+                                          <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
+                                       ))}
+                                    </SelectContent>
+                                 </Select>
+                              )}
+                           </div>
+                        </div>
+                     </div>
                  </div>
               </Card>
 
@@ -553,7 +595,8 @@ export default function TransfersPage() {
                 ))}
               </div>
             </div>
-          </TabsContent>
+          </div>
+        )}
 
           <TabsContent value="historial" className="space-y-4 outline-none animate-in fade-in duration-300">
             <Card className="border border-slate-200/60 dark:border-zinc-800/60 shadow-md rounded-2xl bg-white/80 dark:bg-zinc-900/40 backdrop-blur-md overflow-hidden">

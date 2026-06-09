@@ -121,6 +121,13 @@ export default function CustomersPage() {
   const [loadingListItems, setLoadingListItems] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [itemsSearchTerm, setItemsSearchTerm] = useState('');
+
+  // Estados para Búsqueda Histórica de Precios
+  const [historyCustId, setHistoryCustId] = useState('');
+  const [historyStart, setHistoryStart] = useState('');
+  const [historyEnd, setHistoryEnd] = useState('');
+  const [historyResults, setHistoryResults] = useState<any[]>([]);
+  const [searchingHistory, setSearchingHistory] = useState(false);
   
   // Report monthly states
   const [reportMonth, setReportMonth] = useState('');
@@ -399,6 +406,67 @@ export default function CustomersPage() {
     }
   };
 
+  const handleSearchPriceHistory = async () => {
+    if (!historyCustId) {
+      toast({ variant: "destructive", title: "Cliente Requerido", description: "Seleccione un cliente para ver su historial." });
+      return;
+    }
+    setSearchingHistory(true);
+    try {
+      let query = supabase
+        .from('sales')
+        .select(`
+          id,
+          correlative,
+          created_at,
+          customer_name,
+          sales_items (
+            sku,
+            price,
+            quantity,
+            inventory (
+              name
+            )
+          )
+        `)
+        .eq('customer_id', historyCustId);
+      
+      if (historyStart) {
+        query = query.gte('created_at', `${historyStart}T00:00:00Z`);
+      }
+      if (historyEnd) {
+        query = query.lte('created_at', `${historyEnd}T23:59:59Z`);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const results: any[] = [];
+      (data || []).forEach((sale: any) => {
+        (sale.sales_items || []).forEach((item: any) => {
+          results.push({
+            date: new Date(sale.created_at).toLocaleDateString(),
+            correlative: sale.correlative,
+            sku: item.sku,
+            productName: item.inventory?.name || 'Producto Desconocido',
+            price: parseFloat(item.price) || 0,
+            quantity: parseFloat(item.quantity) || 0
+          });
+        });
+      });
+
+      setHistoryResults(results);
+      if (results.length === 0) {
+        toast({ title: "Sin Resultados", description: "No se encontraron facturas para los filtros aplicados." });
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error de Búsqueda", description: err.message });
+    } finally {
+      setSearchingHistory(false);
+    }
+  };
+
   const handleAuthorizeAttempt = (e: React.FormEvent) => {
     e.preventDefault();
     const masterPassword = process.env.NEXT_PUBLIC_ADMIN_PIN || '123456';
@@ -566,6 +634,9 @@ export default function CustomersPage() {
           </TabsTrigger>
           <TabsTrigger value="precios" className="rounded-lg data-[state=active]:bg-indigo-600 dark:data-[state=active]:bg-sky-500/30 data-[state=active]:text-white text-xs data-[state=active]:shadow-sm px-6 py-2.5 font-bold">
             🏷️ Precios a Cliente
+          </TabsTrigger>
+          <TabsTrigger value="historial-precios" className="rounded-lg data-[state=active]:bg-indigo-600 dark:data-[state=active]:bg-sky-500/30 data-[state=active]:text-white text-xs data-[state=active]:shadow-sm px-6 py-2.5 font-bold">
+            📊 Historial de Precios
           </TabsTrigger>
         </TabsList>
 
@@ -979,6 +1050,130 @@ export default function CustomersPage() {
                   <p className="text-xs mt-1">Crea o selecciona una lista de precios en el panel lateral para administrar sus productos.</p>
                 </Card>
               )}
+            </div>
+
+          </div>
+        </TabsContent>
+
+        <TabsContent value="historial-precios" className="outline-none animate-in fade-in duration-300">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* PANEL DE FILTROS */}
+            <div className="lg:col-span-4 space-y-4">
+              <Card className="bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl overflow-hidden text-white">
+                <CardHeader className="border-b border-slate-200 dark:border-white/10 p-5 bg-slate-50 dark:bg-white/5">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+                    <Search size={16} className="text-indigo-500" />
+                    Filtros de Búsqueda
+                  </CardTitle>
+                  <CardDescription className="text-xs text-white/50">Filtre precios históricos facturados a sus clientes.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-5 space-y-4">
+                  
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Seleccionar Cliente</Label>
+                    <Select value={historyCustId} onValueChange={setHistoryCustId}>
+                      <SelectTrigger className="h-10 bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-white">
+                        <SelectValue placeholder="Busque o seleccione cliente..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id} className="text-xs">
+                            {c.nit ? `[${c.nit}] ` : ''}{c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Desde</Label>
+                      <Input 
+                        type="date"
+                        value={historyStart}
+                        onChange={e => setHistoryStart(e.target.value)}
+                        className="h-10 bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-white font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Hasta</Label>
+                      <Input 
+                        type="date"
+                        value={historyEnd}
+                        onChange={e => setHistoryEnd(e.target.value)}
+                        className="h-10 bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-white font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleSearchPriceHistory}
+                    disabled={searchingHistory || !historyCustId}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 rounded-xl text-xs"
+                  >
+                    {searchingHistory ? <Loader2 className="animate-spin mr-1" /> : <Search size={14} className="mr-1.5" />}
+                    CONSULTAR PRECIOS
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* TABLA DE RESULTADOS */}
+            <div className="lg:col-span-8">
+              <Card className="bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl overflow-hidden">
+                <CardHeader className="border-b border-slate-200 dark:border-white/10 p-5 bg-slate-50 dark:bg-white/5">
+                  <CardTitle className="text-sm font-bold text-slate-800 dark:text-white">Precios Facturados Previamente</CardTitle>
+                  <CardDescription className="text-xs">Registro histórico de artículos y precios unitarios asignados.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-white/5 border-b border-white/10">
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-400 pl-6">Fecha</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-400">Producto</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-400">Factura / Correlativo</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Cantidad</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right pr-6">Precio Unitario</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {searchingHistory ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-16 text-slate-400 dark:text-muted-foreground text-xs italic">
+                            Consultando base de datos de ventas...
+                          </TableCell>
+                        </TableRow>
+                      ) : historyResults.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-16 text-slate-400 dark:text-muted-foreground text-xs italic">
+                            Seleccione un cliente y aplique filtros para ver el historial de facturación.
+                          </TableCell>
+                        </TableRow>
+                      ) : historyResults.map((row, idx) => (
+                        <TableRow key={idx} className="hover:bg-white/5 border-b border-white/5">
+                          <TableCell className="pl-6 text-xs text-slate-400">
+                            {row.date}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            <span className="font-mono text-indigo-500 font-bold block">{row.sku}</span>
+                            <span className="font-semibold text-slate-800 dark:text-white block">{row.productName}</span>
+                          </TableCell>
+                          <TableCell className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+                            {row.correlative}
+                          </TableCell>
+                          <TableCell className="text-center text-xs text-slate-900 dark:text-white font-bold">
+                            {row.quantity} un.
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-mono font-black text-emerald-600 dark:text-emerald-400 pr-6">
+                            ${row.price.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             </div>
 
           </div>
