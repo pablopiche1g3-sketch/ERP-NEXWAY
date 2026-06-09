@@ -31,7 +31,8 @@ import {
   ChevronDown,
   MonitorIcon,
   LogOut,
-  Settings
+  Settings,
+  Building
 } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -44,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { isAdminEmail, isRoleChangeable, canRevokeAccess } from '@/lib/admin-emails';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -97,6 +99,9 @@ export default function ManagementPage() {
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
   const [salesList, setSalesList] = useState<any[]>([]);
   const [stockList, setStockList] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [newBranchName, setNewBranchName] = useState('');
+  const [isSavingBranch, setIsSavingBranch] = useState(false);
 
   // Cálculos dinámicos en tiempo real para gerencia
   const todaySalesTotal = useMemo(() => {
@@ -176,6 +181,7 @@ export default function ManagementPage() {
         id: p.id,
         email: p.email,
         role: p.role,
+        branch_id: p.branch_id,
         isPreassigned: false,
         createdAt: p.created_at
       }));
@@ -186,6 +192,7 @@ export default function ManagementPage() {
             id: 'preassigned:' + email,
             email: email,
             role: preassignedMap[email],
+            branch_id: null,
             isPreassigned: true,
             createdAt: new Date().toISOString()
           });
@@ -206,6 +213,10 @@ export default function ManagementPage() {
         setCashFloat(cashConf.value.cashFloat?.toString() || '0');
         setCatchAllEmail(cashConf.value.catchAllEmail || '');
       }
+
+      // Cargar sucursales
+      const { data: branchesData } = await supabase.from('branches').select('*').order('name');
+      setBranches(branchesData || []);
 
       // Cargar datos de ventas para métricas de gerencia
       const { data: salesData } = await supabase.from('sales').select('*').order('created_at', { ascending: false });
@@ -246,6 +257,60 @@ export default function ManagementPage() {
         title: "Error al actualizar", 
         description: error.message || error.details || "No se pudo actualizar." 
       });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCreateBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBranchName.trim()) return;
+    setIsSavingBranch(true);
+    try {
+      const { error } = await supabase
+        .from('branches')
+        .insert({ name: newBranchName.trim() });
+      if (error) throw error;
+      toast({ title: "Sucursal Creada", description: `Se registró la sucursal "${newBranchName}".` });
+      setNewBranchName('');
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo crear la sucursal." });
+    } finally {
+      setIsSavingBranch(false);
+    }
+  };
+
+  const handleDeleteBranch = async (id: string) => {
+    if (!confirm('¿Está seguro de eliminar esta sucursal?')) return;
+    try {
+      const { error } = await supabase
+        .from('branches')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      toast({ title: "Sucursal Eliminada", description: "La sucursal fue removida." });
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo eliminar la sucursal." });
+    }
+  };
+
+  const handleChangeUserBranch = async (userId: string, branchId: string | null) => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ branch_id: branchId })
+        .eq('id', userId);
+      if (error) throw error;
+      toast({ title: "Sucursal de Usuario Actualizada", description: "Se reasignó la sucursal del usuario." });
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo reasignar la sucursal." });
     } finally {
       setIsSaving(false);
     }
@@ -681,6 +746,9 @@ export default function ManagementPage() {
             <TabsTrigger value="roles" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
               <Users size={14} /> Usuarios
             </TabsTrigger>
+            <TabsTrigger value="branches" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <Building size={14} /> Sucursales
+            </TabsTrigger>
             <TabsTrigger value="metrics" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
               <BarChart3 size={14} /> Métricas
             </TabsTrigger>
@@ -1101,6 +1169,26 @@ export default function ManagementPage() {
                               </SelectContent>
                             </Select>
 
+                            {/* Selector de Sucursal Asignada */}
+                            {!usr.isPreassigned && (
+                              <Select
+                                value={usr.branch_id || '__none'}
+                                onValueChange={(val) => handleChangeUserBranch(usr.id, val === '__none' ? null : val)}
+                                disabled={isSaving}
+                              >
+                                <SelectTrigger className="w-[170px] h-10 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                                  <Building size={12} className="mr-1 shrink-0" />
+                                  <SelectValue placeholder="Sin sucursal" />
+                                </SelectTrigger>
+                                <SelectContent className="dark:bg-[#0a0a14] dark:border-white/10">
+                                  <SelectItem value="__none">Sin sucursal</SelectItem>
+                                  {branches.map((b: any) => (
+                                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+
                             {/* Selector de Caja Asignada */}
                             {!usr.isPreassigned && (
                               <Select
@@ -1421,6 +1509,71 @@ export default function ManagementPage() {
                 )}
               </>
             )}
+          </TabsContent>
+
+          {/* ═══════════ pestaña 6: SUCURSALES ═══════════════ */}
+          <TabsContent value="branches" className="outline-none space-y-6">
+            <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
+              <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+                <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+                  <Building className="text-blue-400" size={20} />
+                  Gestión de Sucursales
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-xs">Crea y administra las sucursales físicas de la empresa.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <form onSubmit={handleCreateBranch} className="flex gap-4 items-end bg-slate-100 dark:bg-white/5 p-4 rounded-xl border border-slate-200 dark:border-white/10">
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Nombre de la Sucursal</Label>
+                    <Input 
+                      placeholder="Ej. Sucursal Santa Tecla"
+                      value={newBranchName}
+                      onChange={e => setNewBranchName(e.target.value)}
+                      className="h-10 bg-white dark:bg-zinc-900 border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold"
+                    />
+                  </div>
+                  <Button type="submit" disabled={isSavingBranch || !newBranchName.trim()} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 rounded-xl">
+                    {isSavingBranch ? 'Creando...' : 'Crear Sucursal'}
+                  </Button>
+                </form>
+
+                <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                  <Table>
+                    <TableHeader className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase px-6">Nombre de la Sucursal</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-center w-24">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {branches.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2} className="text-center py-8 text-xs text-muted-foreground">
+                            No hay sucursales registradas.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        branches.map((b: any) => (
+                          <TableRow key={b.id} className="hover:bg-slate-50 dark:hover:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                            <TableCell className="px-6 py-4 font-bold text-xs">{b.name}</TableCell>
+                            <TableCell className="text-center">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleDeleteBranch(b.id)}
+                                className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

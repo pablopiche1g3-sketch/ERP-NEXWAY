@@ -56,6 +56,7 @@ export default function PurchasesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('registro');
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [pedidoId, setPedidoId] = useState('');
@@ -171,7 +172,7 @@ export default function PurchasesPage() {
       })));
 
       // Cargar historial de compras
-      const { data: purchHistoryData } = await supabase
+      let purchasesQuery = supabase
         .from('purchases')
         .select(`
           *,
@@ -182,7 +183,11 @@ export default function PurchasesPage() {
               name
             )
           )
-        `)
+        `);
+      if (activeBranchId) {
+        purchasesQuery = purchasesQuery.eq('branch_id', activeBranchId);
+      }
+      const { data: purchHistoryData } = await purchasesQuery
         .order('created_at', { ascending: false });
       setPurchasesHistory(purchHistoryData || []);
 
@@ -403,8 +408,24 @@ export default function PurchasesPage() {
 
   // Cargar datos en el montaje
   useEffect(() => {
-    loadPurchasesData();
+    // Carga inicial manejada por activeBranchId useEffect
   }, []);
+
+  // Manejar cambios de sucursal activa
+  useEffect(() => {
+    const handleBranchChanged = () => {
+      if (typeof window !== 'undefined') {
+        setActiveBranchId(localStorage.getItem('active_branch_id'));
+      }
+    };
+    handleBranchChanged();
+    window.addEventListener('branchChanged', handleBranchChanged);
+    return () => window.removeEventListener('branchChanged', handleBranchChanged);
+  }, []);
+
+  useEffect(() => {
+    loadPurchasesData();
+  }, [activeBranchId]);
 
   const filteredSuppliers = useMemo(() => {
     if (!suppliers) return [];
@@ -561,7 +582,8 @@ export default function PurchasesPage() {
             credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
             payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO'),
             document_type: docType,
-            document_number: generationCode
+            document_number: generationCode,
+            branch_id: activeBranchId || null
           })
           .eq('id', editingPurchaseId)
           .select()
@@ -587,7 +609,8 @@ export default function PurchasesPage() {
             credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
             payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO'),
             document_type: docType,
-            document_number: generationCode
+            document_number: generationCode,
+            branch_id: activeBranchId || null
           })
           .select()
           .single();

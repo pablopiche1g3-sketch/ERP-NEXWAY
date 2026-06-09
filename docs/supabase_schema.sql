@@ -344,3 +344,41 @@ alter publication supabase_realtime add table public.quedan;
 alter publication supabase_realtime add table public.institutional_projects;
 alter publication supabase_realtime add table public.institutional_sales;
 alter publication supabase_realtime add table public.institutional_purchases;
+
+-- 23. TABLAS DE LISTAS DE PRECIOS ESPECIALES PARA CLIENTES
+create table public.price_lists (
+  id uuid default gen_random_uuid() primary key,
+  name text not null unique,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+create table public.price_list_items (
+  id uuid default gen_random_uuid() primary key,
+  price_list_id uuid references public.price_lists(id) on delete cascade not null,
+  sku text not null,
+  description text,
+  price numeric(10,2) not null default 0.00,
+  created_at timestamptz default timezone('utc'::text, now()) not null,
+  constraint unique_price_list_sku unique (price_list_id, sku)
+);
+
+-- Vincular clientes y ventas a listas de precios
+alter table public.customers add column if not exists price_list_id uuid references public.price_lists(id) on delete set null;
+alter table public.sales_items add column if not exists price_list_id uuid references public.price_lists(id) on delete set null;
+
+alter publication supabase_realtime add table public.price_lists;
+alter publication supabase_realtime add table public.price_list_items;
+
+-- 24. TABLA DE SUCURSALES (BRANCHES) Y TENANCY MULTISUCURSAL
+create table public.branches (
+  id uuid default gen_random_uuid() primary key,
+  name text not null unique,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- Vincular perfiles, ventas y compras a sucursales
+alter table public.profiles add column if not exists branch_id uuid references public.branches(id) on delete set null;
+alter table public.sales add column if not exists branch_id uuid references public.branches(id) on delete set null;
+alter table public.purchases add column if not exists branch_id uuid references public.branches(id) on delete set null;
+
+alter publication supabase_realtime add table public.branches;

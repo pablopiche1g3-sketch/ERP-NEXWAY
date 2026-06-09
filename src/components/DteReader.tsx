@@ -232,7 +232,9 @@ export function DteReader() {
             entered_by: enteredBy,
             warehouse_id: selectedWh?.id,
             total: f.totalPagar,
-            status: 'CERRADA' // Se asume ingreso directo a stock
+            status: 'CERRADA', // Se asume ingreso directo a stock
+            dte_control: f.numControl,
+            dte_codigo_generacion: f.codGeneracion
           })
           .select()
           .single();

@@ -102,6 +102,8 @@ export default function BillingPage() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [clientPricesMap, setClientPricesMap] = useState<Record<string, number>>({});
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
 
   // --- QUOTATIONS IMPORT ---
   const [showQuotationsDialog, setShowQuotationsDialog] = useState(false);
@@ -262,9 +264,11 @@ export default function BillingPage() {
       setWarehouses(whData || []);
 
       // Cargar ventas realizadas
-      const { data: salesData } = await supabase
-        .from('sales')
-        .select('*')
+      let salesQuery = supabase.from('sales').select('*');
+      if (activeBranchId) {
+        salesQuery = salesQuery.eq('branch_id', activeBranchId);
+      }
+      const { data: salesData } = await salesQuery
         .order('created_at', { ascending: false });
       
       setSalesAll((salesData || []).map(s => ({
@@ -398,7 +402,111 @@ export default function BillingPage() {
   // Cargar datos al montar el componente
   useEffect(() => {
     loadBillingData();
+
+    // Restaurar estados desde sessionStorage
+    if (typeof window !== 'undefined') {
+      const storedCart = sessionStorage.getItem('bill_cart');
+      if (storedCart) {
+        try { setCart(JSON.parse(storedCart)); } catch (e) {}
+      }
+      const storedCustName = sessionStorage.getItem('bill_customerName');
+      if (storedCustName) setCustomerName(storedCustName);
+
+      const storedCustEmail = sessionStorage.getItem('bill_customerEmail');
+      if (storedCustEmail) setCustomerEmail(storedCustEmail);
+
+      const storedSelCust = sessionStorage.getItem('bill_selectedCustomer');
+      if (storedSelCust) {
+        try { setSelectedCustomer(JSON.parse(storedSelCust)); } catch (e) {}
+      }
+
+      const storedDocType = sessionStorage.getItem('bill_docType');
+      if (storedDocType) setDocType(storedDocType as any);
+
+      const storedPaymentMethod = sessionStorage.getItem('bill_paymentMethod');
+      if (storedPaymentMethod) setPaymentMethod(storedPaymentMethod as any);
+    }
   }, []);
+
+  // Sincronizar estados a sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('bill_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bill_customerName', customerName);
+  }, [customerName]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bill_customerEmail', customerEmail);
+  }, [customerEmail]);
+
+  useEffect(() => {
+    if (selectedCustomer) {
+      sessionStorage.setItem('bill_selectedCustomer', JSON.stringify(selectedCustomer));
+    } else {
+      sessionStorage.removeItem('bill_selectedCustomer');
+    }
+  }, [selectedCustomer]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bill_docType', docType);
+  }, [docType]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bill_paymentMethod', paymentMethod);
+  }, [paymentMethod]);
+
+  // Cargar precios especiales del cliente seleccionado
+  useEffect(() => {
+    const fetchClientPrices = async () => {
+      if (selectedCustomer?.price_list_id) {
+        try {
+          const { data, error } = await supabase
+            .from('price_list_items')
+            .select('sku, price')
+            .eq('price_list_id', selectedCustomer.price_list_id);
+          if (error) throw error;
+          if (data) {
+            const map: Record<string, number> = {};
+            data.forEach((item: any) => {
+              map[item.sku] = parseFloat(item.price) || 0;
+            });
+            setClientPricesMap(map);
+            
+            // Re-evaluar precios de ítems actuales en el carrito
+            setCart(prev => prev.map(item => {
+              if (map[item.sku] !== undefined) {
+                return { ...item, price: map[item.sku] };
+              }
+              return item;
+            }));
+          }
+        } catch (err) {
+          console.error('Error fetching custom prices:', err);
+        }
+      } else {
+        setClientPricesMap({});
+      }
+    };
+    fetchClientPrices();
+  }, [selectedCustomer]);
+
+  // Manejar cambios de sucursal activa
+  useEffect(() => {
+    const handleBranchChanged = () => {
+      if (typeof window !== 'undefined') {
+        setActiveBranchId(localStorage.getItem('active_branch_id'));
+      }
+    };
+    handleBranchChanged();
+    window.addEventListener('branchChanged', handleBranchChanged);
+    return () => window.removeEventListener('branchChanged', handleBranchChanged);
+  }, []);
+
+  useEffect(() => {
+    loadBillingData();
+  }, [activeBranchId]);
 
   const handleRegisterAbono = async () => {
     if (!selectedSaleForAbono || !abonoAmount || parseFloat(abonoAmount) <= 0) {
@@ -598,10 +706,11 @@ export default function BillingPage() {
   const addToCart = (product: any) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
+      const customPrice = clientPricesMap[product.sku] !== undefined ? clientPricesMap[product.sku] : product.price;
       if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: Number(item.quantity || 0) + 1 } : item);
+        return prev.map(item => item.id === product.id ? { ...item, quantity: Number(item.quantity || 0) + 1, price: customPrice } : item);
       }
-      return [...prev, { id: product.id, name: product.name, sku: product.sku || 'N/A', price: product.price || 0, quantity: 1 }];
+      return [...prev, { id: product.id, name: product.name, sku: product.sku || 'N/A', price: customPrice || 0, quantity: 1 }];
     });
   };
 
@@ -751,7 +860,8 @@ export default function BillingPage() {
           payment_method: paymentMethod,
           customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
           seller_email: user?.email || null,
-          station_name: activeStation?.name || null
+          station_name: activeStation?.name || null,
+          branch_id: activeBranchId || null
         })
         .select()
         .single();
@@ -764,7 +874,8 @@ export default function BillingPage() {
         sku: item.sku,
         quantity: Number(item.quantity) || 0,
         price: item.price,
-        subtotal: (Number(item.quantity) || 0) * item.price
+        subtotal: (Number(item.quantity) || 0) * item.price,
+        price_list_id: (selectedCustomer && clientPricesMap[item.sku] !== undefined) ? selectedCustomer.price_list_id : null
       }));
 
       const { error: itemsErr } = await supabase
@@ -816,6 +927,7 @@ export default function BillingPage() {
       setCart([]);
       setCustomerName('');
       setCustomerEmail('');
+      setSelectedCustomer(null);
       setIsCheckoutOpen(false);
       await loadBillingData();
 

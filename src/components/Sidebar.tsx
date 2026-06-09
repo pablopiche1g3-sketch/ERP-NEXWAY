@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -23,6 +23,7 @@ import {
 import { useUser, getTenantName, ROLE_PERMISSIONS } from '@/supabase/use-user';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface SidebarItem {
   id: string;
@@ -40,6 +41,53 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { user, role, isAdmin } = useUser();
   const activeTenant = getTenantName();
+
+  const [branches, setBranches] = useState<any[]>([]);
+  const [activeBranch, setActiveBranch] = useState<string>('');
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const { data } = await supabase.from('branches').select('*').order('name');
+        if (data) {
+          setBranches(data);
+          
+          const storedBranch = localStorage.getItem('active_branch_id');
+          if (storedBranch && data.some((b: any) => b.id === storedBranch)) {
+            setActiveBranch(storedBranch);
+          } else {
+            // Intentar obtener de perfil de usuario
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('branch_id')
+              .eq('id', user?.id)
+              .maybeSingle();
+            if (profile?.branch_id && data.some((b: any) => b.id === profile.branch_id)) {
+              setActiveBranch(profile.branch_id);
+              localStorage.setItem('active_branch_id', profile.branch_id);
+              const name = data.find((b: any) => b.id === profile.branch_id)?.name || '';
+              localStorage.setItem('active_branch_name', name);
+            } else if (data.length > 0) {
+              setActiveBranch(data[0].id);
+              localStorage.setItem('active_branch_id', data[0].id);
+              localStorage.setItem('active_branch_name', data[0].name);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching branches in sidebar:', err);
+      }
+    };
+    if (user) fetchBranches();
+  }, [user]);
+
+  const handleBranchChange = (branchId: string) => {
+    setActiveBranch(branchId);
+    localStorage.setItem('active_branch_id', branchId);
+    const branchName = branches.find((b: any) => b.id === branchId)?.name || '';
+    localStorage.setItem('active_branch_name', branchName);
+    window.dispatchEvent(new Event('branchChanged'));
+  };
 
   const menuItems: SidebarItem[] = [
     { id: 'billing', title: 'Facturación', path: '/billing', icon: <ShoppingCart size={18} /> },
@@ -88,49 +136,74 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     }`}>
       {/* Brand Header al Estilo Mockup */}
       {!isCollapsed ? (
-        <div className="p-6 flex items-center justify-between border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline relative group-hover:scale-105 transition-transform duration-200">
-              <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 rounded-full bg-white/95 animate-pulse"></div>
+        <>
+          <div className="p-6 flex items-center justify-between border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline relative group-hover:scale-105 transition-transform duration-200">
+                <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/95 animate-pulse"></div>
+                </div>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-black text-white tracking-wide font-headline">NexWay ERP</span>
+                {activeTenant && (
+                  <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mt-0.5">
+                    {activeTenant}
+                  </span>
+                )}
               </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-black text-white tracking-wide font-headline">NexWay ERP</span>
-              {activeTenant && (
-                <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mt-0.5">
-                  {activeTenant}
-                </span>
-              )}
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="h-8 w-8 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-colors"
+              title="Colapsar menú"
+            >
+              <ChevronLeft size={16} />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggle}
-            className="h-8 w-8 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-colors"
-            title="Colapsar menú"
-          >
-            <ChevronLeft size={16} />
-          </Button>
-        </div>
+          <div className="px-6 py-3 border-b border-white/10 space-y-1.5 animate-in fade-in duration-200 shrink-0">
+            <div className="text-[9px] font-black uppercase text-indigo-400/80 tracking-widest px-0.5">
+              Sucursal Activa
+            </div>
+            <Select value={activeBranch} onValueChange={handleBranchChange}>
+              <SelectTrigger className="h-9 w-full bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-xs font-bold text-slate-200 flex items-center justify-between transition-colors focus:ring-0 focus:ring-offset-0">
+                <div className="flex items-center gap-2 truncate">
+                  <Building size={14} className="text-indigo-400 shrink-0" />
+                  <SelectValue placeholder="Seleccionar sucursal..." />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="dark:bg-[#09090b] dark:border-white/10 rounded-xl shadow-2xl">
+                {branches.map(b => (
+                  <SelectItem key={b.id} value={b.id} className="text-xs font-semibold focus:bg-white/10 focus:text-white">{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       ) : (
-        <div className="p-4 flex flex-col items-center border-b border-white/10 gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline">
-            <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-white/95"></div>
+        <>
+          <div className="p-4 flex flex-col items-center border-b border-white/10 gap-3 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline">
+              <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-white/95"></div>
+              </div>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="h-7 w-7 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-colors"
+              title="Expandir menú"
+            >
+              <ChevronRight size={15} />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggle}
-            className="h-7 w-7 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-colors"
-            title="Expandir menú"
-          >
-            <ChevronRight size={15} />
-          </Button>
-        </div>
+          <div className="py-2.5 border-b border-white/10 flex justify-center text-indigo-400 animate-in fade-in duration-200 shrink-0" title={branches.find(b => b.id === activeBranch)?.name || 'Sucursal'}>
+            <Building size={18} />
+          </div>
+        </>
       )}
 
       {/* Main Navigation Links */}
