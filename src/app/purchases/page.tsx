@@ -292,9 +292,6 @@ export default function PurchasesPage() {
         supplierCode: m.supplier_code,
         internalSku: m.internal_sku
       })));
-    } catch (err: any) {
-      console.error(err);
-      toast({ variant: 'destructive', title: 'Error', description: err.message || 'Error al importar JSON' });
     } finally {
       setSavingJsonMappings(false);
     }
@@ -307,7 +304,14 @@ export default function PurchasesPage() {
     const priceVal = parseFloat(selectedUncreatedPrice[p.sku] || '0') || (p.cost * 1.3); // default PVP is Cost * 1.3
 
     try {
-      const existingProduct = inventory.find(inv => inv.sku.trim().toUpperCase() === cleanedSku);
+      // Check database directly first to prevent unique key violation
+      const { data: dbProduct, error: checkError } = await supabase
+        .from('inventory')
+        .select('*')
+        .eq('sku', cleanedSku)
+        .maybeSingle();
+
+      const existingProduct = dbProduct || inventory.find(inv => inv.sku.trim().toUpperCase() === cleanedSku);
 
       if (existingProduct) {
         // If the SKU already exists, we just create the supplier mapping!
@@ -331,6 +335,19 @@ export default function PurchasesPage() {
           });
         }
 
+        // Add to local inventory state if not present
+        if (!inventory.some(inv => inv.sku.trim().toUpperCase() === existingProduct.sku.trim().toUpperCase())) {
+          setInventory(prev => [...prev, {
+            id: existingProduct.sku,
+            sku: existingProduct.sku,
+            name: existingProduct.name,
+            category: existingProduct.category,
+            price: parseFloat(existingProduct.price) || 0,
+            quantity: 0,
+            bodegas: {}
+          }]);
+        }
+
         // Add to cart using the existing product details
         setPurchaseItems(prev => {
           const existing = prev.find(item => item.sku === existingProduct.sku);
@@ -340,7 +357,7 @@ export default function PurchasesPage() {
             );
           }
           return [...prev, {
-            id: existingProduct.id,
+            id: existingProduct.sku,
             sku: existingProduct.sku,
             name: existingProduct.name,
             quantity: p.quantity,
@@ -877,13 +894,66 @@ export default function PurchasesPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
         let itemsToLoad: any[] = [];
         let uncreated: any[] = [];
         let detectedCount = 0;
 
+        // 1. Recopilar todos los códigos candidatos del archivo para validar contra la Base de Datos
+        const candidateCodes: string[] = [];
+        if (json.identificacion && json.emisor && json.cuerpoDocumento) {
+          json.cuerpoDocumento?.forEach((item: any) => {
+            const rawCode = (item.codigo || '').trim().toUpperCase();
+            if (rawCode) {
+              candidateCodes.push(rawCode);
+              const mapping = savedMappings.find(m => m.supplierCode.trim().toUpperCase() === rawCode);
+              if (mapping && mapping.internalSku) {
+                candidateCodes.push(mapping.internalSku.trim().toUpperCase());
+              }
+            }
+          });
+        } else if (Array.isArray(json)) {
+          json.forEach(item => {
+            const rawCode = (item.sku || item.codigo || '').trim().toUpperCase();
+            if (rawCode) {
+              candidateCodes.push(rawCode);
+              const mapping = savedMappings.find(m => m.supplierCode.trim().toUpperCase() === rawCode);
+              if (mapping && mapping.internalSku) {
+                candidateCodes.push(mapping.internalSku.trim().toUpperCase());
+              }
+            }
+          });
+        }
+
+        // 2. Consultar directamente a Supabase para rellenar/actualizar el estado de inventario local
+        const currentInventory = [...inventory];
+        if (candidateCodes.length > 0) {
+          const { data: dbProducts } = await supabase
+            .from('inventory')
+            .select('*')
+            .in('sku', Array.from(new Set(candidateCodes)));
+
+          if (dbProducts && dbProducts.length > 0) {
+            dbProducts.forEach(dbProd => {
+              if (!currentInventory.some(p => p.sku.trim().toUpperCase() === dbProd.sku.trim().toUpperCase())) {
+                currentInventory.push({
+                  id: dbProd.sku,
+                  sku: dbProd.sku,
+                  name: dbProd.name,
+                  category: dbProd.category,
+                  price: parseFloat(dbProd.price) || 0,
+                  quantity: 0,
+                  bodegas: {}
+                });
+              }
+            });
+            setInventory(currentInventory);
+          }
+        }
+
+        // 3. Procesar los ítems
         if (json.identificacion && json.emisor && json.cuerpoDocumento) {
           setSupplierName(json.emisor.nombre || '');
           const dteGen = json.identificacion.codigoGeneracion || '';
@@ -896,7 +966,7 @@ export default function PurchasesPage() {
             const mapping = savedMappings.find(m => m.supplierCode.trim().toUpperCase() === rawCode);
             const resolvedSku = mapping ? mapping.internalSku.trim().toUpperCase() : rawCode;
 
-            const product = inventory?.find((p: any) => 
+            const product = currentInventory?.find((p: any) => 
               p.sku.trim().toUpperCase() === resolvedSku || 
               p.name.trim().toLowerCase() === (item.descripcion || '').trim().toLowerCase()
             );
@@ -938,7 +1008,7 @@ export default function PurchasesPage() {
             const mapping = savedMappings.find(m => m.supplierCode.trim().toUpperCase() === rawCode);
             const resolvedSku = mapping ? mapping.internalSku.trim().toUpperCase() : rawCode;
 
-            const product = inventory?.find((p: any) => p.sku.trim().toUpperCase() === resolvedSku);
+            const product = currentInventory?.find((p: any) => p.sku.trim().toUpperCase() === resolvedSku);
             if (product) {
               itemsToLoad.push({
                 id: product.id,
