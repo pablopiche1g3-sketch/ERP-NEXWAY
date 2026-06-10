@@ -302,30 +302,32 @@ export default function PurchasesPage() {
 
   const handleCreateUncreatedProduct = async (productIndex: number) => {
     const p = uncreatedDteProducts[productIndex];
+    const cleanedSku = p.sku.trim().toUpperCase();
     const category = selectedUncreatedCategory[p.sku] || 'Inventario de Mercadería';
     const priceVal = parseFloat(selectedUncreatedPrice[p.sku] || '0') || (p.cost * 1.3); // default PVP is Cost * 1.3
 
     try {
-      const existingProduct = inventory.find(inv => inv.sku === p.sku.trim().toUpperCase());
+      const existingProduct = inventory.find(inv => inv.sku.trim().toUpperCase() === cleanedSku);
 
       if (existingProduct) {
         // If the SKU already exists, we just create the supplier mapping!
         if (p.originalProviderCode) {
+          const cleanProvCode = p.originalProviderCode.trim().toUpperCase();
           const { error: mappingError } = await supabase
             .from('supplier_mappings')
             .upsert({
-              supplier_code: p.originalProviderCode,
+              supplier_code: cleanProvCode,
               internal_sku: existingProduct.sku
             });
           if (mappingError) throw mappingError;
 
           // Update local saved mappings
           setSavedMappings(prev => {
-            const exists = prev.some(m => m.supplierCode === p.originalProviderCode);
+            const exists = prev.some(m => m.supplierCode === cleanProvCode);
             if (exists) {
-              return prev.map(m => m.supplierCode === p.originalProviderCode ? { ...m, internalSku: existingProduct.sku } : m);
+              return prev.map(m => m.supplierCode === cleanProvCode ? { ...m, internalSku: existingProduct.sku } : m);
             }
-            return [...prev, { supplierCode: p.originalProviderCode, internalSku: existingProduct.sku }];
+            return [...prev, { supplierCode: cleanProvCode, internalSku: existingProduct.sku }];
           });
         }
 
@@ -355,7 +357,7 @@ export default function PurchasesPage() {
         const { data, error } = await supabase
           .from('inventory')
           .insert({
-            sku: p.sku,
+            sku: cleanedSku,
             name: p.name,
             category: category,
             price: priceVal
@@ -367,27 +369,28 @@ export default function PurchasesPage() {
 
         // 2. Insert equivalence in public.supplier_mappings
         if (p.originalProviderCode) {
+          const cleanProvCode = p.originalProviderCode.trim().toUpperCase();
           const { error: mappingError } = await supabase
             .from('supplier_mappings')
             .upsert({
-              supplier_code: p.originalProviderCode,
-              internal_sku: p.sku
+              supplier_code: cleanProvCode,
+              internal_sku: cleanedSku
             });
           if (mappingError) throw mappingError;
 
           setSavedMappings(prev => {
-            const exists = prev.some(m => m.supplierCode === p.originalProviderCode);
+            const exists = prev.some(m => m.supplierCode === cleanProvCode);
             if (exists) {
-              return prev.map(m => m.supplierCode === p.originalProviderCode ? { ...m, internalSku: p.sku } : m);
+              return prev.map(m => m.supplierCode === cleanProvCode ? { ...m, internalSku: cleanedSku } : m);
             }
-            return [...prev, { supplierCode: p.originalProviderCode, internalSku: p.sku }];
+            return [...prev, { supplierCode: cleanProvCode, internalSku: cleanedSku }];
           });
         }
 
         // 3. Add to local inventory state
         const newInventoryItem = {
-          id: p.sku,
-          sku: p.sku,
+          id: cleanedSku,
+          sku: cleanedSku,
           name: p.name,
           category: category,
           price: priceVal,
@@ -398,15 +401,15 @@ export default function PurchasesPage() {
 
         // 3. Add to cart
         setPurchaseItems(prev => {
-          const existing = prev.find(item => item.sku === p.sku);
+          const existing = prev.find(item => item.sku === cleanedSku);
           if (existing) {
             return prev.map(item => 
-              item.sku === p.sku ? { ...item, quantity: item.quantity + p.quantity, cost: p.cost } : item
+              item.sku === cleanedSku ? { ...item, quantity: item.quantity + p.quantity, cost: p.cost } : item
             );
           }
           return [...prev, {
-            id: p.sku,
-            sku: p.sku,
+            id: cleanedSku,
+            sku: cleanedSku,
             name: p.name,
             quantity: p.quantity,
             cost: p.cost
@@ -415,7 +418,7 @@ export default function PurchasesPage() {
 
         toast({ 
           title: "Producto Creado", 
-          description: `El código ${p.sku} se creó y vinculó a la cuenta '${category}'.` 
+          description: `El código ${cleanedSku} se creó y vinculó a la cuenta '${category}'.` 
         });
       }
 
@@ -889,13 +892,13 @@ export default function PurchasesPage() {
           setDocType(json.identificacion.tipoDte === '03' ? 'CCF' : 'FACTURA');
           
           json.cuerpoDocumento?.forEach((item: any) => {
-            const rawCode = (item.codigo || '').toUpperCase();
-            const mapping = savedMappings.find(m => m.supplierCode === rawCode);
-            const resolvedSku = mapping ? mapping.internalSku : rawCode;
+            const rawCode = (item.codigo || '').trim().toUpperCase();
+            const mapping = savedMappings.find(m => m.supplierCode.trim().toUpperCase() === rawCode);
+            const resolvedSku = mapping ? mapping.internalSku.trim().toUpperCase() : rawCode;
 
             const product = inventory?.find((p: any) => 
-              p.sku === resolvedSku || 
-              p.name.toLowerCase() === (item.descripcion || '').toLowerCase()
+              p.sku.trim().toUpperCase() === resolvedSku || 
+              p.name.trim().toLowerCase() === (item.descripcion || '').trim().toLowerCase()
             );
 
             if (product) {
@@ -931,11 +934,11 @@ export default function PurchasesPage() {
         } 
         else if (Array.isArray(json)) {
           json.forEach(item => {
-            const rawCode = (item.sku || item.codigo || '').toUpperCase();
-            const mapping = savedMappings.find(m => m.supplierCode === rawCode);
-            const resolvedSku = mapping ? mapping.internalSku : rawCode;
+            const rawCode = (item.sku || item.codigo || '').trim().toUpperCase();
+            const mapping = savedMappings.find(m => m.supplierCode.trim().toUpperCase() === rawCode);
+            const resolvedSku = mapping ? mapping.internalSku.trim().toUpperCase() : rawCode;
 
-            const product = inventory?.find((p: any) => p.sku === resolvedSku);
+            const product = inventory?.find((p: any) => p.sku.trim().toUpperCase() === resolvedSku);
             if (product) {
               itemsToLoad.push({
                 id: product.id,
