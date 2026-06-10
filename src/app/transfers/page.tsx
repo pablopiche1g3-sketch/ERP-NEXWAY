@@ -506,28 +506,6 @@ export default function TransfersPage() {
                        </div>
                     </div>
                     
-                     {activeTab !== 'solicitud' && (
-                       <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Modalidad de Envío</Label>
-                          <div className="flex gap-2">
-                             <Button 
-                               variant={!isPreTransfer ? 'default' : 'outline'} 
-                               className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
-                               onClick={() => setIsPreTransfer(false)}
-                             >
-                                Directo
-                             </Button>
-                             <Button 
-                               variant={isPreTransfer ? 'default' : 'outline'} 
-                               className="flex-1 rounded-xl h-12 text-xs font-bold transition-all shadow-sm px-2"
-                               onClick={() => setIsPreTransfer(true)}
-                             >
-                                Pre-traslado
-                             </Button>
-                          </div>
-                       </div>
-                     )}
- 
                      <div className="space-y-4 md:col-span-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Ruta Logística</Label>
                         <div className="flex items-center gap-3">
