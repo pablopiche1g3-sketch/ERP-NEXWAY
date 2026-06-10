@@ -38,9 +38,16 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ]
 };
 
-export function hasPermission(role: string | null | undefined, moduleId: string): boolean {
-  if (!role) return false;
+export function hasPermission(
+  role: string | null | undefined,
+  moduleId: string,
+  customPermissions?: { modules: string[]; tabs: string[] } | null
+): boolean {
   if (role === 'admin' || role === 'gerencia') return true;
+  if (customPermissions && Array.isArray(customPermissions.modules)) {
+    return customPermissions.modules.includes(moduleId);
+  }
+  if (!role) return false;
   const allowed = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS['pedidos'];
   return allowed.includes(moduleId);
 }
@@ -57,6 +64,11 @@ interface UserContextType {
   role: string | null;
   isAdmin: boolean;
   loading: boolean;
+  branchId: string | null;
+  permissions: {
+    modules: string[];
+    tabs: string[];
+  } | null;
 }
 
 const UserContext = createContext<UserContextType>({
@@ -64,11 +76,15 @@ const UserContext = createContext<UserContextType>({
   role: null,
   isAdmin: false,
   loading: true,
+  branchId: null,
+  permissions: null,
 });
 
 export function SupabaseAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [branchId, setBranchId] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -90,6 +106,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 
       if (!currentUser) {
         setRole(null);
+        setBranchId(null);
+        setPermissions(null);
         setLoading(false);
         return;
       }
@@ -103,11 +121,11 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, branch_id, permissions')
           .eq('id', currentUser.id)
           .single();
 
-        if (profile && profile.role) {
+        if (profile) {
           // Force admin role if it's an admin email, regardless of DB value
           if (userIsAdmin && profile.role !== 'admin') {
             currentRole = 'admin';
@@ -115,6 +133,18 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
             await supabase.from('profiles').update({ role: 'admin' }).eq('id', currentUser.id);
           } else {
             currentRole = profile.role;
+          }
+          if (mounted) {
+            setBranchId(profile.branch_id);
+            setPermissions(profile.permissions);
+            
+            // Si el usuario tiene una sucursal asignada y no es administrador,
+            // forzamos a que su active_branch_id inicial sea la asignada.
+            if (profile.branch_id && profile.role !== 'admin' && profile.role !== 'gerencia') {
+              localStorage.setItem('active_branch_id', profile.branch_id);
+              // Disparar evento para que otras vistas se actualicen reactivamente
+              window.dispatchEvent(new Event('branchChanged'));
+            }
           }
         } else if (error && error.code === 'PGRST116') {
           // El perfil no existe aún, lo creamos
@@ -143,7 +173,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const isAdmin = role === 'admin' || role === 'gerencia';
 
   return (
-    <UserContext.Provider value={{ user, role, isAdmin, loading }}>
+    <UserContext.Provider value={{ user, role, isAdmin, loading, branchId, permissions }}>
       {children}
     </UserContext.Provider>
   );

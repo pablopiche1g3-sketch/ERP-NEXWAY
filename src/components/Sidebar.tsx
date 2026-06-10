@@ -39,7 +39,7 @@ interface SidebarProps {
 
 export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { user, role, isAdmin } = useUser();
+  const { user, role, isAdmin, permissions } = useUser();
   const activeTenant = getTenantName();
 
   const [branches, setBranches] = useState<any[]>([]);
@@ -104,10 +104,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     { id: 'management', title: 'Gerencia', path: '/management', icon: <ShieldCheck size={18} /> },
   ];
 
-  // Role permissions checking helper
+  // Permissions checking helper
   const filteredMenuItems = menuItems.filter(item => {
     // If admin or gerencia, show everything
     if (isAdmin || role === 'gerencia') return true;
+    
+    if (permissions && Array.isArray(permissions.modules)) {
+      return permissions.modules.includes(item.id);
+    }
     
     const safeRole = role ? role.toLowerCase().trim() : 'pedidos';
     const allowed = ROLE_PERMISSIONS[safeRole] || ROLE_PERMISSIONS['pedidos'];

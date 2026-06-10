@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useUser, ROLE_PERMISSIONS } from '@/supabase/use-user';
+import { useUser, ROLE_PERMISSIONS, hasPermission } from '@/supabase/use-user';
 import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
@@ -22,7 +22,7 @@ const ROUTE_TO_MODULE: Record<string, string> = {
 };
 
 export function ClientAuthGate({ children }: { children: React.ReactNode }) {
-  const { user, role, isAdmin, loading } = useUser();
+  const { user, role, isAdmin, loading, permissions } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -45,7 +45,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Role-based route gating
+    // Permissions-based route gating
     if (pathname !== '/' && pathname !== '/login') {
       const matchingRoute = Object.keys(ROUTE_TO_MODULE).find(route => 
         pathname === route || pathname.startsWith(route + '/')
@@ -53,9 +53,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
       const moduleId = matchingRoute ? ROUTE_TO_MODULE[matchingRoute] : null;
 
       if (moduleId) {
-        const safeRole = role ? role.toLowerCase().trim() : 'pedidos';
-        const allowed = ROLE_PERMISSIONS[safeRole] || ROLE_PERMISSIONS['pedidos'];
-        if (!isAdmin && !allowed.includes(moduleId)) {
+        if (!isAdmin && !hasPermission(role, moduleId, permissions)) {
           router.push('/');
         }
       } else {
@@ -94,7 +92,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     const safeRole = role ? role.toLowerCase().trim() : 'pedidos';
     const allowed = ROLE_PERMISSIONS[safeRole] || ROLE_PERMISSIONS['pedidos'];
 
-    if (!moduleId || (!isAdmin && !allowed.includes(moduleId))) {
+    if (!moduleId || (!isAdmin && !hasPermission(role, moduleId, permissions))) {
       return null; // Will redirect in useEffect
     }
   }

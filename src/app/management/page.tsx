@@ -44,6 +44,7 @@ import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { isAdminEmail, isRoleChangeable, canRevokeAccess } from '@/lib/admin-emails';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ROLE_PERMISSIONS } from '@/supabase/use-user';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
@@ -53,6 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 
 export default function ManagementPage() {
@@ -102,6 +104,132 @@ export default function ManagementPage() {
   const [branches, setBranches] = useState<any[]>([]);
   const [newBranchName, setNewBranchName] = useState('');
   const [isSavingBranch, setIsSavingBranch] = useState(false);
+
+  // --- ESTADOS PARA PERMISOS INDIVIDUALES POR USUARIO ---
+  const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
+  const [userPermsModules, setUserPermsModules] = useState<string[]>([]);
+  const [userPermsTabs, setUserPermsTabs] = useState<string[]>([]);
+  const [isPermsDialogOpen, setIsPermsDialogOpen] = useState(false);
+  const [isSavingPerms, setIsSavingPerms] = useState(false);
+
+  const handleOpenPermissionsEdit = (user: any) => {
+    setSelectedUserForPerms(user);
+    const perms = user.permissions || { modules: [], tabs: [] };
+    
+    // Si no tiene permisos asignados aún, los inicializamos con la plantilla del Rol
+    if (!user.permissions) {
+      const defaultModules = ROLE_PERMISSIONS[user.role] || [];
+      setUserPermsModules(defaultModules);
+      
+      const defaultTabs: string[] = [];
+      defaultModules.forEach((modId: string) => {
+        const mod = modules.find(m => m.id === modId);
+        if (mod && mod.tabs) {
+          mod.tabs.forEach(tab => {
+            defaultTabs.push(`${modId}_${tab.id}`);
+          });
+        }
+      });
+      setUserPermsTabs(defaultTabs);
+    } else {
+      setUserPermsModules(perms.modules || []);
+      setUserPermsTabs(perms.tabs || []);
+    }
+    setIsPermsDialogOpen(true);
+  };
+
+  const handleTogglePermsModule = (modId: string, enabled: boolean) => {
+    if (enabled) {
+      setUserPermsModules(prev => [...prev, modId]);
+      // Habilitar todas sus pestañas de forma predeterminada al activar el módulo
+      const mod = modules.find(m => m.id === modId);
+      if (mod && mod.tabs) {
+        const newTabs = mod.tabs.map(t => `${modId}_${t.id}`);
+        setUserPermsTabs(prev => [...new Set([...prev, ...newTabs])]);
+      }
+    } else {
+      setUserPermsModules(prev => prev.filter(id => id !== modId));
+      // Deshabilitar todas sus pestañas al desactivar el módulo
+      const mod = modules.find(m => m.id === modId);
+      if (mod && mod.tabs) {
+        const tabsToRemove = mod.tabs.map(t => `${modId}_${t.id}`);
+        setUserPermsTabs(prev => prev.filter(tKey => !tabsToRemove.includes(tKey)));
+      }
+    }
+  };
+
+  const handleTogglePermsTab = (tabKey: string, enabled: boolean) => {
+    if (enabled) {
+      setUserPermsTabs(prev => [...prev, tabKey]);
+    } else {
+      setUserPermsTabs(prev => prev.filter(k => k !== tabKey));
+    }
+  };
+
+  const handleSaveCustomPermissions = async () => {
+    if (!selectedUserForPerms) return;
+    setIsSavingPerms(true);
+    try {
+      const newPerms = {
+        modules: userPermsModules,
+        tabs: userPermsTabs
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ permissions: newPerms })
+        .eq('id', selectedUserForPerms.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Permisos Guardados",
+        description: `Se actualizaron los accesos individuales para ${selectedUserForPerms.email}.`
+      });
+      setIsPermsDialogOpen(false);
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: "Error al guardar",
+        description: err.message || "No se pudieron guardar los permisos."
+      });
+    } finally {
+      setIsSavingPerms(false);
+    }
+  };
+
+  const handleResetToDefaultPermissions = async () => {
+    if (!selectedUserForPerms) return;
+    if (!confirm('¿Restablecer accesos individuales y usar la configuración del rol por defecto?')) return;
+    setIsSavingPerms(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ permissions: null })
+        .eq('id', selectedUserForPerms.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Permisos Restablecidos",
+        description: `El usuario ${selectedUserForPerms.email} ahora utilizará la configuración por defecto de su rol.`
+      });
+      setIsPermsDialogOpen(false);
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: "Error al restablecer",
+        description: err.message
+      });
+    } finally {
+      setIsSavingPerms(false);
+    }
+  };
+
 
   // Cálculos dinámicos en tiempo real para gerencia
   const todaySalesTotal = useMemo(() => {
@@ -1208,6 +1336,18 @@ export default function ManagementPage() {
                                 </SelectContent>
                               </Select>
                             )}
+                            {!usr.isPreassigned && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => handleOpenPermissionsEdit(usr)}
+                                disabled={isSaving}
+                                className="text-indigo-500 hover:text-indigo-650 hover:bg-indigo-500/10 rounded-xl h-10 w-10 flex items-center justify-center"
+                                title="Editar accesos a módulos y pestañas"
+                              >
+                                <ShieldCheck size={18} />
+                              </Button>
+                            )}
 
                             {canRevokeAccess(usr.email) && (
                               <Button 
@@ -2077,6 +2217,96 @@ DO ${'$'}${'$'} BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.suppl
               CERRAR
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE EDICIÓN DE PERMISOS INDIVIDUALES */}
+      <Dialog open={isPermsDialogOpen} onOpenChange={setIsPermsDialogOpen}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-6 overflow-hidden flex flex-col max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800 dark:text-white text-lg font-black uppercase">
+              <ShieldCheck className="text-indigo-600 dark:text-sky-500" size={22} />
+              Configurar Permisos: {selectedUserForPerms?.email}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Personalice de forma detallada los módulos y pestañas a los que este usuario tiene acceso individual.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 pr-2 my-4">
+            <div className="space-y-6">
+              {modules.map((m) => {
+                const moduleEnabled = userPermsModules.includes(m.id);
+                return (
+                  <div key={m.id} className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-bold text-slate-800 dark:text-slate-200">{m.label}</Label>
+                        <p className="text-[10px] text-muted-foreground">{m.desc}</p>
+                      </div>
+                      <Switch 
+                        checked={moduleEnabled} 
+                        onCheckedChange={(val) => handleTogglePermsModule(m.id, val)}
+                      />
+                    </div>
+
+                    {moduleEnabled && m.tabs && (
+                      <div className="ml-4 pl-4 border-l-2 border-slate-200 dark:border-slate-800 space-y-2 pt-2 animate-in fade-in slide-in-from-top-1">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Habilitar Pestañas</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {m.tabs.map((tab) => {
+                            const tabKey = `${m.id}_${tab.id}`;
+                            const tabEnabled = userPermsTabs.includes(tabKey);
+                            return (
+                              <div key={tab.id} className="flex items-center justify-between py-1 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
+                                <Label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">{tab.label}</Label>
+                                <Switch 
+                                  checked={tabEnabled} 
+                                  onCheckedChange={(val) => handleTogglePermsTab(tabKey, val)}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-4 border-t border-slate-200 dark:border-white/10">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleResetToDefaultPermissions}
+              disabled={isSavingPerms}
+              className="text-xs rounded-xl text-rose-500 hover:text-rose-600 dark:hover:bg-rose-500/10 border-rose-200"
+            >
+              USAR ROL POR DEFECTO
+            </Button>
+            <div className="flex gap-2 sm:ml-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsPermsDialogOpen(false)}
+                disabled={isSavingPerms}
+                className="text-xs rounded-xl"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveCustomPermissions}
+                disabled={isSavingPerms}
+                className="text-xs rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+              >
+                {isSavingPerms ? <Loader2 className="animate-spin mr-1" size={14} /> : null}
+                Guardar Accesos
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
