@@ -1727,6 +1727,8 @@ export default function PurchasesPage() {
                 const category = selectedUncreatedCategory[p.sku] || 'Inventario de Mercadería';
                 const priceVal = selectedUncreatedPrice[p.sku] || '';
                 const suggestedPrice = (p.cost * 1.3).toFixed(2);
+                const existingProduct = inventory?.find(inv => inv.sku.trim().toUpperCase() === p.sku.trim().toUpperCase());
+                const targetSkuExists = !!existingProduct;
                 return (
                   <div key={p.sku} className="p-4 border rounded-2xl bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex-1 space-y-2">
@@ -1757,47 +1759,59 @@ export default function PurchasesPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[280px] md:min-w-[340px]">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Vínculo Contable</Label>
-                        <Select 
-                          value={category} 
-                          onValueChange={(val) => setSelectedUncreatedCategory(prev => ({ ...prev, [p.sku]: val }))}
-                        >
-                          <SelectTrigger className="h-9 text-xs rounded-xl bg-card border">
-                            <SelectValue placeholder="Seleccione Categoría" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            <SelectItem value="Inventario de Mercadería">Inventario de Mercadería</SelectItem>
-                            <SelectItem value="Gastos de Administración">Gastos de Administración</SelectItem>
-                            <SelectItem value="Gastos de Venta">Gastos de Venta</SelectItem>
-                            <SelectItem value="Propiedad, Planta y Equipo">Propiedad, Planta y Equipo</SelectItem>
-                            <SelectItem value="General">General</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    {targetSkuExists ? (
+                      <div className="flex flex-col justify-center gap-1 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-2xl min-w-[280px] md:min-w-[340px]">
+                        <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">✓ SKU Existente</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{existingProduct.name}</span>
+                        <span className="text-[9px] text-muted-foreground">Se vinculará el código del proveedor a este producto existente.</span>
                       </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[280px] md:min-w-[340px]">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Vínculo Contable</Label>
+                          <Select 
+                            value={category} 
+                            onValueChange={(val) => setSelectedUncreatedCategory(prev => ({ ...prev, [p.sku]: val }))}
+                          >
+                            <SelectTrigger className="h-9 text-xs rounded-xl bg-card border">
+                              <SelectValue placeholder="Seleccione Categoría" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="Inventario de Mercadería">Inventario de Mercadería</SelectItem>
+                              <SelectItem value="Gastos de Administración">Gastos de Administración</SelectItem>
+                              <SelectItem value="Gastos de Venta">Gastos de Venta</SelectItem>
+                              <SelectItem value="Propiedad, Planta y Equipo">Propiedad, Planta y Equipo</SelectItem>
+                              <SelectItem value="General">General</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground flex justify-between">
-                          <span>Precio Venta (PVP)</span>
-                          <span className="text-[9px] text-muted-foreground lowercase">sug. ${suggestedPrice}</span>
-                        </Label>
-                        <Input 
-                          type="number" 
-                          placeholder={suggestedPrice}
-                          value={priceVal} 
-                          onChange={(e) => setSelectedUncreatedPrice(prev => ({ ...prev, [p.sku]: e.target.value }))}
-                          className="h-9 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-card rounded-xl border"
-                        />
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground flex justify-between">
+                            <span>Precio Venta (PVP)</span>
+                            <span className="text-[9px] text-muted-foreground lowercase">sug. ${suggestedPrice}</span>
+                          </Label>
+                          <Input 
+                            type="number" 
+                            placeholder={suggestedPrice}
+                            value={priceVal} 
+                            onChange={(e) => setSelectedUncreatedPrice(prev => ({ ...prev, [p.sku]: e.target.value }))}
+                            className="h-9 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-card rounded-xl border"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="flex items-end pt-2 md:pt-0">
                       <Button 
                         onClick={() => handleCreateUncreatedProduct(index)}
-                        className="w-full md:w-auto h-9 bg-primary text-primary-foreground font-bold text-xs rounded-xl px-4"
+                        className={`w-full md:w-auto h-9 font-bold text-xs rounded-xl px-4 ${
+                          targetSkuExists 
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10' 
+                            : 'bg-primary text-primary-foreground'
+                        }`}
                       >
-                        Crear y Añadir
+                        {targetSkuExists ? 'Vincular y Añadir' : 'Crear y Añadir'}
                       </Button>
                     </div>
                   </div>
