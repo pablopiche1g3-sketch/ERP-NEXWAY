@@ -71,6 +71,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
 import { useEffect } from 'react';
 import { ModeToggle } from '@/components/mode-toggle';
+import { PriceListManager } from '@/components/PriceListManager';
 
 interface CartItem {
   id: string;
@@ -501,6 +502,9 @@ export default function InstitutionalModulePage() {
             <TabsTrigger value="ledger" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
               <BookOpen size={14} className="mr-2"/> Libro Mayor
             </TabsTrigger>
+            <TabsTrigger value="precios" className="rounded-xl px-4 md:px-6 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs whitespace-nowrap">
+              <ListPlus size={14} className="mr-2"/> Lista de Precios
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6 outline-none">
@@ -902,6 +906,10 @@ export default function InstitutionalModulePage() {
                    </TableBody>
                 </Table>
              </Card>
+          </TabsContent>
+
+          <TabsContent value="precios" className="outline-none">
+             <PriceListManager />
           </TabsContent>
         </Tabs>
       </div>
