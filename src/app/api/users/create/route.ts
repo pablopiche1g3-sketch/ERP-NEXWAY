@@ -24,7 +24,7 @@ async function verifyAdminAuth(authHeader: string | null): Promise<string | null
     .eq('id', user.id)
     .single();
 
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'gerencia')) {
     return 'Se requieren permisos de administrador.';
   }
 
