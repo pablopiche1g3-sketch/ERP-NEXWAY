@@ -555,10 +555,17 @@ export default function ManagementPage() {
           return;
         }
 
+        // Obtener el token de acceso de sesión
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
         // Llamar a nuestra API segura en el servidor
         const response = await fetch('/api/users/create', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({
             username: usernameToAssign,
             password: preAssignPassword,
