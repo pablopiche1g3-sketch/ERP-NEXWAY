@@ -798,6 +798,77 @@ export default function PurchasesPage() {
     setSupplierName(supplier.name);
     toast({ title: "Proveedor Seleccionado", description: `${supplier.name} cargado correctamente.` });
   };
+
+  const handleCancelPurchase = async (purchase: any) => {
+    if (!window.confirm(`¿Está seguro de que desea anular/eliminar la compra ${purchase.order_id}?`)) {
+      return;
+    }
+    setLoading(true);
+    try {
+      if (purchase.status === 'CERRADA') {
+        // 1. Obtener los productos de esta compra
+        const { data: items, error: itemsErr } = await supabase
+          .from('purchase_items')
+          .select('*')
+          .eq('purchase_id', purchase.id);
+        if (itemsErr) throw itemsErr;
+
+        // 2. Descontar las cantidades del inventario en la bodega
+        for (const item of items || []) {
+          const { data: stockRow } = await supabase
+            .from('inventory_stock')
+            .select('quantity')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', purchase.warehouse_id)
+            .maybeSingle();
+
+          const currentQty = stockRow?.quantity || 0;
+          const newQty = Math.max(0, currentQty - item.quantity);
+
+          const { error: stockErr } = await supabase
+            .from('inventory_stock')
+            .upsert({
+              sku: item.sku,
+              warehouse_id: purchase.warehouse_id,
+              quantity: newQty
+            }, {
+              onConflict: 'sku,warehouse_id'
+            });
+          if (stockErr) throw stockErr;
+        }
+
+        // 3. Cambiar estado a 'ANULADA'
+        const { error: updateErr } = await supabase
+          .from('purchases')
+          .update({ status: 'ANULADA' })
+          .eq('id', purchase.id);
+        if (updateErr) throw updateErr;
+
+        toast({ title: "Compra Anulada", description: "Se revirtió el stock y se marcó la compra como ANULADA." });
+      } else {
+        // Si es borrador, la eliminamos por completo
+        const { error: delItemsErr } = await supabase
+          .from('purchase_items')
+          .delete()
+          .eq('purchase_id', purchase.id);
+        if (delItemsErr) throw delItemsErr;
+
+        const { error: delPurchErr } = await supabase
+          .from('purchases')
+          .delete()
+          .eq('id', purchase.id);
+        if (delPurchErr) throw delPurchErr;
+
+        toast({ title: "Borrador Eliminado", description: "El borrador de compra fue eliminado del sistema." });
+      }
+      await loadPurchasesData();
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al anular compra", description: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1304,8 +1375,14 @@ export default function PurchasesPage() {
                       <TableCell className="text-[11px] text-white/50">{p.payment_method} {p.credit_days ? `(${p.credit_days}d)` : ''}</TableCell>
                       <TableCell className="text-[12.5px] font-black text-[#63e2b7]">${parseFloat(p.total).toFixed(2)}</TableCell>
                       <TableCell className="text-center">
-                        <span className={`px-[8px] py-[3px] rounded-md text-[9px] font-bold uppercase tracking-[0.5px] ${p.status === 'CERRADA' ? 'bg-emerald-500/20 text-[#63e2b7] border border-emerald-500/30' : 'bg-[#d97706]/20 text-[#fbbf24] border border-[#d97706]/30'}`}>
-                          {p.status === 'CERRADA' ? 'INGRESADA' : 'BORRADOR'}
+                        <span className={`px-[8px] py-[3px] rounded-md text-[9px] font-bold uppercase tracking-[0.5px] ${
+                          p.status === 'CERRADA' 
+                            ? 'bg-emerald-500/20 text-[#63e2b7] border border-emerald-500/30' 
+                            : p.status === 'ANULADA'
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                              : 'bg-[#d97706]/20 text-[#fbbf24] border border-[#d97706]/30'
+                        }`}>
+                          {p.status === 'CERRADA' ? 'INGRESADA' : p.status === 'ANULADA' ? 'ANULADA' : 'BORRADOR'}
                         </span>
                       </TableCell>
                       <TableCell className="text-center text-[10.5px] text-white/40">{dateStr}</TableCell>
@@ -1328,6 +1405,14 @@ export default function PurchasesPage() {
                           >
                             Detalle
                           </button>
+                          {p.status !== 'ANULADA' && (
+                            <button 
+                              onClick={() => handleCancelPurchase(p)}
+                              className="px-2 py-1.5 text-[9.5px] font-bold rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition-colors uppercase tracking-[0.5px]"
+                            >
+                              {p.status === 'PENDIENTE' ? 'Borrar' : 'Anular'}
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
