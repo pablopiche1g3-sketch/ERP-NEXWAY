@@ -98,32 +98,30 @@
   }
 }
 
-/* Glassmorphism Styles - Optimized for dark mode and performance */
+/* Glassmorphism Styles - Optimized for performance */
 .glass {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #11111e;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-card {
-  @apply bg-white/5 backdrop-blur-md border border-white/10 transition-all duration-200 transform-gpu;
+  @apply bg-[#11111e] border border-white/10 transition-all duration-200 transform-gpu;
 }
 
 .glass-strong {
-  @apply bg-white/10 backdrop-blur-lg border border-white/20 transition-all duration-200 transform-gpu;
+  @apply bg-[#1c1c2e] border border-white/20 transition-all duration-200 transform-gpu;
 }
 
 .glass-input {
-  @apply bg-white/5 backdrop-blur-md border border-white/10 focus:bg-white/10 focus:border-white/20 transition-all duration-200 outline-none transform-gpu;
+  @apply bg-[#0c0c14] border border-white/10 focus:bg-[#161622] focus:border-white/20 transition-all duration-200 outline-none transform-gpu;
 }
 
 /* Overrides for third-party widgets and tables to inherit glass theme */
 .dark .bg-slate-50, .bg-slate-50 {
-  @apply bg-white/5;
+  @apply bg-[#161625];
 }
 .dark .bg-white, .bg-white {
-  @apply bg-white/5 backdrop-blur-md;
+  @apply bg-[#11111e];
 }
 .dark .text-slate-500, .dark .text-slate-400, .text-slate-500, .text-slate-400 {
   @apply text-slate-300/80;
@@ -138,3 +136,25 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Desactivar backdrop-filter a nivel global para computadoras lentas */
+* {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Omitir animaciones y sombras pesadas en tarjetas para optimización extrema */
+.card, .shadow-sm, .shadow-md, .shadow-lg, .shadow-2xl {
+  box-shadow: none !important;
+}
+
+/* Asegurar legibilidad en los componentes sobre fondo oscuro */
+.bg-white\/40, .bg-white\/5, .bg-white\/80 {
+  background-color: #11111e !important;
+}
+.dark\:bg-zinc-900\/40, .dark\:bg-white\/5, .bg-card {
+  background-color: #0b0b14 !important;
+}
+.bg-muted, .bg-muted\/50 {
+  background-color: #161624 !important;
+}
