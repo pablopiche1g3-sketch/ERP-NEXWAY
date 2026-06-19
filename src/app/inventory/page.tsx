@@ -487,7 +487,7 @@ export default function InventoryMasterPage() {
       // Traer catálogo maestro
       const { data: invItems, error: invErr } = await supabase
         .from('inventory')
-        .select('sku, name, quantity')
+        .select('sku, name')
         .order('sku');
       if (invErr) throw invErr;
 
@@ -504,7 +504,7 @@ export default function InventoryMasterPage() {
       });
 
       const rows: TomaFisicaRow[] = (invItems || []).map((item: any) => {
-        const sistemaStock = stockMap[item.sku] ?? (parseFloat(item.quantity) || 0);
+        const sistemaStock = stockMap[item.sku] ?? 0;
         return {
           id: item.sku,
           sku: item.sku,
