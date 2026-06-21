@@ -917,7 +917,7 @@ export default function ManagementPage() {
   const [allSalesItems, setAllSalesItems] = useState<any[]>([]);
   const [allSalesFull, setAllSalesFull] = useState<any[]>([]);
   const [inventoryMap, setInventoryMap] = useState<Record<string, string>>({});
-  const [analyticsCustomerFilter, setAnalyticsCustomerFilter] = useState<string>('');
+  const [analyticsCustomerFilter, setAnalyticsCustomerFilter] = useState<string>('all');
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
   // ─── Cargar bodegas y cajas ─────────────────────────────────────
@@ -1036,7 +1036,7 @@ export default function ManagementPage() {
 
   const topProducts = useMemo(() => {
     const filteredSaleIds = new Set(filteredSales.map(s => s.id));
-    const customerSaleIds = analyticsCustomerFilter
+    const customerSaleIds = analyticsCustomerFilter && analyticsCustomerFilter !== 'all'
       ? new Set(filteredSales.filter(s => s.customer_name === analyticsCustomerFilter).map(s => s.id))
       : filteredSaleIds;
 
@@ -1238,6 +1238,67 @@ export default function ManagementPage() {
       atRiskCount: atRiskList.length
     };
   }, [allSalesFull]);
+
+  // ─── Lógica Financiera y Estadística Avanzada (Medidas de Ubicación y Dispersión) ───
+  const advancedFinancialMetrics = useMemo(() => {
+    if (filteredSales.length === 0) {
+      return {
+        mediaAritmetica: 0,
+        medianaVentas: 0,
+        mediaPonderadaPrecios: 0,
+        rangoVentas: 0,
+        desviacionMedia: 0
+      };
+    }
+
+    // A. Media Aritmética Simple
+    const sumatoriaTotales = filteredSales.reduce((sum, v) => sum + (parseFloat(v.total) || 0), 0);
+    const mediaAritmetica = sumatoriaTotales / filteredSales.length;
+
+    // B. Mediana (Evadir valores atípicos)
+    const totalesOrdenados = filteredSales.map(v => parseFloat(v.total) || 0).sort((a, b) => a - b);
+    const mitad = Math.floor(totalesOrdenados.length / 2);
+    const medianaVentas = totalesOrdenados.length % 2 !== 0 
+      ? totalesOrdenados[mitad] 
+      : (totalesOrdenados[mitad - 1] + totalesOrdenados[mitad]) / 2;
+
+    // C. Media Ponderada por Volumen de Ítems
+    const filteredSaleIds = new Set(filteredSales.map(s => s.id));
+    let sumatoriaProductosXFrecuencia = 0;
+    let totalUnidadesVendidas = 0;
+
+    allSalesItems.forEach(item => {
+      if (filteredSaleIds.has(item.sale_id)) {
+        const qty = parseFloat(item.quantity) || 0;
+        const price = parseFloat(item.price) || 0;
+        sumatoriaProductosXFrecuencia += qty * price;
+        totalUnidadesVendidas += qty;
+      }
+    });
+
+    const mediaPonderadaPrecios = totalUnidadesVendidas > 0 
+      ? sumatoriaProductosXFrecuencia / totalUnidadesVendidas 
+      : 0;
+
+    // D. Medidas de Dispersión: Rango y Desviación Media (DM)
+    const valorMaximo = totalesOrdenados[totalesOrdenados.length - 1] || 0;
+    const valorMinimo = totalesOrdenados[0] || 0;
+    const rangoVentas = valorMaximo - valorMinimo;
+
+    const sumatoriaDesviacionesAbsolutas = filteredSales.reduce(
+      (sum, v) => sum + Math.abs((parseFloat(v.total) || 0) - mediaAritmetica), 
+      0
+    );
+    const desviacionMedia = sumatoriaDesviacionesAbsolutas / filteredSales.length;
+
+    return {
+      mediaAritmetica,
+      medianaVentas,
+      mediaPonderadaPrecios,
+      rangoVentas,
+      desviacionMedia
+    };
+  }, [filteredSales, allSalesItems]);
 
   useEffect(() => {
     if (activeTab === 'config') {
@@ -1883,17 +1944,17 @@ export default function ManagementPage() {
             {/* KPI rápido */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: 'Ventas del Período', value: `$${totalFilteredRevenue.toFixed(2)}`, icon: <TrendingUp size={18} className="text-emerald-400" />, bg: 'bg-emerald-500/10 border-emerald-500/20' },
-                { label: 'Transacciones', value: filteredSales.length, icon: <BarChart3 size={18} className="text-blue-400" />, bg: 'bg-blue-500/10 border-blue-500/20' },
-                { label: 'Clientes Únicos', value: customerStats.length, icon: <Users size={18} className="text-violet-400" />, bg: 'bg-violet-500/10 border-violet-500/20' },
-                { label: 'Productos Distintos', value: topProducts.length, icon: <Package size={18} className="text-orange-400" />, bg: 'bg-orange-500/10 border-orange-500/20' },
+                { id: 'txt-ventas-periodo', label: 'Ventas del Período', value: `$${totalFilteredRevenue.toFixed(2)}`, icon: <TrendingUp size={18} className="text-emerald-400" />, bg: 'bg-emerald-500/10 border-emerald-500/20' },
+                { id: 'txt-transacciones', label: 'Transacciones', value: filteredSales.length, icon: <BarChart3 size={18} className="text-blue-400" />, bg: 'bg-blue-500/10 border-blue-500/20' },
+                { id: 'txt-clientes-unicos', label: 'Clientes Únicos', value: customerStats.length, icon: <Users size={18} className="text-violet-400" />, bg: 'bg-violet-500/10 border-violet-500/20' },
+                { id: 'txt-productos-distintos', label: 'Productos Distintos', value: topProducts.length, icon: <Package size={18} className="text-orange-400" />, bg: 'bg-orange-500/10 border-orange-500/20' },
               ].map(k => (
                 <Card key={k.label} className={`border ${k.bg} rounded-xl shadow-sm`}>
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl border ${k.bg} flex items-center justify-center shrink-0`}>{k.icon}</div>
                     <div>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{k.label}</p>
-                      <p className="text-lg font-black text-foreground">{k.value}</p>
+                      <p id={k.id} className="text-lg font-black text-foreground">{k.value}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1972,6 +2033,77 @@ export default function ManagementPage() {
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Riesgo Abandono</p>
                       <p className="text-lg font-black text-foreground">{customerChurnStats.atRiskCount} clientes</p>
                       <p className="text-[9px] text-muted-foreground mt-0.5">Inactividad &gt; 2x frecuencia</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Medidas de Ubicación y Dispersión */}
+            <div className="space-y-2 mt-4">
+              <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Medidas de Ubicación y Dispersión (Matemática Tradicional)</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                {/* 1. Media Aritmética */}
+                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                  <CardContent className="p-4 flex flex-col justify-between h-24">
+                    <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Media Aritmética</p>
+                    <div>
+                      <p id="txt-ticket-promedio" className="text-base font-black text-foreground">
+                        ${advancedFinancialMetrics.mediaAritmetica.toFixed(2)}
+                      </p>
+                      <p className="text-[8.5px] text-muted-foreground mt-0.5">Ticket promedio simple</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 2. Mediana */}
+                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                  <CardContent className="p-4 flex flex-col justify-between h-24">
+                    <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Mediana de Ventas</p>
+                    <div>
+                      <p id="txt-mediana-ventas" className="text-base font-black text-foreground">
+                        ${advancedFinancialMetrics.medianaVentas.toFixed(2)}
+                      </p>
+                      <p className="text-[8.5px] text-muted-foreground mt-0.5">Punto central real</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 3. Media Ponderada */}
+                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                  <CardContent className="p-4 flex flex-col justify-between h-24">
+                    <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Media Ponderada</p>
+                    <div>
+                      <p id="txt-media-ponderada" className="text-base font-black text-foreground">
+                        ${advancedFinancialMetrics.mediaPonderadaPrecios.toFixed(2)}
+                      </p>
+                      <p className="text-[8.5px] text-muted-foreground mt-0.5">Precio prom. x volumen</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 4. Desviación Media */}
+                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                  <CardContent className="p-4 flex flex-col justify-between h-24">
+                    <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Desviación Media</p>
+                    <div>
+                      <p id="txt-desviacion-media" className="text-base font-black text-foreground">
+                        ${advancedFinancialMetrics.desviacionMedia.toFixed(2)}
+                      </p>
+                      <p className="text-[8.5px] text-muted-foreground mt-0.5">Dispersión del ticket</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 5. Rango Dinámico */}
+                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                  <CardContent className="p-4 flex flex-col justify-between h-24">
+                    <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Rango de Ventas</p>
+                    <div>
+                      <p id="txt-rango-ventas" className="text-base font-black text-foreground">
+                        ${advancedFinancialMetrics.rangoVentas.toFixed(2)}
+                      </p>
+                      <p className="text-[8.5px] text-muted-foreground mt-0.5">Amplitud de caja</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -2122,10 +2254,10 @@ export default function ManagementPage() {
                           <SelectTrigger className="w-52 h-9 bg-slate-800 border-slate-700 rounded-xl text-xs font-bold text-slate-200">
                             <SelectValue placeholder="Todos los clientes" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="">🌐 Todos los clientes</SelectItem>
+                          <SelectContent className="dark:bg-[#09090b] dark:border-white/10 rounded-xl shadow-2xl">
+                            <SelectItem value="all" className="text-xs font-semibold focus:bg-white/10">🌐 Todos los clientes</SelectItem>
                             {customerStats.map(c => (
-                              <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+                              <SelectItem key={c.name} value={c.name} className="text-xs font-semibold focus:bg-white/10">{c.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
