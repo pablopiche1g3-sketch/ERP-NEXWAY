@@ -135,7 +135,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   };
 
   return (
-    <aside className={`bg-white/5 backdrop-blur-md text-slate-300 flex flex-col h-screen border-r border-white/10 select-none shrink-0 font-body transition-[width] duration-200 ease-in-out will-change-[width] ${
+    <aside className={`print:hidden bg-white/5 backdrop-blur-md text-slate-300 flex flex-col h-screen border-r border-white/10 select-none shrink-0 font-body transition-[width] duration-200 ease-in-out will-change-[width] ${
       isCollapsed ? 'w-20' : 'w-64'
     }`}>
       {/* Brand Header al Estilo Mockup */}
