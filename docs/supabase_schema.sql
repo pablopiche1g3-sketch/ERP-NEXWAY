@@ -23,6 +23,9 @@ create policy "Permitir lectura pública de perfiles" on public.profiles
 create policy "Permitir a usuarios actualizar su propio perfil" on public.profiles
   for update using (auth.uid() = id);
 
+create policy "Permitir a usuarios crear su propio perfil" on public.profiles
+  for insert with check (auth.uid() = id);
+
 -- 3. DISPARADOR (TRIGGER) AUTOMÁTICO PARA NUEVOS USUARIOS
 -- Cuando un usuario se registra mediante Supabase Auth, se crea automáticamente su perfil en public.profiles
 create or replace function public.handle_new_user()
