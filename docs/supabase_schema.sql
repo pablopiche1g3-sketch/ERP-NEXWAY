@@ -107,6 +107,8 @@ create table public.purchases (
   payment_method text,
   credit_days integer,
   payment_status text,
+  document_type text,
+  document_number text,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
