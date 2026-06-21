@@ -50,6 +50,43 @@ export default function QuotationsPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerNit, setCustomerNit] = useState('');
   const [customerNrc, setCustomerNrc] = useState('');
+  
+  const [taxMode, setTaxMode] = useState<'con-iva' | 'sin-iva'>('con-iva');
+  const [printConfig, setPrintConfig] = useState<any>({
+    companyName: 'ERP NEXWAY',
+    slogan: 'Soluciones de Inventario y Facturación',
+    address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+    phone: '+503 2250-8800 | soporte@nexway-erp.com',
+    email: 'soporte@nexway-erp.com',
+    nit: '0614-150622-102-1',
+    nrc: '288301-4',
+    logoUrl: '',
+    logoPosition: 'left',
+    termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Inmediato según stock, o coordinado con su respectivo gestor de cuenta.`,
+    extraNotes: '',
+    showSignatureFields: true,
+    showLogo: false,
+    accentColor: '#ea580c',
+    fontSize: 'medium'
+  });
+
+  useEffect(() => {
+    const fetchPrintConfig = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('system_config')
+          .select('*')
+          .eq('key', 'print_config')
+          .maybeSingle();
+        if (data && data.value && data.value.quotations) {
+          setPrintConfig(data.value.quotations);
+        }
+      } catch (err) {
+        console.error('Error fetching print config:', err);
+      }
+    };
+    fetchPrintConfig();
+  }, []);
 
   // Sincronización de catálogo maestro desde Supabase  
   const [inventory, setInventory] = useState<any[]>([]);
@@ -156,9 +193,9 @@ export default function QuotationsPage() {
     setCustomQty('1');
   };
 
-  const subtotal = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const iva = subtotal * 0.13;
-  const total = subtotal + iva;
+  const total = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const subtotal = taxMode === 'con-iva' ? (total / 1.13) : total;
+  const iva = taxMode === 'con-iva' ? (total - subtotal) : 0;
 
   // Generamos un número de cotización estático para la sesión/impresión
   const quoteNumber = useMemo(() => `COT-${Math.floor(100000 + Math.random() * 900000)}`, []);
@@ -179,6 +216,8 @@ export default function QuotationsPage() {
           quote_number: quoteNumber,
           customer_name: customerName || 'Cliente de Mostrador',
           items: quoteItems,
+          subtotal: subtotal,
+          iva: iva,
           total: total,
           status: 'PENDIENTE'
         });
@@ -304,6 +343,34 @@ export default function QuotationsPage() {
                 </ScrollArea>
 
                 <div className="p-4 border-t border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-black/20 space-y-2">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/10 mb-2">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Impuesto IVA:</span>
+                    <div className="flex gap-1 bg-slate-100 dark:bg-white/5 p-0.5 rounded-lg border border-slate-200 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setTaxMode('con-iva')}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          taxMode === 'con-iva'
+                            ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-extrabold shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        Con IVA
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTaxMode('sin-iva')}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          taxMode === 'sin-iva'
+                            ? 'bg-slate-500/20 border border-slate-500/30 text-slate-600 dark:text-slate-400 font-extrabold shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        Sin IVA
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex justify-between text-xs text-slate-500">
                     <span>Subtotal Gravado:</span>
                     <span className="font-bold text-slate-900 dark:text-white">${subtotal.toFixed(2)}</span>
@@ -491,21 +558,38 @@ export default function QuotationsPage() {
       </div>
 
       {/* PLANTILLA DE IMPRESIÓN CORPORATIVA PROFESIONAL (VISIBLE SOLO AL IMPRIMIR) */}
-      <div className="hidden print:block w-full max-w-4xl mx-auto p-8 bg-white text-black font-sans leading-relaxed text-xs">
+      <div className={`hidden print:block w-full max-w-4xl mx-auto p-8 bg-white text-black font-sans leading-relaxed ${
+        printConfig.fontSize === 'small' ? 'text-[10px]' : printConfig.fontSize === 'large' ? 'text-sm' : 'text-xs'
+      }`}>
         {/* ENCABEZADO CORPORATIVO */}
-        <div className="flex justify-between items-start border-b-2 border-slate-800 pb-5 mb-6">
+        <div 
+          className={`flex ${printConfig.logoPosition === 'center' ? 'flex-col items-center text-center' : printConfig.logoPosition === 'right' ? 'flex-row-reverse justify-between items-start' : 'justify-between items-start'} border-b-2 pb-5 mb-6`}
+          style={{ borderBottomColor: printConfig.accentColor || '#1e293b' }}
+        >
+          {printConfig.showLogo && printConfig.logoUrl && (
+            <div className="mb-4">
+              <img src={printConfig.logoUrl} alt="Logo" className="max-h-16 max-w-[200px] object-contain" />
+            </div>
+          )}
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">ERP NEXWAY</h1>
-            <p className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mt-0.5">Soluciones de Inventario y Facturación</p>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">{printConfig.companyName}</h1>
+            {printConfig.slogan && <p className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mt-0.5">{printConfig.slogan}</p>}
             <div className="text-[10px] text-slate-600 mt-3 space-y-0.5">
-              <p>Avenida Manuel Enrique Araujo, San Salvador, El Salvador</p>
-              <p>Teléfono: +503 2250-8800 | soporte@nexway-erp.com</p>
-              <p>NIT: 0614-150622-102-1 | NRC: 288301-4</p>
+              {printConfig.address && <p>{printConfig.address}</p>}
+              {printConfig.phone && <p>Teléfono: {printConfig.phone}</p>}
+              {printConfig.email && <p>Correo: {printConfig.email}</p>}
+              <p>
+                {printConfig.nit ? `NIT: ${printConfig.nit} ` : ''}
+                {printConfig.nrc ? `| NRC: ${printConfig.nrc}` : ''}
+              </p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="bg-slate-900 text-white px-4 py-2 rounded-lg inline-block">
-              <p className="text-[8px] uppercase font-bold tracking-widest text-slate-300">COTIZACIÓN DE PRECIOS</p>
+          <div className={printConfig.logoPosition === 'center' ? 'text-center mt-4' : 'text-right'}>
+            <div 
+              className="text-white px-4 py-2 rounded-lg inline-block"
+              style={{ backgroundColor: printConfig.accentColor || '#0f172a' }}
+            >
+              <p className="text-[8px] uppercase font-bold tracking-widest opacity-80">COTIZACIÓN DE PRECIOS</p>
               <p className="text-lg font-mono font-bold">{quoteNumber}</p>
             </div>
             <div className="text-[10px] text-slate-600 mt-3 space-y-0.5">
@@ -537,7 +621,7 @@ export default function QuotationsPage() {
         {/* TABLA DE PRODUCTOS COTIZADOS */}
         <table className="w-full border-collapse mb-8 text-xs">
           <thead>
-            <tr className="border-b border-slate-800 text-left bg-slate-900 text-white">
+            <tr className="text-left text-white" style={{ backgroundColor: printConfig.accentColor || '#0f172a' }}>
               <th className="py-2.5 px-3 font-bold w-[60px] text-center rounded-l-lg">CANT.</th>
               <th className="py-2.5 px-3 font-bold w-[120px]">CÓDIGO / SKU</th>
               <th className="py-2.5 px-3 font-bold">DESCRIPCIÓN DEL PRODUCTO</th>
@@ -562,12 +646,15 @@ export default function QuotationsPage() {
 
         {/* RESUMEN DE TOTALES Y TÉRMINOS */}
         <div className="flex justify-between items-start gap-8 mt-6">
-          <div className="text-[10px] text-slate-500 max-w-md space-y-1.5">
+          <div className="text-[10px] text-slate-500 max-w-md space-y-1.5 whitespace-pre-line">
             <p className="font-bold text-slate-700 uppercase tracking-wider mb-1">Términos y Condiciones Generales</p>
-            <p>1. Los precios indicados en este documento están expresados en USD y ya incluyen IVA (13%).</p>
-            <p>2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.</p>
-            <p>3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.</p>
-            <p>4. Tiempo de entrega: Inmediato según stock, o coordinado con su respectivo gestor de cuenta.</p>
+            {printConfig.termsConditions
+              ? printConfig.termsConditions.replace(/{iva_detail}/g, taxMode === 'con-iva' ? 'ya incluyen IVA (13%)' : 'no incluyen IVA')
+              : `1. Los precios indicados en este documento están expresados en USD y ya incluyen IVA (13%).\n2. Esta cotización representa un presupuesto informativo.`
+            }
+            {printConfig.extraNotes && (
+              <p className="mt-2 text-slate-400 italic font-medium">{printConfig.extraNotes}</p>
+            )}
           </div>
           <div className="w-[280px] bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
             <div className="flex justify-between text-xs text-slate-600">
@@ -578,26 +665,31 @@ export default function QuotationsPage() {
               <span>IVA (13%):</span>
               <span className="font-semibold text-slate-800">${iva.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-white/10 border-slate-200">
+            <div 
+              className="flex justify-between text-sm font-black pt-2 border-t"
+              style={{ borderTopColor: printConfig.accentColor || '#e2e8f0' }}
+            >
               <span>TOTAL NETO (USD):</span>
-              <span className="text-base font-black text-slate-900">${total.toFixed(2)}</span>
+              <span className="text-base font-black" style={{ color: printConfig.accentColor || '#0f172a' }}>${total.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {/* SECCIÓN DE FIRMAS */}
-        <div className="grid grid-cols-2 gap-12 mt-20 pt-10 border-t border-white/10 border-slate-100 text-center text-xs">
-          <div className="space-y-1.5">
-            <div className="w-48 border-b border-slate-400 mx-auto h-8"></div>
-            <p className="font-bold text-slate-700">Firma Autorizada y Sello</p>
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Asesor Comercial NEXWAY</p>
+        {printConfig.showSignatureFields && (
+          <div className="grid grid-cols-2 gap-12 mt-20 pt-10 border-t border-slate-100 text-center text-xs">
+            <div className="space-y-1.5">
+              <div className="w-48 border-b border-slate-400 mx-auto h-8"></div>
+              <p className="font-bold text-slate-700">Firma Autorizada y Sello</p>
+              <p className="text-[9px] text-slate-400 uppercase tracking-wide">Asesor Comercial</p>
+            </div>
+            <div className="space-y-1.5">
+              <div className="w-48 border-b border-slate-400 mx-auto h-8"></div>
+              <p className="font-bold text-slate-700">Aceptado por el Cliente</p>
+              <p className="text-[9px] text-slate-400 uppercase tracking-wide">Nombre, Firma y Sello del Solicitante</p>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <div className="w-48 border-b border-slate-400 mx-auto h-8"></div>
-            <p className="font-bold text-slate-700">Aceptado por el Cliente</p>
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Nombre, Firma y Sello del Solicitante</p>
-          </div>
-        </div>
+        )}
       </div>
     </>
   );

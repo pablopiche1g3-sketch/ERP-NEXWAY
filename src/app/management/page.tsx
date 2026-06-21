@@ -32,7 +32,9 @@ import {
   MonitorIcon,
   LogOut,
   Settings,
-  Building
+  Building,
+  Printer,
+  FileText
 } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -40,6 +42,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { isAdminEmail, isRoleChangeable, canRevokeAccess } from '@/lib/admin-emails';
@@ -107,16 +110,204 @@ export default function ManagementPage() {
   const [newBranchName, setNewBranchName] = useState('');
   const [isSavingBranch, setIsSavingBranch] = useState(false);
 
+  // --- ESTADOS Y FUNCIONES PARA DISEÑADOR DE IMPRESIÓN ---
+  const [activePrintArea, setActivePrintArea] = useState<string>('quotations');
+  const [isSavingPrint, setIsSavingPrint] = useState(false);
+  const [printConfigs, setPrintConfigs] = useState<Record<string, any>>({
+    quotations: {
+      companyName: 'ERP NEXWAY',
+      slogan: 'Soluciones de Inventario y Facturación',
+      address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+      phone: '+503 2250-8800 | soporte@nexway-erp.com',
+      email: 'soporte@nexway-erp.com',
+      nit: '0614-150622-102-1',
+      nrc: '288301-4',
+      logoUrl: '',
+      logoPosition: 'left',
+      termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Inmediato según stock, o coordinado con su respectivo gestor de cuenta.`,
+      extraNotes: '',
+      showSignatureFields: true,
+      showLogo: false,
+      accentColor: '#ea580c',
+      fontSize: 'medium'
+    },
+    transfers: {
+      companyName: 'ERP NEXWAY',
+      slogan: 'Comprobante de Traslado Interno',
+      address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+      phone: '+503 2250-8800 | soporte@nexway-erp.com',
+      email: 'soporte@nexway-erp.com',
+      nit: '0614-150622-102-1',
+      nrc: '288301-4',
+      logoUrl: '',
+      logoPosition: 'left',
+      termsConditions: `1. Este documento certifica el movimiento interno de inventario.\n2. El encargado de bodega destino debe verificar la mercadería físicamente al recibirla.`,
+      extraNotes: '',
+      showSignatureFields: true,
+      showLogo: false,
+      accentColor: '#3b82f6',
+      fontSize: 'medium'
+    },
+    orders: {
+      companyName: 'ERP NEXWAY',
+      slogan: 'Orden de Pedido de Compra',
+      address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+      phone: '+503 2250-8800 | soporte@nexway-erp.com',
+      email: 'soporte@nexway-erp.com',
+      nit: '0614-150622-102-1',
+      nrc: '288301-4',
+      logoUrl: '',
+      logoPosition: 'left',
+      termsConditions: `1. Esta orden está sujeta a los términos de facturación previamente acordados.\n2. Favor anexar número de orden en la factura de cobro.`,
+      extraNotes: '',
+      showSignatureFields: true,
+      showLogo: false,
+      accentColor: '#10b981',
+      fontSize: 'medium'
+    },
+    billing: {
+      companyName: 'ERP NEXWAY',
+      slogan: 'Comprobante de Venta Electrónica (DTE)',
+      address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+      phone: '+503 2250-8800 | soporte@nexway-erp.com',
+      email: 'soporte@nexway-erp.com',
+      nit: '0614-150622-102-1',
+      nrc: '288301-4',
+      logoUrl: '',
+      logoPosition: 'left',
+      termsConditions: `1. Este documento no es una factura comercial final.\n2. Para consultas sobre su DTE, favor comunicarse con soporte.`,
+      extraNotes: '',
+      showSignatureFields: false,
+      showLogo: false,
+      accentColor: '#6366f1',
+      fontSize: 'medium'
+    }
+  });
+
+  const handleSavePrintConfig = async () => {
+    setIsSavingPrint(true);
+    try {
+      const { error } = await supabase
+        .from('system_config')
+        .upsert({
+          key: 'print_config',
+          value: printConfigs
+        });
+
+      if (error) throw error;
+      toast({
+        title: "Plantilla Guardada",
+        description: "La configuración de diseño de impresión ha sido actualizada y guardada globalmente."
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: "Error al guardar",
+        description: err.message || "No se pudo guardar la configuración."
+      });
+    } finally {
+      setIsSavingPrint(false);
+    }
+  };
+
+  const handleResetPrintConfig = (area: string) => {
+    if (!confirm(`¿Restablecer el diseño del área "${area === 'quotations' ? 'Cotizaciones' : area === 'transfers' ? 'Traslados' : area === 'orders' ? 'Pedidos' : 'Facturación'}" a los valores predeterminados de fábrica?`)) return;
+    
+    const defaults: Record<string, any> = {
+      quotations: {
+        companyName: 'ERP NEXWAY',
+        slogan: 'Soluciones de Inventario y Facturación',
+        address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+        phone: '+503 2250-8800 | soporte@nexway-erp.com',
+        email: 'soporte@nexway-erp.com',
+        nit: '0614-150622-102-1',
+        nrc: '288301-4',
+        logoUrl: '',
+        logoPosition: 'left',
+        termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Inmediato según stock, o coordinado con su respectivo gestor de cuenta.`,
+        extraNotes: '',
+        showSignatureFields: true,
+        showLogo: false,
+        accentColor: '#ea580c',
+        fontSize: 'medium'
+      },
+      transfers: {
+        companyName: 'ERP NEXWAY',
+        slogan: 'Comprobante de Traslado Interno',
+        address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+        phone: '+503 2250-8800 | soporte@nexway-erp.com',
+        email: 'soporte@nexway-erp.com',
+        nit: '0614-150622-102-1',
+        nrc: '288301-4',
+        logoUrl: '',
+        logoPosition: 'left',
+        termsConditions: `1. Este documento certifica el movimiento interno de inventario.\n2. El encargado de bodega destino debe verificar la mercadería físicamente al recibirla.`,
+        extraNotes: '',
+        showSignatureFields: true,
+        showLogo: false,
+        accentColor: '#3b82f6',
+        fontSize: 'medium'
+      },
+      orders: {
+        companyName: 'ERP NEXWAY',
+        slogan: 'Orden de Pedido de Compra',
+        address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+        phone: '+503 2250-8800 | soporte@nexway-erp.com',
+        email: 'soporte@nexway-erp.com',
+        nit: '0614-150622-102-1',
+        nrc: '288301-4',
+        logoUrl: '',
+        logoPosition: 'left',
+        termsConditions: `1. Esta orden está sujeta a los términos de facturación previamente acordados.\n2. Favor anexar número de orden en la factura de cobro.`,
+        extraNotes: '',
+        showSignatureFields: true,
+        showLogo: false,
+        accentColor: '#10b981',
+        fontSize: 'medium'
+      },
+      billing: {
+        companyName: 'ERP NEXWAY',
+        slogan: 'Comprobante de Venta Electrónica (DTE)',
+        address: 'Avenida Manuel Enrique Araujo, San Salvador, El Salvador',
+        phone: '+503 2250-8800 | soporte@nexway-erp.com',
+        email: 'soporte@nexway-erp.com',
+        nit: '0614-150622-102-1',
+        nrc: '288301-4',
+        logoUrl: '',
+        logoPosition: 'left',
+        termsConditions: `1. Este documento no es una factura comercial final.\n2. Para consultas sobre su DTE, favor comunicarse con soporte.`,
+        extraNotes: '',
+        showSignatureFields: false,
+        showLogo: false,
+        accentColor: '#6366f1',
+        fontSize: 'medium'
+      }
+    };
+
+    setPrintConfigs(prev => ({
+      ...prev,
+      [area]: defaults[area]
+    }));
+
+    toast({
+      title: "Valores Restablecidos",
+      description: `Se cargó el diseño de fábrica para el área de ${area === 'quotations' ? 'Cotizaciones' : area === 'transfers' ? 'Traslados' : area === 'orders' ? 'Pedidos' : 'Facturación'}. Guarde para aplicar.`
+    });
+  };
+
   // --- ESTADOS PARA PERMISOS INDIVIDUALES POR USUARIO ---
   const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
   const [userPermsModules, setUserPermsModules] = useState<string[]>([]);
   const [userPermsTabs, setUserPermsTabs] = useState<string[]>([]);
+  const [userPermsMeta, setUserPermsMeta] = useState<string>('5000');
   const [isPermsDialogOpen, setIsPermsDialogOpen] = useState(false);
   const [isSavingPerms, setIsSavingPerms] = useState(false);
 
   const handleOpenPermissionsEdit = (user: any) => {
     setSelectedUserForPerms(user);
-    const perms = user.permissions || { modules: [], tabs: [] };
+    const perms = user.permissions || { modules: [], tabs: [], meta_asignada: 5000 };
+    setUserPermsMeta(perms.meta_asignada?.toString() || '5000');
     
     // Si no tiene permisos asignados aún, los inicializamos con la plantilla del Rol
     if (!user.permissions) {
@@ -174,7 +365,8 @@ export default function ManagementPage() {
     try {
       const newPerms = {
         modules: userPermsModules,
-        tabs: userPermsTabs
+        tabs: userPermsTabs,
+        meta_asignada: parseFloat(userPermsMeta) || 5000
       };
 
       const { error } = await supabase
@@ -313,7 +505,8 @@ export default function ManagementPage() {
         role: p.role,
         branch_id: p.branch_id,
         isPreassigned: false,
-        createdAt: p.created_at
+        createdAt: p.created_at,
+        permissions: p.permissions
       }));
 
       Object.keys(preassignedMap).forEach(email => {
@@ -324,7 +517,8 @@ export default function ManagementPage() {
             role: preassignedMap[email],
             branch_id: null,
             isPreassigned: true,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            permissions: null
           });
         }
       });
@@ -355,6 +549,15 @@ export default function ManagementPage() {
       // Cargar existencias para métricas de inventario crítico
       const { data: stockData } = await supabase.from('inventory_stock').select('*');
       setStockList(stockData || []);
+
+      // Cargar configuración de impresión
+      const { data: printConf } = await supabase.from('system_config').select('*').eq('key', 'print_config').maybeSingle();
+      if (printConf && printConf.value) {
+        setPrintConfigs(prev => ({
+          ...prev,
+          ...printConf.value
+        }));
+      }
 
     } catch (e: any) {
       console.error('Error al cargar datos de gerencia:', e);
@@ -709,7 +912,7 @@ export default function ManagementPage() {
   const [isSavingStation, setIsSavingStation] = useState(false);
 
   // ─── Estados Análisis ───────────────────────────────────────────
-  const [analyticsTab, setAnalyticsTab] = useState<'employees' | 'customers' | 'products'>('employees');
+  const [analyticsTab, setAnalyticsTab] = useState<'employees' | 'customers' | 'products' | 'rotation'>('employees');
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'today' | 'week' | 'month' | 'all'>('month');
   const [allSalesItems, setAllSalesItems] = useState<any[]>([]);
   const [allSalesFull, setAllSalesFull] = useState<any[]>([]);
@@ -852,6 +1055,190 @@ export default function ManagementPage() {
 
   const totalFilteredRevenue = useMemo(() => filteredSales.reduce((s, v) => s + (parseFloat(v.total) || 0), 0), [filteredSales]);
 
+  // ─── 1. Rotación de Inventario Crítico ───────────────────────────
+  const inventoryRotationStats = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentSales = allSalesFull.filter(s => {
+      if (s.status === 'CANCELADA') return false;
+      const d = new Date(s.created_at);
+      return d >= thirtyDaysAgo;
+    });
+    const recentSaleIds = new Set(recentSales.map(s => s.id));
+
+    const soldQtyMap: Record<string, number> = {};
+    allSalesItems.forEach(item => {
+      if (recentSaleIds.has(item.sale_id)) {
+        const sku = item.sku;
+        const qty = parseFloat(item.quantity) || 0;
+        soldQtyMap[sku] = (soldQtyMap[sku] || 0) + qty;
+      }
+    });
+
+    const stockMap: Record<string, number> = {};
+    stockList.forEach(s => {
+      stockMap[s.sku] = (stockMap[s.sku] || 0) + (parseFloat(s.quantity) || 0);
+    });
+
+    const items = Object.entries(inventoryMap).map(([sku, name]) => {
+      const unitsSold30 = soldQtyMap[sku] || 0;
+      const velocity = unitsSold30 / 30;
+      const stock = stockMap[sku] || 0;
+      const daysRemaining = velocity > 0 ? stock / velocity : (stock > 0 ? Infinity : 0);
+      const isCritical = daysRemaining < 15;
+
+      return {
+        sku,
+        name,
+        velocity,
+        unitsSold30,
+        stock,
+        daysRemaining,
+        isCritical
+      };
+    });
+
+    const criticalItemsList = items.filter(i => i.isCritical);
+    return {
+      all: items.sort((a, b) => a.daysRemaining - b.daysRemaining),
+      critical: criticalItemsList.sort((a, b) => a.daysRemaining - b.daysRemaining),
+      criticalCount: criticalItemsList.length
+    };
+  }, [allSalesFull, allSalesItems, stockList, inventoryMap]);
+
+  // ─── 2 & 3. Cumplimiento de Metas y Proyección (Run Rate) por Vendedor ───
+  const sellerFulfillmentStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthSales = allSalesFull.filter(s => {
+      if (s.status === 'CANCELADA') return false;
+      const d = new Date(s.created_at);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    const sellerSalesMap: Record<string, number> = {};
+    monthSales.forEach(s => {
+      const email = (s.seller_email || '').toLowerCase().trim();
+      if (email) {
+        sellerSalesMap[email] = (sellerSalesMap[email] || 0) + (parseFloat(s.total) || 0);
+      }
+    });
+
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const msElapsed = now.getTime() - firstDayOfMonth.getTime();
+    const daysElapsed = Math.max(0.1, msElapsed / (1000 * 60 * 60 * 24));
+    const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+    const list = usersList
+      .filter(u => !u.isPreassigned)
+      .map(u => {
+        const emailLower = (u.email || '').toLowerCase().trim();
+        const salesAccum = sellerSalesMap[emailLower] || 0;
+        const meta = u.permissions?.meta_asignada || 5000;
+        const pct = meta > 0 ? (salesAccum / meta) * 100 : 0;
+        const runRate = (salesAccum / daysElapsed) * totalDaysInMonth;
+
+        return {
+          id: u.id,
+          email: u.email,
+          role: u.role,
+          salesAccum,
+          meta,
+          pct,
+          runRate
+        };
+      });
+
+    const totalPct = list.reduce((sum, item) => sum + item.pct, 0);
+    const avgFulfillment = list.length > 0 ? totalPct / list.length : 0;
+
+    return {
+      sellers: list.sort((a, b) => b.salesAccum - a.salesAccum),
+      avgFulfillment
+    };
+  }, [allSalesFull, usersList]);
+
+  // ─── 3. Proyección de Cierre Mensual (Run Rate) Global del Negocio ─────
+  const businessRunRateStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthSales = allSalesFull.filter(s => {
+      if (s.status === 'CANCELADA') return false;
+      const d = new Date(s.created_at);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    const salesAccum = monthSales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
+
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const msElapsed = now.getTime() - firstDayOfMonth.getTime();
+    const daysElapsed = Math.max(0.1, msElapsed / (1000 * 60 * 60 * 24));
+    const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+    const runRate = (salesAccum / daysElapsed) * totalDaysInMonth;
+
+    return {
+      salesAccum,
+      runRate,
+      daysElapsed,
+      totalDaysInMonth
+    };
+  }, [allSalesFull]);
+
+  // ─── 4. Alerta de Abandono de Clientes (Churn Rate) ───────────────
+  const customerChurnStats = useMemo(() => {
+    const now = new Date();
+    const clientSalesMap: Record<string, string[]> = {};
+
+    allSalesFull.forEach(s => {
+      if (s.status === 'CANCELADA') return;
+      const name = s.customer_name || 'Consumidor Final';
+      if (!clientSalesMap[name]) {
+        clientSalesMap[name] = [];
+      }
+      clientSalesMap[name].push(s.created_at);
+    });
+
+    const list = Object.entries(clientSalesMap).map(([name, datesStr]) => {
+      const dates = datesStr.map(d => new Date(d).getTime()).sort((a, b) => a - b);
+      const count = dates.length;
+      const lastDate = new Date(dates[count - 1]);
+
+      let avgFrequency = 30;
+      if (count >= 2) {
+        const diffMs = dates[count - 1] - dates[0];
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        avgFrequency = diffDays / (count - 1);
+        if (avgFrequency < 1) avgFrequency = 1;
+      }
+
+      const daysSinceLast = (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+      const isAtRisk = daysSinceLast >= 2 * avgFrequency;
+
+      return {
+        name,
+        purchaseCount: count,
+        lastPurchase: lastDate,
+        avgFrequency,
+        daysSinceLast,
+        isAtRisk
+      };
+    });
+
+    const atRiskList = list.filter(c => c.isAtRisk && c.name !== 'Consumidor Final');
+
+    return {
+      all: list.sort((a, b) => b.daysSinceLast - a.daysSinceLast),
+      atRisk: atRiskList,
+      atRiskCount: atRiskList.length
+    };
+  }, [allSalesFull]);
+
   useEffect(() => {
     if (activeTab === 'config') {
       runDiagnostics();
@@ -897,6 +1284,9 @@ export default function ManagementPage() {
             </TabsTrigger>
             <TabsTrigger value="analytics" className="rounded-xl px-5 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
               <TrendingUp size={14} /> Análisis de Ventas
+            </TabsTrigger>
+            <TabsTrigger value="print-designer" className="rounded-xl px-5 font-bold data-[state=active]:bg-orange-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <Printer size={14} /> Diseño de Impresión
             </TabsTrigger>
           </TabsList>
 
@@ -1510,12 +1900,91 @@ export default function ManagementPage() {
               ))}
             </div>
 
+            {/* Indicadores de Control Avanzado */}
+            <div className="space-y-2 mt-2">
+              <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Indicadores de Control Avanzado (Tiempo Real)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                {/* 1. Rotación de Inventario Crítico */}
+                <Card id="rotacion-inventario-critico" className={`border rounded-xl shadow-sm transition-all ${
+                  inventoryRotationStats.criticalCount > 0 
+                    ? 'bg-rose-500/10 border-rose-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]' 
+                    : 'bg-emerald-500/5 border-emerald-500/20'
+                }`}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
+                      inventoryRotationStats.criticalCount > 0 
+                        ? 'bg-rose-500/20 border-rose-500/30 text-rose-400' 
+                        : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                    }`}>
+                      <AlertTriangle size={18} className={inventoryRotationStats.criticalCount > 0 ? 'animate-bounce' : ''} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Rotación Inventario</p>
+                      <p className="text-lg font-black text-foreground">{inventoryRotationStats.criticalCount} críticos</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Días stock &lt; 15 días</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 2. Cumplimiento de Metas por Vendedor */}
+                <Card id="cumplimiento-metas-vendedor" className="border bg-indigo-500/10 border-indigo-500/20 rounded-xl shadow-sm shadow-indigo-500/5">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl border bg-indigo-500/20 border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+                      <UserCheck size={18} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Meta Vendedores</p>
+                      <p className="text-lg font-black text-foreground">{sellerFulfillmentStats.avgFulfillment.toFixed(1)}%</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Cumplimiento promedio</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 3. Proyección de Cierre Mensual (Run Rate) */}
+                <Card id="run-rate-cierre" className="border bg-blue-500/10 border-blue-500/20 rounded-xl shadow-sm shadow-blue-500/5">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl border bg-blue-500/20 border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
+                      <TrendingUp size={18} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Proyección Cierre</p>
+                      <p className="text-lg font-black text-foreground">${businessRunRateStats.runRate.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Run Rate global del mes</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 4. Alerta de Abandono de Clientes (Churn Rate) */}
+                <Card id="clientes-riesgo-churn" className={`border rounded-xl shadow-sm transition-all ${
+                  customerChurnStats.atRiskCount > 0 
+                    ? 'bg-amber-500/10 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]' 
+                    : 'bg-slate-500/5 border-slate-500/20'
+                }`}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
+                      customerChurnStats.atRiskCount > 0 
+                        ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' 
+                        : 'bg-slate-500/20 border-slate-500/30 text-slate-400'
+                    }`}>
+                      <Users size={18} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Riesgo Abandono</p>
+                      <p className="text-lg font-black text-foreground">{customerChurnStats.atRiskCount} clientes</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Inactividad &gt; 2x frecuencia</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
             {/* Sub-tabs de análisis */}
             <div className="flex gap-2 flex-wrap">
               {[
                 { id: 'employees', label: '👤 Por Empleado', icon: <UserCheck size={13}/> },
                 { id: 'customers', label: '🛍️ Por Cliente', icon: <Users size={13}/> },
                 { id: 'products', label: '🏆 Top Productos', icon: <Award size={13}/> },
+                { id: 'rotation', label: '🔄 Rotación Crítica', icon: <Package size={13}/> },
               ].map(t => (
                 <button
                   key={t.id}
@@ -1553,6 +2022,7 @@ export default function ManagementPage() {
                         <div className="divide-y divide-border">
                           {employeeStats.map((e, i) => {
                             const pct = totalFilteredRevenue > 0 ? (e.total / totalFilteredRevenue) * 100 : 0;
+                            const goalInfo = sellerFulfillmentStats.sellers.find(s => s.email.toLowerCase() === e.email.toLowerCase());
                             return (
                               <div key={e.email} className="p-5 hover:bg-muted/20 transition-colors">
                                 <div className="flex items-center justify-between gap-4 mb-2">
@@ -1561,6 +2031,11 @@ export default function ManagementPage() {
                                     <div>
                                       <p className="text-sm font-bold text-foreground">{e.email}</p>
                                       <p className="text-[10px] text-muted-foreground">{e.count} ventas · Promedio ${e.count > 0 ? (e.total / e.count).toFixed(2) : '0.00'}</p>
+                                      {goalInfo && (
+                                        <p className="text-[9px] font-mono text-indigo-600 dark:text-indigo-400 font-bold mt-1">
+                                          Meta: ${goalInfo.meta.toFixed(2)} · Logrado: ${goalInfo.salesAccum.toFixed(2)} ({goalInfo.pct.toFixed(1)}%) · Proyección Cierre: ${goalInfo.runRate.toFixed(2)}
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
                                   <p className="text-base font-black text-emerald-600 dark:text-emerald-400">${e.total.toFixed(2)}</p>
@@ -1593,14 +2068,29 @@ export default function ManagementPage() {
                         <div className="divide-y divide-border">
                           {customerStats.map((c, i) => {
                             const pct = totalFilteredRevenue > 0 ? (c.total / totalFilteredRevenue) * 100 : 0;
+                            const churnInfo = customerChurnStats.all.find(cust => cust.name.toLowerCase() === c.name.toLowerCase());
                             return (
                               <div key={c.name} className="p-5 hover:bg-muted/20 transition-colors">
                                 <div className="flex items-center justify-between gap-4 mb-2">
                                   <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-xs font-black text-violet-600 dark:text-violet-400">{i + 1}</div>
                                     <div>
-                                      <p className="text-sm font-bold text-foreground">{c.name}</p>
-                                      <p className="text-[10px] text-muted-foreground">{c.count} compras · Última: {new Date(c.last).toLocaleDateString('es')}</p>
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-sm font-bold text-foreground">{c.name}</p>
+                                        {churnInfo?.isAtRisk && c.name !== 'Consumidor Final' && (
+                                          <Badge className="bg-amber-500 hover:bg-amber-600 text-slate-900 text-[9px] font-black h-4 px-1.5 rounded-full select-none">
+                                            RIESGO DE ABANDONO
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-muted-foreground">
+                                        {c.count} compras · Última: {new Date(c.last).toLocaleDateString('es')}
+                                        {churnInfo && (
+                                          <span className="block mt-1 text-[9px] text-muted-foreground font-mono">
+                                            Frecuencia promedio: {churnInfo.avgFrequency.toFixed(1)} días · Días sin comprar: {churnInfo.daysSinceLast.toFixed(0)} días
+                                          </span>
+                                        )}
+                                      </p>
                                     </div>
                                   </div>
                                   <p className="text-base font-black text-violet-600 dark:text-violet-400">${c.total.toFixed(2)}</p>
@@ -1680,6 +2170,60 @@ export default function ManagementPage() {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* ── D: Rotación de Inventario ────────────────────── */}
+                {analyticsTab === 'rotation' && (
+                  <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
+                    <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950">
+                      <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
+                        <Package className="text-orange-400" size={18} /> Rotación de Inventario Crítico
+                      </CardTitle>
+                      <CardDescription className="text-slate-400 text-xs">
+                        Productos ordenados por días de inventario restantes (menor a mayor). Menos de 15 días activa alerta.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {inventoryRotationStats.all.length === 0 ? (
+                        <p className="p-6 text-sm text-center text-muted-foreground">Sin datos de inventario disponibles.</p>
+                      ) : (
+                        <div className="divide-y divide-border">
+                          {inventoryRotationStats.all.map((item, i) => {
+                            const isInfinite = item.daysRemaining === Infinity;
+                            return (
+                              <div key={item.sku} className={`p-5 hover:bg-muted/20 transition-colors ${item.isCritical ? 'bg-rose-500/5' : ''}`}>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black ${
+                                      item.isCritical ? 'bg-rose-500/20 border border-rose-500/30 text-rose-500 animate-pulse' : 'bg-muted border border-border text-muted-foreground'
+                                    }`}>{i + 1}</div>
+                                    <div>
+                                      <p className="text-sm font-bold text-foreground">{item.name}</p>
+                                      <p className="text-[10px] text-muted-foreground font-mono">{item.sku} · Stock Actual: {item.stock} uds.</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-left sm:text-right shrink-0">
+                                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                                      Velocidad: {item.velocity.toFixed(2)} uds/día (30d: {item.unitsSold30} uds)
+                                    </p>
+                                    <div className="flex items-center gap-1.5 mt-0.5 justify-start sm:justify-end">
+                                      <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Duración:</span>
+                                      <span className={`text-xs font-black ${item.isCritical ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                        {isInfinite ? 'Sin ventas (Stock seguro)' : `${item.daysRemaining.toFixed(1)} días`}
+                                      </span>
+                                      {item.isCritical && (
+                                        <Badge className="bg-rose-500 text-white text-[9px] font-black h-4 px-1.5 rounded-full select-none">CRÍTICO</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
               </>
             )}
           </TabsContent>
@@ -1747,6 +2291,460 @@ export default function ManagementPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* pestaña 7: DISEÑO DE IMPRESIÓN */}
+          <TabsContent value="print-designer" className="outline-none space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Columna Izquierda: Editor de Configuración */}
+              <div className="lg:col-span-5 space-y-6">
+                <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
+                  <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+                    <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+                      <Settings className="text-orange-400" size={20} />
+                      Editor de Plantilla
+                    </CardTitle>
+                    <CardDescription className="text-slate-400 text-xs">
+                      Selecciona un área y personaliza cómo se verán los documentos impresos.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+                    {/* Selector de Área */}
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                        Área o Tipo de Documento
+                      </Label>
+                      <Select value={activePrintArea} onValueChange={setActivePrintArea}>
+                        <SelectTrigger className="h-10 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold focus:ring-0 focus:ring-offset-0">
+                          <SelectValue placeholder="Seleccionar área..." />
+                        </SelectTrigger>
+                        <SelectContent className="dark:bg-[#09090b] dark:border-white/10 rounded-xl shadow-2xl">
+                          <SelectItem value="quotations" className="text-xs font-semibold focus:bg-white/10">Cotizaciones / Presupuestos</SelectItem>
+                          <SelectItem value="transfers" className="text-xs font-semibold focus:bg-white/10">Traslados de Mercadería</SelectItem>
+                          <SelectItem value="orders" className="text-xs font-semibold focus:bg-white/10">Pedidos / Orden de Compra</SelectItem>
+                          <SelectItem value="billing" className="text-xs font-semibold focus:bg-white/10">Facturación / Comprobantes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-4 border-t border-slate-200 dark:border-white/10 pt-4">
+                      {/* Inputs dinámicos basados en activePrintArea */}
+                      {(() => {
+                        const current = printConfigs[activePrintArea] || {};
+                        const updateField = (field: string, val: any) => {
+                          setPrintConfigs(prev => ({
+                            ...prev,
+                            [activePrintArea]: {
+                              ...prev[activePrintArea],
+                              [field]: val
+                            }
+                          }));
+                        };
+
+                        return (
+                          <div className="space-y-4">
+                            {/* Panel 1: Info Comercial */}
+                            <div className="space-y-3">
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Información Comercial</h3>
+                              <div className="grid grid-cols-1 gap-3">
+                                <div className="space-y-1.5">
+                                  <Label className="text-[10px] font-semibold text-slate-400">Nombre de la Empresa</Label>
+                                  <Input
+                                    value={current.companyName || ''}
+                                    onChange={e => updateField('companyName', e.target.value)}
+                                    className="h-9 text-xs bg-transparent rounded-lg"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-[10px] font-semibold text-slate-400">Slogan / Subtítulo</Label>
+                                  <Input
+                                    value={current.slogan || ''}
+                                    onChange={e => updateField('slogan', e.target.value)}
+                                    className="h-9 text-xs bg-transparent rounded-lg"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-semibold text-slate-400">NIT</Label>
+                                    <Input
+                                      value={current.nit || ''}
+                                      onChange={e => updateField('nit', e.target.value)}
+                                      className="h-9 text-xs bg-transparent rounded-lg font-mono"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-semibold text-slate-400">NRC</Label>
+                                    <Input
+                                      value={current.nrc || ''}
+                                      onChange={e => updateField('nrc', e.target.value)}
+                                      className="h-9 text-xs bg-transparent rounded-lg font-mono"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Panel 2: Contacto */}
+                            <div className="space-y-3 border-t border-slate-200 dark:border-white/10 pt-3">
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Contacto</h3>
+                              <div className="space-y-3">
+                                <div className="space-y-1.5">
+                                  <Label className="text-[10px] font-semibold text-slate-400">Dirección Física</Label>
+                                  <Input
+                                    value={current.address || ''}
+                                    onChange={e => updateField('address', e.target.value)}
+                                    className="h-9 text-xs bg-transparent rounded-lg"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-semibold text-slate-400">Teléfono</Label>
+                                    <Input
+                                      value={current.phone || ''}
+                                      onChange={e => updateField('phone', e.target.value)}
+                                      className="h-9 text-xs bg-transparent rounded-lg"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-semibold text-slate-400">Correo Electrónico</Label>
+                                    <Input
+                                      value={current.email || ''}
+                                      onChange={e => updateField('email', e.target.value)}
+                                      className="h-9 text-xs bg-transparent rounded-lg"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Panel 3: Logotipo y Estilos */}
+                            <div className="space-y-3 border-t border-slate-200 dark:border-white/10 pt-3">
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Diseño y Logotipo</h3>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-[10px] font-semibold text-slate-400">Mostrar Logotipo</Label>
+                                  <Switch
+                                    checked={!!current.showLogo}
+                                    onCheckedChange={checked => updateField('showLogo', checked)}
+                                  />
+                                </div>
+                                {current.showLogo && (
+                                  <div className="space-y-1.5 animate-in slide-in-from-top-1 duration-200">
+                                    <Label className="text-[10px] font-semibold text-slate-400">URL del Logo (Imagen en Web)</Label>
+                                    <Input
+                                      placeholder="https://ejemplo.com/logo.png"
+                                      value={current.logoUrl || ''}
+                                      onChange={e => updateField('logoUrl', e.target.value)}
+                                      className="h-9 text-xs bg-transparent rounded-lg"
+                                    />
+                                  </div>
+                                )}
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-semibold text-slate-400">Posición del Logo</Label>
+                                    <Select value={current.logoPosition || 'left'} onValueChange={val => updateField('logoPosition', val)}>
+                                      <SelectTrigger className="h-9 text-xs bg-transparent rounded-lg">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="dark:bg-[#09090b]">
+                                        <SelectItem value="left" className="text-xs">Izquierda</SelectItem>
+                                        <SelectItem value="center" className="text-xs">Centro</SelectItem>
+                                        <SelectItem value="right" className="text-xs">Derecha</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-semibold text-slate-400">Tamaño Letra</Label>
+                                    <Select value={current.fontSize || 'medium'} onValueChange={val => updateField('fontSize', val)}>
+                                      <SelectTrigger className="h-9 text-xs bg-transparent rounded-lg">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="dark:bg-[#09090b]">
+                                        <SelectItem value="small" className="text-xs">Pequeña</SelectItem>
+                                        <SelectItem value="medium" className="text-xs">Mediana</SelectItem>
+                                        <SelectItem value="large" className="text-xs">Grande</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-[10px] font-semibold text-slate-400">Color de Acento Impresión</Label>
+                                  <div className="flex gap-2 items-center">
+                                    <Input
+                                      type="color"
+                                      value={current.accentColor || '#ea580c'}
+                                      onChange={e => updateField('accentColor', e.target.value)}
+                                      className="w-10 h-8 p-0 rounded-lg cursor-pointer border-none bg-transparent"
+                                    />
+                                    <span className="text-xs font-mono font-bold text-foreground">{current.accentColor || '#ea580c'}</span>
+                                    <div className="flex gap-1.5 ml-auto">
+                                      {['#ea580c', '#3b82f6', '#10b981', '#6366f1', '#1e293b'].map(c => (
+                                        <div
+                                          key={c}
+                                          onClick={() => updateField('accentColor', c)}
+                                          className="w-5 h-5 rounded-full cursor-pointer border border-white/20 transition-transform active:scale-90"
+                                          style={{ backgroundColor: c }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Panel 4: Términos y Condiciones */}
+                            <div className="space-y-3 border-t border-slate-200 dark:border-white/10 pt-3">
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Términos y Notas</h3>
+                              <div className="space-y-3">
+                                <div className="space-y-1.5">
+                                  <Label className="text-[10px] font-semibold text-slate-400">Términos y Condiciones Generales</Label>
+                                  <textarea
+                                    value={current.termsConditions || ''}
+                                    onChange={e => updateField('termsConditions', e.target.value)}
+                                    rows={4}
+                                    className="w-full text-xs bg-transparent border border-slate-200 dark:border-white/10 rounded-lg p-2 focus:ring-0 focus:outline-none text-foreground"
+                                    placeholder="Ingrese los términos de la plantilla..."
+                                  />
+                                  <p className="text-[9px] text-muted-foreground italic">Comodín disponible: {"{iva_detail}"} (Cambia entre "ya incluyen IVA" o "no incluyen IVA").</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-[10px] font-semibold text-slate-400">Notas Adicionales (Ej. Firma pie, agradecimiento)</Label>
+                                  <textarea
+                                    value={current.extraNotes || ''}
+                                    onChange={e => updateField('extraNotes', e.target.value)}
+                                    rows={2}
+                                    className="w-full text-xs bg-transparent border border-slate-200 dark:border-white/10 rounded-lg p-2 focus:ring-0 focus:outline-none text-foreground"
+                                    placeholder="Ej. Gracias por su preferencia..."
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-[10px] font-semibold text-slate-400">Sección de Firmas al final</Label>
+                                  <Switch
+                                    checked={!!current.showSignatureFields}
+                                    onCheckedChange={checked => updateField('showSignatureFields', checked)}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </CardContent>
+                  <div className="p-6 bg-slate-50/50 dark:bg-black/20 border-t border-slate-200 dark:border-white/10 flex justify-between gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleResetPrintConfig(activePrintArea)}
+                      className="rounded-xl h-10 text-xs font-bold"
+                    >
+                      Restablecer
+                    </Button>
+                    <Button
+                      disabled={isSavingPrint}
+                      onClick={handleSavePrintConfig}
+                      className="rounded-xl h-10 text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white flex-1"
+                    >
+                      {isSavingPrint ? <Loader2 className="animate-spin mr-2" size={14} /> : <Save className="mr-2" size={14} />}
+                      Guardar Plantilla
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Columna Derecha: Vista Previa Interactiva */}
+              <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <MonitorIcon size={14} className="text-orange-500" />
+                    Vista Previa del Documento Impreso
+                  </h3>
+                  <Badge className="bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 font-bold text-[9px] uppercase border-none">
+                    Lienzo Dinámico (Hoja Carta)
+                  </Badge>
+                </div>
+
+                {/* Hoja de papel simulada */}
+                {(() => {
+                  const current = printConfigs[activePrintArea] || {};
+                  const titleArea = activePrintArea === 'quotations' ? 'COTIZACIÓN DE PRECIOS' : activePrintArea === 'transfers' ? 'COMPROBANTE DE TRASLADO' : activePrintArea === 'orders' ? 'PEDIDO DE COMPRA / ORDEN' : 'COMPROBANTE DE FACTURACIÓN';
+                  const docNum = activePrintArea === 'quotations' ? 'COT-488921' : activePrintArea === 'transfers' ? 'TRA-00281' : activePrintArea === 'orders' ? 'PED-09923' : 'FAC-003891';
+                  
+                  return (
+                    <div className="bg-white text-slate-900 border border-slate-300 rounded-2xl shadow-xl p-8 max-w-full overflow-hidden select-none font-sans relative select-text transition-all duration-200" style={{ fontSize: current.fontSize === 'small' ? '10px' : current.fontSize === 'large' ? '13px' : '11px' }}>
+                      
+                      {/* ENCABEZADO */}
+                      <div 
+                        className={`flex ${current.logoPosition === 'center' ? 'flex-col items-center text-center' : current.logoPosition === 'right' ? 'flex-row-reverse justify-between items-start' : 'justify-between items-start'} border-b pb-4 mb-4`}
+                        style={{ borderBottomColor: current.accentColor || '#334155' }}
+                      >
+                        {current.showLogo && (
+                          <div className="mb-2 w-14 h-14 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 overflow-hidden text-[9px] font-bold text-slate-400">
+                            {current.logoUrl ? (
+                              <img src={current.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                            ) : (
+                              'SIN LOGO'
+                            )}
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="text-xl font-black tracking-tight text-slate-900">{current.companyName || 'ERP NEXWAY'}</h4>
+                          {current.slogan && <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{current.slogan}</p>}
+                          <div className="text-[9px] text-slate-500 mt-2 space-y-0.5">
+                            <p>{current.address || 'San Salvador, El Salvador'}</p>
+                            <p>Teléfono: {current.phone || '+503 2200-0000'}</p>
+                            <p>{current.nit ? `NIT: ${current.nit}` : ''} {current.nrc ? ` | NRC: ${current.nrc}` : ''}</p>
+                          </div>
+                        </div>
+                        <div className={current.logoPosition === 'center' ? 'text-center mt-2' : 'text-right'}>
+                          <div 
+                            className="text-white px-3 py-1.5 rounded-lg inline-block text-[9px] font-bold tracking-widest uppercase"
+                            style={{ backgroundColor: current.accentColor || '#334155' }}
+                          >
+                            <p>{titleArea}</p>
+                            <p className="font-mono mt-0.5 text-xs">{docNum}</p>
+                          </div>
+                          <div className="text-[9px] text-slate-500 mt-2 space-y-0.5">
+                            <p><span className="font-bold text-slate-700">Fecha Emisión:</span> {new Date().toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* DATOS DEL DOCUMENTO DEPENDIENDO DEL ÁREA */}
+                      {activePrintArea === 'quotations' && (
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 grid grid-cols-2 gap-2 text-[9px]">
+                          <div>
+                            <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">Cliente / Solicitante</p>
+                            <p className="font-bold text-slate-800 text-xs mt-0.5">Comercial Los Robles S.A.</p>
+                          </div>
+                          <div className="grid grid-cols-2">
+                            <div>
+                              <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">NIT</p>
+                              <p className="font-mono mt-0.5 font-semibold">0614-121295-101-2</p>
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">NRC</p>
+                              <p className="font-mono mt-0.5 font-semibold">188203-1</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {activePrintArea === 'transfers' && (
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 grid grid-cols-2 gap-2 text-[9px]">
+                          <div>
+                            <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">Bodega de Origen</p>
+                            <p className="font-bold text-slate-800 text-xs mt-0.5">Bodega Central / San Salvador</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">Bodega de Destino</p>
+                            <p className="font-bold text-slate-800 text-xs mt-0.5">Sucursal Santa Tecla</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {activePrintArea === 'orders' && (
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 grid grid-cols-2 gap-2 text-[9px]">
+                          <div>
+                            <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">Proveedor Destinatario</p>
+                            <p className="font-bold text-slate-800 text-xs mt-0.5">Importaciones Globales S.A.</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">Autorizado Por</p>
+                            <p className="font-bold text-slate-800 text-xs mt-0.5">Gerencia General / Admin</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {activePrintArea === 'billing' && (
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 grid grid-cols-2 gap-2 text-[9px]">
+                          <div>
+                            <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">Comprobante Venta</p>
+                            <p className="font-bold text-slate-800 text-xs mt-0.5">Factura de Consumidor Final</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-400 uppercase tracking-wider text-[8px]">Forma de Pago</p>
+                            <p className="font-bold text-slate-800 text-xs mt-0.5">Efectivo / Cash</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* TABLA EJEMPLO */}
+                      <table className="w-full border-collapse text-[9px] mb-4">
+                        <thead>
+                          <tr className="text-white" style={{ backgroundColor: current.accentColor || '#334155' }}>
+                            <th className="p-1 px-2 text-center rounded-l w-[30px]">CANT</th>
+                            <th className="p-1 px-2 text-left w-[80px]">CÓDIGO</th>
+                            <th className="p-1 px-2 text-left">DESCRIPCIÓN</th>
+                            <th className="p-1 px-2 text-right w-[60px]">P. UNIT</th>
+                            <th className="p-1 px-2 text-right rounded-r w-[80px]">TOTAL</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 border-b border-slate-200">
+                          <tr>
+                            <td className="p-2 text-center font-bold">1</td>
+                            <td className="p-2 font-mono text-slate-500">TUB-PVC-3/4</td>
+                            <td className="p-2 font-bold text-slate-800">Tubo PVC Presión 3/4 Pulgada</td>
+                            <td className="p-2 text-right font-medium">$5.50</td>
+                            <td className="p-2 text-right font-bold text-slate-900">$5.50</td>
+                          </tr>
+                          <tr className="bg-slate-50/50">
+                            <td className="p-2 text-center font-bold">2</td>
+                            <td className="p-2 font-mono text-slate-500">PEG-PVC-1/4</td>
+                            <td className="p-2 font-bold text-slate-800">Pegamento PVC 1/4 Galón</td>
+                            <td className="p-2 text-right font-medium">$1.50</td>
+                            <td className="p-2 text-right font-bold text-slate-900">$3.00</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* TOTALES Y TÉRMINOS */}
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="text-[8px] text-slate-400 max-w-[50%] whitespace-pre-line leading-normal">
+                          <p className="font-bold text-slate-600 uppercase tracking-wider mb-0.5">Condiciones Generales</p>
+                          {current.termsConditions
+                            ? current.termsConditions.replace(/{iva_detail}/g, 'ya incluyen IVA (13%)')
+                            : 'Términos generales por defecto.'}
+                          {current.extraNotes && <p className="mt-1.5 text-slate-350 italic font-semibold">{current.extraNotes}</p>}
+                        </div>
+                        <div className="w-[180px] bg-slate-50 border border-slate-200 p-2 rounded-lg space-y-1 text-[9px]">
+                          <div className="flex justify-between text-slate-500">
+                            <span>Subtotal:</span>
+                            <span className="font-bold">$7.52</span>
+                          </div>
+                          <div className="flex justify-between text-slate-500">
+                            <span>IVA (13%):</span>
+                            <span className="font-bold">$0.98</span>
+                          </div>
+                          <div 
+                            className="flex justify-between border-t pt-1 font-bold text-slate-800"
+                            style={{ borderTopColor: current.accentColor || '#cbd5e1' }}
+                          >
+                            <span>TOTAL:</span>
+                            <span className="text-xs font-black" style={{ color: current.accentColor || '#0f172a' }}>$8.50</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SECCIÓN DE FIRMAS */}
+                      {current.showSignatureFields && (
+                        <div className="grid grid-cols-2 gap-8 mt-8 pt-4 border-t border-slate-100 text-center text-[8px] text-slate-500">
+                          <div className="space-y-1">
+                            <div className="w-28 border-b border-slate-300 mx-auto h-4"></div>
+                            <p className="font-bold">Firma Autorizada y Sello</p>
+                            <p className="text-[7px] opacity-75">Control Emisor</p>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="w-28 border-b border-slate-300 mx-auto h-4"></div>
+                            <p className="font-bold">Recibido Conforme</p>
+                            <p className="text-[7px] opacity-75">Firma del Solicitante</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -2268,6 +3266,21 @@ DO ${'$'}${'$'} BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.suppl
 
           <ScrollArea className="flex-1 pr-2 my-4">
             <div className="space-y-6">
+              {/* META MENSUAL DE VENTAS */}
+              <div className="p-4 rounded-xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 space-y-3">
+                <div className="flex flex-col space-y-1.5">
+                  <Label className="text-xs font-black uppercase text-indigo-700 dark:text-indigo-400">Meta Mensual de Ventas ($)</Label>
+                  <p className="text-[10px] text-muted-foreground">Establece el objetivo de ventas acumuladas para este empleado en el mes en curso.</p>
+                  <Input 
+                    type="number"
+                    placeholder="Ej. 5000"
+                    value={userPermsMeta}
+                    onChange={(e) => setUserPermsMeta(e.target.value)}
+                    className="h-10 bg-white dark:bg-zinc-900 border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold w-full sm:w-60"
+                  />
+                </div>
+              </div>
+
               {modules.map((m) => {
                 const moduleEnabled = userPermsModules.includes(m.id);
                 return (
