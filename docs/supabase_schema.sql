@@ -387,3 +387,25 @@ alter table public.sales add column if not exists branch_id uuid references publ
 alter table public.purchases add column if not exists branch_id uuid references public.branches(id) on delete set null;
 
 alter publication supabase_realtime add table public.branches;
+
+-- 25. TABLA DE MÓDULOS PERSONALIZADOS (Toma Física, configuraciones JSON, etc.)
+-- Usada para guardar el resultado masivo de una Toma Física de Inventario y otras
+-- configuraciones o datos estructurados de módulos no estándar.
+create table if not exists public.modulos_personalizados (
+  id          uuid default uuid_generate_v4() primary key,
+  nombre_modulo text not null default 'toma_fisica',
+  datos       jsonb not null,
+  producto_id text,  -- SKU de referencia opcional
+  created_at  timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- Políticas RLS básicas
+alter table public.modulos_personalizados enable row level security;
+
+create policy "Permitir lectura de modulos_personalizados"
+  on public.modulos_personalizados for select using (true);
+
+create policy "Permitir inserción de modulos_personalizados"
+  on public.modulos_personalizados for insert with check (true);
+
+alter publication supabase_realtime add table public.modulos_personalizados;

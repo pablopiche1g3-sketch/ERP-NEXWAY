@@ -286,6 +286,25 @@ export default function InventoryMasterPage() {
   // Estados para datos cargados desde Supabase
   const [inventory, setInventory] = useState<any[]>([]);
 
+  // ================================================================
+  // ESTADOS: TOMA FÍSICA (Hoja de Cálculo Reactiva)
+  // ================================================================
+  interface TomaFisicaRow {
+    id: string;
+    sku: string;
+    name: string;
+    sistemaStock: number;
+    conteoReal: number | string;
+    diferencia: number;
+  }
+  const [tomaFisicaGrid, setTomaFisicaGrid] = useState<TomaFisicaRow[]>([]);
+  const [loadingTomaFisica, setLoadingTomaFisica] = useState(false);
+  const [tomaFisicaSaving, setTomaFisicaSaving] = useState(false);
+  const [tomaFisicaSearch, setTomaFisicaSearch] = useState('');
+  const [tomaFisicaFechaCorte, setTomaFisicaFechaCorte] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+
   const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
 
   const filteredSystemInventory = useMemo(() => {
@@ -456,6 +475,152 @@ export default function InventoryMasterPage() {
   useEffect(() => {
     loadSupabaseData();
   }, []);
+
+  // ================================================================
+  // FUNCIONES: TOMA FÍSICA
+  // ================================================================
+
+  /** Carga el catálogo maestro + stocks consolidados y construye la cuadrícula */
+  const fetchTomaFisicaItems = async () => {
+    setLoadingTomaFisica(true);
+    try {
+      // Traer catálogo maestro
+      const { data: invItems, error: invErr } = await supabase
+        .from('inventory')
+        .select('sku, name, quantity')
+        .order('sku');
+      if (invErr) throw invErr;
+
+      // Traer existencias por bodega
+      const { data: stockItems } = await supabase
+        .from('inventory_stock')
+        .select('sku, quantity');
+
+      // Construir mapa de stocks consolidados
+      const stockMap: Record<string, number> = {};
+      (stockItems || []).forEach((s: any) => {
+        const qty = parseFloat(s.quantity) || 0;
+        stockMap[s.sku] = (stockMap[s.sku] || 0) + qty;
+      });
+
+      const rows: TomaFisicaRow[] = (invItems || []).map((item: any) => {
+        const sistemaStock = stockMap[item.sku] ?? (parseFloat(item.quantity) || 0);
+        return {
+          id: item.sku,
+          sku: item.sku,
+          name: item.name,
+          sistemaStock,
+          conteoReal: '',
+          diferencia: 0,
+        };
+      });
+
+      setTomaFisicaGrid(rows);
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al cargar Toma Física',
+        description: err.message || 'No se pudo cargar el catálogo de productos.',
+      });
+    } finally {
+      setLoadingTomaFisica(false);
+    }
+  };
+
+  /** Actualiza el conteo real de una fila y recalcula la diferencia en tiempo real */
+  const handleConteoRealChange = (sku: string, valor: string) => {
+    setTomaFisicaGrid(prev =>
+      prev.map(row => {
+        if (row.sku !== sku) return row;
+        const conteoReal = valor === '' ? '' : parseFloat(valor) || 0;
+        const diferencia = typeof conteoReal === 'number'
+          ? conteoReal - row.sistemaStock
+          : 0;
+        return { ...row, conteoReal, diferencia };
+      })
+    );
+  };
+
+  /** Guarda la cuadrícula completa en la tabla modulos_personalizados de Supabase */
+  const handleFinalizarConteo = async () => {
+    const rowsConConteo = tomaFisicaGrid.filter(r => r.conteoReal !== '');
+    if (rowsConConteo.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Sin datos',
+        description: 'Ingrese al menos un conteo antes de finalizar.',
+      });
+      return;
+    }
+
+    setTomaFisicaSaving(true);
+    try {
+      const payload = {
+        nombre_modulo: 'toma_fisica',
+        datos: {
+          fecha_corte: tomaFisicaFechaCorte,
+          total_items: tomaFisicaGrid.length,
+          items_contados: rowsConConteo.length,
+          cuadricula: tomaFisicaGrid.map(r => ({
+            sku: r.sku,
+            nombre_producto: r.name,
+            stock_sistema: r.sistemaStock,
+            conteo_real: r.conteoReal === '' ? null : Number(r.conteoReal),
+            diferencia: r.diferencia,
+          })),
+        },
+        producto_id: null,
+      };
+
+      const { error } = await supabase
+        .from('modulos_personalizados')
+        .insert(payload);
+
+      if (error) throw error;
+
+      toast({
+        title: '✅ Toma Física Guardada',
+        description: `${rowsConConteo.length} ítems registrados correctamente en la nube.`,
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al guardar',
+        description: err.message || 'No se pudo guardar la toma física.',
+      });
+    } finally {
+      setTomaFisicaSaving(false);
+    }
+  };
+
+  // Cargar toma física cuando se activa la pestaña
+  useEffect(() => {
+    if (activeTab === 'toma-fisica') {
+      fetchTomaFisicaItems();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // Filtrado reactivo de filas en la hoja de cálculo
+  const tomaFisicaFiltered = useMemo(() => {
+    const s = tomaFisicaSearch.toLowerCase().trim();
+    if (!s) return tomaFisicaGrid;
+    return tomaFisicaGrid.filter(r =>
+      r.sku.toLowerCase().includes(s) ||
+      r.name.toLowerCase().includes(s)
+    );
+  }, [tomaFisicaGrid, tomaFisicaSearch]);
+
+  // Estadísticas en tiempo real para el resumen
+  const tomaFisicaStats = useMemo(() => {
+    const contados = tomaFisicaGrid.filter(r => r.conteoReal !== '').length;
+    const sobrantes = tomaFisicaGrid.filter(r => typeof r.conteoReal === 'number' && r.diferencia > 0).length;
+    const faltantes = tomaFisicaGrid.filter(r => typeof r.conteoReal === 'number' && r.diferencia < 0).length;
+    const exactos = tomaFisicaGrid.filter(r => typeof r.conteoReal === 'number' && r.diferencia === 0).length;
+    return { contados, sobrantes, faltantes, exactos };
+  }, [tomaFisicaGrid]);
+
+
 
   // Generar SKU Automático según categoría
   const generateAutoSku = () => {
@@ -2291,184 +2456,370 @@ export default function InventoryMasterPage() {
               </Card>
             </TabsContent>
 
-            {/* TAB TOMA FISICA */}
-            <TabsContent value="toma-fisica" className="space-y-6 outline-none animate-in fade-in duration-300">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-5 space-y-4">
-                  <Card className="glass-card rounded-2xl">
-                    <CardHeader className="p-6 border-b">
-                      <CardTitle className="text-base font-bold flex items-center gap-2">
-                        <ClipboardList className="text-blue-600" size={18} />
-                        Registro de Toma Física
-                      </CardTitle>
-                      <CardDescription className="text-xs">Realice ajustes y corrección de stock tras inventarios físicos.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-6 space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Bodega de Ajuste</Label>
-                        <Select 
-                          value={linkForm.warehouseName}
-                          onValueChange={(val) => setLinkForm({ ...linkForm, warehouseName: val })}
-                        >
-                          <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
-                            <SelectValue placeholder="Seleccione bodega..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {warehouses?.map((wh: any) => (
-                              <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+            {/* TAB TOMA FISICA - HOJA DE CÁLCULO REACTIVA */}
+            <TabsContent value="toma-fisica" className="space-y-0 outline-none animate-in fade-in duration-300">
+              {/* Container estilo hoja de cálculo neón oscuro */}
+              <div
+                style={{ background: 'linear-gradient(135deg, #0b0d19 0%, #0f1128 60%, #0b0f24 100%)' }}
+                className="rounded-2xl border border-slate-800/60 overflow-hidden shadow-2xl shadow-black/60"
+              >
+                {/* ── Barra de herramientas superior ── */}
+                <div
+                  style={{ background: 'rgba(15,17,40,0.95)', borderBottom: '1px solid rgba(99,102,241,0.20)' }}
+                  className="px-5 py-4 flex flex-wrap items-center gap-3"
+                >
+                  {/* Título */}
+                  <div className="flex items-center gap-2 mr-2">
+                    <div style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow: '0 0 12px rgba(99,102,241,0.5)' }}
+                      className="p-1.5 rounded-lg">
+                      <ClipboardList size={15} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black text-white tracking-wide leading-none">TOMA FÍSICA</p>
+                      <p className="text-[9px] text-indigo-400/70 font-medium mt-0.5">Hoja de Conteo de Inventario</p>
+                    </div>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Seleccionar Producto (SKU)</Label>
-                        <Select 
-                          value={linkForm.productSku}
-                          onValueChange={(val) => {
-                            const prod = inventory?.find((p: any) => p.sku === val);
-                            const systemStock = prod?.quantity || 0;
-                            setLinkForm({ 
-                              ...linkForm, 
-                              productSku: val,
-                              initialStock: systemStock.toString()
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="h-11 bg-slate-50 border-slate-100 rounded-xl text-xs font-bold">
-                            <SelectValue placeholder="Seleccione producto..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {inventory?.map((p: any) => (
-                              <SelectItem key={p.id} value={p.sku}>{p.sku} - {p.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  {/* Fecha de corte */}
+                  <div className="flex items-center gap-2 border border-slate-700/60 rounded-xl px-3 py-1.5 bg-slate-900/60">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Fecha Corte</span>
+                    <input
+                      type="date"
+                      value={tomaFisicaFechaCorte}
+                      onChange={e => setTomaFisicaFechaCorte(e.target.value)}
+                      className="bg-transparent text-[11px] font-bold text-cyan-400 border-none outline-none cursor-pointer"
+                    />
+                  </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Stock Sistema</Label>
-                          <Input 
-                            type="number" 
-                            disabled 
-                            value={linkForm.productSku ? (inventory?.find((p: any) => p.sku === linkForm.productSku)?.quantity || 0) : 0}
-                            className="h-11 bg-slate-100 rounded-xl font-bold border-none"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Conteo Físico</Label>
-                          <Input 
-                            type="number" 
-                            placeholder="0" 
-                            value={linkForm.initialStock}
-                            onChange={(e) => setLinkForm({ ...linkForm, initialStock: e.target.value })}
-                            className="h-11 bg-slate-50 border-slate-100 rounded-xl font-black text-blue-600 text-lg"
-                          />
-                        </div>
-                      </div>
+                  {/* Buscador */}
+                  <div className="flex-1 min-w-[180px] max-w-xs flex items-center gap-2 border border-slate-700/60 rounded-xl px-3 py-1.5 bg-slate-900/60">
+                    <Search size={12} className="text-slate-500 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Buscar SKU o producto..."
+                      value={tomaFisicaSearch}
+                      onChange={e => setTomaFisicaSearch(e.target.value)}
+                      className="bg-transparent text-[11px] text-white placeholder:text-slate-600 border-none outline-none w-full"
+                    />
+                  </div>
 
-                      {linkForm.productSku && (
-                        <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl text-xs space-y-2 animate-in fade-in slide-in-from-top-2">
-                          <div className="flex justify-between font-bold">
-                            <span className="text-slate-500">Diferencia de Ajuste:</span>
-                            {(() => {
-                              const sys = inventory?.find((p: any) => p.sku === linkForm.productSku)?.quantity || 0;
-                              const count = parseFloat(linkForm.initialStock) || 0;
-                              const diff = count - sys;
-                              return (
-                                <span className={diff === 0 ? 'text-slate-700' : diff > 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                                  {diff > 0 ? `+${diff}` : diff} unidades
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          <p className="text-[10px] text-slate-400 italic">El stock consolidado del producto y su bodega seleccionada se ajustarán automáticamente al valor del conteo físico al guardar.</p>
-                        </div>
-                      )}
+                  {/* Botón recargar */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={fetchTomaFisicaItems}
+                    disabled={loadingTomaFisica}
+                    className="h-8 px-3 text-slate-400 hover:text-cyan-400 hover:bg-cyan-400/10 rounded-xl border border-slate-700/50 text-[10px] font-bold gap-1.5 transition-all"
+                  >
+                    {loadingTomaFisica
+                      ? <Loader2 size={12} className="animate-spin" />
+                      : <ArrowRight size={12} className="rotate-[-90deg]" />}
+                    Recargar
+                  </Button>
 
-                      <Button 
-                        onClick={handleLinkProductToWarehouse}
-                        disabled={loading || !linkForm.warehouseName || !linkForm.productSku}
-                        className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all mt-2"
-                      >
-                        {loading ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
-                        APLICAR TOMA FÍSICA
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* Contador de ítems */}
+                  <div className="text-[10px] font-bold text-slate-500">
+                    {tomaFisicaFiltered.length} de {tomaFisicaGrid.length} ítems
+                  </div>
+
+                  {/* Botón Finalizar Conteo */}
+                  <Button
+                    onClick={handleFinalizarConteo}
+                    disabled={tomaFisicaSaving || loadingTomaFisica}
+                    className="h-9 px-5 font-black text-[11px] rounded-xl gap-2 transition-all active:scale-95"
+                    style={{
+                      background: tomaFisicaSaving
+                        ? 'rgba(99,102,241,0.3)'
+                        : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                      boxShadow: '0 0 20px rgba(99,102,241,0.45)',
+                      color: 'white'
+                    }}
+                  >
+                    {tomaFisicaSaving
+                      ? <><Loader2 size={13} className="animate-spin" /> Guardando...</>
+                      : <><Save size={13} /> FINALIZAR CONTEO</>
+                    }
+                  </Button>
                 </div>
 
-                <div className="lg:col-span-7">
-                  <Card className="glass-card rounded-2xl overflow-hidden">
-                    <CardHeader className="p-6 border-b">
-                      <CardTitle className="text-sm font-bold flex items-center gap-2">
-                        <Warehouse className="text-blue-600" size={18} />
-                        Consulta General de Bodegas
-                      </CardTitle>
-                      <CardDescription className="text-xs">Vea la distribución de existencias físicas en sus diferentes almacenes.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="p-4 border-b flex items-center gap-4 bg-white/5 border-b border-white/10">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Filtrar por Bodega:</span>
-                        <Select value={selectedWhView} onValueChange={setSelectedWhView}>
-                          <SelectTrigger className="w-[180px] h-9 bg-white dark:bg-slate-900 border-slate-200 text-xs font-bold rounded-lg shadow-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Todas">Todas las Bodegas</SelectItem>
-                            {warehouses?.map((w: any) => (
-                              <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                {/* ── Banda de estadísticas en tiempo real ── */}
+                <div
+                  style={{ background: 'rgba(11,13,25,0.8)', borderBottom: '1px solid rgba(30,41,59,0.8)' }}
+                  className="px-5 py-2 flex items-center gap-6 overflow-x-auto"
+                >
+                  {[
+                    {
+                      label: 'Contados',
+                      value: tomaFisicaStats.contados,
+                      color: '#6366f1',
+                      bg: 'rgba(99,102,241,0.12)',
+                      glow: 'rgba(99,102,241,0.35)'
+                    },
+                    {
+                      label: 'Sobrantes ▲',
+                      value: tomaFisicaStats.sobrantes,
+                      color: '#10b981',
+                      bg: 'rgba(16,185,129,0.10)',
+                      glow: 'rgba(16,185,129,0.30)'
+                    },
+                    {
+                      label: 'Faltantes ▼',
+                      value: tomaFisicaStats.faltantes,
+                      color: '#f43f5e',
+                      bg: 'rgba(244,63,94,0.10)',
+                      glow: 'rgba(244,63,94,0.30)'
+                    },
+                    {
+                      label: 'Sin Diferencia ●',
+                      value: tomaFisicaStats.exactos,
+                      color: '#94a3b8',
+                      bg: 'rgba(148,163,184,0.08)',
+                      glow: 'transparent'
+                    },
+                    {
+                      label: 'Total Catálogo',
+                      value: tomaFisicaGrid.length,
+                      color: '#38bdf8',
+                      bg: 'rgba(56,189,248,0.08)',
+                      glow: 'transparent'
+                    }
+                  ].map(stat => (
+                    <div key={stat.label} className="flex items-center gap-2 shrink-0">
+                      <div
+                        style={{ background: stat.bg, border: `1px solid ${stat.color}30`, boxShadow: `0 0 8px ${stat.glow}` }}
+                        className="px-2.5 py-0.5 rounded-lg"
+                      >
+                        <span style={{ color: stat.color }} className="text-base font-black tabular-nums">
+                          {stat.value}
+                        </span>
                       </div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-[10px] font-black uppercase px-6">Código SKU</TableHead>
-                            <TableHead className="text-[10px] font-black uppercase">Nombre</TableHead>
-                            <TableHead className="text-center text-[10px] font-black uppercase">Stock Bodega</TableHead>
-                            <TableHead className="text-right text-[10px] font-black uppercase px-6">Acción</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {productsInSelectedWarehouse.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={4} className="text-center py-16 text-slate-400 italic text-xs">
-                                No hay productos asignados a esta bodega.
-                              </TableCell>
-                            </TableRow>
-                          ) : productsInSelectedWarehouse.map((p: any) => {
-                            const whQty = selectedWhView === 'Todas' ? (p.quantity || 0) : (p.bodegas?.[selectedWhView] || 0);
-                            return (
-                              <TableRow key={p.id} className="hover:bg-white/10 border-b border-white/5">
-                                <TableCell className="px-6 font-mono font-bold text-xs">{p.sku}</TableCell>
-                                <TableCell className="font-bold text-xs">{p.name}</TableCell>
-                                <TableCell className="text-center">
-                                  <Badge className={whQty > 0 ? 'bg-blue-50 text-blue-700' : 'bg-rose-50 text-rose-700'}>
-                                    {whQty} unidades
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right px-6">
-                                  {selectedWhView !== 'Todas' && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-[10px]"
-                                      onClick={() => handleUnlinkProductFromWarehouse(p.id, selectedWhView)}
-                                    >
-                                      Remover de Bodega
-                                    </Button>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600">{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Cabecera de columnas tipo Excel ── */}
+                <div
+                  style={{
+                    gridTemplateColumns: '48px 120px 1fr 110px 150px 110px',
+                    background: 'rgba(15,17,40,0.98)',
+                    borderBottom: '1px solid rgba(30,41,59,1)',
+                    display: 'grid',
+                    gap: 0,
+                  }}
+                  className="sticky top-0 z-10"
+                >
+                  {/* Número de fila */}
+                  <div className="px-3 py-2.5 text-center border-r border-slate-800/80">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">#</span>
+                  </div>
+                  {/* SKU */}
+                  <div className="px-3 py-2.5 border-r border-slate-800/80">
+                    <span
+                      style={{ color: '#38bdf8', textShadow: '0 0 10px rgba(56,189,248,0.6)' }}
+                      className="text-[9px] font-black uppercase tracking-widest"
+                    >
+                      SKU
+                    </span>
+                  </div>
+                  {/* Descripción */}
+                  <div className="px-4 py-2.5 border-r border-slate-800/80">
+                    <span
+                      style={{ color: '#38bdf8', textShadow: '0 0 10px rgba(56,189,248,0.6)' }}
+                      className="text-[9px] font-black uppercase tracking-widest"
+                    >
+                      Descripción del Producto
+                    </span>
+                  </div>
+                  {/* Sistema */}
+                  <div className="px-3 py-2.5 text-right border-r border-slate-800/80">
+                    <span
+                      style={{ color: '#818cf8', textShadow: '0 0 8px rgba(129,140,248,0.5)' }}
+                      className="text-[9px] font-black uppercase tracking-widest"
+                    >
+                      Sistema
+                    </span>
+                  </div>
+                  {/* Conteo Real */}
+                  <div className="px-3 py-2.5 text-center border-r border-slate-800/80">
+                    <span
+                      style={{ color: '#34d399', textShadow: '0 0 10px rgba(52,211,153,0.6)' }}
+                      className="text-[9px] font-black uppercase tracking-widest"
+                    >
+                      ✏ Conteo Real
+                    </span>
+                  </div>
+                  {/* Diferencia */}
+                  <div className="px-3 py-2.5 text-right">
+                    <span
+                      style={{ color: '#f59e0b', textShadow: '0 0 8px rgba(245,158,11,0.5)' }}
+                      className="text-[9px] font-black uppercase tracking-widest"
+                    >
+                      Δ Diferencia
+                    </span>
+                  </div>
+                </div>
+
+                {/* ── Cuerpo de la hoja de cálculo ── */}
+                <div className="overflow-y-auto" style={{ maxHeight: '58vh' }}>
+                  {loadingTomaFisica ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-4">
+                      <Loader2 size={36} className="animate-spin text-indigo-500" style={{ filter: 'drop-shadow(0 0 12px rgba(99,102,241,0.7))' }} />
+                      <p className="text-[11px] text-slate-500 font-bold tracking-wider">Cargando catálogo desde Supabase...</p>
+                    </div>
+                  ) : tomaFisicaFiltered.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-3">
+                      <Package size={40} className="text-slate-700" />
+                      <p className="text-[12px] text-slate-600 font-bold">
+                        {tomaFisicaSearch ? 'Sin resultados para tu búsqueda.' : 'No hay productos en el catálogo.'}
+                      </p>
+                    </div>
+                  ) : (
+                    tomaFisicaFiltered.map((row, idx) => {
+                      const tieneConteo = row.conteoReal !== '';
+                      const difNumerica = tieneConteo ? row.diferencia : null;
+                      const esSobrante = difNumerica !== null && difNumerica > 0;
+                      const esFaltante = difNumerica !== null && difNumerica < 0;
+                      const esExacto   = difNumerica !== null && difNumerica === 0;
+
+                      const colorDif = esSobrante ? '#10b981' : esFaltante ? '#f43f5e' : esExacto ? '#94a3b8' : '#334155';
+                      const glowDif  = esSobrante ? 'rgba(16,185,129,0.5)' : esFaltante ? 'rgba(244,63,94,0.5)' : 'transparent';
+
+                      return (
+                        <div
+                          key={row.sku}
+                          className="grid gap-0 border-b transition-colors duration-100 group"
+                          style={{
+                            gridTemplateColumns: '48px 120px 1fr 110px 150px 110px',
+                            borderColor: 'rgba(30,41,59,0.6)',
+                            background: tieneConteo
+                              ? `rgba(15,17,40,0.9)`
+                              : idx % 2 === 0 ? 'rgba(11,13,25,0.6)' : 'rgba(15,17,40,0.4)'
+                          }}
+                          onMouseEnter={e => {
+                            (e.currentTarget as HTMLDivElement).style.background = 'rgba(99,102,241,0.06)';
+                          }}
+                          onMouseLeave={e => {
+                            (e.currentTarget as HTMLDivElement).style.background = tieneConteo
+                              ? 'rgba(15,17,40,0.9)'
+                              : idx % 2 === 0 ? 'rgba(11,13,25,0.6)' : 'rgba(15,17,40,0.4)';
+                          }}
+                        >
+                          {/* Número de fila */}
+                          <div className="flex items-center justify-center px-2 py-2.5 border-r border-slate-800/40">
+                            <span className="text-[9px] font-mono text-slate-700 tabular-nums">
+                              {(idx + 1).toString().padStart(3, '0')}
+                            </span>
+                          </div>
+
+                          {/* SKU */}
+                          <div className="flex items-center px-3 py-2.5 border-r border-slate-800/40">
+                            <span
+                              className="text-[10px] font-mono font-black truncate"
+                              style={{ color: '#38bdf8', textShadow: tieneConteo ? '0 0 8px rgba(56,189,248,0.4)' : 'none' }}
+                            >
+                              {row.sku}
+                            </span>
+                          </div>
+
+                          {/* Descripción */}
+                          <div className="flex items-center px-4 py-2.5 border-r border-slate-800/40">
+                            <span className="text-[11px] text-slate-300 font-medium truncate group-hover:text-white transition-colors">
+                              {row.name}
+                            </span>
+                          </div>
+
+                          {/* Sistema (Stock Teórico) */}
+                          <div className="flex items-center justify-end px-3 py-2.5 border-r border-slate-800/40">
+                            <span className="text-[11px] font-bold tabular-nums text-slate-400">
+                              {row.sistemaStock}
+                            </span>
+                          </div>
+
+                          {/* Conteo Real (Editable) */}
+                          <div className="flex items-center justify-center px-2 py-1.5 border-r border-slate-800/40">
+                            <input
+                              id={`conteo-${row.sku}`}
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="—"
+                              value={row.conteoReal}
+                              onChange={e => handleConteoRealChange(row.sku, e.target.value)}
+                              className="w-full h-7 text-center text-[12px] font-black rounded-lg border outline-none tabular-nums transition-all"
+                              style={{
+                                background: tieneConteo
+                                  ? 'rgba(52,211,153,0.08)'
+                                  : 'rgba(30,41,59,0.5)',
+                                border: tieneConteo
+                                  ? '1px solid rgba(52,211,153,0.35)'
+                                  : '1px solid rgba(30,41,59,0.8)',
+                                color: tieneConteo ? '#34d399' : '#64748b',
+                                boxShadow: tieneConteo ? '0 0 8px rgba(52,211,153,0.2)' : 'none',
+                              }}
+                              onFocus={e => {
+                                (e.target as HTMLInputElement).style.border = '1px solid rgba(52,211,153,0.7)';
+                                (e.target as HTMLInputElement).style.boxShadow = '0 0 12px rgba(52,211,153,0.35)';
+                              }}
+                              onBlur={e => {
+                                const hasVal = (e.target as HTMLInputElement).value !== '';
+                                (e.target as HTMLInputElement).style.border = hasVal
+                                  ? '1px solid rgba(52,211,153,0.35)'
+                                  : '1px solid rgba(30,41,59,0.8)';
+                                (e.target as HTMLInputElement).style.boxShadow = hasVal ? '0 0 8px rgba(52,211,153,0.2)' : 'none';
+                              }}
+                            />
+                          </div>
+
+                          {/* Diferencia (Calculada) */}
+                          <div className="flex items-center justify-end px-3 py-2.5">
+                            {tieneConteo ? (
+                              <span
+                                className="text-[12px] font-black tabular-nums"
+                                style={{
+                                  color: colorDif,
+                                  textShadow: `0 0 10px ${glowDif}`,
+                                }}
+                              >
+                                {esSobrante ? '+' : ''}{row.diferencia}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-bold text-slate-800">—</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* ── Barra de pie / resumen ── */}
+                <div
+                  style={{ background: 'rgba(10,12,22,0.95)', borderTop: '1px solid rgba(30,41,59,0.8)' }}
+                  className="px-5 py-3 flex flex-wrap items-center gap-4"
+                >
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">Leyenda:</span>
+                  {[
+                    { color: '#34d399', glow: 'rgba(52,211,153,0.5)', label: 'Conteo ingresado' },
+                    { color: '#10b981', glow: 'rgba(16,185,129,0.4)', label: 'Sobrante (+)' },
+                    { color: '#f43f5e', glow: 'rgba(244,63,94,0.4)',  label: 'Faltante (−)' },
+                    { color: '#94a3b8', glow: 'transparent',           label: 'Sin diferencia' },
+                  ].map(l => (
+                    <div key={l.label} className="flex items-center gap-1.5">
+                      <div
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: l.color, boxShadow: `0 0 6px ${l.glow}` }}
+                      />
+                      <span className="text-[9px] text-slate-600 font-medium">{l.label}</span>
+                    </div>
+                  ))}
+                  <div className="flex-1" />
+                  <span className="text-[9px] text-slate-700 font-mono">
+                    Fórmula: <span className="text-indigo-500">Δ = Conteo Real − Sistema</span>
+                  </span>
                 </div>
               </div>
             </TabsContent>
@@ -2477,3 +2828,4 @@ export default function InventoryMasterPage() {
       </div>
     );
 }
+
