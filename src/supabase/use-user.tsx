@@ -8,33 +8,33 @@ import { isAdminEmail } from '@/lib/admin-emails';
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: [
     'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management'
+    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management', 'documents'
   ],
   gerencia: [
     'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management'
+    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management', 'documents'
   ],
   encargado: [
     'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional'
+    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'documents'
   ],
   sub_encargado: [
-    'purchases', 'suppliers', 'quotations', 'transfers', 'orders', 'customers', 'inventory'
+    'purchases', 'suppliers', 'quotations', 'transfers', 'orders', 'customers', 'inventory', 'documents'
   ],
   bodeguero: [
-    'inventory', 'transfers', 'orders'
+    'inventory', 'transfers', 'orders', 'documents'
   ],
   cajero: [
-    'billing', 'orders', 'customers'
+    'billing', 'orders', 'customers', 'documents'
   ],
   vendedor: [
-    'billing', 'quotations', 'orders', 'customers'
+    'billing', 'quotations', 'orders', 'customers', 'documents'
   ],
   motociclista: [
-    'transfers', 'orders'
+    'transfers', 'orders', 'documents'
   ],
   pedidos: [
-    'orders'
+    'orders', 'documents'
   ]
 };
 

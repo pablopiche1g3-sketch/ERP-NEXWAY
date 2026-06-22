@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   LogOut,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  FolderOpen
 } from 'lucide-react';
 import { useUser, getTenantName, ROLE_PERMISSIONS } from '@/supabase/use-user';
 import { Button } from '@/components/ui/button';
@@ -101,6 +102,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     { id: 'orders', title: 'Pedidos', path: '/orders', icon: <ClipboardList size={18} /> },
     { id: 'inventory', title: 'Inventario', path: '/inventory', icon: <Package size={18} /> },
     { id: 'institutional', title: 'Institucional', path: '/institutional', icon: <Building size={18} /> },
+    { id: 'documents', title: 'Centro Documental', path: '/documents', icon: <FolderOpen size={18} className="text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" /> },
     { id: 'management', title: 'Gerencia', path: '/management', icon: <ShieldCheck size={18} /> },
   ];
 
