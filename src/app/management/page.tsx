@@ -38,6 +38,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
+import { DashboardComercialKPI } from '@/components/DashboardComercialKPI';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -914,7 +915,7 @@ export default function ManagementPage() {
   const [isSavingStation, setIsSavingStation] = useState(false);
 
   // ─── Estados Análisis ───────────────────────────────────────────
-  const [analyticsTab, setAnalyticsTab] = useState<'employees' | 'customers' | 'products' | 'rotation' | 'foco_venta'>('employees');
+  const [analyticsTab, setAnalyticsTab] = useState<'dashboard' | 'employees' | 'customers' | 'products' | 'rotation' | 'foco_venta'>('dashboard');
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'today' | 'week' | 'month' | 'all'>('month');
   const [allSalesItems, setAllSalesItems] = useState<any[]>([]);
   const [allSalesFull, setAllSalesFull] = useState<any[]>([]);
@@ -2115,6 +2116,7 @@ export default function ManagementPage() {
             {/* Sub-tabs de análisis */}
             <div className="flex gap-2 flex-wrap">
               {[
+                { id: 'dashboard', label: '📊 Dashboard Comercial', icon: <Activity size={13}/> },
                 { id: 'employees', label: '👤 Por Empleado', icon: <UserCheck size={13}/> },
                 { id: 'customers', label: '🛍️ Por Cliente', icon: <Users size={13}/> },
                 { id: 'products', label: '🏆 Top Productos', icon: <Award size={13}/> },
@@ -2130,6 +2132,7 @@ export default function ManagementPage() {
                       : 'bg-muted text-muted-foreground hover:text-foreground'
                   }`}
                 >
+                  {t.icon}
                   {t.label}
                 </button>
               ))}
@@ -2141,6 +2144,11 @@ export default function ManagementPage() {
               </div>
             ) : (
               <>
+                {/* ── Dashboard Comercial ── */}
+                {analyticsTab === 'dashboard' && (
+                  <DashboardComercialKPI />
+                )}
+
                 {/* ── A: Por Empleado ─────────────────────────────── */}
                 {analyticsTab === 'employees' && (
                   <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
