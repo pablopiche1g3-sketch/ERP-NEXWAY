@@ -35,8 +35,10 @@ import {
   Store,
   Warehouse,
   Clock,
-  Save
+  Save,
+  Sparkles
 } from 'lucide-react';
+import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,14 +82,20 @@ export default function BillingPage() {
   const handleClearEstablishedStation = clearEstablishedStation;
   const handleEstablishStation = establishStation;
 
-  const billingTabs = useMemo(() => [
-    { id: 'facturacion', key: 'billing_facturacion' },
-    { id: 'historial', key: 'billing_historial' },
-    { id: 'nota_credito', key: 'billing_nota_credito' },
-    { id: 'nota_debito', key: 'billing_nota_debito' },
-    { id: 'arqueo', key: 'billing_arqueo' },
-    { id: 'creditos', key: 'billing_creditos' },
-  ], []);
+  const billingTabs = useMemo(() => {
+    const tabs = [
+      { id: 'facturacion', key: 'billing_facturacion' },
+      { id: 'historial', key: 'billing_historial' },
+      { id: 'nota_credito', key: 'billing_nota_credito' },
+      { id: 'nota_debito', key: 'billing_nota_debito' },
+      { id: 'arqueo', key: 'billing_arqueo' },
+      { id: 'creditos', key: 'billing_creditos' },
+    ];
+    if (isUserAdmin) {
+      tabs.push({ id: 'foco_venta', key: 'billing_foco_venta' });
+    }
+    return tabs;
+  }, [isUserAdmin]);
 
   const { activeTab, setActiveTab } = useTabs(config, billingTabs, 'facturacion');
 
@@ -1185,6 +1193,11 @@ export default function BillingPage() {
             {config?.['billing_creditos'] !== false && (
               <TabsTrigger value="creditos" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
                 <Wallet size={14} className="mr-1.5" /> Créditos / Abonos
+              </TabsTrigger>
+            )}
+            {isUserAdmin && (
+              <TabsTrigger value="foco_venta" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
+                <Sparkles size={14} className="mr-1.5 text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" /> Foco de Venta (Alerta de Stock)
               </TabsTrigger>
             )}
           </TabsList>
@@ -2411,6 +2424,21 @@ export default function BillingPage() {
 
             </div>
           </TabsContent>
+
+          {isUserAdmin && (
+            <TabsContent value="foco_venta" className="space-y-6 outline-none">
+              <Card className="bg-white/5 border-white/10 rounded-2xl p-6">
+                <div className="mb-4">
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" size={16} />
+                    Foco de Venta (Alerta de Stock)
+                  </h3>
+                  <p className="text-xs text-white/45">KPIs de analítica comercial y prioridad de ventas diaria.</p>
+                </div>
+                <FocoVentaKPI />
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 

@@ -34,8 +34,10 @@ import {
   Settings,
   Building,
   Printer,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
+import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -912,7 +914,7 @@ export default function ManagementPage() {
   const [isSavingStation, setIsSavingStation] = useState(false);
 
   // ─── Estados Análisis ───────────────────────────────────────────
-  const [analyticsTab, setAnalyticsTab] = useState<'employees' | 'customers' | 'products' | 'rotation'>('employees');
+  const [analyticsTab, setAnalyticsTab] = useState<'employees' | 'customers' | 'products' | 'rotation' | 'foco_venta'>('employees');
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'today' | 'week' | 'month' | 'all'>('month');
   const [allSalesItems, setAllSalesItems] = useState<any[]>([]);
   const [allSalesFull, setAllSalesFull] = useState<any[]>([]);
@@ -2117,6 +2119,7 @@ export default function ManagementPage() {
                 { id: 'customers', label: '🛍️ Por Cliente', icon: <Users size={13}/> },
                 { id: 'products', label: '🏆 Top Productos', icon: <Award size={13}/> },
                 { id: 'rotation', label: '🔄 Rotación Crítica', icon: <Package size={13}/> },
+                { id: 'foco_venta', label: '🎯 Foco de Venta Urgente', icon: <Sparkles size={13} className="text-[#a5a8ff] drop-shadow-[0_0_4px_rgba(165,168,255,0.8)]" /> },
               ].map(t => (
                 <button
                   key={t.id}
@@ -2353,6 +2356,22 @@ export default function ManagementPage() {
                           })}
                         </div>
                       )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {analyticsTab === 'foco_venta' && (
+                  <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
+                    <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950">
+                      <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
+                        <Sparkles className="text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" size={18} /> Foco de Venta Urgente (KPIs)
+                      </CardTitle>
+                      <CardDescription className="text-slate-400 text-xs">
+                        Productos estancados con alto nivel de stock y baja velocidad de rotación.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-5">
+                      <FocoVentaKPI embeddedView />
                     </CardContent>
                   </Card>
                 )}
