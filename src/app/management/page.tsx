@@ -35,7 +35,8 @@ import {
   Building,
   Printer,
   FileText,
-  Sparkles
+  Sparkles,
+  Activity
 } from 'lucide-react';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { DashboardComercialKPI } from '@/components/DashboardComercialKPI';
