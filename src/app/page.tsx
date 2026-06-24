@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { AsistenteGuiaERP } from '@/components/AsistenteGuiaERP';
 
 interface ModuleConfig {
   id: string;
@@ -245,6 +246,9 @@ export default function Home() {
           </Button>
         </div>
       </header>
+
+      {/* Asistente de Puesta en Marcha y Control */}
+      <AsistenteGuiaERP />
 
       {/* Contenedor central: Módulos principales con glows */}
       <Card className="glass-card rounded-2xl mb-8 overflow-hidden relative z-10">
