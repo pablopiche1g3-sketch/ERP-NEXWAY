@@ -89,9 +89,7 @@ export default function CentroDocumentalPage() {
       let query = supabase
         .from('modulos_personalizados')
         .select('*')
-        .is('producto_id', null)
-        .is('proveedor_id', null)
-        .is('proyecto_id', null);
+        .is('producto_id', null);
 
       if (empresaId) {
         // Enforce strict multi-tenant isolate filter
@@ -216,8 +214,6 @@ export default function CentroDocumentalPage() {
           name: nombre
         },
         producto_id: null,
-        proveedor_id: null,
-        proyecto_id: null,
         empresa_id: empresaId,
         creado_por: userId
       };
@@ -548,50 +544,104 @@ export default function CentroDocumentalPage() {
           {currentDoc.tipo === 'documento' && (
             <div className="space-y-4">
               {/* Document Editor Toolbar */}
-              <div className="flex flex-wrap items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => formatDoc('bold')} title="Negrita">
+              <div className="flex flex-wrap items-center gap-1.5 bg-white/5 border border-white/10 rounded-2xl p-2.5 backdrop-blur-md shadow-[0_0_15px_rgba(255,255,255,0.02)]">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95" 
+                  onClick={() => formatDoc('bold')} 
+                  title="Negrita"
+                >
                   <Bold size={14} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => formatDoc('italic')} title="Cursiva">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95" 
+                  onClick={() => formatDoc('italic')} 
+                  title="Cursiva"
+                >
                   <Italic size={14} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => formatDoc('underline')} title="Subrayado">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95" 
+                  onClick={() => formatDoc('underline')} 
+                  title="Subrayado"
+                >
                   <Underline size={14} />
                 </Button>
                 <div className="w-[1px] h-4 bg-white/10 mx-1" />
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => formatDoc('formatBlock', '<h1>')} title="Título 1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95" 
+                  onClick={() => formatDoc('formatBlock', '<h1>')} 
+                  title="Título 1"
+                >
                   <Heading1 size={14} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => formatDoc('formatBlock', '<h2>')} title="Título 2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95" 
+                  onClick={() => formatDoc('formatBlock', '<h2>')} 
+                  title="Título 2"
+                >
                   <Heading2 size={14} />
                 </Button>
                 <div className="w-[1px] h-4 bg-white/10 mx-1" />
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => formatDoc('justifyLeft')} title="Alinear Izquierda">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95" 
+                  onClick={() => formatDoc('justifyLeft')} 
+                  title="Alinear Izquierda"
+                >
                   <AlignLeft size={14} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => formatDoc('justifyCenter')} title="Centrar">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95" 
+                  onClick={() => formatDoc('justifyCenter')} 
+                  title="Centrar"
+                >
                   <AlignCenter size={14} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => formatDoc('justifyRight')} title="Alinear Derecha">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95" 
+                  onClick={() => formatDoc('justifyRight')} 
+                  title="Alinear Derecha"
+                >
                   <AlignRight size={14} />
                 </Button>
                 <div className="w-[1px] h-4 bg-white/10 mx-1" />
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-450 hover:bg-rose-500/10" onClick={() => formatDoc('removeFormat')} title="Limpiar Formato">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-rose-455 hover:bg-rose-500/10 hover:text-rose-400 transition-all active:scale-95" 
+                  onClick={() => formatDoc('removeFormat')} 
+                  title="Limpiar Formato"
+                >
                   <Trash size={14} />
                 </Button>
               </div>
 
-              {/* Document Paper Container */}
-              <div className="bg-[#18181c] border border-white/10 rounded-2xl p-8 min-h-[600px] shadow-2xl relative">
+              {/* Document Paper Container with elegant neon glow border */}
+              <div className="bg-[#141416] border border-blue-500/20 rounded-2xl p-8 min-h-[600px] shadow-[0_0_30px_rgba(59,130,246,0.06)] relative transition-all duration-300 focus-within:border-blue-500/45 focus-within:shadow-[0_0_40px_rgba(59,130,246,0.12)]">
                 <div
                   ref={editorRef}
                   contentEditable
                   onInput={(e) => setDocContent(e.currentTarget.innerHTML)}
-                  className="w-full min-h-[550px] outline-none text-sm text-slate-200 leading-relaxed font-body"
+                  className="w-full min-h-[550px] outline-none text-sm text-slate-200 leading-relaxed font-body focus:text-white transition-colors"
                   style={{ minHeight: '550px' }}
                 />
                 {docContent === '' && (
-                  <div className="absolute top-8 left-8 text-white/20 pointer-events-none text-sm">
+                  <div className="absolute top-8 left-8 text-white/20 pointer-events-none text-sm font-medium">
                     Comienza a escribir tu documento libre aquí...
                   </div>
                 )}
