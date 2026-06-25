@@ -26,7 +26,8 @@ import {
   Info,
   DollarSign,
   UserCheck,
-  Package
+  Package,
+  FileText
 } from 'lucide-react';
 import { useUser } from '@/supabase/use-user';
 import { supabase } from '@/supabase/client';

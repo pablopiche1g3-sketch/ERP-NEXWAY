@@ -96,6 +96,7 @@ export default function InventoryMasterPage() {
     { id: 'maestro', key: 'inventory_maestro' },
     { id: 'kardex', key: 'inventory_kardex' },
     { id: 'precios', key: 'inventory_precios' },
+    { id: 'vinculacion', key: 'inventory_existencia' }, // re-use existence permission key
     { id: 'toma-fisica', key: 'inventory_toma_fisica' },
     { id: 'carga-masiva', key: 'inventory_carga_masiva' },
     { id: 'entradas', key: 'inventory_entradas' },
@@ -344,6 +345,11 @@ export default function InventoryMasterPage() {
   const [loadingInv, setLoadingInv] = useState(true);
   const [loadingCompMappings, setLoadingCompMappings] = useState(true);
 
+  // Estados para la pestaña de Vinculación de Proveedor
+  const [mappingInternalSku, setMappingInternalSku] = useState('');
+  const [mappingSupplierCode, setMappingSupplierCode] = useState('');
+  const [isSavingMapping, setIsSavingMapping] = useState(false);
+
   // Función para cargar los datos reactivamente desde Supabase
   const loadSupabaseData = async () => {
     try {
@@ -475,6 +481,71 @@ export default function InventoryMasterPage() {
   useEffect(() => {
     loadSupabaseData();
   }, []);
+
+  // ================================================================
+  // FUNCIONES: VINCULACIÓN DE PROVEEDOR (NUEVO)
+  // ================================================================
+  const handleLinkSupplierSku = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mappingInternalSku || !mappingSupplierCode.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Campos vacíos",
+        description: "Debe seleccionar un producto interno e ingresar el código del proveedor."
+      });
+      return;
+    }
+    
+    setIsSavingMapping(true);
+    try {
+      const { error } = await supabase
+        .from('supplier_mappings')
+        .upsert({
+          supplier_code: mappingSupplierCode.trim().toUpperCase(),
+          internal_sku: mappingInternalSku,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'supplier_code'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Vinculación Exitosa 🎉",
+        description: `Se vinculó el código "${mappingSupplierCode.toUpperCase()}" con el SKU interno "${mappingInternalSku}".`
+      });
+
+      setMappingSupplierCode('');
+      setMappingInternalSku('');
+      await loadSupabaseData();
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: "Error al vincular",
+        description: err.message || "No se pudo guardar la vinculación."
+      });
+    } finally {
+      setIsSavingMapping(false);
+    }
+  };
+
+  const handleDeleteSupplierMapping = async (supplierCode: string) => {
+    if (!confirm(`¿Eliminar la vinculación del código de proveedor "${supplierCode}"?`)) return;
+    try {
+      const { error } = await supabase
+        .from('supplier_mappings')
+        .delete()
+        .eq('supplier_code', supplierCode);
+
+      if (error) throw error;
+      toast({ title: "Vinculación eliminada" });
+      await loadSupabaseData();
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    }
+  };
 
   // ================================================================
   // FUNCIONES: TOMA FÍSICA
@@ -1222,6 +1293,9 @@ export default function InventoryMasterPage() {
                 <FileSpreadsheet size={14} className="mr-2" /> Carga Masiva (Excel)
               </TabsTrigger>
             )}
+            <TabsTrigger value="vinculacion" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white whitespace-nowrap">
+              <Link2 size={14} className="mr-2 text-amber-400 drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]" /> Vincular Proveedor
+            </TabsTrigger>
             {config?.['inventory_entradas'] !== false && (
               <TabsTrigger value="entradas" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <Zap size={14} className="mr-2" /> Entrada Rápida
@@ -2455,8 +2529,148 @@ export default function InventoryMasterPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-
-            {/* TAB TOMA FISICA - HOJA DE CÁLCULO REACTIVA */}
+2532: 
+2533:             {/* TAB VINCULAR PROVEEDOR */}
+2534:             <TabsContent value="vinculacion" className="space-y-6 outline-none animate-in fade-in duration-300">
+2535:               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+2536:                 
+2537:                 {/* Panel Izquierdo: Formulario de Vinculación */}
+2538:                 <div className="lg:col-span-4 space-y-6">
+2539:                   <Card className="glass-card rounded-2xl overflow-hidden">
+2540:                     <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
+2541:                       <CardTitle className="text-sm font-bold flex items-center gap-2">
+2542:                         <Link2 className="text-amber-400 drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]" size={18} /> Vinculación de Catálogo
+2543:                       </CardTitle>
+2544:                       <CardDescription className="text-slate-400 text-xs">
+2545:                         Asocie códigos de proveedor a sus SKU maestros internos.
+2546:                       </CardDescription>
+2547:                     </CardHeader>
+2548:                     <CardContent className="p-6 space-y-4">
+2549:                       <form onSubmit={handleLinkSupplierSku} className="space-y-4">
+2550:                         <div className="space-y-2">
+2551:                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Seleccionar Producto Maestro</Label>
+2552:                           <Select 
+2553:                             value={mappingInternalSku} 
+2554:                             onValueChange={setMappingInternalSku}
+2555:                           >
+2556:                             <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold">
+2557:                               <SelectValue placeholder="Seleccione SKU..." />
+2558:                             </SelectTrigger>
+2559:                             <SelectContent>
+2560:                               {inventory?.map(p => (
+2561:                                 <SelectItem key={p.id} value={p.sku} className="text-xs">
+2562:                                   {p.sku} - {p.name}
+2563:                                 </SelectItem>
+2564:                               ))}
+2565:                             </SelectContent>
+2566:                           </Select>
+2567:                         </div>
+2568: 
+2569:                         <div className="space-y-2">
+2570:                           <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Código del Proveedor</Label>
+2571:                           <div className="relative">
+2572:                             <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+2573:                             <Input 
+2574:                               placeholder="Ej: PRV-90812-A" 
+2575:                               value={mappingSupplierCode}
+2576:                               onChange={e => setMappingSupplierCode(e.target.value)}
+2577:                               className="pl-9 h-11 glass-input rounded-xl text-xs font-mono font-bold"
+2578:                             />
+2579:                           </div>
+2580:                         </div>
+2581: 
+2582:                         <Button 
+2583:                           type="submit" 
+2584:                           className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-lg text-xs"
+2585:                           disabled={isSavingMapping}
+2586:                         >
+2587:                           {isSavingMapping ? <Loader2 className="animate-spin mr-2" /> : <Link2 className="mr-2" size={16} />}
+2588:                           VINCULAR CÓDIGO
+2589:                         </Button>
+2590:                       </form>
+2591:                     </CardContent>
+2592:                   </Card>
+2593: 
+2594:                   <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-5 rounded-2xl space-y-2">
+2595:                     <div className="flex items-center gap-2 text-amber-500 font-bold">
+2596:                       <Info size={16} />
+2597:                       <span className="text-xs uppercase tracking-tight">Utilidad del Mapeo</span>
+2598:                     </div>
+2599:                     <p className="text-[10px] md:text-xs text-slate-300 leading-relaxed font-medium">
+2600:                       Mapear códigos de proveedores le permite importar DTEs o XMLs de compras y convertirlos instantáneamente a sus SKUs internos, automatizando el ingreso a bodega.
+2601:                     </p>
+2602:                   </div>
+2603:                 </div>
+2604: 
+2605:                 {/* Panel Derecho: Tabla de Códigos Mapeados */}
+2606:                 <div className="lg:col-span-8 space-y-4">
+2607:                   <div className="relative">
+2608:                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+2609:                     <Input 
+2610:                       placeholder="Buscar por SKU Interno, Código Proveedor o Producto..." 
+2611:                       value={searchTerm}
+2612:                       onChange={e => setSearchTerm(e.target.value)}
+2613:                       className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs"
+2614:                     />
+2615:                   </div>
+2616: 
+2617:                   <Card className="glass-card rounded-2xl overflow-hidden">
+2618:                     <ScrollArea className="h-[500px]">
+2619:                       <Table>
+2620:                         <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
+2621:                           <TableRow>
+2622:                             <TableHead className="px-6 text-[10px] font-black uppercase">Código Interno</TableHead>
+2623:                             <TableHead className="text-[10px] font-black uppercase">Nombre Producto</TableHead>
+2624:                             <TableHead className="text-[10px] font-black uppercase">Código Proveedor</TableHead>
+2625:                             <TableHead className="w-10 text-center"></TableHead>
+2626:                           </TableRow>
+2627:                         </TableHeader>
+2628:                         <TableBody>
+2629:                           {loadingInv ? (
+2630:                             <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" /> Leyendo vinculaciones...</TableCell></TableRow>
+2631:                           ) : savedMappings.length === 0 ? (
+2632:                             <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 italic text-xs">No hay vinculaciones de proveedores registradas.</TableCell></TableRow>
+2633:                           ) : savedMappings
+2634:                               .filter(m => {
+2635:                                 const query = searchTerm.toLowerCase().trim();
+2636:                                 if (!query) return true;
+2637:                                 const productName = inventory.find(p => p.sku === m.internalSku)?.name || '';
+2638:                                 return (
+2639:                                   m.internalSku.toLowerCase().includes(query) ||
+2640:                                   m.supplierCode.toLowerCase().includes(query) ||
+2641:                                   productName.toLowerCase().includes(query)
+2642:                                 );
+2643:                               })
+2644:                               .map((map) => {
+2645:                                 const productName = inventory.find(p => p.sku === map.internalSku)?.name || 'Desconocido';
+2646:                                 return (
+2647:                                   <TableRow key={map.id} className="hover:bg-white/10 border-b border-white/5">
+2648:                                     <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-400">
+2649:                                       {map.internalSku}
+2650:                                     </TableCell>
+2651:                                     <TableCell className="font-bold text-white text-xs">{productName}</TableCell>
+2652:                                     <TableCell>
+2653:                                       <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono font-black text-[10px]">
+2654:                                         {map.supplierCode}
+2655:                                       </Badge>
+2656:                                     </TableCell>
+2657:                                     <TableCell className="px-4 text-center">
+2658:                                       <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteSupplierMapping(map.supplierCode)}>
+2659:                                         <Trash2 size={14} />
+2660:                                       </Button>
+2661:                                     </TableCell>
+2662:                                   </TableRow>
+2663:                                 );
+2664:                               })}
+2665:                         </TableBody>
+2666:                       </Table>
+2667:                     </ScrollArea>
+2668:                   </Card>
+2669:                 </div>
+2670:               </div>
+2671:             </TabsContent>
+2672: 
+2673:             {/* TAB TOMA FISICA - HOJA DE CÁLCULO REACTIVA */}
             <TabsContent value="toma-fisica" className="space-y-0 outline-none animate-in fade-in duration-300">
               {/* Container estilo hoja de cálculo neón oscuro */}
               <div
