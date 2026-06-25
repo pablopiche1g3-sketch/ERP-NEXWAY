@@ -42,12 +42,27 @@ export function AsistenteGuiaERP() {
     zeroStockProductsCount: 0,
     stagnantProductsCount: 0,
     hasSalesToday: false,
-    hasClosingToday: false
+    hasClosingToday: false,
+    crmTasksCount: 0
   });
 
   const auditSystem = async () => {
     setLoading(true);
     try {
+      // Obtener usuario activo para filtrar tareas personalizadas
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 0. Auditar tareas pendientes del CRM para el usuario activo
+      let pendingCrmTasks = 0;
+      if (user?.email) {
+        const { count } = await supabase
+          .from('crm_tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('assigned_to', user.email)
+          .eq('status', 'PENDIENTE');
+        pendingCrmTasks = count || 0;
+      }
+
       // 1. Auditar sucursales
       const { count: branchesCount } = await supabase
         .from('branches')
@@ -129,7 +144,8 @@ export function AsistenteGuiaERP() {
         zeroStockProductsCount: zeroStockProducts,
         stagnantProductsCount: stagnantCount,
         hasSalesToday: (salesToday || []).length > 0,
-        hasClosingToday: (closingToday || []).length > 0
+        hasClosingToday: (closingToday || []).length > 0,
+        crmTasksCount: pendingCrmTasks
       });
     } catch (error) {
       console.error('Error al auditar el ERP para la guía:', error);
@@ -229,6 +245,19 @@ export function AsistenteGuiaERP() {
         status: 'pending',
         actionLabel: 'Ir a Contabilidad',
         actionPath: '/accounting'
+      });
+    }
+
+    // --- INTEGRACIÓN CRM: Tareas y Seguimientos del Vendedor ---
+    if (stats.crmTasksCount > 0) {
+      list.push({
+        id: 'ops_crm_tasks',
+        title: 'Llamadas de Seguimiento Pendientes',
+        description: `Tienes ${stats.crmTasksCount} tarea(s) y recordatorio(s) comercial(es) sin completar en tu agenda del CRM.`,
+        category: 'operations',
+        status: 'pending',
+        actionLabel: 'Ir a mi Agenda CRM',
+        actionPath: '/crm'
       });
     }
 

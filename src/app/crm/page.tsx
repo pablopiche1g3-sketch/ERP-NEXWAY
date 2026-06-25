@@ -109,6 +109,7 @@ export default function CRMPage() {
   // Búsqueda y filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [isCreatingQuotation, setIsCreatingQuotation] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -342,6 +343,83 @@ export default function CRMPage() {
       if (selectedOpp) await loadOppDetails(selectedOpp.id);
     } catch (err: any) {
       console.error(err);
+    }
+  };
+
+  // Crear Cotización automática en ERP
+  const handleCreateQuotationERP = async () => {
+    if (!selectedOpp) return;
+    setIsCreatingQuotation(true);
+    try {
+      // 1. Obtener datos del cliente
+      const clientName = selectedOpp.contact_name || customers.find(c => c.id === selectedOpp.customer_id)?.name || 'Cliente CRM';
+      
+      // 2. Si hay un SKU sugerido, preparamos el JSON de items para la cotización
+      let quoteItems: any[] = [];
+      let totalAmount = selectedOpp.estimated_value || 0;
+      
+      if (selectedOpp.suggested_sku && selectedOpp.suggested_sku !== 'none') {
+        const matchingProduct = inventory.find(p => p.sku === selectedOpp.suggested_sku);
+        if (matchingProduct) {
+          quoteItems = [{
+            sku: matchingProduct.sku,
+            name: matchingProduct.name,
+            quantity: 1,
+            price: matchingProduct.price,
+            subtotal: matchingProduct.price,
+            total: matchingProduct.price
+          }];
+          totalAmount = matchingProduct.price;
+        }
+      } else {
+        // Fallback: concepto de servicio/propuesta genérica
+        quoteItems = [{
+          sku: 'SERV-CRM',
+          name: selectedOpp.title,
+          quantity: 1,
+          price: selectedOpp.estimated_value || 0,
+          subtotal: selectedOpp.estimated_value || 0,
+          total: selectedOpp.estimated_value || 0
+        }];
+      }
+
+      const { error } = await supabase
+        .from('quotations')
+        .insert({
+          customer_name: clientName,
+          items: quoteItems,
+          subtotal: totalAmount,
+          iva: totalAmount * 0.13, // IVA estándar de El Salvador (13%)
+          total: totalAmount * 1.13,
+          status: 'PENDIENTE'
+        });
+
+      if (error) throw error;
+
+      // 3. Registrar interacción comercial automática
+      await supabase.from('crm_interactions').insert({
+        opportunity_id: selectedOpp.id,
+        interaction_type: 'CORREO',
+        summary: 'Cotización ERP Generada',
+        detail: `Se generó automáticamente el documento de Cotización oficial en el ERP para el cliente "${clientName}" por un total estimado de $${totalAmount.toLocaleString()}.`,
+        created_by: user?.email || 'Sistema'
+      });
+
+      toast({ 
+        title: "Cotización Creada 🎉", 
+        description: `Se registró la cotización en el ERP para ${clientName} exitosamente.` 
+      });
+      
+      await loadOppDetails(selectedOpp.id);
+    } catch (err: any) {
+      console.error(err);
+      toast({ 
+        variant: "destructive", 
+        title: "Error al cotizar", 
+        description: err.message || "No se pudo generar la cotización." 
+      });
+    } finally {
+      setIsCreatingQuotation(false);
     }
   };
 
@@ -810,6 +888,25 @@ export default function CRMPage() {
                         </span>
                       </div>
                     )}
+
+                    {/* Botón Acción ERP */}
+                    <div className="pt-4 border-t border-white/5">
+                      <Button
+                        onClick={handleCreateQuotationERP}
+                        disabled={isCreatingQuotation}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl h-10 gap-1.5 shadow-lg shadow-indigo-600/10"
+                      >
+                        {isCreatingQuotation ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" /> Generando...
+                          </>
+                        ) : (
+                          <>
+                            <FileText size={13} /> Crear Cotización en ERP
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
