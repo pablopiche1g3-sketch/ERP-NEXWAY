@@ -8,18 +8,18 @@ import { isAdminEmail } from '@/lib/admin-emails';
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: [
     'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management', 'documents'
+    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management', 'documents', 'crm'
   ],
   gerencia: [
     'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management', 'documents'
+    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management', 'documents', 'crm'
   ],
   encargado: [
     'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'documents'
+    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'documents', 'crm'
   ],
   sub_encargado: [
-    'purchases', 'suppliers', 'quotations', 'transfers', 'orders', 'customers', 'inventory', 'documents'
+    'purchases', 'suppliers', 'quotations', 'transfers', 'orders', 'customers', 'inventory', 'documents', 'crm'
   ],
   bodeguero: [
     'inventory', 'transfers', 'orders', 'documents'
@@ -28,7 +28,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'billing', 'orders', 'customers', 'documents'
   ],
   vendedor: [
-    'billing', 'quotations', 'orders', 'customers', 'documents'
+    'billing', 'quotations', 'orders', 'customers', 'documents', 'crm'
   ],
   motociclista: [
     'transfers', 'orders', 'documents'

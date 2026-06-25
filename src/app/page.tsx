@@ -144,6 +144,15 @@ export default function Home() {
       icon: <ArrowLeftRight size={22} /> 
     },
     { 
+      id: 'crm', 
+      title: 'CRM Comercial', 
+      description: 'Gestión de clientes y embudo', 
+      path: '/crm', 
+      iconBg: 'bg-amber-500/10 text-amber-500 border border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/10',
+      glowClass: 'shadow-lg shadow-amber-500/20 hover:shadow-[0_0_40px_rgba(245,158,11,0.6)] hover:shadow-amber-500/60 hover:border-amber-500/50 dark:hover:border-amber-500/50',
+      icon: <Sparkles size={22} className="text-amber-400 drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]" /> 
+    },
+    { 
       id: 'institutional', 
       title: 'Institucional', 
       description: 'Información general', 
