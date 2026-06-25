@@ -424,10 +424,7 @@ export default function CRMPage() {
   };
 
   return (
-    <div className="flex bg-[#09090b] min-h-screen text-slate-100">
-      <Sidebar isCollapsed={isSidebarCollapsed} onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
-      
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto space-y-6">
+    <div className="p-6 md:p-8 space-y-6">
         {/* Cabecera del CRM */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/40 p-5 rounded-2xl border border-white/10">
           <div>
@@ -961,12 +958,10 @@ export default function CRMPage() {
                     </form>
                   </div>
                 </div>
-
               </div>
             )}
           </DialogContent>
         </Dialog>
-      </main>
     </div>
   );
 }
