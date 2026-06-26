@@ -224,19 +224,31 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         <Link 
           href="/" 
           title={isCollapsed ? "Inicio" : undefined}
-          className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-colors duration-200 group ${
+          className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group ${
             isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
           } ${
             pathname === '/' 
-              ? 'bg-indigo-500/25 border border-indigo-500/30 text-white' 
+              ? 'bg-indigo-500/20 border border-indigo-500/40 text-white shadow-[0_0_15px_rgba(99,102,241,0.25)]' 
               : 'hover:bg-white/10 bg-transparent hover:text-white text-slate-400'
           }`}
         >
           <div className="flex items-center gap-3">
-            <span className={pathname === '/' ? 'text-white' : 'text-slate-400 group-hover:text-white transition-colors'}>
+            <span className={`transition-all duration-200 ${
+              pathname === '/' 
+                ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.85)] scale-105' 
+                : 'text-slate-400 group-hover:text-white'
+            }`}>
               <Building size={18} />
             </span>
-            {!isCollapsed && <span>Inicio</span>}
+            {!isCollapsed && (
+              <span className={`transition-all duration-200 ${
+                pathname === '/' 
+                  ? 'text-white font-bold drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]' 
+                  : 'text-slate-400 group-hover:text-slate-200'
+              }`}>
+                Inicio
+              </span>
+            )}
           </div>
           {!isCollapsed && pathname !== '/' && (
             <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 translate-x-[-4px] group-hover:translate-x-0" />
@@ -250,19 +262,31 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               key={item.id}
               href={item.path} 
               title={isCollapsed ? item.title : undefined}
-              className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-colors duration-200 group ${
+              className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group ${
                 isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
               } ${
                 isActive 
-                  ? 'bg-indigo-500/25 border border-indigo-500/30 text-white' 
+                  ? 'bg-indigo-500/20 border border-indigo-500/40 text-white shadow-[0_0_15px_rgba(99,102,241,0.25)]' 
                   : 'hover:bg-white/10 bg-transparent hover:text-white text-slate-400'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-white transition-colors'}>
+                <span className={`transition-all duration-200 ${
+                  isActive 
+                    ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.85)] scale-105' 
+                    : 'text-slate-400 group-hover:text-white'
+                }`}>
                   {item.icon}
                 </span>
-                {!isCollapsed && <span className="truncate">{item.title}</span>}
+                {!isCollapsed && (
+                  <span className={`truncate transition-all duration-200 ${
+                    isActive 
+                      ? 'text-white font-bold drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]' 
+                      : 'text-slate-400 group-hover:text-slate-200'
+                  }`}>
+                    {item.title}
+                  </span>
+                )}
               </div>
               
               {!isCollapsed && !isActive && (
