@@ -29,65 +29,58 @@ interface Email {
 const mockEmails: Email[] = [
   {
     id: '1',
-    sender: 'Sherwin Williams de...',
-    subject: 'Documento Tributario Electrónico 976B9795-4440...',
-    date: '29 jun',
+    sender: 'Proveedor de Materiales',
+    subject: 'Cotización solicitada para proyecto norte',
+    date: '10:30',
     isRead: false,
     isStarred: true,
-    snippet: 'Documento Tributario Electrónico Estimado Cliente: JULIO NEFTALI CAÑAS ZELAYA Conforme a la nor...',
+    snippet: 'Adjunto la cotización para los insumos solicitados el día de ayer. Quedo atento a comentarios...',
     attachments: [
-      { name: 'logo.png', type: 'image' },
-      { name: '976B9795-444...', type: 'pdf' },
-      { name: '976B9795-444...', type: 'xml' }
+      { name: 'Cotizacion_01.pdf', type: 'pdf' }
     ]
   },
   {
     id: '2',
-    sender: 'Sherwin Williams de...',
-    subject: 'Documento Tributario Electrónico D26D8BB5-8F73...',
-    date: '29 jun',
+    sender: 'Facturación Electrónica',
+    subject: 'Nueva Factura DTE-001923',
+    date: 'Ayer',
     isRead: false,
-    isStarred: true,
-    snippet: 'Documento Tributario Electrónico Estimado Cliente: JULIO NEFTALI CAÑAS ZELAYA Conforme a la nor...',
+    isStarred: false,
+    snippet: 'Se ha emitido un nuevo Comprobante de Crédito Fiscal a su nombre. Puede revisar los documentos adjuntos...',
     attachments: [
-      { name: 'logo.png', type: 'image' },
-      { name: 'D26D8BB5-8F7...', type: 'pdf' },
-      { name: 'D26D8BB5-8F7...', type: 'xml' }
+      { name: 'DTE-001923.pdf', type: 'pdf' },
+      { name: 'DTE-001923.xml', type: 'xml' }
     ]
   },
   {
     id: '3',
-    sender: 'Google',
-    subject: 'Obtén más información sobre nuestros Términos del Servicio actualizados',
-    date: '29 jun',
+    sender: 'Soporte TI',
+    subject: 'Actualización de licencias de software',
+    date: 'Ayer',
     isRead: true,
-    isStarred: false,
-    snippet: 'compras.tecnicolorsw@gmail.com Cada pocos años, actualizamos nuestros Términos del Servicio. Querem...',
+    isStarred: true,
+    snippet: 'Le informamos que las licencias han sido renovadas exitosamente para el siguiente periodo...',
   },
   {
     id: '4',
-    sender: 'Facturación',
-    subject: 'DTE de PRINT TAPES S.A. DE C.V.',
-    date: '29 jun',
-    isRead: true,
-    isStarred: false,
-    snippet: 'DTE: A3DF9CE7-9F5C-4158-AB77-2B1E27118D83 ____________ JULIO NEFTALI CAÑAS ZELAYA Código de generación: A3DF9CE7-9F5C-4158-AB77-2...',
-    attachments: [
-      { name: 'A3DF9CE7-9F5...', type: 'pdf' },
-      { name: 'A3DF9CE7-9F5...', type: 'xml' }
-    ]
-  },
-  {
-    id: '5',
-    sender: 'SUMINISTROS SANTA M.',
-    subject: 'Ha recibido un nuevo comprobante digital (COMPROBANTE DE CRÉDITO FISCAL) | Acatha',
+    sender: 'Distribuidora Global',
+    subject: 'Estado de su pedido #4891',
     date: '28 jun',
     isRead: true,
     isStarred: false,
-    snippet: 'Domingo, 28 de junio de 2026 16:47 Ha recibido un nuevo comprobante digital (COMPROB...',
+    snippet: 'Su pedido se encuentra en tránsito y será entregado en un máximo de 24 horas hábiles...',
+  },
+  {
+    id: '5',
+    sender: 'Servicios Logísticos S.A.',
+    subject: 'Comprobante de entrega firmado',
+    date: '27 jun',
+    isRead: true,
+    isStarred: false,
+    snippet: 'Adjuntamos la constancia de entrega firmada en bodega principal con fecha de ayer...',
     attachments: [
-      { name: 'E4B57062 865...', type: 'pdf' },
-      { name: 'E4B57062-865...', type: 'xml' }
+      { name: 'firma_recibido.png', type: 'image' },
+      { name: 'manifiesto.pdf', type: 'pdf' }
     ]
   }
 ];
@@ -138,7 +131,7 @@ export default function GmailSuppliersTab() {
           Etiquetas <Plus size={16} className="cursor-pointer hover:bg-slate-200 dark:hover:bg-white/10 rounded" />
         </div>
         <div className="space-y-0.5 text-sm">
-          {['Anulado', 'COMPRAS VARIAS', 'FAC. FREUND', 'FAC. MATRIZ', 'FAC. PUMA', 'FAC. SHERWIN', 'FAC. VIDRI'].map(tag => (
+          {['Materiales', 'Equipos TI', 'Servicios Generales', 'Logística', 'Papelería'].map(tag => (
             <div key={tag} className="flex items-center px-4 py-1.5 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-600 dark:text-white/60 rounded-r-full cursor-pointer truncate">
               <Tag size={16} className="mr-4 shrink-0 text-slate-400 dark:text-white/40" /> <span className="truncate">{tag}</span>
             </div>
