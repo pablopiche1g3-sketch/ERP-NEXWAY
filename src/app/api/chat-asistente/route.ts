@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     // Prepare model
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_INSTRUCTIONS,
     });
 
