@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PurchasesTab from './components/PurchasesTab';
 import OrdersTab from './components/OrdersTab';
+import GmailSuppliersTab from './components/GmailSuppliersTab';
 import { Truck } from 'lucide-react';
 
 export default function ComprasPage() {
@@ -17,18 +18,24 @@ export default function ComprasPage() {
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
-        <TabsList className="bg-transparent p-0 h-auto flex w-full justify-start border-b border-slate-200 dark:border-white/10 gap-4">
+        <TabsList className="bg-transparent p-0 h-auto flex w-full justify-start border-b border-slate-200 dark:border-white/10 gap-4 overflow-x-auto pb-px">
           <TabsTrigger 
             value="registro" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors"
+            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors whitespace-nowrap"
           >
             Registro de Compra
           </TabsTrigger>
           <TabsTrigger 
             value="ordenes" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors"
+            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors whitespace-nowrap"
           >
             Orden de Compra
+          </TabsTrigger>
+          <TabsTrigger 
+            value="gmail" 
+            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:border-b-2 data-[state=active]:border-red-500 data-[state=active]:bg-transparent transition-colors whitespace-nowrap"
+          >
+            Bandeja Gmail
           </TabsTrigger>
         </TabsList>
         
@@ -37,6 +44,9 @@ export default function ComprasPage() {
         </TabsContent>
         <TabsContent value="ordenes" className="outline-none">
           <OrdersTab />
+        </TabsContent>
+        <TabsContent value="gmail" className="outline-none">
+          <GmailSuppliersTab />
         </TabsContent>
       </Tabs>
     </div>
