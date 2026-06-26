@@ -46,6 +46,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CrmMap } from '@/components/CrmMap';
+import { useBms } from '@/contexts/BmsContext';
 
 const STAGES = [
   { id: 'PROSPECTO', label: 'Prospecto (Lead)', color: 'border-t-slate-500 bg-slate-500/5 text-slate-400' },
@@ -59,6 +62,7 @@ const STAGES = [
 export default function CRMPage() {
   const { toast } = useToast();
   const { user } = useUser();
+  const { mapData } = useBms();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -591,7 +595,18 @@ export default function CRMPage() {
           </div>
         </div>
 
-        {/* Embudo de Ventas Kanban */}
+        <Tabs defaultValue="kanban" className="w-full mt-6">
+          <TabsList className="bg-slate-900/50 border border-white/10 mb-4 rounded-xl p-1 h-12">
+            <TabsTrigger data-tour-id="tab-kanban" value="kanban" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <SlidersHorizontal size={14} className="mr-2" /> Embudo Kanban
+            </TabsTrigger>
+            <TabsTrigger data-tour-id="tab-mapa" value="mapa" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <Navigation size={14} className="mr-2" /> Mapa Logístico
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="kanban" className="mt-0 outline-none">
+            {/* Embudo de Ventas Kanban */}
         {loading ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3">
             <Loader2 className="animate-spin text-amber-500 w-8 h-8" />
@@ -689,6 +704,37 @@ export default function CRMPage() {
             })}
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="mapa" className="mt-0 h-[600px] outline-none">
+            <div className="flex flex-col lg:flex-row h-full gap-4">
+              {/* Lista lateral izquierda (Prioridades) */}
+              <div className="w-full lg:w-1/3 bg-slate-900/30 rounded-xl border border-white/5 p-4 flex flex-col h-[300px] lg:h-full overflow-hidden">
+                <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <AlertTriangle className="text-amber-500" size={16} /> Prioridades
+                </h3>
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                  {mapData.locations.filter(l => l.type === 'VIP' || l.type === 'DELIVERY').map(loc => (
+                    <div key={loc.id} className="p-3 bg-slate-950/80 border border-white/5 rounded-lg hover:border-indigo-500/50 cursor-pointer transition-colors">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="text-xs font-bold text-white">{loc.name}</span>
+                        <Badge className={`text-[8px] ${loc.type === 'VIP' ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
+                          {loc.type}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-slate-400">Saldo: <span className="text-emerald-400 font-mono">${loc.balance?.toLocaleString()}</span></p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mapa a la derecha */}
+              <div className="w-full lg:w-2/3 h-[400px] lg:h-full">
+                <CrmMap locations={mapData.locations} routes={mapData.routes} />
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* DIALOGO / MODAL: CREAR Y EDITAR OPORTUNIDAD */}
         <Dialog open={isOppModalOpen} onOpenChange={setIsOppModalOpen}>

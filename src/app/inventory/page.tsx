@@ -1264,45 +1264,45 @@ export default function InventoryMasterPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="glass-card p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['inventory_existencia'] !== false && (
-              <TabsTrigger value="existencia" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger data-tour-id="tab-existencia" value="existencia" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <Package size={14} className="mr-2" /> Existencias
               </TabsTrigger>
             )}
             {config?.['inventory_maestro'] !== false && (
-              <TabsTrigger value="maestro" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger data-tour-id="tab-catalogo" value="maestro" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <Tag size={14} className="mr-2" /> Maestro
               </TabsTrigger>
             )}
             {config?.['inventory_precios'] !== false && (
-              <TabsTrigger value="precios" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger data-tour-id="tab-precios" value="precios" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap">
                 <Tag size={14} className="mr-2" /> Producto
               </TabsTrigger>
             )}
             {config?.['inventory_kardex'] !== false && (
-              <TabsTrigger value="kardex" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger data-tour-id="tab-kardex" value="kardex" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <History size={14} className="mr-2" /> Kardex de Almacén
               </TabsTrigger>
             )}
             {config?.['inventory_toma_fisica'] !== false && (
-              <TabsTrigger value="toma-fisica" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger data-tour-id="tab-toma-fisica" value="toma-fisica" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <ClipboardList size={14} className="mr-2" /> Toma Física
               </TabsTrigger>
             )}
             {config?.['inventory_carga_masiva'] !== false && (
-              <TabsTrigger value="carga-masiva" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger data-tour-id="tab-carga-masiva" value="carga-masiva" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <FileSpreadsheet size={14} className="mr-2" /> Carga Masiva (Excel)
               </TabsTrigger>
             )}
-            <TabsTrigger value="vinculacion" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white whitespace-nowrap">
+            <TabsTrigger data-tour-id="tab-vinculacion" value="vinculacion" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white whitespace-nowrap">
               <Link2 size={14} className="mr-2 text-amber-400 drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]" /> Vincular Proveedor
             </TabsTrigger>
             {config?.['inventory_entradas'] !== false && (
-              <TabsTrigger value="entradas" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger data-tour-id="tab-entradas" value="entradas" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <Zap size={14} className="mr-2" /> Entrada Rápida
               </TabsTrigger>
             )}
             {config?.['inventory_config'] !== false && (
-              <TabsTrigger value="config" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+              <TabsTrigger data-tour-id="tab-config" value="config" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <Settings2 size={14} className="mr-2" /> Bodegas
               </TabsTrigger>
             )}

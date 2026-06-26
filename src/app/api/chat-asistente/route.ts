@@ -21,12 +21,12 @@ Los "id_del_elemento" válidos se indican entre corchetes [TOUR:...] en el Manua
 `;
 
 const MODULE_BLUEPRINTS: Record<string, string> = {
-  'Facturación y Ventas': 'Pestañas: 1. POS (Punto de Venta) [TOUR:tab-pos]. 2. Historial de Ventas (Ventas pasadas, tickets y anulación) [TOUR:tab-history]. 3. Arqueo de Caja (Cierre ciego de caja) [TOUR:tab-arqueo]. 4. Configuración (Seleccionar estación) [TOUR:tab-config].',
-  'Inventario y Logística': 'Pestañas: 1. Catálogo (Crear productos) [TOUR:tab-catalogo]. 2. Stock (Existencias por bodega) [TOUR:tab-stock]. 3. Kárdex (Historial movimientos) [TOUR:tab-kardex].',
+  'Facturación y Ventas': 'Pestañas: 1. POS (Punto de Venta) [TOUR:tab-pos]. 2. Historial de Ventas (Ventas pasadas, tickets y anulación) [TOUR:tab-history]. 3. Arqueo de Caja (Cierre ciego de caja) [TOUR:tab-arqueo]. 4. Créditos (CXC) [TOUR:tab-creditos]. 5. Configuración [TOUR:tab-config].',
+  'Inventario y Logística': 'Pestañas: 1. Existencias [TOUR:tab-existencia]. 2. Catálogo Maestro [TOUR:tab-catalogo]. 3. Precios y Variantes [TOUR:tab-precios]. 4. Kardex [TOUR:tab-kardex]. 5. Toma Física [TOUR:tab-toma-fisica]. 6. Carga Masiva [TOUR:tab-carga-masiva]. 7. Vincular Proveedor [TOUR:tab-vinculacion]. 8. Entradas [TOUR:tab-entradas]. 9. Bodegas [TOUR:tab-config].',
   'Registro de Compras': 'Funciones principales: Ingresar facturas de proveedores, alimentar el inventario con nuevas compras (afecta el stock positivamente) y registrar cuentas por pagar (CXP).',
   'Registro de Clientes': 'Pestañas: 1. Listado (Directorio de clientes y sus datos fiscales). 2. Límites de Crédito (Para asignar saldos máximos de crédito a clientes de confianza).',
   'Contabilidad y Finanzas': 'Pestañas y Funciones: Visualización de Cuentas por Cobrar (CXC), Cuentas por Pagar (CXP), Egresos rápidos y reportería financiera básica.',
-  'CRM Comercial': 'Funciones: Pipeline de ventas, tablero Kanban de oportunidades, gestión de leads y asignación de tareas a vendedores.',
+  'CRM Comercial': 'Funciones: Pipeline de ventas, tablero Kanban de oportunidades y Mapa Logístico. Pestañas: 1. Embudo Kanban [TOUR:tab-kanban]. 2. Mapa Logístico (Recomendaciones y clientes geolocalizados) [TOUR:tab-mapa].',
   'Gerencia y Reportes': 'Pestañas: 1. Dashboard de KPIs. 2. Gestión de Sucursales y Cajas. 3. Usuarios y Roles (RBAC, crear cajeros y admins).',
   'Centro Documental': 'Funciones: Explorador de archivos para crear documentos de Word y hojas de Excel en blanco, sin vinculación a módulos, guardados en la base de datos.'
 };
