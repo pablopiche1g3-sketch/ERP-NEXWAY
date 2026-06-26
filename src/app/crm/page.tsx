@@ -27,7 +27,10 @@ import {
   DollarSign,
   UserCheck,
   Package,
-  FileText
+  FileText,
+  MapPin,
+  ListTodo,
+  Navigation
 } from 'lucide-react';
 import { useUser } from '@/supabase/use-user';
 import { supabase } from '@/supabase/client';
