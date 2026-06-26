@@ -110,6 +110,7 @@ export const useBms = () => useContext(BmsContext);
 export function BmsProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<BmsStats>(defaultStats);
   const [loading, setLoading] = useState(true);
+  const [mapData, setMapData] = useState<MapData>(defaultMapData);
   
   // Custom tasks for alerts
   const [customTasks, setCustomTasks] = useState<GuideTask[]>([]);
@@ -281,6 +282,47 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         hasClosingToday: (closingToday || []).length > 0,
         crmTasksCount: pendingCrmTasks
       });
+
+      // 7. Mapear clientes y sucursales reales en el Mapa Logístico
+      const { data: realBranches } = await supabase.from('branches').select('id, name');
+      const { data: realCustomers } = await supabase.from('customers').select('id, name, credit_limit').order('created_at', { ascending: false }).limit(20);
+
+      const newLocations: MapLocation[] = [];
+      
+      // Asignar sucursales reales (usamos coordenadas fijas porque la BD no las tiene aún)
+      (realBranches || []).forEach((b, idx) => {
+        newLocations.push({
+          id: b.id,
+          name: b.name,
+          lat: 13.7029 - (idx * 0.02),
+          lng: -89.2082 - (idx * 0.02),
+          type: 'BRANCH'
+        });
+      });
+
+      // Asignar clientes reales simulando su ubicación en San Salvador
+      if (realCustomers) {
+        realCustomers.forEach((c, idx) => {
+          const lat = 13.68 + (Math.random() * 0.06 - 0.03);
+          const lng = -89.22 + (Math.random() * 0.06 - 0.03);
+          const type = (idx % 3 === 0) ? 'DELIVERY' : 'VIP';
+          newLocations.push({
+            id: c.id,
+            name: c.name,
+            lat,
+            lng,
+            type,
+            balance: c.credit_limit || 0
+          });
+        });
+      }
+
+      setMapData({
+        locations: newLocations.length > 0 ? newLocations : defaultMapData.locations,
+        routes: defaultMapData.routes,
+        densityAlert: defaultMapData.densityAlert
+      });
+
     } catch (error) {
       console.error('Error al auditar el BMS:', error);
     } finally {
@@ -456,7 +498,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       stats, tasks, loading, auditSystem, 
       processChange, triggerArqueoAlert, requestChange, confirmChange,
       isGuideActive, targetElementId, guideMessage, startGuide, stopGuide,
-      mapData: defaultMapData
+      mapData
     }}>
       {children}
     </BmsContext.Provider>
