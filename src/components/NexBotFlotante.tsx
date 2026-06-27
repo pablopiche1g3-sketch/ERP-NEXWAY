@@ -42,6 +42,15 @@ const MODULE_NAMES: Record<string, string> = {
   '/management': 'Gerencia y Reportes',
 };
 
+const MODULE_AGENDAS: Record<string, string> = {
+  '/inventory': '📋 Agenda sugerida:\n1. Revisar stock estancado.\n2. Auditar Kardex semanal.\n3. Ejecutar toma física si corresponde.',
+  '/crm': '📈 Agenda sugerida:\n1. Dar seguimiento a cotizaciones expiradas.\n2. Mover leads en el Kanban.\n3. Revisar metas del mes.',
+  '/billing': '💳 Agenda sugerida:\n1. Revisar facturas pendientes de cobro.\n2. Verificar correlativos de CCF.\n3. Arqueo de caja del día.',
+  '/purchases': '📦 Agenda sugerida:\n1. Aprobar órdenes de compra pendientes.\n2. Verificar entregas retrasadas.\n3. Actualizar lista de precios de proveedores.',
+  '/documents': '📂 Agenda sugerida:\n1. Organizar minutas de reuniones.\n2. Revisar plantillas de Excel sueltas.\n3. Compartir políticas con nuevos ingresos.',
+  '/management': '📊 Agenda sugerida:\n1. Analizar rentabilidad mensual.\n2. Revisar comisiones de vendedores.\n3. Auditar gastos no recurrentes.'
+};
+
 export function NexBotFlotante() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -55,6 +64,10 @@ export function NexBotFlotante() {
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // State for contextual speech bubble (Agenda)
+  const [showAgendaBubble, setShowAgendaBubble] = useState(false);
+  const [hasShownAgendaForPath, setHasShownAgendaForPath] = useState<string>('');
 
   // Detect current module name based on path
   const currentModule = MODULE_NAMES[pathname] || 'Módulo Desconocido';
@@ -63,7 +76,31 @@ export function NexBotFlotante() {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, isMinimized]);
+
+  // Contextual Trigger on Route Change
+  useEffect(() => {
+    if (pathname && pathname !== hasShownAgendaForPath) {
+      setHasShownAgendaForPath(pathname);
+      const agenda = MODULE_AGENDAS[pathname];
+      if (agenda) {
+        // Append context message silently to chat
+        setMessages(prev => [
+          ...prev, 
+          { 
+            role: 'assistant', 
+            content: `Has entrado a **${MODULE_NAMES[pathname]}**.\n\n${agenda}`
+          }
+        ]);
+        // Trigger speech bubble
+        if (!isOpen) {
+          setShowAgendaBubble(true);
+          const timer = setTimeout(() => setShowAgendaBubble(false), 8000);
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [pathname, isOpen, hasShownAgendaForPath]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,13 +152,25 @@ export function NexBotFlotante() {
       {/* ROBOT FLOTANTE ANIMADO ("MUÑECO") */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            setIsOpen(true);
+            setShowAgendaBubble(false);
+          }}
           className="group relative flex flex-col items-center justify-center focus:outline-none transition-all duration-300 active:scale-95"
           style={{ filter: 'drop-shadow(0 0 15px rgba(59, 130, 246, 0.4))' }}
         >
           {/* Globo de ayuda contextual sobre la cabeza */}
-          <div className="absolute top-[-45px] bg-indigo-600/90 text-white text-[9px] font-black uppercase tracking-widest py-1 px-3.5 rounded-full border border-indigo-400/40 shadow-lg scale-0 group-hover:scale-100 transition-all duration-200 origin-bottom whitespace-nowrap">
-            ¿Necesitas ayuda? 🤖
+          <div className={`absolute ${showAgendaBubble ? 'top-[-80px] p-3 rounded-2xl w-48 text-left' : 'top-[-45px] py-1 px-3.5 rounded-full whitespace-nowrap'} bg-indigo-600/90 text-white text-[10px] font-bold tracking-wide border border-indigo-400/40 shadow-lg origin-bottom transition-all duration-300 ${showAgendaBubble ? 'scale-100 animate-bounce' : 'scale-0 group-hover:scale-100'}`}>
+            {showAgendaBubble ? (
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] text-indigo-200 uppercase font-black tracking-widest">Sugerencia 🤖</span>
+                <span className="leading-tight text-white/90">¡Tengo una agenda recomendada para este módulo! Haz clic para verla.</span>
+              </div>
+            ) : (
+              <span className="uppercase text-[9px] font-black tracking-widest">¿Necesitas ayuda? 🤖</span>
+            )}
+            {/* Triángulo del tooltip */}
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-indigo-600/90 rotate-45 border-r border-b border-indigo-400/40"></div>
           </div>
 
           {/* CUERPO DEL ROBOT SVG ANIMADO */}
