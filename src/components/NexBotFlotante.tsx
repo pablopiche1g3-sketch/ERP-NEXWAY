@@ -65,6 +65,7 @@ export function NexBotFlotante() {
   const [botPosition, setBotPosition] = useState({ left: -9999, top: -9999 });
   const [isReady, setIsReady] = useState(false);
   const [isPointing, setIsPointing] = useState(false);
+  const [isRoaming, setIsRoaming] = useState(false);
 
   // Calcula la esquina inferior derecha
   const getBottomRightPos = () => {
@@ -79,11 +80,27 @@ export function NexBotFlotante() {
     };
   };
 
-  // Lógica para rastrear el elemento objetivo y volver a su esquina
+  // Calcula una posición aleatoria para patrullaje
+  const getRandomRoamingPos = () => {
+    if (typeof window === 'undefined') return { left: 0, top: 0 };
+    // Mantener a NexBot en la mitad derecha y con márgenes para que no estorbe (ej. no tapar Sidebar)
+    const minX = window.innerWidth / 2; 
+    const maxX = window.innerWidth - 100;
+    const minY = 100; // Debajo del header
+    const maxY = window.innerHeight - 100;
+
+    const randomX = Math.floor(Math.random() * (maxX - minX + 1)) + minX;
+    const randomY = Math.floor(Math.random() * (maxY - minY + 1)) + minY;
+
+    return { left: randomX, top: randomY };
+  };
+
+  // Lógica para rastrear el elemento objetivo y patrullar
   useEffect(() => {
-    const updatePosition = () => {
+    const updatePosition = (forceRoamingPos = false) => {
       if (isGuideActive && targetElementId) {
         setIsOpen(false); // Cierra el chat si está abierto
+        setIsRoaming(false);
         
         const el = document.querySelector(`[data-tour-id="${targetElementId}"]`);
         if (el) {
@@ -100,29 +117,52 @@ export function NexBotFlotante() {
           setBotPosition({ left: newLeft, top: newTop });
           setIsPointing(true);
         } else {
-          // Si no encuentra el elemento, vuelve a su lugar
           setBotPosition(getBottomRightPos());
           setIsPointing(false);
         }
-      } else {
-        // Regresa a su esquina
+      } else if (isOpen) {
+        // Cuando el chat está abierto, regresamos a la esquina y nos anclamos
+        setIsRoaming(false);
         setBotPosition(getBottomRightPos());
         setIsPointing(false);
+      } else {
+        // MODO PATRULLAJE (IDLE)
+        setIsRoaming(true);
+        setIsPointing(false);
+        if (forceRoamingPos || (botPosition.left === -9999)) {
+          setBotPosition(getRandomRoamingPos());
+        }
       }
       if (!isReady) setIsReady(true);
     };
 
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition);
+    updatePosition(false); // Llamada inicial
     
-    // Polling ligero para elementos que tarden en renderizar
-    const interval = setInterval(updatePosition, 500);
+    // Handlers para redimensionar (forzamos que no cambie su pose de patrullaje al scrollear a menos que sea resize)
+    const handleResize = () => updatePosition(false);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleResize);
+    
+    // Polling ligero para elementos que tarden en renderizar (solo para modo guía)
+    const guideInterval = setInterval(() => {
+      if (isGuideActive) updatePosition(false);
+    }, 500);
+
+    // Bucle de patrullaje: se mueve suavemente cada 10 segundos
+    const roamingInterval = setInterval(() => {
+      // Como el intervalo está dentro de useEffect, necesitamos asegurarnos de las dependencias
+      // pero la forma más segura es usar un estado de timeout si algo más cambia.
+      // Aquí isOpen y isGuideActive están en las dependencias así que se refresca el closure.
+      if (!isGuideActive && !isOpen) {
+        updatePosition(true); // Forzamos nueva posición
+      }
+    }, 10000);
     
     return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition);
-      clearInterval(interval);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleResize);
+      clearInterval(guideInterval);
+      clearInterval(roamingInterval);
     };
   }, [isGuideActive, targetElementId, isOpen, isMinimized, isReady]);
 
@@ -200,10 +240,12 @@ export function NexBotFlotante() {
 
   return (
     <div 
-      className={`fixed z-[100] select-none font-body print:hidden transition-all duration-1000 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${!isReady ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed z-[100] select-none font-body print:hidden transition-all ease-[cubic-bezier(0.34,1.56,0.64,1)] ${!isReady ? 'opacity-0' : 'opacity-100'}`}
       style={{
         left: botPosition.left > -100 ? `${botPosition.left}px` : 'auto',
         top: botPosition.top > -100 ? `${botPosition.top}px` : 'auto',
+        transitionDuration: isRoaming ? '9000ms' : '1000ms',
+        transitionTimingFunction: isRoaming ? 'ease-in-out' : 'cubic-bezier(0.34,1.56,0.64,1)'
       }}
     >
       {/* ROBOT FLOTANTE ANIMADO ("MUÑECO") */}
