@@ -61,20 +61,33 @@ export function NexBotFlotante() {
   // Consumimos el BMS
   const { tasks: bmsTasks, isGuideActive, targetElementId, guideMessage, stopGuide, startGuide } = useBms();
 
-  // Estado para la posición dinámica del bot
-  const [botPosition, setBotPosition] = useState<{ bottom: number | 'auto', right: number | 'auto', left: string, top: string }>({ bottom: 24, right: 24, left: 'auto', top: 'auto' });
+  // Estado para la posición dinámica del bot (solo left y top para animar fluidamente)
+  const [botPosition, setBotPosition] = useState({ left: -9999, top: -9999 });
+  const [isReady, setIsReady] = useState(false);
   const [isPointing, setIsPointing] = useState(false);
 
-  // Lógica para rastrear el elemento objetivo
+  // Calcula la esquina inferior derecha
+  const getBottomRightPos = () => {
+    if (typeof window === 'undefined') return { left: 0, top: 0 };
+    const isMobile = window.innerWidth < 768;
+    // Dimensiones estimadas
+    const w = isOpen ? (isMinimized ? 320 : (isMobile ? 360 : 380)) : 80;
+    const h = isOpen ? (isMinimized ? 56 : (isMobile ? 520 : 550)) : 80;
+    return {
+      left: Math.max(16, window.innerWidth - w - 24),
+      top: Math.max(16, window.innerHeight - h - 24)
+    };
+  };
+
+  // Lógica para rastrear el elemento objetivo y volver a su esquina
   useEffect(() => {
-    if (isGuideActive && targetElementId) {
-      setIsOpen(false); // Cierra el chat si está abierto
-      
-      const updatePosition = () => {
+    const updatePosition = () => {
+      if (isGuideActive && targetElementId) {
+        setIsOpen(false); // Cierra el chat si está abierto
+        
         const el = document.querySelector(`[data-tour-id="${targetElementId}"]`);
         if (el) {
           const rect = el.getBoundingClientRect();
-          // Colocar el bot a la derecha del elemento, o abajo si no hay espacio
           const isMobile = window.innerWidth < 768;
           let newLeft = rect.right + 20;
           let newTop = rect.top + (rect.height / 2) - 40;
@@ -84,30 +97,34 @@ export function NexBotFlotante() {
             newTop = rect.bottom + 20;
           }
 
-          setBotPosition({
-            left: `${newLeft}px`,
-            top: `${newTop}px`,
-            bottom: 'auto',
-            right: 'auto'
-          });
+          setBotPosition({ left: newLeft, top: newTop });
           setIsPointing(true);
+        } else {
+          // Si no encuentra el elemento, vuelve a su lugar
+          setBotPosition(getBottomRightPos());
+          setIsPointing(false);
         }
-      };
+      } else {
+        // Regresa a su esquina
+        setBotPosition(getBottomRightPos());
+        setIsPointing(false);
+      }
+      if (!isReady) setIsReady(true);
+    };
 
-      updatePosition();
-      window.addEventListener('resize', updatePosition);
-      window.addEventListener('scroll', updatePosition);
-      
-      return () => {
-        window.removeEventListener('resize', updatePosition);
-        window.removeEventListener('scroll', updatePosition);
-      };
-    } else {
-      // Regresa a su esquina
-      setBotPosition({ bottom: 24, right: 24, left: 'auto', top: 'auto' });
-      setIsPointing(false);
-    }
-  }, [isGuideActive, targetElementId]);
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition);
+    
+    // Polling ligero para elementos que tarden en renderizar
+    const interval = setInterval(updatePosition, 500);
+    
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition);
+      clearInterval(interval);
+    };
+  }, [isGuideActive, targetElementId, isOpen, isMinimized, isReady]);
 
   // Detect current module name based on path
   const currentModule = MODULE_NAMES[pathname] || 'Módulo Desconocido';
@@ -183,12 +200,10 @@ export function NexBotFlotante() {
 
   return (
     <div 
-      className="fixed z-[100] select-none font-body print:hidden transition-all duration-700 ease-in-out"
+      className={`fixed z-[100] select-none font-body print:hidden transition-all duration-1000 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${!isReady ? 'opacity-0' : 'opacity-100'}`}
       style={{
-        bottom: typeof botPosition.bottom === 'number' ? `${botPosition.bottom}px` : botPosition.bottom,
-        right: typeof botPosition.right === 'number' ? `${botPosition.right}px` : botPosition.right,
-        left: botPosition.left,
-        top: botPosition.top,
+        left: botPosition.left > -100 ? `${botPosition.left}px` : 'auto',
+        top: botPosition.top > -100 ? `${botPosition.top}px` : 'auto',
       }}
     >
       {/* ROBOT FLOTANTE ANIMADO ("MUÑECO") */}
