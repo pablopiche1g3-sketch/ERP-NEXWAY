@@ -59,10 +59,10 @@ export function NexBotFlotante() {
   const scrollRef = useRef<HTMLDivElement>(null);
   
   // Consumimos el BMS
-  const { tasks: bmsTasks, isGuideActive, targetElementId, guideMessage, stopGuide } = useBms();
+  const { tasks: bmsTasks, isGuideActive, targetElementId, guideMessage, stopGuide, startGuide } = useBms();
 
   // Estado para la posición dinámica del bot
-  const [botPosition, setBotPosition] = useState({ bottom: 24, right: 24, left: 'auto', top: 'auto' });
+  const [botPosition, setBotPosition] = useState<{ bottom: number | 'auto', right: number | 'auto', left: string, top: string }>({ bottom: 24, right: 24, left: 'auto', top: 'auto' });
   const [isPointing, setIsPointing] = useState(false);
 
   // Lógica para rastrear el elemento objetivo
