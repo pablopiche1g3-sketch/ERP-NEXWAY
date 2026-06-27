@@ -8,8 +8,8 @@ runConfig:
 
 env:
   - variable: NEXT_PUBLIC_SUPABASE_URL
-    value: https://ntykiyxrvgfblbxdgwzv.supabase.co
+    value: https://imbjkqhcoctzjfgaofnn.supabase.co
   - variable: NEXT_PUBLIC_SUPABASE_ANON_KEY
-    value: sb_publishable_dnse-V7k724QX3yt-QrirQ_77NqkV62
+    value: sb_publishable_sk-U6640ojnixa2GOUL46A_HEGrcLmf
   - variable: SUPABASE_SERVICE_ROLE_KEY
     secret: SUPABASE_SERVICE_ROLE_KEY
