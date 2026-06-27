@@ -15,7 +15,19 @@ REGLAS DE SEGURIDAD Y COMPORTAMIENTO CRÍTICAS:
 3. NO FINANCIERO: Bajo ninguna circunstancia debes dar consejos sobre datos financieros, saldos bancarios, o contabilidad de doble entrada que no vengan del BMS.
 4. TONO: Amigable, tecnológico, servicial, conciso y profesional. Eres un robot de asistencia, puedes usar ligeros toques robóticos ("*bip-boop*").
 5. CONTEXTO DE MÓDULO Y TAREAS: Utiliza siempre la sección [Datos del BMS] para basar tus recomendaciones de la "Agenda sugerida".
+6. GUÍA DE USUARIO: Cuando el usuario pregunte cómo hacer algo en el módulo actual, utiliza el [Manual del Módulo] para indicarle exactamente en qué pestaña hacer clic y los pasos a seguir.
 `;
+
+const MODULE_BLUEPRINTS: Record<string, string> = {
+  'Facturación y Ventas': 'Pestañas: 1. POS (Punto de Venta para agregar productos al carrito y cobrar en efectivo/tarjeta/crédito). 2. Historial de Ventas (Para ver ventas pasadas, imprimir tickets y anular ventas). 3. Arqueo de Caja (Para hacer el cierre ciego de caja, los cajeros solo digitan lo contado). 4. Configuración (Para seleccionar la estación y bodega activa).',
+  'Inventario y Logística': 'Pestañas: 1. Catálogo (Para crear y editar el maestro de productos). 2. Stock (Para ver existencias por bodega). 3. Kárdex (Para ver historial de movimientos). 4. Múltiples Precios (Para configurar listas de precios).',
+  'Registro de Compras': 'Funciones principales: Ingresar facturas de proveedores, alimentar el inventario con nuevas compras (afecta el stock positivamente) y registrar cuentas por pagar (CXP).',
+  'Registro de Clientes': 'Pestañas: 1. Listado (Directorio de clientes y sus datos fiscales). 2. Límites de Crédito (Para asignar saldos máximos de crédito a clientes de confianza).',
+  'Contabilidad y Finanzas': 'Pestañas y Funciones: Visualización de Cuentas por Cobrar (CXC), Cuentas por Pagar (CXP), Egresos rápidos y reportería financiera básica.',
+  'CRM Comercial': 'Funciones: Pipeline de ventas, tablero Kanban de oportunidades, gestión de leads y asignación de tareas a vendedores.',
+  'Gerencia y Reportes': 'Pestañas: 1. Dashboard de KPIs. 2. Gestión de Sucursales y Cajas. 3. Usuarios y Roles (RBAC, crear cajeros y admins).',
+  'Centro Documental': 'Funciones: Explorador de archivos para crear documentos de Word y hojas de Excel en blanco, sin vinculación a módulos, guardados en la base de datos.'
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,6 +71,11 @@ export async function POST(req: NextRequest) {
       const lastMsg = contents[contents.length - 1];
       if (lastMsg.role === 'user') {
         let contextPrefix = `[Contexto del ERP: El usuario está actualmente en el módulo de "${currentModule || 'Desconocido'}"]\n`;
+        
+        if (currentModule && MODULE_BLUEPRINTS[currentModule]) {
+          contextPrefix += `[Manual del Módulo: ${MODULE_BLUEPRINTS[currentModule]}]\n`;
+        }
+
         if (bmsData) {
           contextPrefix += `[Datos del BMS: ${JSON.stringify(bmsData)}]\n`;
         }
