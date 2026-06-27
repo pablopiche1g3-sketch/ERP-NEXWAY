@@ -99,6 +99,15 @@ export default function Home() {
       icon: <Users size={22} /> 
     },
     { 
+      id: 'documents', 
+      title: 'Centro Documental', 
+      description: 'Documentos y hojas libres', 
+      path: '/documents', 
+      iconBg: 'bg-rose-500/10 text-rose-500 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/10',
+      glowClass: 'shadow-lg shadow-rose-500/20 hover:shadow-[0_0_40px_rgba(244,63,94,0.6)] hover:shadow-rose-500/60 hover:border-rose-500/50 dark:hover:border-rose-500/50',
+      icon: <FileText size={22} /> 
+    },
+    { 
       id: 'inventory', 
       title: 'Inventario', 
       description: 'Existencias y stock real', 
