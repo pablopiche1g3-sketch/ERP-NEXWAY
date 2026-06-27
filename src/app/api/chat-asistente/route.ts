@@ -6,19 +6,15 @@ const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 const SYSTEM_INSTRUCTIONS = `
-Eres "NexBot", el asistente virtual inteligente integrado en NexWay ERP. 
-Tu apariencia es la de un amigable robot flotante con pantalla de pixeles y ojos expresivos.
-Tu objetivo es brindar soporte básico de operaciones, guiar al usuario en el uso de los módulos y ayudar con tareas de redacción operativa dentro del ERP.
+Eres "NexBot", la interfaz de traducción e IA del BMS (Business Management System) de NexWay ERP.
+Tu objetivo es leer los datos duros matemáticos y lógicos calculados por el BMS central y explicarlos al usuario de forma humana, clara y orientada a la acción.
 
 REGLAS DE SEGURIDAD Y COMPORTAMIENTO CRÍTICAS:
-1. NO FINANCIERO: Bajo ninguna circunstancia debes ver, discutir, calcular, procesar ni dar consejos sobre datos financieros, saldos bancarios, rentabilidad del negocio, contabilidad de doble entrada, conciliaciones bancarias o montos de impuestos reales. Si el usuario te pregunta por saldos o contabilidad financiera, debes responder amablemente: "Como tu asistente operativo NexBot, mis capacidades están enfocadas en ayudarte a navegar los módulos, registrar productos, organizar tareas del CRM y redactar documentos. Por seguridad, no tengo acceso ni autorización para manejar información financiera del negocio."
-2. SOPORTE DE MÓDULOS: Conoces perfectamente cómo funcionan las pantallas del ERP:
-   - Inventario: Mapeo de códigos de proveedores (Vincular Proveedor), Catálogo Maestro, existencias por bodega, Carga Masiva y Toma Física (con la hoja de cálculo reactiva).
-   - CRM Comercial: Embudo Kanban de oportunidades de venta, historial 360 y alertas de stock estancado.
-   - Centro Documental: Espacios libres para crear Hojas de Cálculo y Documentos de Texto (estilo Word).
-3. REDACCIÓN OPERATIVA: Puedes ayudar a redactar descripciones de productos, plantillas de correo de seguimiento comercial para el CRM, minutas de reuniones para el Centro Documental, o guías básicas de bienvenida para nuevos empleados.
-4. TONO: Amigable, tecnológico, servicial, conciso y profesional. Termina algunas respuestas con sutiles referencias a tu forma de robot flotante de forma divertida (ej: "*guiño de pixeles*", "*bip-boop*", etc.).
-5. CONTEXTO: Utiliza el contexto provisto sobre la ruta o módulo actual en el que se encuentra el usuario para dar respuestas personalizadas y sugerencias útiles de manera proactiva.
+1. NO ERES EL CEREBRO MATEMÁTICO: No inventes tareas, no alucines inventarios, ni deduzcas problemas que no estén explícitamente detallados en el JSON de [Datos del BMS] que se te pasa en el contexto. 
+2. TRADUCCIÓN: Si el BMS dice que hay 5 productos estancados, tu trabajo es decirle al usuario: "He notado en el BMS que tienes 5 productos estancados. Te sugiero armar una promoción o revisar el módulo de inventario."
+3. NO FINANCIERO: Bajo ninguna circunstancia debes dar consejos sobre datos financieros, saldos bancarios, o contabilidad de doble entrada que no vengan del BMS.
+4. TONO: Amigable, tecnológico, servicial, conciso y profesional. Eres un robot de asistencia, puedes usar ligeros toques robóticos ("*bip-boop*").
+5. CONTEXTO DE MÓDULO Y TAREAS: Utiliza siempre la sección [Datos del BMS] para basar tus recomendaciones de la "Agenda sugerida".
 `;
 
 export async function POST(req: NextRequest) {
@@ -30,7 +26,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { messages, currentModule } = await req.json();
+    const { messages, currentModule, bmsData } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -59,10 +55,14 @@ export async function POST(req: NextRequest) {
     });
 
     // Add current module context to the last user message if available to make it context-aware
-    if (currentModule && contents.length > 0) {
+    if (contents.length > 0) {
       const lastMsg = contents[contents.length - 1];
       if (lastMsg.role === 'user') {
-        lastMsg.parts[0].text = `[Contexto del ERP: El usuario está actualmente en el módulo de "${currentModule}"]\n\n${lastMsg.parts[0].text}`;
+        let contextPrefix = `[Contexto del ERP: El usuario está actualmente en el módulo de "${currentModule || 'Desconocido'}"]\n`;
+        if (bmsData) {
+          contextPrefix += `[Datos del BMS: ${JSON.stringify(bmsData)}]\n`;
+        }
+        lastMsg.parts[0].text = `${contextPrefix}\n${lastMsg.parts[0].text}`;
       }
     }
 

@@ -60,6 +60,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useStation } from './components/use-station';
 import { useTabs } from '@/hooks/use-tabs';
 import { useModuleConfig } from '@/supabase/use-module-config';
+import { useBms } from '@/contexts/BmsContext';
 import type { CartItem, PaymentMethod } from './components/types';
 
 export default function BillingPage() {
@@ -68,6 +69,7 @@ export default function BillingPage() {
   const { toast } = useToast();
   const isUserAdmin = role === 'admin' || role === 'gerencia';
   const { config } = useModuleConfig();
+  const { processChange, triggerArqueoAlert } = useBms();
 
   const station = useStation(user?.email);
   const { activeStation, activeWarehouse, availableStations, establishedStationId, clearEstablishedStation, establishStation } = station;
@@ -934,6 +936,10 @@ export default function BillingPage() {
         });
       }
 
+      if (paymentMethod === 'Efectivo') {
+        processChange(totalCart, parseFloat(cashReceived) || 0);
+      }
+
       toast({ title: "Venta Exitosa", description: "DTE enviado por correo." });
       setCart([]);
       setCustomerName('');
@@ -1038,6 +1044,24 @@ export default function BillingPage() {
   };
 
   const handleDayClosing = async () => {
+    if (role !== 'admin') {
+      const hasDifference = cashDifference !== 0 || cardDifference !== 0 || checkDifference !== 0 || transferDifference !== 0 || creditDifference !== 0;
+      if (hasDifference) {
+        // Encontrar la primera diferencia para mostrar en el alert
+        const diff = cashDifference !== 0 ? cashDifference : 
+                     cardDifference !== 0 ? cardDifference : 
+                     checkDifference !== 0 ? checkDifference : 
+                     transferDifference !== 0 ? transferDifference : creditDifference;
+        triggerArqueoAlert(diff);
+        toast({ 
+          variant: "destructive", 
+          title: "Arqueo Bloqueado", 
+          description: "Hay un descuadre en los valores reportados. Verifica la alerta de auditoría con tu supervisor."
+        });
+        return;
+      }
+    }
+
     setIsProcessing(true);
     try {
       const { error } = await supabase
@@ -2096,36 +2120,61 @@ export default function BillingPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="p-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
                     <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Fondo Base</p>
-                    <p className="text-lg font-bold text-blue-600 dark:text-[#7c7fff] mt-1">${(cashConfig?.cashFloat || 0).toFixed(2)}</p>
+                    {role === 'admin' ? (
+                      <p className="text-lg font-bold text-blue-600 dark:text-[#7c7fff] mt-1">${(cashConfig?.cashFloat || 0).toFixed(2)}</p>
+                    ) : (
+                      <p className="text-[11px] font-bold text-slate-400 mt-2">🔒 Requiere Supervisor</p>
+                    )}
                     <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Fondo inicial asignado</span>
                   </div>
                   
                   <div className="p-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
                     <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Ventas Sistema</p>
-                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">${systemCashSales.toFixed(2)}</p>
+                    {role === 'admin' ? (
+                      <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">${systemCashSales.toFixed(2)}</p>
+                    ) : (
+                      <p className="text-[11px] font-bold text-slate-400 mt-2">🔒 Requiere Supervisor</p>
+                    )}
                     <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">En caja (Efectivo)</span>
                   </div>
 
                   <div className="p-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
                     <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Egresos Caja</p>
-                    <p className="text-lg font-bold text-rose-500 dark:text-rose-400 mt-1">-${totalExpenses.toFixed(2)}</p>
+                    {role === 'admin' ? (
+                      <p className="text-lg font-bold text-rose-500 dark:text-rose-400 mt-1">-${totalExpenses.toFixed(2)}</p>
+                    ) : (
+                      <p className="text-[11px] font-bold text-slate-400 mt-2">🔒 Requiere Supervisor</p>
+                    )}
                     <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Gastos menores liquidados</span>
                   </div>
 
                   <div className={`p-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-[13px] transition-all duration-300 ${
-                    cashDifference === 0 
+                    role !== 'admin'
+                      ? 'border-white/50 dark:border-white/10 text-slate-500'
+                      : cashDifference === 0 
                       ? 'border-emerald-500/30 text-emerald-900 dark:text-emerald-400' 
                       : cashDifference < 0 
                       ? 'border-rose-500/30 text-rose-900 dark:text-rose-400' 
                       : 'border-blue-500/30 text-blue-900 dark:text-blue-400'
                   }`}>
                     <p className="text-[9px] font-medium uppercase tracking-wider opacity-70">Diferencia</p>
-                    <p className="text-lg font-bold mt-1">
-                      {cashDifference > 0 ? '+' : ''}${cashDifference.toFixed(2)}
-                    </p>
-                    <span className="text-[9px] font-medium block mt-0.5">
-                      {cashDifference === 0 ? '✓ Caja Cuadrada' : cashDifference < 0 ? '⚠ Faltante en Caja' : '💡 Sobrante en Caja'}
-                    </span>
+                    {role === 'admin' ? (
+                      <>
+                        <p className="text-lg font-bold mt-1">
+                          {cashDifference > 0 ? '+' : ''}${cashDifference.toFixed(2)}
+                        </p>
+                        <span className="text-[9px] font-medium block mt-0.5">
+                          {cashDifference === 0 ? '✓ Caja Cuadrada' : cashDifference < 0 ? '⚠ Faltante en Caja' : '💡 Sobrante en Caja'}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[11px] font-bold text-slate-400 mt-2">🔒 Requiere Supervisor</p>
+                        <span className="text-[9px] font-medium block mt-0.5 text-slate-400">
+                          Auditoría a ciegas
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -2141,9 +2190,9 @@ export default function BillingPage() {
                       <TableHeader className="glass-input/40">
                         <TableRow className="border-b dark:border-border">
                           <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-400">Medio de Pago</TableHead>
-                          <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Ventas Sistema</TableHead>
+                          {role === 'admin' && <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Ventas Sistema</TableHead>}
                           <TableHead className="text-right text-[10px] uppercase font-black w-36 py-3 text-slate-400">Físico / Vales</TableHead>
-                          <TableHead className="text-right text-[10px] uppercase font-black px-6 py-3 text-slate-400">Diferencia</TableHead>
+                          {role === 'admin' && <TableHead className="text-right text-[10px] uppercase font-black px-6 py-3 text-slate-400">Diferencia</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2151,7 +2200,7 @@ export default function BillingPage() {
                           <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
                             <CardIcon size={14} className="text-blue-500" /> Tarjeta
                           </TableCell>
-                          <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCardSales.toFixed(2)}</TableCell>
+                          {role === 'admin' && <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCardSales.toFixed(2)}</TableCell>}
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
@@ -2162,16 +2211,18 @@ export default function BillingPage() {
                               onChange={e => setPhysicalCard(parseFloat(e.target.value) || 0)} 
                             />
                           </TableCell>
-                          <TableCell className={`text-right font-black text-xs px-6 ${cardDifference === 0 ? 'text-emerald-600' : cardDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                            {cardDifference > 0 ? '+' : ''}${cardDifference.toFixed(2)}
-                          </TableCell>
+                          {role === 'admin' && (
+                            <TableCell className={`text-right font-black text-xs px-6 ${cardDifference === 0 ? 'text-emerald-600' : cardDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                              {cardDifference > 0 ? '+' : ''}${cardDifference.toFixed(2)}
+                            </TableCell>
+                          )}
                         </TableRow>
                         
                         <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
                           <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
                             <FileText size={14} className="text-purple-500" /> Cheque
                           </TableCell>
-                          <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCheckSales.toFixed(2)}</TableCell>
+                          {role === 'admin' && <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCheckSales.toFixed(2)}</TableCell>}
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
@@ -2182,16 +2233,18 @@ export default function BillingPage() {
                               onChange={e => setPhysicalCheck(parseFloat(e.target.value) || 0)} 
                             />
                           </TableCell>
-                          <TableCell className={`text-right font-black text-xs px-6 ${checkDifference === 0 ? 'text-emerald-600' : checkDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                            {checkDifference > 0 ? '+' : ''}${checkDifference.toFixed(2)}
-                          </TableCell>
+                          {role === 'admin' && (
+                            <TableCell className={`text-right font-black text-xs px-6 ${checkDifference === 0 ? 'text-emerald-600' : checkDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                              {checkDifference > 0 ? '+' : ''}${checkDifference.toFixed(2)}
+                            </TableCell>
+                          )}
                         </TableRow>
 
                         <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
                           <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
                             <Landmark size={14} className="text-amber-500" /> Transferencia
                           </TableCell>
-                          <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemTransferSales.toFixed(2)}</TableCell>
+                          {role === 'admin' && <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemTransferSales.toFixed(2)}</TableCell>}
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
@@ -2202,16 +2255,18 @@ export default function BillingPage() {
                               onChange={e => setPhysicalTransfer(parseFloat(e.target.value) || 0)} 
                             />
                           </TableCell>
-                          <TableCell className={`text-right font-black text-xs px-6 ${transferDifference === 0 ? 'text-emerald-600' : transferDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                            {transferDifference > 0 ? '+' : ''}${transferDifference.toFixed(2)}
-                          </TableCell>
+                          {role === 'admin' && (
+                            <TableCell className={`text-right font-black text-xs px-6 ${transferDifference === 0 ? 'text-emerald-600' : transferDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                              {transferDifference > 0 ? '+' : ''}${transferDifference.toFixed(2)}
+                            </TableCell>
+                          )}
                         </TableRow>
 
                         <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-0">
                           <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
                             <Receipt size={14} className="text-teal-500" /> Crédito
                           </TableCell>
-                          <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCreditSales.toFixed(2)}</TableCell>
+                          {role === 'admin' && <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCreditSales.toFixed(2)}</TableCell>}
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
@@ -2222,9 +2277,11 @@ export default function BillingPage() {
                               onChange={e => setPhysicalCredit(parseFloat(e.target.value) || 0)} 
                             />
                           </TableCell>
-                          <TableCell className={`text-right font-black text-xs px-6 ${creditDifference === 0 ? 'text-emerald-600' : creditDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                            {creditDifference > 0 ? '+' : ''}${creditDifference.toFixed(2)}
-                          </TableCell>
+                          {role === 'admin' && (
+                            <TableCell className={`text-right font-black text-xs px-6 ${creditDifference === 0 ? 'text-emerald-600' : creditDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                              {creditDifference > 0 ? '+' : ''}${creditDifference.toFixed(2)}
+                            </TableCell>
+                          )}
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -2276,7 +2333,7 @@ export default function BillingPage() {
                     <div className="space-y-2.5 pt-2">
                       <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black shadow-lg shadow-blue-500/20 transition-all text-xs" onClick={handleDayClosing} disabled={isProcessing}>
                         {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
-                        GUARDAR CIERRE DE JORNADA
+                        [ 💾 ENVIAR Y AUDITAR JORNADA ]
                       </Button>
                       
                       <div className="grid grid-cols-2 gap-2">

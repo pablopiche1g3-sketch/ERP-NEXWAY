@@ -1,5 +1,6 @@
 'use client';
 
+import { useBms } from '@/contexts/BmsContext';
 import React, { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { 
@@ -42,15 +43,6 @@ const MODULE_NAMES: Record<string, string> = {
   '/management': 'Gerencia y Reportes',
 };
 
-const MODULE_AGENDAS: Record<string, string> = {
-  '/inventory': '📋 Agenda sugerida:\n1. Revisar stock estancado.\n2. Auditar Kardex semanal.\n3. Ejecutar toma física si corresponde.',
-  '/crm': '📈 Agenda sugerida:\n1. Dar seguimiento a cotizaciones expiradas.\n2. Mover leads en el Kanban.\n3. Revisar metas del mes.',
-  '/billing': '💳 Agenda sugerida:\n1. Revisar facturas pendientes de cobro.\n2. Verificar correlativos de CCF.\n3. Arqueo de caja del día.',
-  '/purchases': '📦 Agenda sugerida:\n1. Aprobar órdenes de compra pendientes.\n2. Verificar entregas retrasadas.\n3. Actualizar lista de precios de proveedores.',
-  '/documents': '📂 Agenda sugerida:\n1. Organizar minutas de reuniones.\n2. Revisar plantillas de Excel sueltas.\n3. Compartir políticas con nuevos ingresos.',
-  '/management': '📊 Agenda sugerida:\n1. Analizar rentabilidad mensual.\n2. Revisar comisiones de vendedores.\n3. Auditar gastos no recurrentes.'
-};
-
 export function NexBotFlotante() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -58,16 +50,15 @@ export function NexBotFlotante() {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'assistant', 
-      content: '¡Hola! Soy **NexBot**, tu asistente operativo. 🤖✨\n\n¿En qué puedo ayudarte hoy? Puedo guiarte a través de los módulos, redactar descripciones de productos para tus inventarios, o armar correos comerciales. *bip-boop*' 
+      content: '¡Hola! Soy **NexBot**, la interfaz de traducción de tu BMS. 🤖✨\n\n¿En qué puedo ayudarte hoy? Analizo los datos del sistema por ti y te explico qué pasos seguir. *bip-boop*' 
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  // State for contextual speech bubble (Agenda)
-  const [showAgendaBubble, setShowAgendaBubble] = useState(false);
-  const [hasShownAgendaForPath, setHasShownAgendaForPath] = useState<string>('');
+  // Consumimos el BMS de forma silenciosa
+  const { tasks: bmsTasks } = useBms();
 
   // Detect current module name based on path
   const currentModule = MODULE_NAMES[pathname] || 'Módulo Desconocido';
@@ -77,30 +68,6 @@ export function NexBotFlotante() {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen, isMinimized]);
-
-  // Contextual Trigger on Route Change
-  useEffect(() => {
-    if (pathname && pathname !== hasShownAgendaForPath) {
-      setHasShownAgendaForPath(pathname);
-      const agenda = MODULE_AGENDAS[pathname];
-      if (agenda) {
-        // Append context message silently to chat
-        setMessages(prev => [
-          ...prev, 
-          { 
-            role: 'assistant', 
-            content: `Has entrado a **${MODULE_NAMES[pathname]}**.\n\n${agenda}`
-          }
-        ]);
-        // Trigger speech bubble
-        if (!isOpen) {
-          setShowAgendaBubble(true);
-          const timer = setTimeout(() => setShowAgendaBubble(false), 8000);
-          return () => clearTimeout(timer);
-        }
-      }
-    }
-  }, [pathname, isOpen, hasShownAgendaForPath]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,7 +86,10 @@ export function NexBotFlotante() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: updatedMessages,
-          currentModule: currentModule
+          currentModule: currentModule,
+          bmsData: {
+            tasks: bmsTasks
+          }
         })
       });
 
