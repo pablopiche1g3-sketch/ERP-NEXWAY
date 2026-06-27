@@ -770,9 +770,11 @@ export default function BillingPage() {
           const available = physical + pendingIncoming;
           if (available < (Number(item.quantity) || 0)) {
             toast({ 
-              title: "Stock Insuficiente (Aviso)", 
-              description: `El producto "${item.name}" no tiene existencias suficientes en "${deductWh.name}". Se facturará en negativo. Disponible: ${physical}, Solicitado: ${item.quantity}.` 
+              variant: "destructive",
+              title: "Stock Insuficiente", 
+              description: `El producto "${item.name}" no tiene existencias suficientes en "${deductWh.name}". Disponible: ${physical}, Solicitado: ${item.quantity}. No se puede facturar.` 
             });
+            return;
           }
         }
       } catch (err) {

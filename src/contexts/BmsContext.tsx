@@ -17,6 +17,7 @@ interface BmsStats {
   branchesCount: number;
   productsCount: number;
   zeroStockProductsCount: number;
+  zeroStockNames?: string;
   stagnantProductsCount: number;
   hasSalesToday: boolean;
   hasClosingToday: boolean;
@@ -67,6 +68,7 @@ const defaultStats: BmsStats = {
   branchesCount: 0,
   productsCount: 0,
   zeroStockProductsCount: 0,
+  zeroStockNames: '',
   stagnantProductsCount: 0,
   hasSalesToday: false,
   hasClosingToday: false,
@@ -214,9 +216,68 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       // 3. Auditar stock en cero
       const { data: stockData } = await supabase
         .from('inventory_stock')
-        .select('quantity');
+        .select(`
+          quantity,
+          sku,
+          inventory ( name )
+        `);
       
-      const zeroStockProducts = (stockData || []).filter(s => (parseFloat(s.quantity) || 0) <= 0).length;
+      const zeroStockItems = (stockData || []).filter(s => (parseFloat(s.quantity) || 0) <= 0);
+      const zeroStockProducts = zeroStockItems.length;
+
+      let zeroStockNamesStr = '';
+      if (zeroStockProducts > 0) {
+        const uniqueZeroSkus = Array.from(new Set(zeroStockItems.map(s => s.sku)));
+        const names = uniqueZeroSkus.map(sku => {
+          const item = zeroStockItems.find(s => s.sku === sku);
+          const nameObj = item?.inventory as any;
+          return nameObj?.name || sku;
+        });
+        zeroStockNamesStr = names.slice(0, 3).join(', ') + (names.length > 3 ? '...' : '');
+
+        // AUTO-ORDER LOGIC (NEXBOT)
+        try {
+          const { data: pendingOrders } = await supabase
+            .from('supplier_orders')
+            .select('items')
+            .eq('status', 'PENDIENTE');
+
+          const pendingSkus = new Set<string>();
+          (pendingOrders || []).forEach(po => {
+             if (po.items && Array.isArray(po.items)) {
+               po.items.forEach((it: any) => {
+                 if (it.sku) pendingSkus.add(it.sku);
+               });
+             }
+          });
+
+          const itemsToOrder = uniqueZeroSkus.filter(sku => !pendingSkus.has(sku)).map(sku => {
+            const item = zeroStockItems.find(s => s.sku === sku);
+            const nameObj = item?.inventory as any;
+            return {
+              sku: sku,
+              name: nameObj?.name || sku,
+              quantity: 10,
+              cost: 0
+            };
+          });
+
+          if (itemsToOrder.length > 0) {
+            const orderCode = `NEXBOT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+            await supabase.from('supplier_orders').insert({
+              code: orderCode,
+              supplier_name: 'PROVEEDOR POR ASIGNAR',
+              destination_warehouse: 'CASA MATRIZ',
+              requested_by: '🤖 NexBot (Auto)',
+              items: itemsToOrder,
+              status: 'PENDIENTE'
+            });
+            console.log('🤖 NexBot generó pedido automático:', orderCode);
+          }
+        } catch (botErr) {
+          console.error('Error in NexBot auto-order:', botErr);
+        }
+      }
 
       // 4. Auditar si hay ventas hoy
       const todayStr = new Date().toISOString().split('T')[0];
@@ -277,6 +338,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         branchesCount: branchesCount || 0,
         productsCount: productsCount || 0,
         zeroStockProductsCount: zeroStockProducts,
+        zeroStockNames: zeroStockNamesStr,
         stagnantProductsCount: stagnantCount,
         hasSalesToday: (salesToday || []).length > 0,
         hasClosingToday: (closingToday || []).length > 0,
@@ -392,7 +454,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       list.push({
         id: 'ops_zero_stock',
         title: 'Ingresar Stock Agotado',
-        description: `Tienes ${stats.zeroStockProductsCount} productos con stock en 0.`,
+        description: `Tienes ${stats.zeroStockProductsCount} productos con stock en 0. Prioridad: ${stats.zeroStockNames}`,
         category: 'operations',
         status: 'pending',
         actionLabel: 'Hacer Compra',
