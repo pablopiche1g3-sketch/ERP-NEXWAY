@@ -13,7 +13,8 @@ import {
   ArrowRight,
   HelpCircle,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Pointer
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,8 +58,56 @@ export function NexBotFlotante() {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  // Consumimos el BMS de forma silenciosa
-  const { tasks: bmsTasks } = useBms();
+  // Consumimos el BMS
+  const { tasks: bmsTasks, isGuideActive, targetElementId, guideMessage, stopGuide } = useBms();
+
+  // Estado para la posición dinámica del bot
+  const [botPosition, setBotPosition] = useState({ bottom: 24, right: 24, left: 'auto', top: 'auto' });
+  const [isPointing, setIsPointing] = useState(false);
+
+  // Lógica para rastrear el elemento objetivo
+  useEffect(() => {
+    if (isGuideActive && targetElementId) {
+      setIsOpen(false); // Cierra el chat si está abierto
+      
+      const updatePosition = () => {
+        const el = document.querySelector(`[data-tour-id="${targetElementId}"]`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          // Colocar el bot a la derecha del elemento, o abajo si no hay espacio
+          const isMobile = window.innerWidth < 768;
+          let newLeft = rect.right + 20;
+          let newTop = rect.top + (rect.height / 2) - 40;
+
+          if (isMobile || newLeft + 100 > window.innerWidth) {
+            newLeft = rect.left + (rect.width / 2) - 30;
+            newTop = rect.bottom + 20;
+          }
+
+          setBotPosition({
+            left: `${newLeft}px`,
+            top: `${newTop}px`,
+            bottom: 'auto',
+            right: 'auto'
+          });
+          setIsPointing(true);
+        }
+      };
+
+      updatePosition();
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition);
+      
+      return () => {
+        window.removeEventListener('resize', updatePosition);
+        window.removeEventListener('scroll', updatePosition);
+      };
+    } else {
+      // Regresa a su esquina
+      setBotPosition({ bottom: 24, right: 24, left: 'auto', top: 'auto' });
+      setIsPointing(false);
+    }
+  }, [isGuideActive, targetElementId]);
 
   // Detect current module name based on path
   const currentModule = MODULE_NAMES[pathname] || 'Módulo Desconocido';
@@ -98,7 +147,22 @@ export function NexBotFlotante() {
         throw new Error(data.error);
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response || 'No obtuve respuesta.' }]);
+      const responseText = data.response || 'No obtuve respuesta.';
+      
+      // Interceptar comandos de TOUR
+      const tourMatch = responseText.match(/\[TOUR:([^|]+)\|\s*(.+?)\]/);
+      if (tourMatch) {
+        const targetId = tourMatch[1].trim();
+        const message = tourMatch[2].trim();
+        startGuide(targetId, message);
+        // Eliminar el comando de la respuesta mostrada en el chat
+        const cleanResponse = responseText.replace(/\[TOUR:[^\]]+\]/, '').trim();
+        if (cleanResponse) {
+          setMessages(prev => [...prev, { role: 'assistant', content: cleanResponse }]);
+        }
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: responseText }]);
+      }
     } catch (err: any) {
       console.error(err);
       setMessages(prev => [
@@ -118,21 +182,36 @@ export function NexBotFlotante() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 select-none font-body print:hidden">
+    <div 
+      className="fixed z-[100] select-none font-body print:hidden transition-all duration-700 ease-in-out"
+      style={{
+        bottom: typeof botPosition.bottom === 'number' ? `${botPosition.bottom}px` : botPosition.bottom,
+        right: typeof botPosition.right === 'number' ? `${botPosition.right}px` : botPosition.right,
+        left: botPosition.left,
+        top: botPosition.top,
+      }}
+    >
       {/* ROBOT FLOTANTE ANIMADO ("MUÑECO") */}
       {!isOpen && (
         <button
           onClick={() => {
-            setIsOpen(true);
+            if (isGuideActive) {
+              stopGuide();
+            } else {
+              setIsOpen(true);
+            }
           }}
           className="group relative flex flex-col items-center justify-center focus:outline-none transition-all duration-300 active:scale-95"
           style={{ filter: 'drop-shadow(0 0 15px rgba(59, 130, 246, 0.4))' }}
         >
-          {/* Globo de ayuda contextual sobre la cabeza */}
-          <div className="absolute top-[-45px] py-1 px-3.5 rounded-full whitespace-nowrap bg-indigo-600/90 text-white text-[10px] font-bold tracking-wide border border-indigo-400/40 shadow-lg origin-bottom transition-all duration-300 scale-0 group-hover:scale-100">
-            <span className="uppercase text-[9px] font-black tracking-widest">¿Necesitas ayuda? 🤖</span>
+          {/* Globo de ayuda o mensaje del guía */}
+          <div className={`absolute py-2 px-4 rounded-xl whitespace-nowrap bg-indigo-600/95 text-white text-[11px] font-bold tracking-wide border border-indigo-400/40 shadow-lg origin-bottom transition-all duration-300 ${isGuideActive ? 'scale-100 -top-[60px] animate-pulse shadow-[0_0_20px_rgba(79,70,229,0.5)]' : 'scale-0 group-hover:scale-100 -top-[45px]'}`}>
+            <span className="uppercase text-[9px] font-black tracking-widest block mb-1 opacity-80">
+              {isGuideActive ? 'NexBot Guía 🤖' : '¿Necesitas ayuda? 🤖'}
+            </span>
+            {isGuideActive ? guideMessage : null}
             {/* Triángulo del tooltip */}
-            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-indigo-600/90 rotate-45 border-r border-b border-indigo-400/40"></div>
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-indigo-600/95 rotate-45 border-r border-b border-indigo-400/40"></div>
           </div>
 
           {/* CUERPO DEL ROBOT SVG ANIMADO */}
@@ -178,7 +257,13 @@ export function NexBotFlotante() {
               </div>
 
               {/* Brazos Flotantes Izquierda / Derecha */}
-              <div className="absolute left-[-8px] w-2 h-6 bg-blue-500 rounded-full border border-blue-400/50 transform -rotate-12 group-hover:rotate-12 transition-transform duration-200" />
+              <div className={`absolute left-[-8px] w-2 h-6 bg-blue-500 rounded-full border border-blue-400/50 transform transition-transform duration-300 ${isPointing ? '-rotate-90 -translate-x-3 -translate-y-2' : '-rotate-12 group-hover:rotate-12'}`}>
+                {isPointing && (
+                  <div className="absolute -top-3 -left-2 text-white animate-pulse transform rotate-90">
+                    <Pointer size={18} className="fill-white" />
+                  </div>
+                )}
+              </div>
               <div className="absolute right-[-8px] w-2 h-6 bg-blue-500 rounded-full border border-blue-400/50 transform rotate-12 group-hover:-rotate-12 transition-transform duration-200" />
             </div>
 

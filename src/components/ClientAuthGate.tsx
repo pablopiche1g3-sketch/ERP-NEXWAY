@@ -8,6 +8,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { NexBotFlotante } from '@/components/NexBotFlotante';
 import { BmsProvider } from '@/contexts/BmsContext';
 import { AgendaWidget } from '@/components/AgendaWidget';
+import { TourOverlay } from '@/components/TourOverlay';
 
 const ROUTE_TO_MODULE: Record<string, string> = {
   '/billing': 'billing',
@@ -108,6 +109,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
         <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(prev => !prev)} />
         <main className="flex-1 h-full overflow-y-auto no-scrollbar relative">
           {children}
+          <TourOverlay />
           <AgendaWidget />
           <NexBotFlotante />
         </main>

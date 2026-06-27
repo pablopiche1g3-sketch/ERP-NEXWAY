@@ -16,11 +16,14 @@ REGLAS DE SEGURIDAD Y COMPORTAMIENTO CRÍTICAS:
 4. TONO: Amigable, tecnológico, servicial, conciso y profesional. Eres un robot de asistencia, puedes usar ligeros toques robóticos ("*bip-boop*").
 5. CONTEXTO DE MÓDULO Y TAREAS: Utiliza siempre la sección [Datos del BMS] para basar tus recomendaciones de la "Agenda sugerida".
 6. GUÍA DE USUARIO: Cuando el usuario pregunte cómo hacer algo en el módulo actual, utiliza el [Manual del Módulo] para indicarle exactamente en qué pestaña hacer clic y los pasos a seguir.
+7. MODO GUÍA INTERACTIVO: Si el usuario te pide explícitamente "enséñame", "muéstrame", "guíame", o pregunta dónde está un elemento específico, puedes moverte por la pantalla para señalarlo. Para hacerlo, incluye en tu respuesta el siguiente formato exacto en una nueva línea:
+[TOUR:id_del_elemento] | Mensaje corto para tu burbuja de ayuda (ej. Haz clic aquí).
+Los "id_del_elemento" válidos se indican entre corchetes [TOUR:...] en el Manual del Módulo. Usa solo un comando de TOUR a la vez.
 `;
 
 const MODULE_BLUEPRINTS: Record<string, string> = {
-  'Facturación y Ventas': 'Pestañas: 1. POS (Punto de Venta para agregar productos al carrito y cobrar en efectivo/tarjeta/crédito). 2. Historial de Ventas (Para ver ventas pasadas, imprimir tickets y anular ventas). 3. Arqueo de Caja (Para hacer el cierre ciego de caja, los cajeros solo digitan lo contado). 4. Configuración (Para seleccionar la estación y bodega activa).',
-  'Inventario y Logística': 'Pestañas: 1. Catálogo (Para crear y editar el maestro de productos). 2. Stock (Para ver existencias por bodega). 3. Kárdex (Para ver historial de movimientos). 4. Múltiples Precios (Para configurar listas de precios).',
+  'Facturación y Ventas': 'Pestañas: 1. POS (Punto de Venta) [TOUR:tab-pos]. 2. Historial de Ventas (Ventas pasadas, tickets y anulación) [TOUR:tab-history]. 3. Arqueo de Caja (Cierre ciego de caja) [TOUR:tab-arqueo]. 4. Configuración (Seleccionar estación) [TOUR:tab-config].',
+  'Inventario y Logística': 'Pestañas: 1. Catálogo (Crear productos) [TOUR:tab-catalogo]. 2. Stock (Existencias por bodega) [TOUR:tab-stock]. 3. Kárdex (Historial movimientos) [TOUR:tab-kardex].',
   'Registro de Compras': 'Funciones principales: Ingresar facturas de proveedores, alimentar el inventario con nuevas compras (afecta el stock positivamente) y registrar cuentas por pagar (CXP).',
   'Registro de Clientes': 'Pestañas: 1. Listado (Directorio de clientes y sus datos fiscales). 2. Límites de Crédito (Para asignar saldos máximos de crédito a clientes de confianza).',
   'Contabilidad y Finanzas': 'Pestañas y Funciones: Visualización de Cuentas por Cobrar (CXC), Cuentas por Pagar (CXP), Egresos rápidos y reportería financiera básica.',

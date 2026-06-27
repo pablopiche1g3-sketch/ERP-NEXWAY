@@ -1190,12 +1190,12 @@ export default function BillingPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
           <TabsList className="bg-transparent p-0 h-auto flex flex-wrap w-full justify-start overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-white/10 gap-1 px-4 sm:px-6">
             {config?.['billing_facturacion'] !== false && (
-              <TabsTrigger value="facturacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
+              <TabsTrigger data-tour-id="tab-pos" value="facturacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
                 <ShoppingCart size={14} className="mr-1.5" /> Venta
               </TabsTrigger>
             )}
             {config?.['billing_historial'] !== false && (
-              <TabsTrigger value="historial" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
+              <TabsTrigger data-tour-id="tab-history" value="historial" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
                 <History size={14} className="mr-1.5" /> Historial
               </TabsTrigger>
             )}
@@ -1210,12 +1210,12 @@ export default function BillingPage() {
               </TabsTrigger>
             )}
             {config?.['billing_arqueo'] !== false && (
-              <TabsTrigger value="arqueo" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
+              <TabsTrigger data-tour-id="tab-arqueo" value="arqueo" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
                 <Calculator size={14} className="mr-1.5" /> Arqueo / Cierre
               </TabsTrigger>
             )}
             {config?.['billing_creditos'] !== false && (
-              <TabsTrigger value="creditos" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
+              <TabsTrigger data-tour-id="tab-creditos" value="creditos" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
                 <Wallet size={14} className="mr-1.5" /> Créditos / Abonos
               </TabsTrigger>
             )}

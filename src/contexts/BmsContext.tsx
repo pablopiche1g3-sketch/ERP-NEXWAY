@@ -32,6 +32,12 @@ interface BmsContextType {
   triggerArqueoAlert: (difference: number) => void;
   requestChange: () => void;
   confirmChange: () => void;
+  // Guide Mode State
+  isGuideActive: boolean;
+  targetElementId: string | null;
+  guideMessage: string | null;
+  startGuide: (targetId: string, message: string) => void;
+  stopGuide: () => void;
 }
 
 const defaultStats: BmsStats = {
@@ -52,7 +58,12 @@ const BmsContext = createContext<BmsContextType>({
   processChange: () => {},
   triggerArqueoAlert: () => {},
   requestChange: () => {},
-  confirmChange: () => {}
+  confirmChange: () => {},
+  isGuideActive: false,
+  targetElementId: null,
+  guideMessage: null,
+  startGuide: () => {},
+  stopGuide: () => {}
 });
 
 export const useBms = () => useContext(BmsContext);
@@ -65,9 +76,29 @@ export function BmsProvider({ children }: { children: ReactNode }) {
   const [customTasks, setCustomTasks] = useState<GuideTask[]>([]);
 
   // Smart Change Control State (In-Memory Simulator)
+  // Smart Change Control State (In-Memory Simulator)
   const [inventoryQuarters, setInventoryQuarters] = useState(20); // $5 in coras
   const [inventoryOnes, setInventoryOnes] = useState(10); // $10 in $1 bills
   const [changeRequested, setChangeRequested] = useState(false);
+
+  // Guide Mode State
+  const [isGuideActive, setIsGuideActive] = useState(false);
+  const [targetElementId, setTargetElementId] = useState<string | null>(null);
+  const [guideMessage, setGuideMessage] = useState<string | null>(null);
+
+  const startGuide = (targetId: string, message: string) => {
+    setTargetElementId(targetId);
+    setGuideMessage(message);
+    setIsGuideActive(true);
+  };
+
+  const stopGuide = () => {
+    setIsGuideActive(false);
+    setTimeout(() => {
+      setTargetElementId(null);
+      setGuideMessage(null);
+    }, 500); // Wait for transition
+  };
 
   const triggerArqueoAlert = (difference: number) => {
     const alertId = 'alert_arqueo_ciego';
@@ -371,7 +402,8 @@ export function BmsProvider({ children }: { children: ReactNode }) {
   return (
     <BmsContext.Provider value={{ 
       stats, tasks, loading, auditSystem, 
-      processChange, triggerArqueoAlert, requestChange, confirmChange 
+      processChange, triggerArqueoAlert, requestChange, confirmChange,
+      isGuideActive, targetElementId, guideMessage, startGuide, stopGuide
     }}>
       {children}
     </BmsContext.Provider>
