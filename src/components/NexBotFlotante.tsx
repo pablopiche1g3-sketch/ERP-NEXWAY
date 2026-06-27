@@ -124,21 +124,13 @@ export function NexBotFlotante() {
         <button
           onClick={() => {
             setIsOpen(true);
-            setShowAgendaBubble(false);
           }}
           className="group relative flex flex-col items-center justify-center focus:outline-none transition-all duration-300 active:scale-95"
           style={{ filter: 'drop-shadow(0 0 15px rgba(59, 130, 246, 0.4))' }}
         >
           {/* Globo de ayuda contextual sobre la cabeza */}
-          <div className={`absolute ${showAgendaBubble ? 'top-[-80px] p-3 rounded-2xl w-48 text-left' : 'top-[-45px] py-1 px-3.5 rounded-full whitespace-nowrap'} bg-indigo-600/90 text-white text-[10px] font-bold tracking-wide border border-indigo-400/40 shadow-lg origin-bottom transition-all duration-300 ${showAgendaBubble ? 'scale-100 animate-bounce' : 'scale-0 group-hover:scale-100'}`}>
-            {showAgendaBubble ? (
-              <div className="flex flex-col gap-1">
-                <span className="text-[9px] text-indigo-200 uppercase font-black tracking-widest">Sugerencia 🤖</span>
-                <span className="leading-tight text-white/90">¡Tengo una agenda recomendada para este módulo! Haz clic para verla.</span>
-              </div>
-            ) : (
-              <span className="uppercase text-[9px] font-black tracking-widest">¿Necesitas ayuda? 🤖</span>
-            )}
+          <div className="absolute top-[-45px] py-1 px-3.5 rounded-full whitespace-nowrap bg-indigo-600/90 text-white text-[10px] font-bold tracking-wide border border-indigo-400/40 shadow-lg origin-bottom transition-all duration-300 scale-0 group-hover:scale-100">
+            <span className="uppercase text-[9px] font-black tracking-widest">¿Necesitas ayuda? 🤖</span>
             {/* Triángulo del tooltip */}
             <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-indigo-600/90 rotate-45 border-r border-b border-indigo-400/40"></div>
           </div>
