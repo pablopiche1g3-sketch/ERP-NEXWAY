@@ -150,10 +150,10 @@ export function NexBotFlotante() {
       const responseText = data.response || 'No obtuve respuesta.';
       
       // Interceptar comandos de TOUR
-      const tourMatch = responseText.match(/\[TOUR:([^|]+)\|\s*(.+?)\]/);
+      const tourMatch = responseText.match(/\[TOUR:\s*([^|\]]+)(?:\|\s*([^\]]+))?\]/);
       if (tourMatch) {
         const targetId = tourMatch[1].trim();
-        const message = tourMatch[2].trim();
+        const message = tourMatch[2]?.trim() || '¡Aquí tienes!';
         startGuide(targetId, message);
         // Eliminar el comando de la respuesta mostrada en el chat
         const cleanResponse = responseText.replace(/\[TOUR:[^\]]+\]/, '').trim();
