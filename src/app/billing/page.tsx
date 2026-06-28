@@ -242,7 +242,7 @@ export default function BillingPage() {
         title: "Venta Invalidada",
         description: `El documento ${sale.correlative} ha sido marcado como CANCELADA.`
       });
-      await fetchSales();
+      await loadBillingData();
     } catch (err: any) {
       console.error('Error al invalidar:', err);
       toast({
