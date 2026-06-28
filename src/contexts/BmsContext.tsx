@@ -73,7 +73,8 @@ const defaultStats: BmsStats = {
   stagnantProductsCount: 0,
   hasSalesToday: false,
   hasClosingToday: false,
-  crmTasksCount: 0
+  crmTasksCount: 0,
+  pendingOrdersCount: 0
 };
 
 const defaultMapData: MapData = {
