@@ -153,9 +153,60 @@ export default function BillingPage() {
     refDoc: '',
     customerName: '',
     reason: '',
-    items: [] as CartItem[],
+    items: [] as any[],
     total: 0
   });
+  
+  const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
+  const [invoiceSearchResults, setInvoiceSearchResults] = useState<any[]>([]);
+
+  const handleSearchInvoices = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setInvoiceSearchTerm(term);
+    
+    if (term.trim().length < 2) {
+      setInvoiceSearchResults([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .or(`customer.ilike.%${term}%,correlative.ilike.%${term}%`)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (!error && data) {
+        setInvoiceSearchResults(data);
+      }
+    } catch (err) {
+      console.error('Error buscando facturas:', err);
+    }
+  };
+
+  const handleSelectInvoice = (sale: any) => {
+    // Si la venta tiene items (generalmente los guardamos como JSON), los cargamos.
+    // Asegurarse de que tengan un ID (si no lo tienen, usar sku o index como id temporal)
+    const saleItems = (sale.items || []).map((item: any, idx: number) => ({
+      ...item,
+      id: item.id || item.sku || `item-${idx}`,
+      originalQuantity: item.quantity // Guardamos la cantidad original para referencia
+    }));
+
+    setAdjustmentForm({
+      ...adjustmentForm,
+      refDoc: sale.correlative || sale.id.substring(0, 8),
+      customerName: sale.customer,
+      items: saleItems
+    });
+    setInvoiceSearchTerm('');
+    setInvoiceSearchResults([]);
+    toast({
+      title: "Factura cargada",
+      description: `Se han cargado los datos y ${saleItems.length} productos de la factura.`,
+    });
+  };
 
   // Arqueo States
   const [cashDenominations, setCashDenominations] = useState<Record<string, number>>({
@@ -1602,13 +1653,46 @@ export default function BillingPage() {
              <div className="lg:col-span-7 space-y-4">
                 <div className="p-5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none space-y-4">
                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Documento Referencia</Label>
-                         <Input placeholder="FACT-001 / CCF-001" value={adjustmentForm.refDoc} onChange={e => setAdjustmentForm({...adjustmentForm, refDoc: e.target.value})} className="h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70" />
+                      <div className="space-y-1.5 relative">
+                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Buscar Factura / Cliente</Label>
+                         <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <Input 
+                              placeholder="Nombre del cliente o N° Factura..." 
+                              value={invoiceSearchTerm} 
+                              onChange={handleSearchInvoices}
+                              className="pl-9 h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70"
+                            />
+                         </div>
+                         {invoiceSearchResults.length > 0 && invoiceSearchTerm.trim() !== '' && (
+                           <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 shadow-2xl z-50 max-h-64 overflow-y-auto rounded-xl p-1">
+                             {invoiceSearchResults.map((sale) => (
+                               <div 
+                                 key={sale.id}
+                                 onClick={() => handleSelectInvoice(sale)}
+                                 className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer rounded-lg border-b last:border-none border-slate-100 dark:border-white/5 flex flex-col gap-1"
+                               >
+                                 <div className="flex justify-between items-center">
+                                   <span className="text-xs font-bold text-slate-800 dark:text-white/80">{sale.customer}</span>
+                                   <span className="text-[10px] font-mono font-medium bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded text-slate-600 dark:text-white/60">{sale.correlative || sale.id.substring(0,8)}</span>
+                                 </div>
+                                 <div className="flex justify-between items-center">
+                                   <span className="text-[10px] text-slate-500 dark:text-white/40">{new Date(sale.timestamp).toLocaleDateString()}</span>
+                                   <span className="text-[10px] font-bold text-slate-700 dark:text-white/60">${sale.total?.toFixed(2)}</span>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                         )}
                       </div>
                       <div className="space-y-1.5">
-                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Cliente</Label>
-                          <Input placeholder="Nombre del cliente..." value={adjustmentForm.customerName} onChange={e => setAdjustmentForm({...adjustmentForm, customerName: e.target.value})} className="h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70" />
+                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Documento Seleccionado</Label>
+                         <div className="flex flex-col gap-1">
+                            <Input disabled placeholder="FACT-001" value={adjustmentForm.refDoc} className="h-10 bg-slate-50/50 dark:bg-black/40 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-500 dark:text-white/40" />
+                            {adjustmentForm.customerName && (
+                              <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
+                            )}
+                         </div>
                       </div>
                    </div>
                    <div className="space-y-1.5">
@@ -1716,13 +1800,46 @@ export default function BillingPage() {
              <div className="lg:col-span-7 space-y-4">
                 <div className="p-5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none space-y-4">
                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Documento Referencia</Label>
-                         <Input placeholder="FACT-001 / CCF-001" value={adjustmentForm.refDoc} onChange={e => setAdjustmentForm({...adjustmentForm, refDoc: e.target.value})} className="h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70" />
+                      <div className="space-y-1.5 relative">
+                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Buscar Factura / Cliente</Label>
+                         <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <Input 
+                              placeholder="Nombre del cliente o N° Factura..." 
+                              value={invoiceSearchTerm} 
+                              onChange={handleSearchInvoices}
+                              className="pl-9 h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70"
+                            />
+                         </div>
+                         {invoiceSearchResults.length > 0 && invoiceSearchTerm.trim() !== '' && (
+                           <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 shadow-2xl z-50 max-h-64 overflow-y-auto rounded-xl p-1">
+                             {invoiceSearchResults.map((sale) => (
+                               <div 
+                                 key={sale.id}
+                                 onClick={() => handleSelectInvoice(sale)}
+                                 className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer rounded-lg border-b last:border-none border-slate-100 dark:border-white/5 flex flex-col gap-1"
+                               >
+                                 <div className="flex justify-between items-center">
+                                   <span className="text-xs font-bold text-slate-800 dark:text-white/80">{sale.customer}</span>
+                                   <span className="text-[10px] font-mono font-medium bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded text-slate-600 dark:text-white/60">{sale.correlative || sale.id.substring(0,8)}</span>
+                                 </div>
+                                 <div className="flex justify-between items-center">
+                                   <span className="text-[10px] text-slate-500 dark:text-white/40">{new Date(sale.timestamp).toLocaleDateString()}</span>
+                                   <span className="text-[10px] font-bold text-slate-700 dark:text-white/60">${sale.total?.toFixed(2)}</span>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                         )}
                       </div>
                       <div className="space-y-1.5">
-                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Cliente</Label>
-                         <Input placeholder="Nombre del cliente..." value={adjustmentForm.customerName} onChange={e => setAdjustmentForm({...adjustmentForm, customerName: e.target.value})} className="h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70" />
+                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Documento Seleccionado</Label>
+                         <div className="flex flex-col gap-1">
+                            <Input disabled placeholder="FACT-001" value={adjustmentForm.refDoc} className="h-10 bg-slate-50/50 dark:bg-black/40 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-500 dark:text-white/40" />
+                            {adjustmentForm.customerName && (
+                              <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
+                            )}
+                         </div>
                       </div>
                    </div>
                    <div className="space-y-1.5">
