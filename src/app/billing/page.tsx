@@ -37,7 +37,8 @@ import {
   Warehouse,
   Clock,
   Save,
-  Sparkles
+  Sparkles,
+  Eye
 } from 'lucide-react';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -1819,18 +1820,31 @@ export default function BillingPage() {
                       <TableCell className="text-right font-bold text-[12px] text-slate-800 dark:text-white/90">${sale.total.toFixed(2)}</TableCell>
                       <TableCell className="text-center"><Badge className={`text-[9px] uppercase tracking-wider ${sale.status === 'CANCELADA' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 border-rose-200 dark:border-rose-500/20' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'}`}>{sale.status}</Badge></TableCell>
                       <TableCell className="text-center">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          disabled={sale.status === 'CANCELADA'}
-                          className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-50"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleInvalidateSale(sale);
-                          }}
-                        >
-                          <Ban size={14} />
-                        </Button>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFetchSaleDetails(sale);
+                            }}
+                          >
+                            <Eye size={14} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            disabled={sale.status === 'CANCELADA'}
+                            className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleInvalidateSale(sale);
+                            }}
+                          >
+                            <Ban size={14} />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
