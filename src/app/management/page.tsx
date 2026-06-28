@@ -114,6 +114,43 @@ export default function ManagementPage() {
   const [newBranchName, setNewBranchName] = useState('');
   const [isSavingBranch, setIsSavingBranch] = useState(false);
 
+  // Estados para Perfil de Empresa
+  const [companyProfile, setCompanyProfile] = useState({
+    razonSocial: '',
+    nombreComercial: '',
+    nit: '',
+    nrc: '',
+    actividadEconomica: ''
+  });
+  const [isSavingCompanyProfile, setIsSavingCompanyProfile] = useState(false);
+
+  const handleSaveCompanyProfile = async () => {
+    setIsSavingCompanyProfile(true);
+    try {
+      const { error } = await supabase
+        .from('system_config')
+        .upsert({
+          key: 'company_profile',
+          value: companyProfile
+        });
+
+      if (error) throw error;
+      toast({
+        title: "Perfil Guardado",
+        description: "Los datos de la empresa han sido actualizados exitosamente."
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: "Error al guardar",
+        description: err.message || "No se pudo guardar el perfil."
+      });
+    } finally {
+      setIsSavingCompanyProfile(false);
+    }
+  };
+
   // --- ESTADOS Y FUNCIONES PARA DISEÑADOR DE IMPRESIÓN ---
   const [activePrintArea, setActivePrintArea] = useState<string>('quotations');
   const [isSavingPrint, setIsSavingPrint] = useState(false);
@@ -540,6 +577,12 @@ export default function ManagementPage() {
       if (cashConf && cashConf.value) {
         setCashFloat(cashConf.value.cashFloat?.toString() || '0');
         setCatchAllEmail(cashConf.value.catchAllEmail || '');
+      }
+
+      // Cargar perfil de empresa
+      const { data: compConf } = await supabase.from('system_config').select('*').eq('key', 'company_profile').maybeSingle();
+      if (compConf && compConf.value) {
+        setCompanyProfile(compConf.value);
       }
 
       // Cargar sucursales
@@ -1335,6 +1378,9 @@ export default function ManagementPage() {
             <TabsTrigger value="config" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
               <Settings size={14} /> Configuración
             </TabsTrigger>
+            <TabsTrigger value="company" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <Building size={14} /> Perfil de Empresa
+            </TabsTrigger>
             <TabsTrigger value="permissions" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
               <Lock size={14} /> Módulos
             </TabsTrigger>
@@ -1354,6 +1400,82 @@ export default function ManagementPage() {
               <Printer size={14} /> Diseño de Impresión
             </TabsTrigger>
           </TabsList>
+
+          {/* pestaña: PERFIL DE EMPRESA */}
+          <TabsContent value="company" className="space-y-6 outline-none">
+            <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
+              <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+                <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
+                  <Building className="text-blue-400" size={20} />
+                  Perfil de Empresa (Ministerio de Hacienda)
+                </CardTitle>
+                <CardDescription className="text-slate-400 text-xs">Datos formales para facturación electrónica.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Razón Social</Label>
+                    <Input 
+                      placeholder="Ej. Mi Empresa S.A. de C.V." 
+                      value={companyProfile.razonSocial}
+                      onChange={e => setCompanyProfile({...companyProfile, razonSocial: e.target.value})}
+                      className="h-12 text-sm font-bold bg-muted rounded-xl border-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Nombre Comercial</Label>
+                    <Input 
+                      placeholder="Ej. Mi Empresa" 
+                      value={companyProfile.nombreComercial}
+                      onChange={e => setCompanyProfile({...companyProfile, nombreComercial: e.target.value})}
+                      className="h-12 text-sm font-bold bg-muted rounded-xl border-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">NIT</Label>
+                    <Input 
+                      placeholder="0000-000000-000-0" 
+                      value={companyProfile.nit}
+                      onChange={e => setCompanyProfile({...companyProfile, nit: e.target.value})}
+                      className="h-12 text-sm font-bold bg-muted rounded-xl border-none font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">NRC</Label>
+                    <Input 
+                      placeholder="123456-7" 
+                      value={companyProfile.nrc}
+                      onChange={e => setCompanyProfile({...companyProfile, nrc: e.target.value})}
+                      className="h-12 text-sm font-bold bg-muted rounded-xl border-none font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Actividad Económica</Label>
+                    <Input 
+                      placeholder="Venta de..." 
+                      value={companyProfile.actividadEconomica}
+                      onChange={e => setCompanyProfile({...companyProfile, actividadEconomica: e.target.value})}
+                      className="h-12 text-sm font-bold bg-muted rounded-xl border-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                  <CheckCircle2 size={16} />
+                  <span className="text-xs font-bold">Verificación con Ministerio de Hacienda Activa (Simulada)</span>
+                </div>
+
+                <Button 
+                  onClick={handleSaveCompanyProfile} 
+                  disabled={isSavingCompanyProfile}
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl"
+                >
+                  {isSavingCompanyProfile ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
+                  GUARDAR PERFIL
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* pestaña 1: CONFIGURACIÓN GLOBAL */}
           <TabsContent value="config" className="space-y-6 outline-none">

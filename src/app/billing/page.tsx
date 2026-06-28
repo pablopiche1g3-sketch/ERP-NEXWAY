@@ -27,6 +27,7 @@ import {
   TrendingUp,
   ArrowDownCircle,
   FileText,
+  Ban,
   RotateCcw,
   AlertCircle,
   SlidersHorizontal,
@@ -224,6 +225,33 @@ export default function BillingPage() {
   const [selectedSaleDetails, setSelectedSaleDetails] = useState<any | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
+
+  const handleInvalidateSale = async (sale: any) => {
+    if (sale.status === 'CANCELADA') return;
+    if (!confirm(`¿Estás seguro de invalidar la venta ${sale.correlative}? Esta acción no se puede deshacer.`)) return;
+    
+    try {
+      const { error } = await supabase
+        .from('sales')
+        .update({ status: 'CANCELADA' })
+        .eq('id', sale.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Venta Invalidada",
+        description: `El documento ${sale.correlative} ha sido marcado como CANCELADA.`
+      });
+      await fetchSales();
+    } catch (err: any) {
+      console.error('Error al invalidar:', err);
+      toast({
+        variant: "destructive",
+        title: "Error al invalidar",
+        description: err.message || "No se pudo invalidar la venta."
+      });
+    }
+  };
 
   const handleFetchSaleDetails = async (sale: any) => {
     setLoadingDetails(true);
@@ -1771,8 +1799,10 @@ export default function BillingPage() {
                     <TableHead className="px-6 text-[10px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wide">Hora</TableHead>
                     <TableHead className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wide">Tipo</TableHead>
                     <TableHead className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wide">Cliente</TableHead>
+                    <TableHead className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wide">Forma Pago</TableHead>
                     <TableHead className="text-right text-[10px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wide">Total</TableHead>
                     <TableHead className="text-center text-[10px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wide">Estado</TableHead>
+                    <TableHead className="text-center text-[10px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wide">Acción</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1785,8 +1815,23 @@ export default function BillingPage() {
                       <TableCell className="px-6 text-[11px] text-slate-600 dark:text-white/60 font-mono">{new Date(sale.timestamp).toLocaleTimeString()}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[9px] border-slate-200 dark:border-white/10 dark:text-white/70">{sale.docType}</Badge></TableCell>
                       <TableCell className="font-medium text-[12px] text-slate-800 dark:text-white/80">{sale.customer}</TableCell>
+                      <TableCell className="font-medium text-[11px] text-slate-600 dark:text-white/60">{sale.paymentMethod || 'Efectivo'}</TableCell>
                       <TableCell className="text-right font-bold text-[12px] text-slate-800 dark:text-white/90">${sale.total.toFixed(2)}</TableCell>
-                      <TableCell className="text-center"><Badge className="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20 text-[9px] uppercase tracking-wider">{sale.status}</Badge></TableCell>
+                      <TableCell className="text-center"><Badge className={`text-[9px] uppercase tracking-wider ${sale.status === 'CANCELADA' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 border-rose-200 dark:border-rose-500/20' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'}`}>{sale.status}</Badge></TableCell>
+                      <TableCell className="text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          disabled={sale.status === 'CANCELADA'}
+                          className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleInvalidateSale(sale);
+                          }}
+                        >
+                          <Ban size={14} />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

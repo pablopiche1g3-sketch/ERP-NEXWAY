@@ -1212,17 +1212,25 @@ export default function InventoryMasterPage() {
 
   // Filtrado de existencias considerando la Bodega Seleccionada
   const filteredItems = useMemo(() => {
-    if (!inventory || !searchTerm.trim()) return [];
+    if (!inventory) return [];
     
-    // Si se selecciona una bodega, filtrar los productos que están vinculados a ella
-    const whFiltered = selectedWarehouse === 'Todas' 
-      ? inventory 
-      : inventory.filter(item => item.bodegas && selectedWarehouse in item.bodegas);
-
-    return whFiltered.filter(item => 
-      item.sku.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      item.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    if (selectedWarehouse === 'Todas') {
+      // Consolidado requiere escribir para buscar
+      if (!searchTerm.trim()) return [];
+      return inventory.filter(item => 
+        item.sku.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    } else {
+      // Bodega específica: mostrar todo si no hay búsqueda
+      const whFiltered = inventory.filter(item => item.bodegas && selectedWarehouse in item.bodegas);
+      if (!searchTerm.trim()) return whFiltered;
+      
+      return whFiltered.filter(item => 
+        item.sku.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
   }, [searchTerm, inventory, selectedWarehouse]);
 
   // Filtrar Códigos de Empresas Asociados

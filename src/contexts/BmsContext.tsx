@@ -22,6 +22,7 @@ interface BmsStats {
   hasSalesToday: boolean;
   hasClosingToday: boolean;
   crmTasksCount: number;
+  pendingOrdersCount: number;
 }
 
 export interface MapLocation {
@@ -213,23 +214,52 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         .from('inventory')
         .select('*', { count: 'exact', head: true });
 
-      // 3. Auditar stock en cero
+      // 2.5 Precio automático: Auditar y corregir productos con precio 0 pero costo > 0 (30% margen)
+      try {
+        const { data: noPriceItems } = await supabase
+          .from('inventory')
+          .select('id, cost, price')
+          .gt('cost', 0)
+          .or('price.eq.0,price.is.null');
+
+        if (noPriceItems && noPriceItems.length > 0) {
+          console.log(`BMS: Encontrados ${noPriceItems.length} productos sin precio. Actualizando con margen del 30%...`);
+          for (const item of noPriceItems) {
+            await supabase
+              .from('inventory')
+              .update({ price: (item.cost * 1.3).toFixed(2) })
+              .eq('id', item.id);
+          }
+        }
+      } catch (priceErr) {
+        console.error('Error auto-asignando precios:', priceErr);
+      }
+
+      // 3. Auditar stock vs punto de reorden (NexBot)
       const { data: stockData } = await supabase
         .from('inventory_stock')
         .select(`
           quantity,
           sku,
-          inventory ( name )
+          inventory ( name, min_stock, max_stock, reorder_point )
         `);
       
-      const zeroStockItems = (stockData || []).filter(s => (parseFloat(s.quantity) || 0) <= 0);
-      const zeroStockProducts = zeroStockItems.length;
+      const lowStockItems = (stockData || []).filter(s => {
+        const inv = s.inventory as any;
+        const qty = parseFloat(s.quantity) || 0;
+        const reorderPt = parseFloat(inv?.reorder_point) || 0;
+        // Considera bajo stock si está igual o por debajo del punto de reorden
+        return qty <= reorderPt;
+      });
+      const lowStockProducts = lowStockItems.length;
 
       let zeroStockNamesStr = '';
-      if (zeroStockProducts > 0) {
-        const uniqueZeroSkus = Array.from(new Set(zeroStockItems.map(s => s.sku)));
-        const names = uniqueZeroSkus.map(sku => {
-          const item = zeroStockItems.find(s => s.sku === sku);
+      let pendingOrdersCount = 0;
+
+      if (lowStockProducts > 0) {
+        const uniqueLowSkus = Array.from(new Set(lowStockItems.map(s => s.sku)));
+        const names = uniqueLowSkus.map(sku => {
+          const item = lowStockItems.find(s => s.sku === sku);
           const nameObj = item?.inventory as any;
           return nameObj?.name || sku;
         });
@@ -242,6 +272,8 @@ export function BmsProvider({ children }: { children: ReactNode }) {
             .select('items')
             .eq('status', 'PENDIENTE');
 
+          pendingOrdersCount = pendingOrders?.length || 0;
+
           const pendingSkus = new Set<string>();
           (pendingOrders || []).forEach(po => {
              if (po.items && Array.isArray(po.items)) {
@@ -251,32 +283,58 @@ export function BmsProvider({ children }: { children: ReactNode }) {
              }
           });
 
-          const itemsToOrder = uniqueZeroSkus.filter(sku => !pendingSkus.has(sku)).map(sku => {
-            const item = zeroStockItems.find(s => s.sku === sku);
-            const nameObj = item?.inventory as any;
+          // Solo pedimos lo que no está pendiente
+          const itemsToOrder = uniqueLowSkus.filter(sku => !pendingSkus.has(sku)).map(sku => {
+            const item = lowStockItems.find(s => s.sku === sku);
+            const invObj = item?.inventory as any;
+            
+            // Sugerir cantidad basada en max_stock si está disponible
+            let suggestedQty = 10;
+            const maxStock = parseFloat(invObj?.max_stock) || 0;
+            const currentQty = parseFloat(item?.quantity as string) || 0;
+            if (maxStock > currentQty) {
+              suggestedQty = maxStock - currentQty;
+            }
+
             return {
               sku: sku,
-              name: nameObj?.name || sku,
-              quantity: 10,
+              name: invObj?.name || sku,
+              quantity: suggestedQty,
               cost: 0
             };
           });
 
           if (itemsToOrder.length > 0) {
             const orderCode = `NEXBOT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+            
+            // Intentar buscar algún proveedor por defecto para NexBot
+            const { data: defaultSupplier } = await supabase
+              .from('suppliers')
+              .select('name')
+              .limit(1)
+              .maybeSingle();
+
+            const supplierName = defaultSupplier?.name || 'PROVEEDOR POR ASIGNAR';
+
             await supabase.from('supplier_orders').insert({
               code: orderCode,
-              supplier_name: 'PROVEEDOR POR ASIGNAR',
+              supplier_name: supplierName,
               destination_warehouse: 'CASA MATRIZ',
               requested_by: '🤖 NexBot (Auto)',
               items: itemsToOrder,
               status: 'PENDIENTE'
             });
             console.log('🤖 NexBot generó pedido automático:', orderCode);
+            // Sumamos el que acabamos de crear
+            pendingOrdersCount++;
           }
         } catch (botErr) {
           console.error('Error in NexBot auto-order:', botErr);
         }
+      } else {
+        // Aún si no hay stock bajo, revisamos si hay pedidos pendientes
+        const { count } = await supabase.from('supplier_orders').select('*', { count: 'exact', head: true }).eq('status', 'PENDIENTE');
+        pendingOrdersCount = count || 0;
       }
 
       // 4. Auditar si hay ventas hoy
@@ -337,12 +395,13 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       setStats({
         branchesCount: branchesCount || 0,
         productsCount: productsCount || 0,
-        zeroStockProductsCount: zeroStockProducts,
+        zeroStockProductsCount: lowStockProducts,
         zeroStockNames: zeroStockNamesStr,
         stagnantProductsCount: stagnantCount,
         hasSalesToday: (salesToday || []).length > 0,
         hasClosingToday: (closingToday || []).length > 0,
-        crmTasksCount: pendingCrmTasks
+        crmTasksCount: pendingCrmTasks,
+        pendingOrdersCount: pendingOrdersCount
       });
 
       // 7. Mapear clientes y sucursales reales en el Mapa Logístico
@@ -453,12 +512,24 @@ export function BmsProvider({ children }: { children: ReactNode }) {
     if (stats.productsCount > 0 && stats.zeroStockProductsCount > 0) {
       list.push({
         id: 'ops_zero_stock',
-        title: 'Ingresar Stock Agotado',
-        description: `Tienes ${stats.zeroStockProductsCount} productos con stock en 0. Prioridad: ${stats.zeroStockNames}`,
+        title: 'Inventario Bajo Detectado',
+        description: `Tienes ${stats.zeroStockProductsCount} productos bajo el punto de reorden. Prioridad: ${stats.zeroStockNames}`,
         category: 'operations',
         status: 'pending',
-        actionLabel: 'Hacer Compra',
-        actionPath: '/purchases'
+        actionLabel: 'Ver Inventario',
+        actionPath: '/inventory'
+      });
+    }
+
+    if (stats.pendingOrdersCount > 0) {
+      list.push({
+        id: 'ops_pending_orders',
+        title: `Pedidos a Proveedor (${stats.pendingOrdersCount})`,
+        description: '🤖 NexBot ha preparado pedidos automáticos por stock bajo. Por favor revísalos y autorízalos.',
+        category: 'operations',
+        status: 'pending',
+        actionLabel: 'Ver Pedidos',
+        actionPath: '/inventory'
       });
     }
 
