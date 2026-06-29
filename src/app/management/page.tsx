@@ -44,6 +44,7 @@ import { DashboardComercialKPI } from '@/components/DashboardComercialKPI';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import DocumentsTab from './components/DocumentsTab';
+import GmailClient from '@/components/shared/GmailClient';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -1415,6 +1416,7 @@ export default function ManagementPage() {
                   <TabsTrigger value="branches" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Sucursales y Entorno</TabsTrigger>
                   <TabsTrigger value="print-designer" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Diseñador Impresión</TabsTrigger>
                   <TabsTrigger value="documental" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Auditoría (Documental)</TabsTrigger>
+                  <TabsTrigger value="gmail" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-red-500 text-xs">Auditoría Gmail</TabsTrigger>
                 </>
               )}
               {activeGroup === 'users' && (
@@ -1425,6 +1427,11 @@ export default function ManagementPage() {
               )}
             </TabsList>
           </div>
+
+          {/* pestaña: AUDITORÍA GMAIL */}
+          <TabsContent value="gmail" className="m-0 p-0 outline-none">
+            <GmailClient context="gerencia" />
+          </TabsContent>
 
           {/* pestaña: PERFIL DE EMPRESA */}
           <TabsContent value="company" className="space-y-6 outline-none">

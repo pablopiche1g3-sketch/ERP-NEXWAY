@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from '@/components/Sidebar';
+import GmailClient from '@/components/shared/GmailClient';
 import { 
   Sparkles, 
   Plus, 
@@ -606,7 +607,14 @@ export default function CRMPage() {
             <TabsTrigger data-tour-id="tab-mapa" value="mapa" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
               <Navigation size={14} className="mr-2" /> Mapa Logístico
             </TabsTrigger>
+            <TabsTrigger data-tour-id="tab-gmail" value="gmail" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-red-500 data-[state=active]:text-white">
+              <Mail size={14} className="mr-2" /> Bandeja CRM
+            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="gmail" className="mt-0 outline-none">
+            <GmailClient context="crm" />
+          </TabsContent>
 
           <TabsContent value="kanban" className="mt-0 outline-none">
             {/* Embudo de Ventas Kanban */}

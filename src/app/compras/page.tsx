@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PurchasesTab from './components/PurchasesTab';
 import OrdersTab from './components/OrdersTab';
-import GmailSuppliersTab from './components/GmailSuppliersTab';
+import GmailClient from '@/components/shared/GmailClient';
 import { Truck } from 'lucide-react';
 
 export default function ComprasPage() {
@@ -45,8 +45,8 @@ export default function ComprasPage() {
         <TabsContent value="ordenes" className="outline-none">
           <OrdersTab />
         </TabsContent>
-        <TabsContent value="gmail" className="outline-none">
-          <GmailSuppliersTab />
+        <TabsContent value="gmail" className="m-0 p-0 outline-none">
+          <GmailClient context="compras" />
         </TabsContent>
       </Tabs>
     </div>
