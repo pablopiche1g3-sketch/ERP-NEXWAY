@@ -64,6 +64,7 @@ import { useTabs } from '@/hooks/use-tabs';
 import { useModuleConfig } from '@/supabase/use-module-config';
 import { useBms } from '@/contexts/BmsContext';
 import type { CartItem, PaymentMethod } from './components/types';
+import QuotationsTab from './components/QuotationsTab';
 
 export default function BillingPage() {
   const { user, role } = useUser();
@@ -94,6 +95,7 @@ export default function BillingPage() {
       { id: 'nota_debito', key: 'billing_nota_debito' },
       { id: 'arqueo', key: 'billing_arqueo' },
       { id: 'creditos', key: 'billing_creditos' },
+      { id: 'cotizacion', key: 'billing_cotizacion' },
     ];
     if (isUserAdmin) {
       tabs.push({ id: 'foco_venta', key: 'billing_foco_venta' });
@@ -1306,6 +1308,9 @@ export default function BillingPage() {
                 <Sparkles size={14} className="mr-1.5 text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" /> Foco de Venta (Alerta de Stock)
               </TabsTrigger>
             )}
+            <TabsTrigger value="cotizacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
+              <FileText size={14} className="mr-1.5" /> Cotización
+            </TabsTrigger>
           </TabsList>
 
           {/* TAB VENTA */}
@@ -2674,6 +2679,10 @@ export default function BillingPage() {
               </Card>
             </TabsContent>
           )}
+
+          <TabsContent value="cotizacion" className="space-y-6 outline-none">
+            <QuotationsTab />
+          </TabsContent>
         </Tabs>
       </div>
 

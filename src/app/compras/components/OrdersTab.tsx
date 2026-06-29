@@ -55,7 +55,7 @@ interface OrderItem {
   quoteNumber?: string;
 }
 
-export default function OrdersPage() {
+export default function OrdersTab() {
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'interno' | 'externo' | 'cargar-codigos'>('interno');

@@ -7,34 +7,31 @@ import { isAdminEmail } from '@/lib/admin-emails';
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: [
-    'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management', 'documents', 'crm'
+    'billing', 'accounting', 'crm', 'management', 'finanzas', 'directorio', 'logistica', 'compras', 'institutional'
   ],
   gerencia: [
-    'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'management', 'documents', 'crm'
+    'billing', 'accounting', 'crm', 'management', 'finanzas', 'directorio', 'logistica', 'compras', 'institutional'
   ],
   encargado: [
-    'billing', 'accounting', 'purchases', 'suppliers', 'quedan', 'quotations',
-    'transfers', 'orders', 'customers', 'inventory', 'institutional', 'documents', 'crm'
+    'billing', 'accounting', 'crm', 'management', 'finanzas', 'directorio', 'logistica', 'compras', 'institutional'
   ],
   sub_encargado: [
-    'purchases', 'suppliers', 'quotations', 'transfers', 'orders', 'customers', 'inventory', 'documents', 'crm'
+    'crm', 'directorio', 'logistica', 'compras', 'management'
   ],
   bodeguero: [
-    'inventory', 'transfers', 'orders', 'documents'
+    'logistica', 'compras', 'management'
   ],
   cajero: [
-    'billing', 'orders', 'customers', 'documents'
+    'billing', 'compras', 'directorio', 'management'
   ],
   vendedor: [
-    'billing', 'quotations', 'orders', 'customers', 'documents', 'crm'
+    'billing', 'crm', 'compras', 'directorio', 'management'
   ],
   motociclista: [
-    'transfers', 'orders', 'documents'
+    'logistica', 'compras', 'management'
   ],
   pedidos: [
-    'orders', 'documents'
+    'compras', 'management'
   ]
 };
 

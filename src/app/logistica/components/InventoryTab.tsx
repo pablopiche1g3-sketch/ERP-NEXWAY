@@ -79,7 +79,7 @@ interface SupplierItem {
   mappedInternalSku?: string;
 }
 
-export default function InventoryMasterPage() {
+export default function InventoryTab() {
   const { config } = useModuleConfig();
   const router = useRouter();
   const { toast } = useToast();

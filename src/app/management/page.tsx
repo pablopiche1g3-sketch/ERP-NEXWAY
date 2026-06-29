@@ -36,12 +36,14 @@ import {
   Printer,
   FileText,
   Sparkles,
-  Activity
+  Activity,
+  FolderOpen
 } from 'lucide-react';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { DashboardComercialKPI } from '@/components/DashboardComercialKPI';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import DocumentsTab from './components/DocumentsTab';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -165,7 +167,7 @@ export default function ManagementPage() {
       nrc: '288301-4',
       logoUrl: '',
       logoPosition: 'left',
-      termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Inmediato según stock, o coordinado con su respectivo gestor de cuenta.`,
+      termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Immediato según stock, o coordinado con su respectivo gestor de cuenta.`,
       extraNotes: '',
       showSignatureFields: true,
       showLogo: false,
@@ -266,7 +268,7 @@ export default function ManagementPage() {
         nrc: '288301-4',
         logoUrl: '',
         logoPosition: 'left',
-        termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Inmediato según stock, o coordinado con su respectivo gestor de cuenta.`,
+        termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Immediato según stock, o coordinado con su respectivo gestor de cuenta.`,
         extraNotes: '',
         showSignatureFields: true,
         showLogo: false,
@@ -1398,6 +1400,9 @@ export default function ManagementPage() {
             </TabsTrigger>
             <TabsTrigger value="print-designer" className="rounded-xl px-5 font-bold data-[state=active]:bg-orange-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
               <Printer size={14} /> Diseño de Impresión
+            </TabsTrigger>
+            <TabsTrigger value="documental" className="rounded-xl px-5 font-bold data-[state=active]:bg-[#a5a8ff] data-[state=active]:text-white text-xs flex items-center gap-1.5">
+              <FolderOpen size={16} /> Repositorio Documental
             </TabsTrigger>
           </TabsList>
 
@@ -3027,6 +3032,9 @@ export default function ManagementPage() {
                 })()}
               </div>
             </div>
+          </TabsContent>
+          <TabsContent value="documental" className="outline-none space-y-6">
+            <DocumentsTab />
           </TabsContent>
         </Tabs>
       </div>

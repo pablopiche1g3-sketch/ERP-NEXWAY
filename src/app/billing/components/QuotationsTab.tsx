@@ -41,7 +41,7 @@ interface QuoteItem {
   quantity: number;
 }
 
-export default function QuotationsPage() {
+export default function QuotationsTab() {
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');

@@ -46,7 +46,7 @@ interface DocumentItem {
   creado_por: string | null;
 }
 
-export default function CentroDocumentalPage() {
+export default function DocumentsTab() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useUser();

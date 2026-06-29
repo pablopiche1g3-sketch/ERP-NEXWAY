@@ -40,7 +40,7 @@ interface TransferItem {
   quantity: number;
 }
 
-export default function TransfersPage() {
+export default function TransfersTab() {
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('solicitud');

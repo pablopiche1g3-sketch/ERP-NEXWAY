@@ -93,19 +93,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   const menuItems: SidebarItem[] = [
     { id: 'billing', title: 'Facturación', path: '/billing', icon: <ShoppingCart size={18} /> },
-    { id: 'purchases', title: 'Registro de Compra', path: '/purchases', icon: <Truck size={18} /> },
-    { id: 'customers', title: 'Registro de Cliente', path: '/customers', icon: <Users size={18} /> },
-    { id: 'accounting', title: 'Contabilidad', path: '/accounting', icon: <BarChart3 size={18} /> },
-    { id: 'suppliers', title: 'Proveedores', path: '/suppliers', icon: <Building2 size={18} /> },
-    { id: 'quedan', title: 'Gestión de Quedan', path: '/quedan', icon: <CalendarClock size={18} /> },
-    { id: 'quotations', title: 'Cotización', path: '/quotations', icon: <FileText size={18} /> },
-    { id: 'transfers', title: 'Traslados', path: '/transfers', icon: <ArrowLeftRight size={18} /> },
-    { id: 'orders', title: 'Pedidos', path: '/orders', icon: <ClipboardList size={18} /> },
-    { id: 'inventory', title: 'Inventario', path: '/inventory', icon: <Package size={18} /> },
     { id: 'crm', title: 'CRM Comercial', path: '/crm', icon: <Sparkles size={18} className="text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]" /> },
-    { id: 'institutional', title: 'Institucional', path: '/institutional', icon: <Building size={18} /> },
-    { id: 'documents', title: 'Centro Documental', path: '/documents', icon: <FolderOpen size={18} className="text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" /> },
+    { id: 'accounting', title: 'Contabilidad', path: '/accounting', icon: <BarChart3 size={18} /> },
     { id: 'management', title: 'Gerencia', path: '/management', icon: <ShieldCheck size={18} /> },
+    { id: 'finanzas', title: 'Finanzas y Créditos', path: '/finanzas', icon: <CalendarClock size={18} /> },
+    { id: 'directorio', title: 'Directorio Comercial', path: '/directorio', icon: <Building2 size={18} /> },
+    { id: 'logistica', title: 'Logística de Stock', path: '/logistica', icon: <Package size={18} /> },
+    { id: 'compras', title: 'Abastecimiento', path: '/compras', icon: <Truck size={18} /> },
+    { id: 'institutional', title: 'Institucional', path: '/institutional', icon: <Building size={18} /> },
   ];
 
   // Permissions checking helper

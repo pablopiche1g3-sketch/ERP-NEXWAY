@@ -52,7 +52,7 @@ interface PurchaseItem {
 
 type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Credito';
 
-export default function PurchasesPage() {
+export default function PurchasesTab() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);

@@ -36,7 +36,7 @@ interface InvoiceItem {
   amount: number;
 }
 
-export default function QuedanPage() {
+export default function QuedanTab() {
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');

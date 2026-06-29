@@ -63,7 +63,7 @@ const GIROS_AUTORIZADOS = [
   "Otros servicios n.c.p."
 ];
 
-export default function CustomersPage() {
+export default function CustomersTab() {
   const router = useRouter();
   const { toast } = useToast();
   

@@ -29,7 +29,7 @@ import { Switch } from '@/components/ui/switch';
 import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 
-export default function SuppliersPage() {
+export default function SuppliersTab() {
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
