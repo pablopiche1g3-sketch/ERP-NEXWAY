@@ -108,6 +108,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     // If admin or gerencia, show everything
     if (isAdmin || role === 'gerencia') return true;
     
+    // Strict restriction for Cajero
+    if (role === 'cajero') {
+      return item.id === 'billing';
+    }
+
     if (permissions && Array.isArray(permissions.modules)) {
       return permissions.modules.includes(item.id);
     }
@@ -216,39 +221,42 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             Módulos
           </div>
         )}
-        <Link 
-          href="/" 
-          title={isCollapsed ? "Inicio" : undefined}
-          className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group ${
-            isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
-          } ${
-            pathname === '/' 
-              ? 'bg-indigo-500/20 border border-indigo-500/40 text-white shadow-[0_0_15px_rgba(99,102,241,0.25)]' 
-              : 'hover:bg-white/10 bg-transparent hover:text-white text-slate-400'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <span className={`transition-all duration-200 ${
+        
+        {role !== 'cajero' && (
+          <Link 
+            href="/" 
+            title={isCollapsed ? "Inicio" : undefined}
+            className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group ${
+              isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+            } ${
               pathname === '/' 
-                ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.85)] scale-105' 
-                : 'text-slate-400 group-hover:text-white'
-            }`}>
-              <Building size={18} />
-            </span>
-            {!isCollapsed && (
+                ? 'bg-indigo-500/20 border border-indigo-500/40 text-white shadow-[0_0_15px_rgba(99,102,241,0.25)]' 
+                : 'hover:bg-white/10 bg-transparent hover:text-white text-slate-400'
+            }`}
+          >
+            <div className="flex items-center gap-3">
               <span className={`transition-all duration-200 ${
                 pathname === '/' 
-                  ? 'text-white font-bold drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]' 
-                  : 'text-slate-400 group-hover:text-slate-200'
+                  ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.85)] scale-105' 
+                  : 'text-slate-400 group-hover:text-white'
               }`}>
-                Inicio
+                <Building size={18} />
               </span>
+              {!isCollapsed && (
+                <span className={`transition-all duration-200 ${
+                  pathname === '/' 
+                    ? 'text-white font-bold drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]' 
+                    : 'text-slate-400 group-hover:text-slate-200'
+                }`}>
+                  Inicio
+                </span>
+              )}
+            </div>
+            {!isCollapsed && pathname !== '/' && (
+              <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 translate-x-[-4px] group-hover:translate-x-0" />
             )}
-          </div>
-          {!isCollapsed && pathname !== '/' && (
-            <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 translate-x-[-4px] group-hover:translate-x-0" />
-          )}
-        </Link>
+          </Link>
+        )}
 
         {filteredMenuItems.map((item) => {
           const isActive = pathname === item.path || pathname.startsWith(item.path + '/');

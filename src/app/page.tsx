@@ -75,7 +75,7 @@ export default function Home() {
       id: 'quotations', 
       title: 'Cotización', 
       description: 'Presupuestos para clientes', 
-      path: '/quotations', 
+      path: '/billing?tab=cotizaciones', 
       iconBg: 'bg-orange-500/10 text-orange-500 border border-orange-500/20 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/10',
       glowClass: 'shadow-lg shadow-orange-500/20 hover:shadow-[0_0_40px_rgba(249,115,22,0.6)] hover:shadow-orange-500/60 hover:border-orange-500/50 dark:hover:border-orange-500/50',
       icon: <FileText size={22} /> 

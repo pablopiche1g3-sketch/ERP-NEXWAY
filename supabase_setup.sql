@@ -22,6 +22,18 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 6. Habilitar la actualización cruzada de perfiles para administradores y gerentes
+-- Esto soluciona el bloqueo (bug) al intentar asignar 'cash_box_id' (station_id) o 'branch_id' desde el panel de usuarios
+CREATE POLICY "Permitir a admin_gerencia actualizar perfiles"
+ON public.profiles
+FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p2
+    WHERE p2.id = auth.uid() AND p2.role IN ('admin', 'gerencia')
+  )
+);
+
 -- 3. Asegurar que customers tenga la columna benefit_profile
 DO $$
 BEGIN
