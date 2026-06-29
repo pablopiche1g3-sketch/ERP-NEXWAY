@@ -115,6 +115,10 @@ export default function PurchasesTab() {
   const [historySearch, setHistorySearch] = useState('');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'TODOS' | 'PENDIENTE' | 'CERRADA'>('TODOS');
 
+  // Estados para Catálogo DTE
+  const [pendingDtes, setPendingDtes] = useState<any[]>([]);
+  const [selectedDteId, setSelectedDteId] = useState<string>('none');
+
   // Función para cargar los datos relacionados de forma segura
   const loadPurchasesData = async () => {
     try {
@@ -204,6 +208,14 @@ export default function PurchasesTab() {
         .order('created_at', { ascending: false });
       setPurchasesHistory(purchHistoryData || []);
 
+      // Cargar catálogo de DTEs pendientes
+      const { data: dteData } = await supabase
+        .from('facturas_proveedores_json')
+        .select('*')
+        .eq('estado', 'PENDIENTE_PROCESAR')
+        .order('created_at', { ascending: false });
+      setPendingDtes(dteData || []);
+
     } catch (e: any) {
       console.error('Error al cargar datos en compras:', e);
     } finally {
@@ -226,6 +238,43 @@ export default function PurchasesTab() {
     } finally {
       setLoadingCreditNotes(false);
     }
+  };
+
+  const handleSelectDte = (id: string) => {
+    setSelectedDteId(id);
+    if (id === 'none') return;
+    
+    const dte = pendingDtes.find(d => d.id === id);
+    if (!dte) return;
+
+    const payload = dte.payload_json;
+    const sup = suppliers.find(s => s.nit && s.nit.replace(/-/g, '') === (payload.emisor?.nit || '').replace(/-/g, ''));
+    if (sup) setSupplierName(sup.name);
+    else setSupplierName(payload.emisor?.nombre || '');
+
+    setGenerationCode(payload.identificacion?.numeroControl || '');
+    
+    const rawItems = payload.cuerpoDocumento || [];
+    const mappedItems = rawItems.map((item: any) => {
+       const mapping = savedMappings.find(m => m.supplierCode === item.codigo);
+       let prod = null;
+       if (mapping) {
+         prod = inventory.find(i => i.sku === mapping.internalSku);
+       } else {
+         prod = inventory.find(i => i.sku === item.codigo);
+       }
+
+       return {
+         id: prod ? prod.id : item.codigo,
+         sku: prod ? prod.sku : item.codigo,
+         name: prod ? prod.name : item.descripcion,
+         quantity: parseFloat(item.cantidad) || 0,
+         cost: parseFloat(item.precioUni) || 0
+       };
+    });
+
+    setPurchaseItems(mappedItems);
+    toast({ title: "Catálogo DTE Aplicado", description: "El formulario se ha rellenado con los datos del DTE. Por favor revise antes de guardar." });
   };
 
   const handleSaveManualMapping = async () => {
@@ -789,6 +838,15 @@ export default function PurchasesTab() {
 
           if (stockErr) throw stockErr;
         }
+
+        if (selectedDteId !== 'none') {
+           const { error: dteErr } = await supabase
+             .from('facturas_proveedores_json')
+             .update({ estado: 'PROCESADO' })
+             .eq('id', selectedDteId);
+           if (dteErr) throw dteErr;
+        }
+
         toast({ title: "Compra Cerrada", description: `Stock actualizado en la bodega '${warehouse}' de forma exitosa.` });
       } else {
         toast({ title: "Borrador Guardado", description: "La compra está pendiente. El stock NO ha sido afectado." });
@@ -798,6 +856,7 @@ export default function PurchasesTab() {
       setGenerationCode('');
       setEnteredBy('');
       setSupplierName('');
+      setSelectedDteId('none');
       setPaymentMethod('Efectivo');
       setCreditDays('');
       setEditingPurchaseId(null);
@@ -1108,6 +1167,30 @@ export default function PurchasesTab() {
                 </div>
                 
                 <div className="rounded-b-[11px] p-4 flex flex-col gap-3.5 bg-white/5 backdrop-blur-md border border-white/10 mt-[-10px]">
+                  {pendingDtes.length > 0 && (
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.7px] text-indigo-400/80 mb-1.5">
+                        <span>Importar desde Catálogo DTE</span>
+                        <Badge variant="outline" className="text-[8px] h-4 bg-indigo-500/10 border-indigo-500/30 text-indigo-300">
+                          {pendingDtes.length} pendientes
+                        </Badge>
+                      </div>
+                      <Select value={selectedDteId} onValueChange={handleSelectDte}>
+                        <SelectTrigger className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-[9px_12px] h-[40px] text-[12.5px] text-indigo-200 shadow-none">
+                          <SelectValue placeholder="Seleccione un DTE para autocompletar..." />
+                        </SelectTrigger>
+                        <SelectContent className="border-white/10 bg-[#0a0a14] text-white">
+                          <SelectItem value="none" className="text-white/40 italic">Ninguno (Ingreso Manual)</SelectItem>
+                          {pendingDtes.map((dte) => (
+                            <SelectItem key={dte.id} value={dte.id}>
+                              {dte.documento_numero} - {dte.proveedor_nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <div>
                     <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Proveedor</div>
                     <div className="flex gap-2">

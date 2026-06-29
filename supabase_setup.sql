@@ -30,3 +30,14 @@ BEGIN
     END IF;
 END
 $$;
+
+-- 4. Catálogo temporal de Facturas de Proveedores (DTE) provenientes de Gmail
+CREATE TABLE IF NOT EXISTS facturas_proveedores_json (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    proveedor_nit TEXT,
+    proveedor_nombre TEXT,
+    documento_numero TEXT,
+    payload_json JSONB NOT NULL,
+    estado TEXT NOT NULL CHECK (estado IN ('PENDIENTE_PROCESAR', 'PROCESADO')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

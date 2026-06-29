@@ -5,10 +5,12 @@ import {
   Search, Paperclip, Clock, Star, Inbox, Send, File, 
   Tag, MoreVertical, Plus, ChevronRight, ChevronLeft, Settings, 
   HelpCircle, Grid, Image as ImageIcon, FileText,
-  AlertCircle, SlidersHorizontal, RotateCcw
+  AlertCircle, SlidersHorizontal, RotateCcw, Database
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Attachment {
   name: string;
@@ -88,11 +90,55 @@ const mockEmails: Email[] = [
 export default function GmailSuppliersTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFolder, setActiveFolder] = useState('recibidos');
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const filteredEmails = mockEmails.filter(email => 
     email.subject.toLowerCase().includes(searchTerm.toLowerCase()) || 
     email.sender.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleStoreInCatalog = async (email: Email, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setProcessingId(email.id);
+    
+    try {
+      // Simulamos la extracción de un payload JSON desde el XML adjunto
+      const mockPayload = {
+        identificacion: { numeroControl: `DTE-${Math.floor(Math.random() * 10000)}` },
+        emisor: { nombre: email.sender, nit: '0614-010101-101-1' },
+        cuerpoDocumento: [
+          { codigo: 'PROD-01', descripcion: 'Producto Simulado 1', cantidad: 10, precioUni: 25.50 },
+          { codigo: 'PROD-02', descripcion: 'Producto Simulado 2', cantidad: 5, precioUni: 12.00 }
+        ],
+        resumen: { totalPagar: 315.00 }
+      };
+
+      const { error } = await supabase.from('facturas_proveedores_json').insert({
+        proveedor_nit: mockPayload.emisor.nit,
+        proveedor_nombre: mockPayload.emisor.nombre,
+        documento_numero: mockPayload.identificacion.numeroControl,
+        payload_json: mockPayload,
+        estado: 'PENDIENTE_PROCESAR'
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "DTE Almacenado",
+        description: `El documento ${mockPayload.identificacion.numeroControl} se ha enviado al Catálogo de Compras.`
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: "Error al almacenar",
+        description: err.message || "No se pudo guardar el DTE en el catálogo."
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   return (
     <div className="h-[calc(100vh-120px)] w-full flex bg-[#f6f8fc] dark:bg-[#1a1a24] overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 font-sans shadow-inner">
@@ -246,6 +292,24 @@ export default function GmailSuppliersTab() {
                       <span className="truncate">{att.name}</span>
                     </div>
                   ))}
+                  
+                  {/* Botón de Acción Rápida para DTEs */}
+                  {email.attachments.some(a => a.type === 'xml' || a.type === 'pdf') && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => handleStoreInCatalog(email, e)}
+                      disabled={processingId === email.id}
+                      className="ml-2 h-7 px-3 text-[11px] font-semibold text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:border-blue-900/50 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 rounded-full shrink-0"
+                    >
+                      {processingId === email.id ? (
+                        <RotateCcw className="animate-spin mr-1.5 h-3 w-3" />
+                      ) : (
+                        <Database className="mr-1.5 h-3 w-3" />
+                      )}
+                      Almacenar DTE
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
