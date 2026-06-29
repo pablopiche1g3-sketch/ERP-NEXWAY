@@ -465,15 +465,14 @@ export default function BillingPage() {
     setLoadingDetails(true);
     setIsDetailsDialogOpen(true);
     try {
-      const { data: saleData, error } = await supabase
-        .from('sales')
-        .select('items')
-        .eq('id', sale.id)
-        .single();
+      const { data: itemsData, error } = await supabase
+        .from('sales_items')
+        .select('*')
+        .eq('sale_id', sale.id);
 
       if (error) throw error;
 
-      const items = saleData?.items || [];
+      const items = itemsData || [];
 
       const mappedItems = items.map((item: any, idx: number) => ({
         ...item,
