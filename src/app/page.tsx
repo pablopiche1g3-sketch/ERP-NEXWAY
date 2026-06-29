@@ -84,17 +84,17 @@ export default function Home() {
       id: 'orders', 
       title: 'Orden de Compra', 
       description: 'Gestión de pedidos', 
-      path: '/compras', 
-      iconBg: 'bg-purple-500/10 text-purple-500 border border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/10',
-      glowClass: 'shadow-lg shadow-purple-500/20 hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] hover:shadow-purple-500/60 hover:border-purple-500/50 dark:hover:border-purple-500/50',
-      icon: <ClipboardList size={22} /> 
+      path: '/compras?tab=ordenes', 
+      iconBg: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/10',
+      glowClass: 'shadow-lg shadow-emerald-500/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.6)] hover:shadow-emerald-500/60 hover:border-emerald-500/50 dark:hover:border-emerald-500/50',
+      icon: <ShoppingCart size={22} /> 
     },
     { 
       id: 'customers', 
       title: 'Registro de Cliente', 
       description: 'Contribuyentes y CF', 
-      path: '/crm', 
-      iconBg: 'bg-indigo-600/10 text-indigo-600 border border-indigo-600/20 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/10',
+      path: '/directorio?tab=clientes', 
+      iconBg: 'bg-sky-500/10 text-sky-500 border border-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 dark:border-sky-500/10',
       glowClass: 'shadow-lg shadow-indigo-500/20 hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] hover:shadow-indigo-500/60 hover:border-indigo-500/50 dark:hover:border-indigo-500/50',
       icon: <Users size={22} /> 
     },
@@ -110,35 +110,35 @@ export default function Home() {
     { 
       id: 'inventory', 
       title: 'Inventario', 
-      description: 'Existencias y stock real', 
-      path: '/logistica', 
-      iconBg: 'bg-rose-500/10 text-rose-500 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/10',
-      glowClass: 'shadow-lg shadow-rose-500/20 hover:shadow-[0_0_40px_rgba(225,29,72,0.6)] hover:shadow-rose-500/60 hover:border-rose-500/50 dark:hover:border-rose-500/50',
+      description: 'Control de existencias', 
+      path: '/logistica?tab=inventario', 
+      iconBg: 'bg-blue-500/10 text-blue-500 border border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/10',
+      glowClass: 'shadow-lg shadow-blue-500/20 hover:shadow-[0_0_40px_rgba(59,130,246,0.6)] hover:shadow-blue-500/60 hover:border-blue-500/50 dark:hover:border-blue-500/50',
       icon: <Package size={22} /> 
     },
     { 
       id: 'accounting', 
       title: 'Contabilidad', 
-      description: 'Cierres y balances', 
+      description: 'Libros y finanzas', 
       path: '/accounting', 
-      iconBg: 'bg-blue-500/10 text-blue-500 border border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/10',
-      glowClass: 'shadow-lg shadow-blue-500/20 hover:shadow-[0_0_40px_rgba(59,130,246,0.6)] hover:shadow-blue-500/60 hover:border-blue-500/50 dark:hover:border-blue-500/50',
+      iconBg: 'bg-teal-500/10 text-teal-500 border border-teal-500/20 dark:bg-teal-500/20 dark:text-teal-400 dark:border-teal-500/10',
+      glowClass: 'shadow-lg shadow-teal-500/20 hover:shadow-[0_0_40px_rgba(20,184,166,0.6)] hover:shadow-teal-500/60 hover:border-teal-500/50 dark:hover:border-teal-500/50',
       icon: <BarChart3 size={22} /> 
     },
     { 
       id: 'suppliers', 
       title: 'Proveedores', 
-      description: 'Gestión de socios', 
-      path: '/directorio', 
-      iconBg: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/10',
-      glowClass: 'shadow-lg shadow-emerald-500/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.6)] hover:shadow-emerald-500/60 hover:border-emerald-500/50 dark:hover:border-emerald-500/50',
-      icon: <Building2 size={22} /> 
+      description: 'Catálogo de compras', 
+      path: '/directorio?tab=proveedores', 
+      iconBg: 'bg-violet-500/10 text-violet-500 border border-violet-500/20 dark:bg-violet-500/20 dark:text-violet-400 dark:border-violet-500/10',
+      glowClass: 'shadow-lg shadow-violet-500/20 hover:shadow-[0_0_40px_rgba(139,92,246,0.6)] hover:shadow-violet-500/60 hover:border-violet-500/50 dark:hover:border-violet-500/50',
+      icon: <Users size={22} /> 
     },
     { 
       id: 'quedan', 
       title: 'Gestión de Quedan', 
-      description: 'Control de pagos', 
-      path: '/finanzas', 
+      description: 'Cuentas por pagar', 
+      path: '/finanzas?tab=quedan', 
       iconBg: 'bg-amber-500/10 text-amber-500 border border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/10',
       glowClass: 'shadow-lg shadow-amber-500/20 hover:shadow-[0_0_40px_rgba(245,158,11,0.6)] hover:shadow-amber-500/60 hover:border-amber-500/50 dark:hover:border-amber-500/50',
       icon: <CalendarClock size={22} /> 
@@ -146,9 +146,9 @@ export default function Home() {
     { 
       id: 'transfers', 
       title: 'Traslados', 
-      description: 'Movimientos de bodega', 
-      path: '/logistica', 
-      iconBg: 'bg-rose-500/10 text-rose-500 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/10',
+      description: 'Movimiento entre bodegas', 
+      path: '/logistica?tab=traslados', 
+      iconBg: 'bg-fuchsia-500/10 text-fuchsia-500 border border-fuchsia-500/20 dark:bg-fuchsia-500/20 dark:text-fuchsia-400 dark:border-fuchsia-500/10',
       glowClass: 'shadow-lg shadow-rose-500/20 hover:shadow-[0_0_40px_rgba(225,29,72,0.6)] hover:shadow-rose-500/60 hover:border-rose-500/50 dark:hover:border-rose-500/50',
       icon: <ArrowLeftRight size={22} /> 
     },

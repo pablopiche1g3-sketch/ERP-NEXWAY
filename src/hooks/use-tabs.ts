@@ -8,7 +8,15 @@ interface TabItem {
 }
 
 export function useTabs(config: any, tabsList: TabItem[], defaultTab?: string) {
-  const [activeTab, setActiveTab] = useState(defaultTab || tabsList[0]?.id || '');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlTab = new URLSearchParams(window.location.search).get('tab');
+      if (urlTab && tabsList.some(t => t.id === urlTab)) {
+        return urlTab;
+      }
+    }
+    return defaultTab || tabsList[0]?.id || '';
+  });
 
   useEffect(() => {
     if (!config) return;

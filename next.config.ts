@@ -30,6 +30,18 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async redirects() {
+    return [
+      { source: '/quotations', destination: '/billing?tab=cotizaciones', permanent: false },
+      { source: '/orders', destination: '/compras?tab=ordenes', permanent: false },
+      { source: '/customers', destination: '/directorio?tab=clientes', permanent: false },
+      { source: '/suppliers', destination: '/directorio?tab=proveedores', permanent: false },
+      { source: '/inventory', destination: '/logistica?tab=inventario', permanent: false },
+      { source: '/transfers', destination: '/logistica?tab=traslados', permanent: false },
+      { source: '/documents', destination: '/management?tab=documental', permanent: false },
+      { source: '/quedan', destination: '/finanzas?tab=quedan', permanent: false }
+    ];
+  },
 };
 
 export default nextConfig;

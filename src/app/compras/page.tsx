@@ -1,14 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PurchasesTab from './components/PurchasesTab';
 import OrdersTab from './components/OrdersTab';
 import GmailClient from '@/components/shared/GmailClient';
-import { Truck } from 'lucide-react';
+import { Truck, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
-export default function ComprasPage() {
-  const [activeTab, setActiveTab] = useState('registro');
+function ComprasContent() {
+  const searchParams = useSearchParams();
+  const queryTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(queryTab || 'registro');
+
+  useEffect(() => {
+    if (queryTab) setActiveTab(queryTab);
+  }, [queryTab]);
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -50,5 +57,13 @@ export default function ComprasPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function ComprasPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>}>
+      <ComprasContent />
+    </Suspense>
   );
 }
