@@ -62,6 +62,7 @@ interface UserContextType {
   isAdmin: boolean;
   loading: boolean;
   branchId: string | null;
+  cashRegisterId: string | null;
   permissions: {
     modules: string[];
     tabs: string[];
@@ -74,6 +75,7 @@ const UserContext = createContext<UserContextType>({
   isAdmin: false,
   loading: true,
   branchId: null,
+  cashRegisterId: null,
   permissions: null,
 });
 
@@ -81,6 +83,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [branchId, setBranchId] = useState<string | null>(null);
+  const [cashRegisterId, setCashRegisterId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -118,7 +121,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('role, branch_id, permissions')
+          .select('role, branch_id, cash_register_id, permissions')
           .eq('id', currentUser.id)
           .single();
 
@@ -132,16 +135,21 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
             currentRole = profile.role;
           }
           if (mounted) {
+            setRole(profile.role);
             setBranchId(profile.branch_id);
-            setPermissions(profile.permissions);
+            setCashRegisterId(profile.cash_register_id);
+            setPermissions(profile.permissions || {});
             
             // Si el usuario tiene una sucursal asignada y no es administrador,
-            // forzamos a que su active_branch_id inicial sea la asignada.
+            // Si el usuario es de operación, forzamos a que su active_branch_id inicial sea la asignada.
             if (profile.branch_id && profile.role !== 'admin' && profile.role !== 'gerencia') {
               localStorage.setItem('active_branch_id', profile.branch_id);
-              // Disparar evento para que otras vistas se actualicen reactivamente
-              window.dispatchEvent(new Event('branchChanged'));
             }
+            if (profile.cash_register_id && profile.role !== 'admin' && profile.role !== 'gerencia') {
+              localStorage.setItem('active_cash_register_id', profile.cash_register_id);
+            }
+            // Disparar evento para que otras vistas se actualicen reactivamente
+            window.dispatchEvent(new Event('branchChanged'));
           }
         } else if (error && error.code === 'PGRST116') {
           // El perfil no existe aún, lo creamos
@@ -170,7 +178,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const isAdmin = role === 'admin' || role === 'gerencia';
 
   return (
-    <UserContext.Provider value={{ user, role, isAdmin, loading, branchId, permissions }}>
+    <UserContext.Provider value={{ user, role, isAdmin, loading, branchId, cashRegisterId, permissions }}>
       {children}
     </UserContext.Provider>
   );

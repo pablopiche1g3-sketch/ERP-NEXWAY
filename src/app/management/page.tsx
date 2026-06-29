@@ -78,6 +78,7 @@ export default function ManagementPage() {
   const [preAssignPassword, setPreAssignPassword] = useState('');
   const [preAssignRole, setPreAssignRole] = useState('vendedor');
   const [preAssignBranchId, setPreAssignBranchId] = useState('');
+  const [preAssignCashRegisterId, setPreAssignCashRegisterId] = useState('');
 
   // Estados de datos
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -793,6 +794,7 @@ export default function ManagementPage() {
         const updatePayload: any = { role: preAssignRole };
         if (preAssignBranchId) {
           updatePayload.branch_id = preAssignBranchId === '__none' ? null : preAssignBranchId;
+          updatePayload.cash_register_id = preAssignCashRegisterId === '__none' ? null : preAssignCashRegisterId;
         }
         const { error } = await supabase.from('profiles').update(updatePayload).eq('id', existingUser.id);
         if (error) throw error;
@@ -827,7 +829,8 @@ export default function ManagementPage() {
             username: usernameToAssign,
             password: preAssignPassword,
             role: preAssignRole,
-            branch_id: preAssignBranchId === '__none' ? null : preAssignBranchId
+            branch_id: preAssignBranchId === '__none' ? null : preAssignBranchId,
+            cash_register_id: preAssignCashRegisterId === '__none' ? null : preAssignCashRegisterId
           })
         });
 
@@ -951,7 +954,12 @@ export default function ManagementPage() {
     { id: 'institutional', label: 'Ventas Institucionales', desc: 'Licitaciones y Proyectos' },
   ];
 
-  const [activeTab, setActiveTab] = useState('config');
+  const [activeGroup, setActiveGroup] = useState('bi');
+  const [activeBiTab, setActiveBiTab] = useState('metrics');
+  const [activeConfigTab, setActiveConfigTab] = useState('operativos');
+  const [activeUsersTab, setActiveUsersTab] = useState('permissions');
+
+  const currentTab = activeGroup === 'bi' ? activeBiTab : activeGroup === 'config' ? activeConfigTab : activeUsersTab;
 
   // ─── Estados Cajas/Sucursales ───────────────────────────────────
   const [posStations, setPosStations] = useState<any[]>([]);
@@ -1350,14 +1358,14 @@ export default function ManagementPage() {
   }, [filteredSales, allSalesItems]);
 
   useEffect(() => {
-    if (activeTab === 'config') {
+    if (currentTab === 'operativos' || currentTab === 'branches') {
       runDiagnostics();
       loadStationsAndWarehouses();
     }
-    if (activeTab === 'analytics') {
+    if (currentTab === 'analytics') {
       loadAnalytics();
     }
-  }, [activeTab]);
+  }, [currentTab]);
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
@@ -1375,36 +1383,48 @@ export default function ManagementPage() {
       </div>
 
       <div className="max-w-4xl mx-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-muted p-1 rounded-2xl border flex w-full justify-start overflow-x-auto no-scrollbar gap-1">
-            <TabsTrigger value="config" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <Settings size={14} /> Configuración
-            </TabsTrigger>
-            <TabsTrigger value="company" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <Building size={14} /> Perfil de Empresa
-            </TabsTrigger>
-            <TabsTrigger value="permissions" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <Lock size={14} /> Módulos
-            </TabsTrigger>
-            <TabsTrigger value="roles" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <Users size={14} /> Usuarios
-            </TabsTrigger>
-            <TabsTrigger value="branches" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <Building size={14} /> Sucursales
-            </TabsTrigger>
-            <TabsTrigger value="metrics" className="rounded-xl px-5 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <BarChart3 size={14} /> Métricas
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="rounded-xl px-5 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <TrendingUp size={14} /> Análisis de Ventas
-            </TabsTrigger>
-            <TabsTrigger value="print-designer" className="rounded-xl px-5 font-bold data-[state=active]:bg-orange-600 data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <Printer size={14} /> Diseño de Impresión
-            </TabsTrigger>
-            <TabsTrigger value="documental" className="rounded-xl px-5 font-bold data-[state=active]:bg-[#a5a8ff] data-[state=active]:text-white text-xs flex items-center gap-1.5">
-              <FolderOpen size={16} /> Repositorio Documental
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={currentTab} onValueChange={(val) => {
+          if (activeGroup === 'bi') setActiveBiTab(val);
+          if (activeGroup === 'config') setActiveConfigTab(val);
+          if (activeGroup === 'users') setActiveUsersTab(val);
+        }} className="space-y-6">
+          <div className="flex flex-col space-y-4 mb-6">
+            <div className="flex w-full justify-start overflow-x-auto no-scrollbar gap-2 pb-2">
+              <button onClick={() => setActiveGroup('bi')} className={`rounded-xl px-5 py-2 font-bold text-xs flex items-center gap-1.5 transition-all ${activeGroup === 'bi' ? 'bg-indigo-600 text-white shadow-md' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+                <BarChart3 size={14} /> Centro Analítico (BI)
+              </button>
+              <button onClick={() => setActiveGroup('config')} className={`rounded-xl px-5 py-2 font-bold text-xs flex items-center gap-1.5 transition-all ${activeGroup === 'config' ? 'bg-blue-600 text-white shadow-md' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+                <Settings size={14} /> Configuración Global
+              </button>
+              <button onClick={() => setActiveGroup('users')} className={`rounded-xl px-5 py-2 font-bold text-xs flex items-center gap-1.5 transition-all ${activeGroup === 'users' ? 'bg-emerald-600 text-white shadow-md' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+                <Users size={14} /> Control de Usuarios
+              </button>
+            </div>
+
+            <TabsList className="bg-muted/50 p-1 rounded-2xl border flex w-fit overflow-x-auto no-scrollbar gap-1">
+              {activeGroup === 'bi' && (
+                <>
+                  <TabsTrigger value="metrics" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-indigo-600 text-xs">Métricas Rápidas</TabsTrigger>
+                  <TabsTrigger value="analytics" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-indigo-600 text-xs">Análisis Profundo CRM/BMS</TabsTrigger>
+                </>
+              )}
+              {activeGroup === 'config' && (
+                <>
+                  <TabsTrigger value="operativos" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Ajustes Operativos</TabsTrigger>
+                  <TabsTrigger value="company" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Perfil de Empresa</TabsTrigger>
+                  <TabsTrigger value="branches" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Sucursales y Entorno</TabsTrigger>
+                  <TabsTrigger value="print-designer" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Diseñador Impresión</TabsTrigger>
+                  <TabsTrigger value="documental" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Auditoría (Documental)</TabsTrigger>
+                </>
+              )}
+              {activeGroup === 'users' && (
+                <>
+                  <TabsTrigger value="permissions" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Usuarios y Accesos</TabsTrigger>
+                  <TabsTrigger value="roles" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Gestión de Roles</TabsTrigger>
+                </>
+              )}
+            </TabsList>
+          </div>
 
           {/* pestaña: PERFIL DE EMPRESA */}
           <TabsContent value="company" className="space-y-6 outline-none">
@@ -1483,7 +1503,7 @@ export default function ManagementPage() {
           </TabsContent>
 
           {/* pestaña 1: CONFIGURACIÓN GLOBAL */}
-          <TabsContent value="config" className="space-y-6 outline-none">
+          <TabsContent value="operativos" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               <div className="md:col-span-7 space-y-6">
                 <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
@@ -1839,7 +1859,10 @@ export default function ManagementPage() {
                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sucursal Asignada</Label>
                       <Select 
                         value={preAssignBranchId || '__none'} 
-                        onValueChange={(val) => setPreAssignBranchId(val === '__none' ? '' : val)}
+                        onValueChange={(val) => {
+                          setPreAssignBranchId(val === '__none' ? '' : val);
+                          setPreAssignCashRegisterId('');
+                        }}
                       >
                         <SelectTrigger className="w-full h-10 bg-background border-border rounded-xl text-xs font-bold">
                           <SelectValue placeholder="Sin sucursal" />
@@ -1848,6 +1871,25 @@ export default function ManagementPage() {
                           <SelectItem value="__none">Sin sucursal</SelectItem>
                           {branches.map((b: any) => (
                             <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="w-full lg:w-[200px] space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Caja / Bodega</Label>
+                      <Select 
+                        value={preAssignCashRegisterId || '__none'} 
+                        onValueChange={(val) => setPreAssignCashRegisterId(val === '__none' ? '' : val)}
+                        disabled={!preAssignBranchId}
+                      >
+                        <SelectTrigger className="w-full h-10 bg-background border-border rounded-xl text-xs font-bold disabled:opacity-50">
+                          <SelectValue placeholder="Seleccione..." />
+                        </SelectTrigger>
+                        <SelectContent className="dark:bg-[#0a0a14] dark:border-white/10">
+                          <SelectItem value="__none">Sin caja</SelectItem>
+                          {posStations.filter(c => c.branch_id === preAssignBranchId).map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -2630,9 +2672,9 @@ export default function ManagementPage() {
 
                         return (
                           <div className="space-y-4">
-                            {/* Panel 1: Info Comercial */}
+                            {/* Panel 1: Header */}
                             <div className="space-y-3">
-                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Información Comercial</h3>
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">1. Encabezado (Header)</h3>
                               <div className="grid grid-cols-1 gap-3">
                                 <div className="space-y-1.5">
                                   <Label className="text-[10px] font-semibold text-slate-400">Nombre de la Empresa</Label>
@@ -2671,9 +2713,9 @@ export default function ManagementPage() {
                               </div>
                             </div>
 
-                            {/* Panel 2: Contacto */}
+                            {/* Panel 1.5: Contacto (Aún en Header) */}
                             <div className="space-y-3 border-t border-slate-200 dark:border-white/10 pt-3">
-                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Contacto</h3>
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Datos de Contacto (Header)</h3>
                               <div className="space-y-3">
                                 <div className="space-y-1.5">
                                   <Label className="text-[10px] font-semibold text-slate-400">Dirección Física</Label>
@@ -2704,9 +2746,9 @@ export default function ManagementPage() {
                               </div>
                             </div>
 
-                            {/* Panel 3: Logotipo y Estilos */}
+                            {/* Panel 2: Body */}
                             <div className="space-y-3 border-t border-slate-200 dark:border-white/10 pt-3">
-                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Diseño y Logotipo</h3>
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">2. Cuerpo del Documento (Body)</h3>
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                   <Label className="text-[10px] font-semibold text-slate-400">Mostrar Logotipo</Label>
@@ -2779,9 +2821,9 @@ export default function ManagementPage() {
                               </div>
                             </div>
 
-                            {/* Panel 4: Términos y Condiciones */}
+                            {/* Panel 3: Footer */}
                             <div className="space-y-3 border-t border-slate-200 dark:border-white/10 pt-3">
-                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Términos y Notas</h3>
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">3. Pie de Página (Footer)</h3>
                               <div className="space-y-3">
                                 <div className="space-y-1.5">
                                   <Label className="text-[10px] font-semibold text-slate-400">Términos y Condiciones Generales</Label>

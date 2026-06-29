@@ -66,7 +66,7 @@ export default function Home() {
       id: 'purchases', 
       title: 'Registro de Compra', 
       description: 'Entrada de mercadería', 
-      path: '/purchases', 
+      path: '/compras', 
       iconBg: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/10',
       glowClass: 'shadow-lg shadow-emerald-500/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.6)] hover:shadow-emerald-500/60 hover:border-emerald-500/50 dark:hover:border-emerald-500/50',
       icon: <Truck size={22} /> 
@@ -84,7 +84,7 @@ export default function Home() {
       id: 'orders', 
       title: 'Orden de Compra', 
       description: 'Gestión de pedidos', 
-      path: '/orders', 
+      path: '/compras', 
       iconBg: 'bg-purple-500/10 text-purple-500 border border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/10',
       glowClass: 'shadow-lg shadow-purple-500/20 hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] hover:shadow-purple-500/60 hover:border-purple-500/50 dark:hover:border-purple-500/50',
       icon: <ClipboardList size={22} /> 
@@ -93,7 +93,7 @@ export default function Home() {
       id: 'customers', 
       title: 'Registro de Cliente', 
       description: 'Contribuyentes y CF', 
-      path: '/customers', 
+      path: '/crm', 
       iconBg: 'bg-indigo-600/10 text-indigo-600 border border-indigo-600/20 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/10',
       glowClass: 'shadow-lg shadow-indigo-500/20 hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] hover:shadow-indigo-500/60 hover:border-indigo-500/50 dark:hover:border-indigo-500/50',
       icon: <Users size={22} /> 
@@ -102,7 +102,7 @@ export default function Home() {
       id: 'documents', 
       title: 'Centro Documental', 
       description: 'Documentos y hojas libres', 
-      path: '/documents', 
+      path: '/management', 
       iconBg: 'bg-rose-500/10 text-rose-500 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/10',
       glowClass: 'shadow-lg shadow-rose-500/20 hover:shadow-[0_0_40px_rgba(244,63,94,0.6)] hover:shadow-rose-500/60 hover:border-rose-500/50 dark:hover:border-rose-500/50',
       icon: <FileText size={22} /> 
@@ -111,7 +111,7 @@ export default function Home() {
       id: 'inventory', 
       title: 'Inventario', 
       description: 'Existencias y stock real', 
-      path: '/inventory', 
+      path: '/logistica', 
       iconBg: 'bg-rose-500/10 text-rose-500 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/10',
       glowClass: 'shadow-lg shadow-rose-500/20 hover:shadow-[0_0_40px_rgba(225,29,72,0.6)] hover:shadow-rose-500/60 hover:border-rose-500/50 dark:hover:border-rose-500/50',
       icon: <Package size={22} /> 
@@ -129,7 +129,7 @@ export default function Home() {
       id: 'suppliers', 
       title: 'Proveedores', 
       description: 'Gestión de socios', 
-      path: '/suppliers', 
+      path: '/directorio', 
       iconBg: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/10',
       glowClass: 'shadow-lg shadow-emerald-500/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.6)] hover:shadow-emerald-500/60 hover:border-emerald-500/50 dark:hover:border-emerald-500/50',
       icon: <Building2 size={22} /> 
@@ -138,7 +138,7 @@ export default function Home() {
       id: 'quedan', 
       title: 'Gestión de Quedan', 
       description: 'Control de pagos', 
-      path: '/quedan', 
+      path: '/finanzas', 
       iconBg: 'bg-amber-500/10 text-amber-500 border border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/10',
       glowClass: 'shadow-lg shadow-amber-500/20 hover:shadow-[0_0_40px_rgba(245,158,11,0.6)] hover:shadow-amber-500/60 hover:border-amber-500/50 dark:hover:border-amber-500/50',
       icon: <CalendarClock size={22} /> 
@@ -147,7 +147,7 @@ export default function Home() {
       id: 'transfers', 
       title: 'Traslados', 
       description: 'Movimientos de bodega', 
-      path: '/transfers', 
+      path: '/logistica', 
       iconBg: 'bg-rose-500/10 text-rose-500 border border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/10',
       glowClass: 'shadow-lg shadow-rose-500/20 hover:shadow-[0_0_40px_rgba(225,29,72,0.6)] hover:shadow-rose-500/60 hover:border-rose-500/50 dark:hover:border-rose-500/50',
       icon: <ArrowLeftRight size={22} /> 

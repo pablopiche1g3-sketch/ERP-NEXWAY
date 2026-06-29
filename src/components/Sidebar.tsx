@@ -93,14 +93,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   const menuItems: SidebarItem[] = [
     { id: 'billing', title: 'Facturación', path: '/billing', icon: <ShoppingCart size={18} /> },
-    { id: 'crm', title: 'CRM Comercial', path: '/crm', icon: <Sparkles size={18} className="text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]" /> },
-    { id: 'accounting', title: 'Contabilidad', path: '/accounting', icon: <BarChart3 size={18} /> },
-    { id: 'management', title: 'Gerencia', path: '/management', icon: <ShieldCheck size={18} /> },
-    { id: 'finanzas', title: 'Finanzas y Créditos', path: '/finanzas', icon: <CalendarClock size={18} /> },
     { id: 'directorio', title: 'Directorio Comercial', path: '/directorio', icon: <Building2 size={18} /> },
     { id: 'logistica', title: 'Logística de Stock', path: '/logistica', icon: <Package size={18} /> },
     { id: 'compras', title: 'Abastecimiento', path: '/compras', icon: <Truck size={18} /> },
+    { id: 'finanzas', title: 'Finanzas y Créditos', path: '/finanzas', icon: <CalendarClock size={18} /> },
     { id: 'institutional', title: 'Institucional', path: '/institutional', icon: <Building size={18} /> },
+    { id: 'crm', title: 'CRM Comercial', path: '/crm', icon: <Sparkles size={18} className="text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]" /> },
+    { id: 'accounting', title: 'Contabilidad', path: '/accounting', icon: <BarChart3 size={18} /> },
+    { id: 'management', title: 'Gerencia', path: '/management', icon: <ShieldCheck size={18} /> },
   ];
 
   // Permissions checking helper

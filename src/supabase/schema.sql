@@ -407,3 +407,35 @@ BEGIN
     END;
   END LOOP;
 END $$;
+
+-- 23. SUCURSALES (BRANCHES)
+CREATE TABLE IF NOT EXISTS public.branches (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  address text,
+  phone text,
+  status text default 'ACTIVA',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 24. CAJAS (CASH REGISTERS)
+CREATE TABLE IF NOT EXISTS public.cash_registers (
+  id uuid default uuid_generate_v4() primary key,
+  branch_id uuid references public.branches(id) on delete cascade,
+  name text not null,
+  default_warehouse_id uuid references public.warehouses(id),
+  status text default 'ACTIVA',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- Habilitar realtime para las nuevas tablas
+DO $$ 
+BEGIN
+  EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.branches;';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$ 
+BEGIN
+  EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.cash_registers;';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
