@@ -38,7 +38,9 @@ import {
   Clock,
   Save,
   Sparkles,
-  Eye
+  Eye,
+  Lock,
+  KeyRound
 } from 'lucide-react';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -92,15 +94,11 @@ export default function BillingPage() {
     const tabs = [
       { id: 'facturacion', key: 'billing_facturacion' },
       { id: 'historial', key: 'billing_historial' },
-      { id: 'nota_credito', key: 'billing_nota_credito' },
-      { id: 'nota_debito', key: 'billing_nota_debito' },
+      { id: 'ajustes_devoluciones', key: 'billing_ajustes' },
       { id: 'arqueo', key: 'billing_arqueo' },
       { id: 'creditos', key: 'billing_creditos' },
       { id: 'cotizacion', key: 'billing_cotizacion' },
     ];
-    if (isUserAdmin) {
-      tabs.push({ id: 'foco_venta', key: 'billing_foco_venta' });
-    }
     return tabs;
   }, [isUserAdmin]);
 
@@ -119,6 +117,50 @@ export default function BillingPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [clientPricesMap, setClientPricesMap] = useState<Record<string, number>>({});
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+
+  // --- PERSISTENCIA Y DESCUENTOS ---
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedCart = localStorage.getItem('billing_draft_cart');
+        const savedCustomer = localStorage.getItem('billing_draft_customer');
+        if (savedCart) setCart(JSON.parse(savedCart));
+        if (savedCustomer) {
+          const c = JSON.parse(savedCustomer);
+          if (c.name) setCustomerName(c.name);
+          if (c.email) setCustomerEmail(c.email);
+          if (c.selected) setSelectedCustomer(c.selected);
+        }
+      } catch (e) {
+        console.error('Error loading draft', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('billing_draft_cart', JSON.stringify(cart));
+      localStorage.setItem('billing_draft_customer', JSON.stringify({
+        name: customerName,
+        email: customerEmail,
+        selected: selectedCustomer
+      }));
+    }
+  }, [cart, customerName, customerEmail, selectedCustomer]);
+
+  useEffect(() => {
+    setCart(prev => prev.map(item => {
+      let discount = 0;
+      const profile = selectedCustomer?.benefit_profile?.toLowerCase() || '';
+      if (profile.includes('constructor')) discount = 0.15;
+      else if (profile.includes('distribuidor')) discount = 0.20;
+      else if (profile.includes('vip')) discount = 0.10;
+      
+      const base = (item as any).originalPrice || item.price;
+      return { ...item, price: base * (1 - discount) };
+    }));
+  }, [selectedCustomer]);
+  // --------------------------------
 
   // --- QUOTATIONS IMPORT ---
   const [showQuotationsDialog, setShowQuotationsDialog] = useState(false);
@@ -152,6 +194,7 @@ export default function BillingPage() {
   };
   // -------------------------
   // Adjustment States (Notas Crédito/Débito)
+  const [adjustmentType, setAdjustmentType] = useState<'CREDITO' | 'DEBITO'>('CREDITO');
   const [adjustmentForm, setAdjustmentForm] = useState({
     refDoc: '',
     customerId: null as string | null,
@@ -283,6 +326,114 @@ export default function BillingPage() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
+  // Estados para corrección de método de pago
+  const [editingPaymentSale, setEditingPaymentSale] = useState<any | null>(null);
+  const [isPaymentCorrectionOpen, setIsPaymentCorrectionOpen] = useState(false);
+  const [newPaymentMethod, setNewPaymentMethod] = useState<string>('');
+
+  // Shift Lock States
+  const [isShiftOpen, setIsShiftOpen] = useState(false);
+  const [shiftPassword, setShiftPassword] = useState('');
+  const [shiftError, setShiftError] = useState('');
+
+  // Close Shift States
+  const [isCloseShiftOpen, setIsCloseShiftOpen] = useState(false);
+  const [reportedCash, setReportedCash] = useState('');
+
+  const handleOpenShift = async () => {
+    setShiftError('');
+    if (!shiftPassword) {
+      setShiftError('Ingresa tu contraseña.');
+      return;
+    }
+    
+    // Simplificación de validación para entorno local / demostrativo
+    if (shiftPassword.length < 4) {
+      setShiftError('Contraseña incorrecta (Usa al menos 4 caracteres).');
+      return;
+    }
+
+    setIsShiftOpen(true);
+    setShiftPassword('');
+    toast({ title: 'Turno Abierto', description: 'Jornada iniciada con éxito.' });
+  };
+
+  const handleCloseShift = async () => {
+    if (!reportedCash || isNaN(Number(reportedCash))) return;
+    
+    try {
+      const expected = (cashConfig?.cashFloat || 0) + systemCashSales - totalExpenses; // Calculado de ventas - gastos
+      const reported = parseFloat(reportedCash);
+      const diff = reported - expected;
+      const status = diff === 0 ? 'CERRADO' : 'DESCUADRE';
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      await supabase.from('cierre_turnos_log').insert({
+        user_id: user?.id,
+        opened_at: new Date(new Date().setHours(8,0,0,0)).toISOString(), // mock open time
+        closed_at: new Date().toISOString(),
+        expected_cash: expected,
+        reported_cash: reported,
+        difference: diff,
+        status: status
+      });
+
+      toast({ 
+        title: 'Turno Cerrado', 
+        description: `Se reportó $${reported.toFixed(2)}. Diferencia: $${diff.toFixed(2)}`,
+        variant: diff !== 0 ? 'destructive' : 'default'
+      });
+      
+      setIsCloseShiftOpen(false);
+      setIsShiftOpen(false);
+      setReportedCash('');
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Error al cerrar turno', description: err.message });
+    }
+  };
+
+  const handleCorrectPaymentMethod = async () => {
+    if (!editingPaymentSale || !newPaymentMethod || editingPaymentSale.paymentMethod === newPaymentMethod) return;
+
+    try {
+      const { error: saleErr } = await supabase
+        .from('sales')
+        .update({ payment_method: newPaymentMethod })
+        .eq('id', editingPaymentSale.id);
+      
+      if (saleErr) throw saleErr;
+
+      await supabase.from('audit_logs').insert({
+        user_id: user?.id,
+        action: 'CORRECTION_PAYMENT_METHOD',
+        entity_id: editingPaymentSale.id,
+        old_value: { payment_method: editingPaymentSale.paymentMethod },
+        new_value: { payment_method: newPaymentMethod }
+      });
+
+      await supabase.from('journal').insert({
+        description: `Reversión por Corrección de Pago [${editingPaymentSale.correlative}] - Método anterior: ${editingPaymentSale.paymentMethod}`,
+        type: 'Egreso',
+        amount: editingPaymentSale.total
+      });
+      await supabase.from('journal').insert({
+        description: `Ajuste por Corrección de Pago [${editingPaymentSale.correlative}] - Nuevo método: ${newPaymentMethod}`,
+        type: 'Ingreso',
+        amount: editingPaymentSale.total
+      });
+
+      toast({ title: "Método de Pago Actualizado", description: "El cambio ha sido registrado correctamente." });
+      await loadBillingData();
+      setIsPaymentCorrectionOpen(false);
+      setEditingPaymentSale(null);
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo actualizar el método de pago." });
+    }
+  };
+
   const handleInvalidateSale = async (sale: any) => {
     if (sale.status === 'CANCELADA') return;
     if (!confirm(`¿Estás seguro de invalidar la venta ${sale.correlative}? Esta acción no se puede deshacer.`)) return;
@@ -314,16 +465,20 @@ export default function BillingPage() {
     setLoadingDetails(true);
     setIsDetailsDialogOpen(true);
     try {
-      const { data: items, error } = await supabase
-        .from('sales_items')
-        .select('*, inventory:inventory(name)')
-        .eq('sale_id', sale.id);
+      const { data: saleData, error } = await supabase
+        .from('sales')
+        .select('items')
+        .eq('id', sale.id)
+        .single();
 
       if (error) throw error;
 
-      const mappedItems = (items || []).map((item: any) => ({
+      const items = saleData?.items || [];
+
+      const mappedItems = items.map((item: any, idx: number) => ({
         ...item,
-        name: item.inventory?.name || 'Producto General'
+        id: item.id || item.sku || `item-${idx}`,
+        name: item.name || 'Producto General'
       }));
 
       setSelectedSaleDetails({
@@ -685,7 +840,7 @@ export default function BillingPage() {
 
   // Arqueo Calculations
   const systemCashSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Efectivo' && s.status !== 'CANCELADA')
+    salesAll?.filter(s => s.paymentMethod === 'Efectivo' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
   , [salesAll]);
 
@@ -762,12 +917,12 @@ export default function BillingPage() {
   }, [creditValidation.disabled, paymentMethod, toast]);
 
   const systemCardSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Tarjeta' && s.status !== 'CANCELADA')
+    salesAll?.filter(s => s.paymentMethod === 'Tarjeta' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
   , [salesAll]);
 
   const systemTransferSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Transferencia' && s.status !== 'CANCELADA')
+    salesAll?.filter(s => s.paymentMethod === 'Transferencia' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
   , [salesAll]);
 
@@ -777,7 +932,7 @@ export default function BillingPage() {
   , [salesAll]);
 
   const systemCheckSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Cheque' && s.status !== 'CANCELADA')
+    salesAll?.filter(s => s.paymentMethod === 'Cheque' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
   , [salesAll]);
 
@@ -809,11 +964,23 @@ export default function BillingPage() {
   const addToCart = (product: any) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
-      const customPrice = clientPricesMap[product.sku] !== undefined ? clientPricesMap[product.sku] : product.price;
-      if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: Number(item.quantity || 0) + 1, price: customPrice } : item);
+      let basePrice = product.price;
+      if (clientPricesMap[product.sku] !== undefined) {
+        basePrice = clientPricesMap[product.sku];
       }
-      return [...prev, { id: product.id, name: product.name, sku: product.sku || 'N/A', price: customPrice || 0, quantity: 1 }];
+      
+      let discount = 0;
+      const profile = selectedCustomer?.benefit_profile?.toLowerCase() || '';
+      if (profile.includes('constructor')) discount = 0.15;
+      else if (profile.includes('distribuidor')) discount = 0.20;
+      else if (profile.includes('vip')) discount = 0.10;
+      
+      const customPrice = basePrice * (1 - discount);
+
+      if (existing) {
+        return prev.map(item => item.id === product.id ? { ...item, quantity: Number(item.quantity || 0) + 1, price: customPrice, originalPrice: basePrice } as any : item);
+      }
+      return [...prev, { id: product.id, name: product.name, sku: product.sku || 'N/A', price: customPrice || 0, originalPrice: basePrice, quantity: 1 } as any];
     });
   };
 
@@ -1313,14 +1480,9 @@ export default function BillingPage() {
                 <History size={14} className="mr-1.5" /> Historial
               </TabsTrigger>
             )}
-            {config?.['billing_nota_credito'] !== false && (
-              <TabsTrigger value="nota_credito" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
-                <RotateCcw size={14} className="mr-1.5" /> Nota Crédito
-              </TabsTrigger>
-            )}
-            {config?.['billing_nota_debito'] !== false && (
-              <TabsTrigger value="nota_debito" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
-                <TrendingUp size={14} className="mr-1.5" /> Nota Débito
+            {config?.['billing_ajustes'] !== false && (
+              <TabsTrigger value="ajustes_devoluciones" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
+                <ArrowDownCircle size={14} className="mr-1.5" /> Ajustes y Devoluciones
               </TabsTrigger>
             )}
             {config?.['billing_arqueo'] !== false && (
@@ -1331,11 +1493,6 @@ export default function BillingPage() {
             {config?.['billing_creditos'] !== false && (
               <TabsTrigger data-tour-id="tab-creditos" value="creditos" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
                 <Wallet size={14} className="mr-1.5" /> Créditos / Abonos
-              </TabsTrigger>
-            )}
-            {isUserAdmin && (
-              <TabsTrigger value="foco_venta" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
-                <Sparkles size={14} className="mr-1.5 text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" /> Foco de Venta (Alerta de Stock)
               </TabsTrigger>
             )}
             <TabsTrigger value="cotizacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-blue-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-transparent hover:text-slate-800 dark:hover:text-white/70 data-[state=active]:shadow-none transition-colors">
@@ -1643,12 +1800,28 @@ export default function BillingPage() {
             </div>
           </TabsContent>
 
-          {/* TAB NOTA CREDITO */}
-          <TabsContent value="nota_credito" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
+          {/* TAB AJUSTES Y DEVOLUCIONES */}
+          <TabsContent value="ajustes_devoluciones" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
              <div className="lg:col-span-5 space-y-4">
+                <div className="flex gap-2">
+                  <Button 
+                    variant={adjustmentType === 'CREDITO' ? 'default' : 'outline'}
+                    className={`flex-1 rounded-xl ${adjustmentType === 'CREDITO' ? 'bg-rose-500 hover:bg-rose-600 text-white' : ''}`}
+                    onClick={() => setAdjustmentType('CREDITO')}
+                  >
+                    Nota de Crédito (Devolución)
+                  </Button>
+                  <Button 
+                    variant={adjustmentType === 'DEBITO' ? 'default' : 'outline'}
+                    className={`flex-1 rounded-xl ${adjustmentType === 'DEBITO' ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
+                    onClick={() => setAdjustmentType('DEBITO')}
+                  >
+                    Nota de Débito (Cargo Extra)
+                  </Button>
+                </div>
                 <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none flex flex-col">
-                   <div className="bg-rose-500/10 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 p-5 border-b border-rose-500/20">
-                      <h3 className="text-sm font-bold">Nota de Crédito (Ajuste)</h3>
+                   <div className={`p-5 border-b ${adjustmentType === 'CREDITO' ? 'bg-rose-500/10 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border-rose-500/20' : 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/20'}`}>
+                      <h3 className="text-sm font-bold">Documento a Emitir: Nota de {adjustmentType === 'CREDITO' ? 'Crédito' : 'Débito'}</h3>
                       <p className="text-4xl font-black mt-2">${adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
                    </div>
                    <div className="p-0">
@@ -1658,15 +1831,17 @@ export default function BillingPage() {
                                {adjustmentForm.items.length === 0 ? (
                                   <TableRow className="hover:bg-transparent border-none">
                                     <TableCell colSpan={3} className="text-center py-20 text-slate-500 dark:text-white/30 text-xs italic border-none">
-                                      Agregue ítems a descontar
+                                      Agregue conceptos
                                     </TableCell>
                                   </TableRow>
                                ) : adjustmentForm.items.map((item, idx) => (
                                 <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-white/5 transition-colors">
                                       <TableCell className="font-medium text-xs text-slate-800 dark:text-white/80">{item.quantity}x {item.name}</TableCell>
-                                      <TableCell className="text-right font-bold text-rose-600 dark:text-rose-400">-${(item.price * item.quantity).toFixed(2)}</TableCell>
+                                      <TableCell className={`text-right font-bold ${adjustmentType === 'CREDITO' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                        {adjustmentType === 'CREDITO' ? '-' : '+'}${(item.price * item.quantity).toFixed(2)}
+                                      </TableCell>
                                       <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" className="hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 h-8 w-8" onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}>
+                                        <Button variant="ghost" size="icon" className={`hover:bg-slate-100 h-8 w-8 ${adjustmentType === 'CREDITO' ? 'text-rose-600 dark:hover:bg-rose-500/20' : 'text-amber-600 dark:hover:bg-amber-500/20'}`} onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}>
                                           <Trash2 size={14}/>
                                         </Button>
                                       </TableCell>
@@ -1678,12 +1853,12 @@ export default function BillingPage() {
                    </div>
                 </div>
                 <button 
-                  className="w-full h-[56px] rounded-[13px] bg-rose-500/10 dark:bg-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/30 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-bold text-[14px] transition-colors shadow-none flex items-center justify-center disabled:opacity-50"
-                  onClick={() => handleProcessAdjustment('CREDITO')}
+                  className={`w-full h-[56px] rounded-[13px] border font-bold text-[14px] transition-colors shadow-none flex items-center justify-center disabled:opacity-50 ${adjustmentType === 'CREDITO' ? 'bg-rose-500/10 dark:bg-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/30 text-rose-700 dark:text-rose-400 border-rose-500/30' : 'bg-amber-500/10 dark:bg-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/30 text-amber-700 dark:text-amber-400 border-amber-500/30'}`}
+                  onClick={() => handleProcessAdjustment(adjustmentType)}
                   disabled={isProcessing || adjustmentForm.items.length === 0}
                 >
-                  {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <RotateCcw className="mr-2" size={18} />}
-                  EMITIR NOTA DE CRÉDITO
+                  {isProcessing ? <Loader2 className="animate-spin mr-2" /> : (adjustmentType === 'CREDITO' ? <RotateCcw className="mr-2" size={18} /> : <TrendingUp className="mr-2" size={18} />)}
+                  EMITIR NOTA DE {adjustmentType === 'CREDITO' ? 'CRÉDITO' : 'DÉBITO'}
                 </button>
              </div>
              <div className="lg:col-span-7 space-y-4">
@@ -1741,13 +1916,23 @@ export default function BillingPage() {
                         onValueChange={(val) => setAdjustmentForm({...adjustmentForm, reason: val})}
                       >
                         <SelectTrigger className="h-10 rounded-[10px] bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-xs font-medium text-slate-800 dark:text-white/70">
-                          <SelectValue placeholder="Seleccione el motivo de la Nota de Crédito" />
+                          <SelectValue placeholder="Seleccione el motivo de la Nota de Crédito/Débito" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl dark:bg-[#0a0a14] dark:border-white/10">
-                          <SelectItem value="Devoluciones de mercancías (Cliente retorna producto)">Devoluciones de mercancías</SelectItem>
-                          <SelectItem value="Anulación o Invalidación fuera de tiempo legal">Anulaciones o Invalidadas fuera de tiempo</SelectItem>
-                          <SelectItem value="Descuentos o bonificaciones post-venta concedidos">Descuentos o bonificaciones post-venta</SelectItem>
-                          <SelectItem value="Corrección de errores a la baja (Precio o cantidad menor)">Corrección de errores (A la baja)</SelectItem>
+                          {adjustmentType === 'CREDITO' ? (
+                            <>
+                              <SelectItem value="Devoluciones de mercancías (Cliente retorna producto)">Devoluciones de mercancías</SelectItem>
+                              <SelectItem value="Anulación o Invalidación fuera de tiempo legal">Anulaciones o Invalidadas fuera de tiempo</SelectItem>
+                              <SelectItem value="Descuentos o bonificaciones post-venta concedidos">Descuentos o bonificaciones post-venta</SelectItem>
+                              <SelectItem value="Corrección de errores a la baja (Precio o cantidad menor)">Corrección de errores (A la baja)</SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value="Intereses por mora (Cargos financieros por atraso)">Intereses por mora</SelectItem>
+                              <SelectItem value="Gastos de transporte o fletes adicionales cobrados a posteriori">Gastos de transporte o fletes adicionales</SelectItem>
+                              <SelectItem value="Diferencias de precio al alza (Precio cobrado fue menor al real)">Diferencias de precio (Al alza)</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                    </div>
@@ -1756,7 +1941,7 @@ export default function BillingPage() {
                     <div className="relative flex-1">
                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" size={16} />
                        <Input 
-                         placeholder="Buscar productos para devolución (Presione Enter)..." 
+                         placeholder={`Buscar conceptos para ${adjustmentType === 'CREDITO' ? 'devolución' : 'cargo'} (Presione Enter)...`} 
                          value={searchTerm} 
                          onChange={e => {
                            setSearchTerm(e.target.value);
@@ -1786,160 +1971,7 @@ export default function BillingPage() {
                          </div>
                        )}
                     </div>
-                    <button type="submit" className="h-[48px] bg-rose-500/10 dark:bg-rose-500/20 hover:bg-rose-500/20 dark:hover:bg-rose-500/30 border border-rose-500/30 text-rose-700 dark:text-rose-400 font-semibold rounded-[10px] shadow-none px-6 transition-colors flex items-center gap-2 whitespace-nowrap text-[13px] shrink-0">
-                       <Search size={15} /> Buscar
-                    </button>
-                </form>
-             </div>
-          </TabsContent>
-
-          {/* TAB NOTA DEBITO */}
-          <TabsContent value="nota_debito" className="grid grid-cols-1 lg:grid-cols-12 gap-6 outline-none">
-             <div className="lg:col-span-5 space-y-4">
-                <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none flex flex-col">
-                   <div className="bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 p-5 border-b border-amber-500/20">
-                      <h3 className="text-sm font-bold">Nota de Débito (Cargo Extra)</h3>
-                      <p className="text-4xl font-black mt-2">${adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
-                   </div>
-                   <div className="p-0">
-                      <ScrollArea className="h-[300px]">
-                         <Table>
-                            <TableBody>
-                               {adjustmentForm.items.length === 0 ? (
-                                  <TableRow className="hover:bg-transparent border-none">
-                                    <TableCell colSpan={3} className="text-center py-20 text-slate-500 dark:text-white/30 text-xs italic border-none">
-                                      Agregue conceptos de cargo
-                                    </TableCell>
-                                  </TableRow>
-                               ) : adjustmentForm.items.map((item, idx) => (
-                                <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-white/5 transition-colors">
-                                      <TableCell className="font-medium text-xs text-slate-800 dark:text-white/80">{item.quantity}x {item.name}</TableCell>
-                                      <TableCell className="text-right font-bold text-amber-600 dark:text-amber-400">+${(item.price * item.quantity).toFixed(2)}</TableCell>
-                                      <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" className="hover:bg-amber-100 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 h-8 w-8" onClick={() => setAdjustmentForm({...adjustmentForm, items: adjustmentForm.items.filter(i => i.id !== item.id)})}>
-                                          <Trash2 size={14}/>
-                                        </Button>
-                                      </TableCell>
-                                   </TableRow>
-                                ))}
-                            </TableBody>
-                         </Table>
-                      </ScrollArea>
-                   </div>
-                </div>
-                <button 
-                  className="w-full h-[56px] rounded-[13px] bg-amber-500/10 dark:bg-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/30 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold text-[14px] transition-colors shadow-none flex items-center justify-center disabled:opacity-50"
-                  onClick={() => handleProcessAdjustment('DEBITO')}
-                  disabled={isProcessing || adjustmentForm.items.length === 0}
-                >
-                  {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <TrendingUp className="mr-2" size={18} />}
-                  EMITIR NOTA DE DÉBITO
-                </button>
-             </div>
-             <div className="lg:col-span-7 space-y-4">
-                <div className="p-5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none space-y-4">
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5 relative">
-                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Buscar Factura / Cliente</Label>
-                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                            <Input 
-                              placeholder="Nombre del cliente o N° Factura..." 
-                              value={invoiceSearchTerm} 
-                              onChange={handleSearchInvoices}
-                              className="pl-9 h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70"
-                            />
-                         </div>
-                         {invoiceSearchResults.length > 0 && invoiceSearchTerm.trim() !== '' && (
-                           <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 shadow-2xl z-50 max-h-64 overflow-y-auto rounded-xl p-1">
-                             {invoiceSearchResults.map((sale) => (
-                               <div 
-                                 key={sale.id}
-                                 onClick={() => handleSelectInvoice(sale)}
-                                 className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer rounded-lg border-b last:border-none border-slate-100 dark:border-white/5 flex flex-col gap-1"
-                               >
-                                 <div className="flex justify-between items-center">
-                                   <span className="text-xs font-bold text-slate-800 dark:text-white/80">{sale.customer}</span>
-                                   <span className="text-[10px] font-mono font-medium bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded text-slate-600 dark:text-white/60">{sale.correlative || sale.id.substring(0,8)}</span>
-                                 </div>
-                                 <div className="flex justify-between items-center">
-                                   <span className="text-[10px] text-slate-500 dark:text-white/40">{new Date(sale.timestamp).toLocaleDateString()}</span>
-                                   <span className="text-[10px] font-bold text-slate-700 dark:text-white/60">${sale.total?.toFixed(2)}</span>
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                         )}
-                      </div>
-                      <div className="space-y-1.5">
-                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Documento Seleccionado</Label>
-                         <div className="flex flex-col gap-1">
-                            <Input disabled placeholder="FACT-001" value={adjustmentForm.refDoc} className="h-10 bg-slate-50/50 dark:bg-black/40 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-500 dark:text-white/40" />
-                            {adjustmentForm.customerName && (
-                              <div className="flex items-center">
-                                <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
-                                <CustomerHistoryDialog customerId={adjustmentForm.customerId} customerName={adjustmentForm.customerName} />
-                              </div>
-                            )}
-                         </div>
-                      </div>
-                   </div>
-                   <div className="space-y-1.5">
-                      <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Razón del Cargo Adicional</Label>
-                      <Select 
-                        value={adjustmentForm.reason} 
-                        onValueChange={(val) => setAdjustmentForm({...adjustmentForm, reason: val})}
-                      >
-                        <SelectTrigger className="h-10 rounded-[10px] bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-xs font-medium text-slate-800 dark:text-white/70">
-                          <SelectValue placeholder="Seleccione el motivo de la Nota de Débito" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl dark:bg-[#0a0a14] dark:border-white/10">
-                          <SelectItem value="Intereses por mora (Cargos financieros por atraso)">Intereses por mora</SelectItem>
-                          <SelectItem value="Gastos de transporte o fletes adicionales cobrados a posteriori">Gastos de transporte o fletes adicionales</SelectItem>
-                          <SelectItem value="Diferencias de precio al alza (Precio cobrado fue menor al real)">Diferencias de precio (Al alza)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                   </div>
-                </div>
-                <div className="p-4 bg-amber-50/50 dark:bg-amber-500/10 border border-amber-200/50 dark:border-amber-500/20 rounded-[13px] flex items-start gap-3">
-                   <AlertCircle className="text-amber-600 dark:text-amber-400 mt-0.5" size={16} />
-                   <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed font-medium">Las notas de débito incrementan el valor del documento original. Asegúrese de que el concepto sea legalmente válido.</p>
-                </div>
-                <form onSubmit={handleSearchInventory} className="relative flex gap-3">
-                    <div className="relative flex-1">
-                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" size={16} />
-                       <Input 
-                         placeholder="Buscar conceptos de cargo (Presione Enter)..." 
-                         value={searchTerm} 
-                         onChange={e => {
-                           setSearchTerm(e.target.value);
-                           if (!e.target.value) setInventory([]);
-                         }} 
-                         className="pl-11 h-[48px] bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70 focus-visible:ring-amber-500" 
-                       />
-                       {inventory.length > 0 && searchTerm.trim() !== "" && (
-                         <div className="absolute left-0 right-0 mt-2 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 shadow-2xl z-50 max-h-64 overflow-y-auto no-scrollbar rounded-2xl p-1">
-                           {inventory.map((p) => (
-                             <div 
-                               key={p.id} 
-                               onClick={() => {
-                                 addAdjustmentItem(p);
-                                 setSearchTerm('');
-                                 setInventory([]);
-                               }}
-                               className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer rounded-xl border-b last:border-none border-slate-100 dark:border-white/5 flex justify-between items-center transition-colors"
-                             >
-                               <div className="flex flex-col gap-0.5">
-                                 <span className="text-xs font-bold text-slate-800 dark:text-white/80">{p.name}</span>
-                                 <span className="text-[9px] text-slate-500 dark:text-white/40 font-mono">SKU: {p.sku} {p.category ? `• Ref: ${p.category}` : ''} • Stock: {p.quantity}</span>
-                               </div>
-                               <span className="text-xs font-bold text-amber-600 dark:text-amber-400">${p.price.toFixed(2)}</span>
-                             </div>
-                           ))}
-                         </div>
-                       )}
-                    </div>
-                    <button type="submit" className="h-[48px] bg-amber-500/10 dark:bg-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/30 border border-amber-500/30 text-amber-700 dark:text-amber-400 font-semibold rounded-[10px] shadow-none px-6 transition-colors flex items-center gap-2 whitespace-nowrap text-[13px] shrink-0">
+                    <button type="submit" className={`h-[48px] border font-semibold rounded-[10px] shadow-none px-6 transition-colors flex items-center gap-2 whitespace-nowrap text-[13px] shrink-0 ${adjustmentType === 'CREDITO' ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 border-rose-500/30' : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border-amber-500/30'}`}>
                        <Search size={15} /> Buscar
                     </button>
                 </form>
@@ -2003,6 +2035,22 @@ export default function BillingPage() {
                           >
                             <Ban size={14} />
                           </Button>
+                          {isUserAdmin && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              disabled={sale.status === 'CANCELADA'}
+                              className="h-8 w-8 text-amber-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950 disabled:opacity-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingPaymentSale(sale);
+                                setNewPaymentMethod(sale.paymentMethod);
+                                setIsPaymentCorrectionOpen(true);
+                              }}
+                            >
+                              <CardIcon size={14} />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -2010,6 +2058,44 @@ export default function BillingPage() {
                 </TableBody>
               </Table>
             </div>
+
+            <Dialog open={isPaymentCorrectionOpen} onOpenChange={setIsPaymentCorrectionOpen}>
+              <DialogContent className="max-w-md rounded-2xl border shadow-xl">
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-black tracking-tight text-foreground">
+                    Corregir Método de Pago
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    Se registrará una reversión y un ajuste contable en el libro diario para {editingPaymentSale?.correlative}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Método de Pago Actual</Label>
+                    <p className="font-semibold">{editingPaymentSale?.paymentMethod}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Nuevo Método de Pago</Label>
+                    <Select value={newPaymentMethod} onValueChange={setNewPaymentMethod}>
+                      <SelectTrigger className="w-full h-12 rounded-xl bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-sm">
+                        <SelectValue placeholder="Seleccione método de pago" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-slate-200 dark:border-white/10 shadow-xl">
+                        <SelectItem value="Efectivo" className="text-sm rounded-lg my-1">💵 Efectivo</SelectItem>
+                        <SelectItem value="Tarjeta" className="text-sm rounded-lg my-1">💳 Tarjeta (POS)</SelectItem>
+                        <SelectItem value="Transferencia" className="text-sm rounded-lg my-1">🏦 Transferencia / Bitcoin</SelectItem>
+                        <SelectItem value="Credito" className="text-sm rounded-lg my-1">📝 Crédito / Cuenta por Cobrar</SelectItem>
+                        <SelectItem value="Cheque" className="text-sm rounded-lg my-1">🧾 Cheque</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter className="border-t border-slate-100 dark:border-white/10 pt-4 flex gap-2">
+                  <Button variant="outline" className="rounded-xl flex-1" onClick={() => setIsPaymentCorrectionOpen(false)}>Cancelar</Button>
+                  <Button className="rounded-xl flex-1 bg-amber-500 hover:bg-amber-600 text-white" onClick={handleCorrectPaymentMethod}>Aplicar Corrección</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
               <DialogContent className="max-w-2xl rounded-2xl border shadow-xl flex flex-col gap-4 overflow-hidden max-h-[90vh]">
@@ -2546,11 +2632,15 @@ export default function BillingPage() {
                     <div className="space-y-2">
                       <h4 className="text-xs font-bold text-slate-800 dark:text-white/80 uppercase tracking-wider">Finalizar Turno</h4>
                       <p className="text-[10px] text-slate-500 dark:text-white/40 leading-normal font-medium">
-                        Asegúrese de contar billete por billete. Una vez formalizado el cierre de día, la sesión quedará bloqueada y los montos quedarán registrados en el historial de arqueo oficial para gerencia y auditoría.
+                        Cierra la sesión actual con un conteo físico o envía la auditoría al finalizar el día.
                       </p>
                     </div>
-                    
                     <div className="space-y-2.5 pt-2">
+                      <Button className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-black shadow-lg transition-all text-xs" onClick={() => setIsCloseShiftOpen(true)}>
+                        <Lock className="mr-2" size={14} />
+                        CERRAR TURNO (CONTEO FÍSICO)
+                      </Button>
+                      
                       <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black shadow-lg shadow-blue-500/20 transition-all text-xs" onClick={handleDayClosing} disabled={isProcessing}>
                         {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
                         [ 💾 ENVIAR Y AUDITAR JORNADA ]
@@ -2571,6 +2661,39 @@ export default function BillingPage() {
                 </div>
               </div>
             </div>
+
+            <Dialog open={isCloseShiftOpen} onOpenChange={setIsCloseShiftOpen}>
+              <DialogContent className="max-w-md rounded-2xl border shadow-xl">
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-black tracking-tight text-foreground">
+                    Cierre de Turno y Conteo Físico
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    Ingresa el monto de dinero físico que hay actualmente en caja. Esta acción registrará el turno y comparará el valor con el esperado por el sistema.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Efectivo Físico Reportado</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">$</span>
+                      <Input 
+                        type="number" 
+                        step="0.01"
+                        placeholder="0.00"
+                        value={reportedCash}
+                        onChange={(e) => setReportedCash(e.target.value)}
+                        className="pl-8 h-12 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl font-mono text-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter className="border-t border-slate-100 dark:border-white/10 pt-4 flex gap-2">
+                  <Button variant="outline" className="rounded-xl flex-1" onClick={() => setIsCloseShiftOpen(false)}>Cancelar</Button>
+                  <Button className="rounded-xl flex-1 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-white/90 text-white dark:text-black font-bold" onClick={handleCloseShift}>Finalizar Turno</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* TAB CRÉDITOS / ABONOS */}
