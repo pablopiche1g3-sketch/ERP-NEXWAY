@@ -70,6 +70,11 @@ CREATE TABLE IF NOT EXISTS public.inventory (
   reorder_point numeric(10,2) default 0.00,
   cost numeric(10,2) default 0.00,
   
+  -- Campos BMS (Agregados en Refactorización)
+  margin numeric(10,2) default 0.00,
+  default_warehouse_id uuid references public.warehouses(id) on delete set null,
+  default_location text,
+  
   -- Propiedades (Banderas)
   is_active boolean default true,
   is_service boolean default false,

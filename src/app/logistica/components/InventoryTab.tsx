@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
+  Truck,
   Package, 
   Plus, 
   ArrowLeft, 
@@ -89,18 +90,13 @@ export default function InventoryTab() {
   const [selectedWarehouse, setSelectedWarehouse] = useState('Todas');
   const [maestroSubTab, setMaestroSubTab] = useState<'catalogo' | 'empresas'>('catalogo');
   
-  const [activeTab, setActiveTab] = useState('existencia');
+  const [activeTab, setActiveTab] = useState('existencias');
 
   const tabsList = useMemo(() => [
-    { id: 'existencia', key: 'inventory_existencia' },
-    { id: 'maestro', key: 'inventory_maestro' },
-    { id: 'kardex', key: 'inventory_kardex' },
-    { id: 'precios', key: 'inventory_precios' },
-    { id: 'vinculacion', key: 'inventory_existencia' }, // re-use existence permission key
-    { id: 'toma-fisica', key: 'inventory_toma_fisica' },
-    { id: 'carga-masiva', key: 'inventory_carga_masiva' },
-    { id: 'entradas', key: 'inventory_entradas' },
-    { id: 'config', key: 'inventory_config' },
+    { id: 'existencias', key: 'inventory_existencia' },
+    { id: 'catalogo', key: 'inventory_maestro' },
+    { id: 'transitos', key: 'inventory_entradas' },
+    { id: 'auditoria', key: 'inventory_toma_fisica' },
   ], []);
 
   useEffect(() => {
@@ -243,8 +239,28 @@ export default function InventoryTab() {
   const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
-    category: 'General'
+    category: 'General',
+    cost: '0',
+    margin: '0',
+    price: '0'
   });
+
+  // BMS Lógica
+  const handleBmsChange = (field: string, value: string) => {
+    let newForm = { ...productForm, [field]: value } as any;
+    const cost = parseFloat(newForm.cost) || 0;
+    
+    if (field === 'cost' || field === 'margin') {
+      const margin = parseFloat(newForm.margin) || 0;
+      newForm.price = (cost * (1 + margin / 100)).toFixed(2);
+    } else if (field === 'price') {
+      const price = parseFloat(value) || 0;
+      if (cost > 0) {
+        newForm.margin = (((price / cost) - 1) * 100).toFixed(2);
+      }
+    }
+    setProductForm(newForm);
+  };
 
   // Estado para el Mapeo de Códigos de Empresas
   const [companyForm, setCompanyForm] = useState({
@@ -267,6 +283,8 @@ export default function InventoryTab() {
     sku: '',
     quantity: '' as string | number
   });
+
+  const [transitPurchases, setTransitPurchases] = useState<any[]>([]);
 
   const [warehouseName, setWarehouseName] = useState('');
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
@@ -427,7 +445,8 @@ export default function InventoryTab() {
           price: parseFloat(item.price) || 0,
           quantity: totalQty,
           bodegas: bodegasMap,
-          createdAt: item.created_at
+          createdAt: item.created_at,
+          default_warehouse_id: item.default_warehouse_id
         };
       });
 
@@ -472,6 +491,16 @@ export default function InventoryTab() {
         description: 'No se pudieron cargar los datos desde la nube de Supabase.'
       });
     } finally {
+      // 5. Obtener compras en tránsito (BMS)
+      const { data: transitData, error: transitErr } = await supabase
+        .from('purchases')
+        .select('*, purchase_items(*)')
+        .eq('status', 'PRE-PAGADO_EN_TRANSITO');
+      
+      if (!transitErr && transitData) {
+        setTransitPurchases(transitData);
+      }
+      
       setLoadingInv(false);
       setLoadingCompMappings(false);
     }
@@ -691,8 +720,6 @@ export default function InventoryTab() {
     return { contados, sobrantes, faltantes, exactos };
   }, [tomaFisicaGrid]);
 
-
-
   // Generar SKU Automático según categoría
   const generateAutoSku = () => {
     const prefixMap: Record<string, string> = {
@@ -888,13 +915,15 @@ export default function InventoryTab() {
           sku: productForm.sku.toUpperCase(),
           name: productForm.name,
           category: productForm.category,
-          price: 0.00
+          cost: parseFloat((productForm as any).cost) || 0,
+          margin: parseFloat((productForm as any).margin) || 0,
+          price: parseFloat((productForm as any).price) || 0
         });
 
       if (error) throw error;
 
       toast({ title: "Código Autorizado", description: "El producto ha sido registrado en el maestro." });
-      setProductForm({ sku: '', name: '', category: 'General' });
+      setProductForm({ sku: '', name: '', category: 'General', cost: '0', margin: '0', price: '0' } as any);
       await loadSupabaseData();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error al crear producto", description: err.message });
@@ -1053,55 +1082,95 @@ export default function InventoryTab() {
     const addedQty = parseFloat(String(quickEntry.quantity)) || 0;
 
     try {
-      if (selectedWarehouse !== 'Todas') {
+      let targetWarehouseId = '';
+      let targetWarehouseName = '';
+      
+      if (product.default_warehouse_id) {
+        targetWarehouseId = product.default_warehouse_id;
+        const whObj = warehouses.find(w => w.id === targetWarehouseId);
+        targetWarehouseName = whObj ? whObj.name : 'Desconocida';
+        toast({ title: "BMS Enrutamiento", description: `Enrutado auto a: ${targetWarehouseName}` });
+      } else if (selectedWarehouse !== 'Todas') {
         const wh = warehouses.find(w => w.name === selectedWarehouse);
         if (!wh) {
           toast({ variant: "destructive", title: "Error", description: "La bodega seleccionada no existe." });
           return;
         }
-        
-        const currentQty = product.bodegas[selectedWarehouse] || 0;
-        const newQty = currentQty + addedQty;
-
-        const { error } = await supabase
-          .from('inventory_stock')
-          .upsert({
-            sku: product.sku,
-            warehouse_id: wh.id,
-            quantity: newQty
-          }, {
-            onConflict: 'sku,warehouse_id'
-          });
-
-        if (error) throw error;
+        targetWarehouseId = wh.id;
+        targetWarehouseName = wh.name;
       } else {
         if (warehouses.length === 0) {
           toast({ variant: 'destructive', title: 'Error', description: 'Debe crear al menos una bodega primero.' });
           return;
         }
-        // Si no hay una bodega seleccionada, se aplica a la primera bodega por defecto
-        const defaultWh = warehouses[0];
-        const currentQty = product.bodegas[defaultWh.name] || 0;
-        const newQty = currentQty + addedQty;
-
-        const { error } = await supabase
-          .from('inventory_stock')
-          .upsert({
-            sku: product.sku,
-            warehouse_id: defaultWh.id,
-            quantity: newQty
-          }, {
-            onConflict: 'sku,warehouse_id'
-          });
-
-        if (error) throw error;
+        targetWarehouseId = warehouses[0].id;
+        targetWarehouseName = warehouses[0].name;
       }
+
+      const currentQty = product.bodegas[targetWarehouseName] || 0;
+      const newQty = currentQty + addedQty;
+
+      const { error } = await supabase
+        .from('inventory_stock')
+        .upsert({
+          sku: product.sku,
+          warehouse_id: targetWarehouseId,
+          quantity: newQty
+        }, {
+          onConflict: 'sku,warehouse_id'
+        });
+
+      if (error) throw error;
+      
+      console.log(`[NEXBOT EVENT] Recibidos ${quickEntry.quantity} de ${product.sku} en ${targetWarehouseName}`);
 
       toast({ title: "Stock Actualizado", description: `Se agregaron ${quickEntry.quantity} unidades.` });
       setQuickEntry({ sku: '', quantity: '' });
       await loadSupabaseData();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error al actualizar stock", description: err.message });
+    }
+  };
+
+  const handleReceiveTransit = async (purchaseId: string, items: any[]) => {
+    try {
+      const { error: updErr } = await supabase
+        .from('purchases')
+        .update({ status: 'COMPLETADO' })
+        .eq('id', purchaseId);
+        
+      if (updErr) throw updErr;
+      
+      for (const item of items) {
+        const product = inventory?.find((p: any) => p.sku === item.product_sku);
+        if (!product) continue;
+        
+        let targetWhId = product.default_warehouse_id || (warehouses[0]?.id);
+        if (!targetWhId) continue;
+        
+        const { data: currentStock } = await supabase
+          .from('inventory_stock')
+          .select('quantity')
+          .eq('sku', product.sku)
+          .eq('warehouse_id', targetWhId)
+          .single();
+          
+        const currentQty = currentStock ? parseFloat(currentStock.quantity) : 0;
+        await supabase
+          .from('inventory_stock')
+          .upsert({
+            sku: product.sku,
+            warehouse_id: targetWhId,
+            quantity: currentQty + parseFloat(item.quantity)
+          }, { onConflict: 'sku,warehouse_id' });
+          
+        console.log(`[NEXBOT EVENT] Compra Pre-pagada Recibida: ${item.quantity} de ${product.sku}`);
+      }
+      
+      toast({ title: "Recepción Completada", description: "La compra en tránsito ha ingresado al inventario." });
+      await loadSupabaseData();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
     }
   };
 
@@ -1272,52 +1341,38 @@ export default function InventoryTab() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="glass-card p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['inventory_existencia'] !== false && (
-              <TabsTrigger data-tour-id="tab-existencia" value="existencia" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <Package size={14} className="mr-2" /> Existencias
+              <TabsTrigger data-tour-id="tab-existencias" value="existencias" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <Package size={14} className="mr-2" /> Existencias y Kárdex
               </TabsTrigger>
             )}
             {config?.['inventory_maestro'] !== false && (
-              <TabsTrigger data-tour-id="tab-catalogo" value="maestro" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <Tag size={14} className="mr-2" /> Maestro
+              <TabsTrigger data-tour-id="tab-catalogo" value="catalogo" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <Tag size={14} className="mr-2" /> Catálogo Maestro
               </TabsTrigger>
             )}
-            {config?.['inventory_precios'] !== false && (
-              <TabsTrigger data-tour-id="tab-precios" value="precios" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap">
-                <Tag size={14} className="mr-2" /> Producto
-              </TabsTrigger>
-            )}
-            {config?.['inventory_kardex'] !== false && (
-              <TabsTrigger data-tour-id="tab-kardex" value="kardex" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <History size={14} className="mr-2" /> Kardex de Almacén
+            {config?.['inventory_entradas'] !== false && (
+              <TabsTrigger data-tour-id="tab-transitos" value="transitos" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <Truck size={14} className="mr-2" /> Recepción y Tránsitos
               </TabsTrigger>
             )}
             {config?.['inventory_toma_fisica'] !== false && (
-              <TabsTrigger data-tour-id="tab-toma-fisica" value="toma-fisica" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <ClipboardList size={14} className="mr-2" /> Toma Física
-              </TabsTrigger>
-            )}
-            {config?.['inventory_carga_masiva'] !== false && (
-              <TabsTrigger data-tour-id="tab-carga-masiva" value="carga-masiva" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <FileSpreadsheet size={14} className="mr-2" /> Carga Masiva (Excel)
-              </TabsTrigger>
-            )}
-            <TabsTrigger data-tour-id="tab-vinculacion" value="vinculacion" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white whitespace-nowrap">
-              <Link2 size={14} className="mr-2 text-amber-400 drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]" /> Vincular Proveedor
-            </TabsTrigger>
-            {config?.['inventory_entradas'] !== false && (
-              <TabsTrigger data-tour-id="tab-entradas" value="entradas" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <Zap size={14} className="mr-2" /> Entrada Rápida
-              </TabsTrigger>
-            )}
-            {config?.['inventory_config'] !== false && (
-              <TabsTrigger data-tour-id="tab-config" value="config" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <Settings2 size={14} className="mr-2" /> Bodegas
+              <TabsTrigger data-tour-id="tab-auditoria" value="auditoria" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
+                <ClipboardList size={14} className="mr-2" /> Auditoría de Bodegas
               </TabsTrigger>
             )}
           </TabsList>
  
           {/* TAB EXISTENCIAS CON FILTRO DE STOCK POR BODEGA */}
-          <TabsContent value="existencia" className="space-y-4 outline-none">
+          
+ 
+ 
+          <TabsContent value="existencias" className="space-y-4 outline-none">
+            <Tabs defaultValue="existencia" className="w-full space-y-4">
+              <TabsList className="bg-white/5 border border-white/10 rounded-xl p-1 mb-4 flex w-fit overflow-x-auto">
+                <TabsTrigger value="existencia" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Inventario Actual</TabsTrigger>
+                <TabsTrigger value="kardex" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Kárdex de Movimientos</TabsTrigger>
+              </TabsList>
+              <TabsContent value="existencia" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-1 space-y-4">
                 <Card className="glass-card rounded-2xl h-fit hidden lg:block">
@@ -1422,9 +1477,84 @@ export default function InventoryTab() {
               </div>
             </div>
           </TabsContent>
- 
-          {/* TAB MAESTRO CON INTEGRACIÓN DE CÓDIGOS DE EMPRESAS */}
-          <TabsContent value="maestro" className="space-y-4 outline-none">
+              <TabsContent value="kardex" className="space-y-6 outline-none animate-in fade-in duration-300">
+              <Card className="glass-card rounded-2xl">
+                <CardHeader className="p-6 border-b">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <History className="text-blue-600" size={18} />
+                    Kardex del Inventario (Historial de Movimientos)
+                  </CardTitle>
+                  <CardDescription className="text-xs">Consulte las transacciones de entrada, salida y ajustes de stock en tiempo real.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="p-6 flex gap-4 border-b">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <Input 
+                        placeholder="Buscar por SKU o descripción..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 h-11 bg-slate-50 border-slate-100 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  <Table>
+                    <TableHeader className="bg-white/10 border-b border-white/10">
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase px-6">Fecha</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Código SKU</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Tipo Movimiento</TableHead>
+                        <TableHead className="text-center text-[10px] font-black uppercase">Cantidad</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase">Stock Consolidado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!searchTerm.trim() ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs font-medium">
+                            Digite un código de SKU o nombre en la barra de búsqueda para ver sus movimientos en el Kardex.
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs">
+                            No se encontraron registros de inventario para este filtro.
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredItems.map((item: any) => (
+                        <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
+                          <TableCell className="px-6 text-[11px] font-mono text-slate-400">
+                            {item.createdAt ? new Date(item.createdAt).toLocaleString('es-SV') : new Date().toLocaleString('es-SV')}
+                          </TableCell>
+                          <TableCell className="font-mono font-bold text-xs text-slate-700 dark:text-foreground">{item.sku}</TableCell>
+                          <TableCell className="font-bold text-xs">{item.name}</TableCell>
+                          <TableCell>
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[9px] font-bold">
+                              CARGA INICIAL / INGRESO
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center font-bold text-emerald-600 text-xs">+{item.quantity || 0}</TableCell>
+                          <TableCell className="text-right font-black text-xs px-6">${(item.price || 0).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="catalogo" className="space-y-4 outline-none">
+            <Tabs defaultValue="maestro" className="w-full space-y-4">
+              <TabsList className="bg-white/5 border border-white/10 rounded-xl p-1 mb-4 flex w-fit overflow-x-auto">
+                <TabsTrigger value="maestro" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Listado Maestro</TabsTrigger>
+                <TabsTrigger value="precios" className="rounded-lg text-xs font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white">Precios y BMS</TabsTrigger>
+                <TabsTrigger value="carga-masiva" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Carga Masiva</TabsTrigger>
+                <TabsTrigger value="vinculacion" className="rounded-lg text-xs font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white">Vincular Proveedores</TabsTrigger>
+              </TabsList>
+              <TabsContent value="maestro" className="space-y-4 outline-none">
             <div className="flex gap-2 glass p-1 rounded-xl w-fit">
               <Button 
                 variant={maestroSubTab === 'catalogo' ? 'default' : 'ghost'} 
@@ -1515,6 +1645,39 @@ export default function InventoryTab() {
                               <SelectItem value="Lubricantes" className="text-xs">Lubricantes</SelectItem>
                             </SelectContent>
                           </Select>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Costo Base</Label>
+                            <Input 
+                              type="number" step="0.01"
+                              placeholder="0.00" 
+                              value={(productForm as any).cost}
+                              onChange={e => handleBmsChange('cost', e.target.value)}
+                              className="h-11 glass-input rounded-xl text-xs"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-amber-500 tracking-widest">% Ganancia</Label>
+                            <Input 
+                              type="number" step="0.01"
+                              placeholder="0.00" 
+                              value={(productForm as any).margin}
+                              onChange={e => handleBmsChange('margin', e.target.value)}
+                              className="h-11 glass-input rounded-xl text-xs border-amber-500/30"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Precio Final</Label>
+                            <Input 
+                              type="number" step="0.01"
+                              placeholder="0.00" 
+                              value={(productForm as any).price}
+                              onChange={e => handleBmsChange('price', e.target.value)}
+                              className="h-11 glass-input rounded-xl text-xs border-emerald-500/30 font-bold"
+                            />
+                          </div>
                         </div>
  
                         <Button 
@@ -1722,9 +1885,7 @@ export default function InventoryTab() {
               </div>
             )}
           </TabsContent>
-
-          {/* TAB PRECIOS / PRODUCTO */}
-          <TabsContent value="precios" className="space-y-4 outline-none">
+              <TabsContent value="precios" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
               {/* Formulario Izquierdo: Editor de Producto */}
@@ -1943,279 +2104,7 @@ export default function InventoryTab() {
 
             </div>
           </TabsContent>
- 
-           {/* TAB ENTRADAS */}
-           <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-             <Card className="glass-card rounded-2xl h-fit">
-               <CardHeader className="p-5 md:p-6">
-                 <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
-                   <Zap size={18} className="text-amber-500" /> Entrada Rápida de Stock
-                 </CardTitle>
-                 <CardDescription className="text-xs">Ingreso inmediato al inventario maestro. Si seleccionas una bodega arriba, afectará a esa bodega.</CardDescription>
-               </CardHeader>
-               <CardContent className="px-5 md:px-6 pb-6">
-                 <form onSubmit={handleQuickStockEntry} className="space-y-4 md:space-y-6">
-                   <div className="space-y-2">
-                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">SKU del Producto</Label>
-                     <Input 
-                       placeholder="SKU..." 
-                       value={quickEntry.sku}
-                       onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
-                       className="glass-input h-10 md:h-12 text-base md:text-lg font-bold text-xs"
-                     />
-                   </div>
-                   <div className="space-y-2">
-                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">Cantidad a Agregar</Label>
-                     <Input 
-                       type="number"
-                       placeholder="0"
-                       value={quickEntry.quantity}
-                       onFocus={e => e.target.select()}
-                       onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
-                       className="glass-input h-10 md:h-12 text-lg font-black text-blue-600 dark:text-blue-400"
-                     />
-                   </div>
-                   {selectedWarehouse !== 'Todas' && (
-                     <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 text-xs rounded-xl flex items-center gap-2">
-                       <Warehouse size={14} />
-                       <span>El stock se agregará a la bodega: <strong>{selectedWarehouse}</strong></span>
-                     </div>
-                   )}
-                   <Button className="w-full bg-slate-900 dark:bg-blue-600 h-12 md:h-14 rounded-2xl font-bold shadow-lg text-white text-xs md:text-sm">
-                     CARGAR STOCK
-                   </Button>
-                 </form>
-               </CardContent>
-             </Card>
- 
-             <div className="bg-blue-600 dark:bg-blue-900/30 rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center border border-blue-500/20">
-               <History size={40} className="mb-4 text-blue-200" />
-               <h3 className="text-lg md:text-xl font-bold mb-2">¿Emergencia de Stock?</h3>
-               <p className="text-blue-100 dark:text-blue-300 text-xs md:text-sm leading-relaxed mb-6">
-                 Utiliza la entrada rápida para habilitar productos recién llegados que necesitan ser vendidos de inmediato antes de procesar la factura legal en Compras.
-               </p>
-               <div className="bg-blue-500/30 p-3 md:p-4 rounded-2xl border border-blue-400/30">
-                 <p className="text-[9px] md:text-[11px] italic">"Formaliza este ingreso más tarde registrando la factura oficial en el módulo de Registro de Compra."</p>
-               </div>
-             </div>
-           </TabsContent>
- 
-           {/* TAB BODEGAS CON GESTIÓN, ASOCIACIÓN Y VISTA DE STOCK */}
-           <TabsContent value="config" className="space-y-6 outline-none">
-             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-               
-               {/* Columna Izquierda: Crear Bodega y Vincular Producto */}
-               <div className="lg:col-span-4 space-y-6">
-                 {/* Tarjeta 1: Crear Bodega */}
-                 <Card className="glass-card rounded-2xl h-fit">
-                   <CardHeader className="p-5">
-                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                       <Warehouse size={16} className="text-blue-600" /> Crear Almacén / Bodega
-                     </CardTitle>
-                     <CardDescription className="text-xs">Configure puntos de almacenamiento físico.</CardDescription>
-                   </CardHeader>
-                   <CardContent className="p-5 pt-0 space-y-4">
-                     <div className="space-y-2">
-                       <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
-                       <Input 
-                         placeholder="Ej. Sucursal Santa Tecla..." 
-                         value={warehouseName}
-                         onChange={e => setWarehouseName(e.target.value)}
-                         className="glass-input h-10 text-xs font-bold"
-                       />
-                     </div>
-                     
-                     <div className="space-y-2">
-                       <Label className="text-[10px] font-bold uppercase text-slate-400">Sucursal Asociada</Label>
-                       <Select 
-                         value={warehouseBranchId}
-                         onValueChange={setWarehouseBranchId}
-                       >
-                         <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
-                           <SelectValue placeholder="Seleccione sucursal..." />
-                         </SelectTrigger>
-                         <SelectContent>
-                           {branches?.map((b: any) => (
-                             <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
-                           ))}
-                         </SelectContent>
-                       </Select>
-                     </div>
-
-                     <Button onClick={handleCreateWarehouse} className="w-full bg-blue-600 font-bold rounded-xl text-xs text-white h-10">
-                       CREAR BODEGA
-                     </Button>
-
-                     <div className="pt-2">
-                       <Label className="text-[9px] font-black uppercase text-slate-400 block mb-2">Bodegas Activas</Label>
-                       <div className="space-y-1">
-                         {warehouses?.length === 0 ? (
-                           <p className="text-[9px] text-slate-400 italic">No hay bodegas configuradas.</p>
-                         ) : warehouses?.map((wh: any) => (
-                           <div key={wh.id} className="flex justify-between items-center bg-white/5 border-b border-white/10 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
-                             <div className="flex flex-col">
-                               <span className="text-[11px] font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
-                               <span className="text-[9px] text-slate-400">
-                                 {branches.find((b: any) => b.id === wh.branch_id)?.name || 'Sin Sucursal'}
-                               </span>
-                             </div>
-                             <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-rose-500 rounded-md" onClick={() => handleDeleteWarehouse(wh.id)}>
-                               <Trash2 size={12} />
-                             </Button>
-                           </div>
-                         ))}
-                       </div>
-                     </div>
-                   </CardContent>
-                 </Card>
-
-                 {/* Tarjeta 2: Vincular Producto a Bodega */}
-                 <Card className="glass-card rounded-2xl h-fit">
-                   <CardHeader className="p-5">
-                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                       <Link2 size={16} className="text-blue-600" /> Vincular Producto a Bodega
-                     </CardTitle>
-                     <CardDescription className="text-xs">Establezca que un producto de tu catálogo pertenece a una bodega.</CardDescription>
-                   </CardHeader>
-                   <CardContent className="p-5 pt-0">
-                     <form onSubmit={handleLinkProductToWarehouse} className="space-y-4">
-                       <div className="space-y-1.5">
-                         <Label className="text-[9px] font-bold uppercase text-slate-400">Seleccionar Bodega</Label>
-                         <Select 
-                           value={linkForm.warehouseName}
-                           onValueChange={(val) => setLinkForm({ ...linkForm, warehouseName: val })}
-                         >
-                           <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
-                             <SelectValue placeholder="Seleccione..." />
-                           </SelectTrigger>
-                           <SelectContent>
-                             {warehouses?.map(w => (
-                               <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
-                             ))}
-                           </SelectContent>
-                         </Select>
-                       </div>
-
-                       <div className="space-y-1.5">
-                         <Label className="text-[9px] font-bold uppercase text-slate-400">Seleccionar Producto</Label>
-                         <Select 
-                           value={linkForm.productSku}
-                           onValueChange={(val) => setLinkForm({ ...linkForm, productSku: val })}
-                         >
-                           <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
-                             <SelectValue placeholder="Seleccione SKU..." />
-                           </SelectTrigger>
-                           <SelectContent>
-                             {inventory?.map(p => (
-                               <SelectItem key={p.id} value={p.sku} className="text-xs">{p.sku} - {p.name}</SelectItem>
-                             ))}
-                           </SelectContent>
-                         </Select>
-                       </div>
-
-                       <div className="space-y-1.5">
-                         <Label className="text-[9px] font-bold uppercase text-slate-400">Stock Inicial en esta Bodega</Label>
-                         <Input 
-                           type="number"
-                           value={linkForm.initialStock}
-                           onChange={e => setLinkForm({ ...linkForm, initialStock: e.target.value })}
-                           className="glass-input h-10 text-xs font-black text-blue-600 dark:text-blue-400"
-                         />
-                       </div>
-
-                       <Button 
-                         type="submit" 
-                         className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs"
-                         disabled={loading}
-                       >
-                         {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={14} />}
-                         ASIGNAR A BODEGA
-                       </Button>
-                     </form>
-                   </CardContent>
-                 </Card>
-               </div>
-
-               {/* Columna Derecha: Vista de Productos por Bodega */}
-               <div className="lg:col-span-8 space-y-4">
-                 <Card className="p-4 glass-card border shadow-sm rounded-2xl flex justify-between items-center">
-                   <div className="space-y-1">
-                     <Label className="text-[9px] font-black uppercase text-slate-400">Ver Productos en Bodega</Label>
-                     <Select value={selectedWhView} onValueChange={setSelectedWhView}>
-                       <SelectTrigger className="w-52 h-9 text-xs rounded-xl glass-input font-bold">
-                         <SelectValue />
-                       </SelectTrigger>
-                       <SelectContent>
-                         <SelectItem value="Todas" className="text-xs">Consolidado (Todas)</SelectItem>
-                         {warehouses?.map(w => (
-                           <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
-                         ))}
-                       </SelectContent>
-                     </Select>
-                   </div>
-                   <div className="text-right">
-                     <span className="text-[10px] font-black uppercase text-slate-400 block">Total Ítems en esta Vista</span>
-                     <Badge className="bg-blue-600 text-white font-bold h-6 text-xs">{productsInSelectedWarehouse.length} productos</Badge>
-                   </div>
-                 </Card>
-
-                 <Card className="glass-card rounded-2xl overflow-hidden">
-                   <ScrollArea className="h-[480px]">
-                     <Table>
-                       <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
-                         <TableRow>
-                           <TableHead className="px-6 text-[10px] font-black uppercase">SKU</TableHead>
-                           <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
-                           <TableHead className="text-center text-[10px] font-black uppercase">Stock Bodega</TableHead>
-                           <TableHead className="w-10"></TableHead>
-                         </TableRow>
-                       </TableHeader>
-                       <TableBody>
-                         {productsInSelectedWarehouse.length === 0 ? (
-                           <TableRow>
-                             <TableCell colSpan={4} className="text-center py-24 text-slate-400 italic text-xs">
-                               No hay productos asignados a la bodega '{selectedWhView}'.
-                             </TableCell>
-                           </TableRow>
-                         ) : productsInSelectedWarehouse.map((item) => {
-                           const qtyInWh = selectedWhView === 'Todas' ? item.quantity : (item.bodegas?.[selectedWhView] || 0);
-                           return (
-                             <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
-                               <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
-                                 {item.sku}
-                               </TableCell>
-                               <TableCell className="font-bold text-white text-xs">{item.name}</TableCell>
-                               <TableCell className="text-center">
-                                 <Badge className={`font-black text-[10px] h-6 ${qtyInWh <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
-                                   {qtyInWh} un.
-                                 </Badge>
-                               </TableCell>
-                               <TableCell className="px-4">
-                                 {selectedWhView !== 'Todas' && (
-                                   <Button 
-                                     variant="ghost" 
-                                     size="icon" 
-                                     className="h-8 w-8 text-slate-300 hover:text-rose-500 rounded-md" 
-                                     onClick={() => handleUnlinkProductFromWarehouse(item.id, selectedWhView)}
-                                   >
-                                     <Trash2 size={13} />
-                                   </Button>
-                                 )}
-                               </TableCell>
-                             </TableRow>
-                           );
-                         })}
-                       </TableBody>
-                     </Table>
-               </ScrollArea>
-                 </Card>
-               </div>
-
-             </div>
-            </TabsContent>
-
-            {/* TAB CARGA MASIVA DE EXCEL/CSV */}
-            <TabsContent value="carga-masiva" className="space-y-6 outline-none animate-in fade-in duration-300">
+              <TabsContent value="carga-masiva" className="space-y-6 outline-none animate-in fade-in duration-300">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 {/* Panel Izquierdo: Carga y Progreso */}
@@ -2469,77 +2358,7 @@ export default function InventoryTab() {
                 </div>
               </div>
             </TabsContent>
-
-            {/* TAB KARDEX DE ALMACEN */}
-            <TabsContent value="kardex" className="space-y-6 outline-none animate-in fade-in duration-300">
-              <Card className="glass-card rounded-2xl">
-                <CardHeader className="p-6 border-b">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <History className="text-blue-600" size={18} />
-                    Kardex del Inventario (Historial de Movimientos)
-                  </CardTitle>
-                  <CardDescription className="text-xs">Consulte las transacciones de entrada, salida y ajustes de stock en tiempo real.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="p-6 flex gap-4 border-b">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <Input 
-                        placeholder="Buscar por SKU o descripción..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 h-11 bg-slate-50 border-slate-100 rounded-xl"
-                      />
-                    </div>
-                  </div>
-                  <Table>
-                    <TableHeader className="bg-white/10 border-b border-white/10">
-                      <TableRow>
-                        <TableHead className="text-[10px] font-black uppercase px-6">Fecha</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Código SKU</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Tipo Movimiento</TableHead>
-                        <TableHead className="text-center text-[10px] font-black uppercase">Cantidad</TableHead>
-                        <TableHead className="text-right text-[10px] font-black uppercase">Stock Consolidado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {!searchTerm.trim() ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs font-medium">
-                            Digite un código de SKU o nombre en la barra de búsqueda para ver sus movimientos en el Kardex.
-                          </TableCell>
-                        </TableRow>
-                      ) : filteredItems.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs">
-                            No se encontraron registros de inventario para este filtro.
-                          </TableCell>
-                        </TableRow>
-                      ) : filteredItems.map((item: any) => (
-                        <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
-                          <TableCell className="px-6 text-[11px] font-mono text-slate-400">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleString('es-SV') : new Date().toLocaleString('es-SV')}
-                          </TableCell>
-                          <TableCell className="font-mono font-bold text-xs text-slate-700 dark:text-foreground">{item.sku}</TableCell>
-                          <TableCell className="font-bold text-xs">{item.name}</TableCell>
-                          <TableCell>
-                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[9px] font-bold">
-                              CARGA INICIAL / INGRESO
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center font-bold text-emerald-600 text-xs">+{item.quantity || 0}</TableCell>
-                          <TableCell className="text-right font-black text-xs px-6">${(item.price || 0).toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* TAB VINCULAR PROVEEDOR */}
-            <TabsContent value="vinculacion" className="space-y-6 outline-none animate-in fade-in duration-300">
+              <TabsContent value="vinculacion" className="space-y-6 outline-none animate-in fade-in duration-300">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 {/* Panel Izquierdo: Formulario de Vinculación */}
@@ -2677,9 +2496,108 @@ export default function InventoryTab() {
                 </div>
               </div>
             </TabsContent>
+            </Tabs>
+          </TabsContent>
 
-            {/* TAB TOMA FISICA - HOJA DE CÁLCULO REACTIVA */}
-            <TabsContent value="toma-fisica" className="space-y-0 outline-none animate-in fade-in duration-300">
+          <TabsContent value="transitos" className="space-y-4 outline-none">
+            <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
+                {/* Nueva Columna: Tránsitos Pre-pagados */}
+                <Card className="glass-card border-0 shadow-2xl rounded-3xl overflow-hidden flex flex-col">
+                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 md:p-8">
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                        <Truck size={24} className="text-white drop-shadow-md" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Tránsitos Pre-pagados</h2>
+                        <p className="text-blue-100 text-xs md:text-sm font-medium">Recepción de compras en camino</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6 md:p-8 space-y-4">
+                    {transitPurchases.length === 0 ? (
+                      <p className="text-center text-slate-400 text-sm py-8">No hay compras en tránsito.</p>
+                    ) : (
+                      transitPurchases.map(purchase => (
+                        <div key={purchase.id} className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 flex justify-between items-center">
+                          <div>
+                            <p className="text-white font-bold text-sm">{purchase.supplier_name}</p>
+                            <p className="text-slate-400 text-xs">Total: ${parseFloat(purchase.total).toFixed(2)}</p>
+                            <p className="text-slate-500 text-[10px]">{purchase.purchase_items?.length} items</p>
+                          </div>
+                          <Button 
+                            onClick={() => handleReceiveTransit(purchase.id, purchase.purchase_items)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs"
+                          >
+                            Recibir
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </Card>
+             <Card className="glass-card rounded-2xl h-fit">
+               <CardHeader className="p-5 md:p-6">
+                 <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
+                   <Zap size={18} className="text-amber-500" /> Entrada Rápida de Stock
+                 </CardTitle>
+                 <CardDescription className="text-xs">Ingreso inmediato al inventario maestro. Si seleccionas una bodega arriba, afectará a esa bodega.</CardDescription>
+               </CardHeader>
+               <CardContent className="px-5 md:px-6 pb-6">
+                 <form onSubmit={handleQuickStockEntry} className="space-y-4 md:space-y-6">
+                   <div className="space-y-2">
+                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">SKU del Producto</Label>
+                     <Input 
+                       placeholder="SKU..." 
+                       value={quickEntry.sku}
+                       onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
+                       className="glass-input h-10 md:h-12 text-base md:text-lg font-bold text-xs"
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">Cantidad a Agregar</Label>
+                     <Input 
+                       type="number"
+                       placeholder="0"
+                       value={quickEntry.quantity}
+                       onFocus={e => e.target.select()}
+                       onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
+                       className="glass-input h-10 md:h-12 text-lg font-black text-blue-600 dark:text-blue-400"
+                     />
+                   </div>
+                   {selectedWarehouse !== 'Todas' && (
+                     <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 text-xs rounded-xl flex items-center gap-2">
+                       <Warehouse size={14} />
+                       <span>El stock se agregará a la bodega: <strong>{selectedWarehouse}</strong></span>
+                     </div>
+                   )}
+                   <Button className="w-full bg-slate-900 dark:bg-blue-600 h-12 md:h-14 rounded-2xl font-bold shadow-lg text-white text-xs md:text-sm">
+                     CARGAR STOCK
+                   </Button>
+                 </form>
+               </CardContent>
+             </Card>
+ 
+             <div className="bg-blue-600 dark:bg-blue-900/30 rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center border border-blue-500/20">
+               <History size={40} className="mb-4 text-blue-200" />
+               <h3 className="text-lg md:text-xl font-bold mb-2">¿Emergencia de Stock?</h3>
+               <p className="text-blue-100 dark:text-blue-300 text-xs md:text-sm leading-relaxed mb-6">
+                 Utiliza la entrada rápida para habilitar productos recién llegados que necesitan ser vendidos de inmediato antes de procesar la factura legal en Compras.
+               </p>
+               <div className="bg-blue-500/30 p-3 md:p-4 rounded-2xl border border-blue-400/30">
+                 <p className="text-[9px] md:text-[11px] italic">"Formaliza este ingreso más tarde registrando la factura oficial en el módulo de Registro de Compra."</p>
+               </div>
+             </div>
+           </TabsContent>
+          </TabsContent>
+
+          <TabsContent value="auditoria" className="space-y-4 outline-none">
+            <Tabs defaultValue="toma-fisica" className="w-full space-y-4">
+              <TabsList className="bg-white/5 border border-white/10 rounded-xl p-1 mb-4 flex w-fit overflow-x-auto">
+                <TabsTrigger value="toma-fisica" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Toma Física</TabsTrigger>
+                <TabsTrigger value="config" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Mapeo de Bodegas</TabsTrigger>
+              </TabsList>
+              <TabsContent value="toma-fisica" className="space-y-0 outline-none animate-in fade-in duration-300">
               {/* Container estilo hoja de cálculo neón oscuro */}
               <div
                 style={{ background: 'linear-gradient(135deg, #0b0d19 0%, #0f1128 60%, #0b0f24 100%)' }}
@@ -3045,6 +2963,243 @@ export default function InventoryTab() {
                 </div>
               </div>
             </TabsContent>
+              <TabsContent value="config" className="space-y-6 outline-none">
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               
+               {/* Columna Izquierda: Crear Bodega y Vincular Producto */}
+               <div className="lg:col-span-4 space-y-6">
+                 {/* Tarjeta 1: Crear Bodega */}
+                 <Card className="glass-card rounded-2xl h-fit">
+                   <CardHeader className="p-5">
+                     <CardTitle className="text-sm font-bold flex items-center gap-2">
+                       <Warehouse size={16} className="text-blue-600" /> Crear Almacén / Bodega
+                     </CardTitle>
+                     <CardDescription className="text-xs">Configure puntos de almacenamiento físico.</CardDescription>
+                   </CardHeader>
+                   <CardContent className="p-5 pt-0 space-y-4">
+                     <div className="space-y-2">
+                       <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
+                       <Input 
+                         placeholder="Ej. Sucursal Santa Tecla..." 
+                         value={warehouseName}
+                         onChange={e => setWarehouseName(e.target.value)}
+                         className="glass-input h-10 text-xs font-bold"
+                       />
+                     </div>
+                     
+                     <div className="space-y-2">
+                       <Label className="text-[10px] font-bold uppercase text-slate-400">Sucursal Asociada</Label>
+                       <Select 
+                         value={warehouseBranchId}
+                         onValueChange={setWarehouseBranchId}
+                       >
+                         <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                           <SelectValue placeholder="Seleccione sucursal..." />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {branches?.map((b: any) => (
+                             <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+
+                     <Button onClick={handleCreateWarehouse} className="w-full bg-blue-600 font-bold rounded-xl text-xs text-white h-10">
+                       CREAR BODEGA
+                     </Button>
+
+                     <div className="pt-2">
+                       <Label className="text-[9px] font-black uppercase text-slate-400 block mb-2">Bodegas Activas</Label>
+                       <div className="space-y-1">
+                         {warehouses?.length === 0 ? (
+                           <p className="text-[9px] text-slate-400 italic">No hay bodegas configuradas.</p>
+                         ) : warehouses?.map((wh: any) => (
+                           <div key={wh.id} className="flex justify-between items-center bg-white/5 border-b border-white/10 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                             <div className="flex flex-col">
+                               <span className="text-[11px] font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
+                               <span className="text-[9px] text-slate-400">
+                                 {branches.find((b: any) => b.id === wh.branch_id)?.name || 'Sin Sucursal'}
+                               </span>
+                             </div>
+                             <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-rose-500 rounded-md" onClick={() => handleDeleteWarehouse(wh.id)}>
+                               <Trash2 size={12} />
+                             </Button>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   </CardContent>
+                 </Card>
+
+                 {/* Tarjeta 2: Vincular Producto a Bodega */}
+                 <Card className="glass-card rounded-2xl h-fit">
+                   <CardHeader className="p-5">
+                     <CardTitle className="text-sm font-bold flex items-center gap-2">
+                       <Link2 size={16} className="text-blue-600" /> Vincular Producto a Bodega
+                     </CardTitle>
+                     <CardDescription className="text-xs">Establezca que un producto de tu catálogo pertenece a una bodega.</CardDescription>
+                   </CardHeader>
+                   <CardContent className="p-5 pt-0">
+                     <form onSubmit={handleLinkProductToWarehouse} className="space-y-4">
+                       <div className="space-y-1.5">
+                         <Label className="text-[9px] font-bold uppercase text-slate-400">Seleccionar Bodega</Label>
+                         <Select 
+                           value={linkForm.warehouseName}
+                           onValueChange={(val) => setLinkForm({ ...linkForm, warehouseName: val })}
+                         >
+                           <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                             <SelectValue placeholder="Seleccione..." />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {warehouses?.map(w => (
+                               <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
+
+                       <div className="space-y-1.5">
+                         <Label className="text-[9px] font-bold uppercase text-slate-400">Seleccionar Producto</Label>
+                         <Select 
+                           value={linkForm.productSku}
+                           onValueChange={(val) => setLinkForm({ ...linkForm, productSku: val })}
+                         >
+                           <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                             <SelectValue placeholder="Seleccione SKU..." />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {inventory?.map(p => (
+                               <SelectItem key={p.id} value={p.sku} className="text-xs">{p.sku} - {p.name}</SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
+
+                       <div className="space-y-1.5">
+                         <Label className="text-[9px] font-bold uppercase text-slate-400">Stock Inicial en esta Bodega</Label>
+                         <Input 
+                           type="number"
+                           value={linkForm.initialStock}
+                           onChange={e => setLinkForm({ ...linkForm, initialStock: e.target.value })}
+                           className="glass-input h-10 text-xs font-black text-blue-600 dark:text-blue-400"
+                         />
+                       </div>
+
+                       <Button 
+                         type="submit" 
+                         className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs"
+                         disabled={loading}
+                       >
+                         {loading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={14} />}
+                         ASIGNAR A BODEGA
+                       </Button>
+                     </form>
+                   </CardContent>
+                 </Card>
+               </div>
+
+               {/* Columna Derecha: Vista de Productos por Bodega */}
+               <div className="lg:col-span-8 space-y-4">
+                 <Card className="p-4 glass-card border shadow-sm rounded-2xl flex justify-between items-center">
+                   <div className="space-y-1">
+                     <Label className="text-[9px] font-black uppercase text-slate-400">Ver Productos en Bodega</Label>
+                     <Select value={selectedWhView} onValueChange={setSelectedWhView}>
+                       <SelectTrigger className="w-52 h-9 text-xs rounded-xl glass-input font-bold">
+                         <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="Todas" className="text-xs">Consolidado (Todas)</SelectItem>
+                         {warehouses?.map(w => (
+                           <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                   <div className="text-right">
+                     <span className="text-[10px] font-black uppercase text-slate-400 block">Total Ítems en esta Vista</span>
+                     <Badge className="bg-blue-600 text-white font-bold h-6 text-xs">{productsInSelectedWarehouse.length} productos</Badge>
+                   </div>
+                 </Card>
+
+                 <Card className="glass-card rounded-2xl overflow-hidden">
+                   <ScrollArea className="h-[480px]">
+                     <Table>
+                       <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
+                         <TableRow>
+                           <TableHead className="px-6 text-[10px] font-black uppercase">SKU</TableHead>
+                           <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
+                           <TableHead className="text-center text-[10px] font-black uppercase">Stock Bodega</TableHead>
+                           <TableHead className="w-10"></TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                         {productsInSelectedWarehouse.length === 0 ? (
+                           <TableRow>
+                             <TableCell colSpan={4} className="text-center py-24 text-slate-400 italic text-xs">
+                               No hay productos asignados a la bodega '{selectedWhView}'.
+                             </TableCell>
+                           </TableRow>
+                         ) : productsInSelectedWarehouse.map((item) => {
+                           const qtyInWh = selectedWhView === 'Todas' ? item.quantity : (item.bodegas?.[selectedWhView] || 0);
+                           return (
+                             <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
+                               <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
+                                 {item.sku}
+                               </TableCell>
+                               <TableCell className="font-bold text-white text-xs">{item.name}</TableCell>
+                               <TableCell className="text-center">
+                                 <Badge className={`font-black text-[10px] h-6 ${qtyInWh <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
+                                   {qtyInWh} un.
+                                 </Badge>
+                               </TableCell>
+                               <TableCell className="px-4">
+                                 {selectedWhView !== 'Todas' && (
+                                   <Button 
+                                     variant="ghost" 
+                                     size="icon" 
+                                     className="h-8 w-8 text-slate-300 hover:text-rose-500 rounded-md" 
+                                     onClick={() => handleUnlinkProductFromWarehouse(item.id, selectedWhView)}
+                                   >
+                                     <Trash2 size={13} />
+                                   </Button>
+                                 )}
+                               </TableCell>
+                             </TableRow>
+                           );
+                         })}
+                       </TableBody>
+                     </Table>
+               </ScrollArea>
+                 </Card>
+               </div>
+
+             </div>
+            </TabsContent>
+            </Tabs>
+          </TabsContent>
+         {/* TAB MAESTRO CON INTEGRACIÓN DE CÓDIGOS DE EMPRESAS */}
+          
+
+          {/* TAB PRECIOS / PRODUCTO */}
+          
+ 
+           {/* TAB ENTRADAS */}
+           
+ 
+           {/* TAB BODEGAS CON GESTIÓN, ASOCIACIÓN Y VISTA DE STOCK */}
+           
+
+            {/* TAB CARGA MASIVA DE EXCEL/CSV */}
+            
+
+            {/* TAB KARDEX DE ALMACEN */}
+            
+
+            {/* TAB VINCULAR PROVEEDOR */}
+            
+
+            {/* TAB TOMA FISICA - HOJA DE CÁLCULO REACTIVA */}
+            
           </Tabs>
         </div>
       </div>

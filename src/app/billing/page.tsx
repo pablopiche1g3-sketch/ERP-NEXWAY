@@ -58,6 +58,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
+import { CustomerHistoryDialog } from './components/CustomerHistoryDialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useStation } from './components/use-station';
 import { useTabs } from '@/hooks/use-tabs';
@@ -153,6 +154,7 @@ export default function BillingPage() {
   // Adjustment States (Notas Crédito/Débito)
   const [adjustmentForm, setAdjustmentForm] = useState({
     refDoc: '',
+    customerId: null as string | null,
     customerName: '',
     reason: '',
     items: [] as any[],
@@ -199,6 +201,7 @@ export default function BillingPage() {
     setAdjustmentForm({
       ...adjustmentForm,
       refDoc: sale.correlative || sale.id.substring(0, 8),
+      customerId: sale.customer_id,
       customerName: sale.customer,
       items: saleItems
     });
@@ -936,9 +939,12 @@ export default function BillingPage() {
         const available = physical + pendingIncoming;
         if (available < (Number(item.quantity) || 0)) {
           toast({
-            title: "Facturación con Stock Insuficiente",
-            description: `Se registrará stock negativo para "${item.name}". Disponible: ${physical}, Requerido: ${item.quantity}.`
+            variant: "destructive",
+            title: "Stock Insuficiente (Bloqueado)",
+            description: `No hay existencias para "${item.name}". Disponible: ${physical}, Requerido: ${item.quantity}.`
           });
+          setIsProcessing(false);
+          return;
         }
       }
 
@@ -1050,7 +1056,30 @@ export default function BillingPage() {
     const table_name = type === 'CREDITO' ? 'credit_notes' : 'debit_notes';
     const totalAdjustment = adjustmentForm.items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
 
+    const defaultWh = warehouses.length > 0 ? warehouses[0] : null;
+
     try {
+      // Si es nota de débito (salida de más mercancía), validar y deducir stock estricto
+      if (type === 'DEBITO' && defaultWh) {
+        const skus = adjustmentForm.items.map(i => i.sku);
+        const { data: dbStocks } = await supabase
+          .from('inventory_stock')
+          .select('sku, quantity')
+          .eq('warehouse_id', defaultWh.id)
+          .in('sku', skus);
+        
+        const stockMap: Record<string, number> = {};
+        (dbStocks || []).forEach(s => stockMap[s.sku] = parseFloat(s.quantity) || 0);
+
+        for (const item of adjustmentForm.items) {
+          const current = stockMap[item.sku] || 0;
+          if (current < item.quantity) {
+            toast({ variant: "destructive", title: "Stock Insuficiente", description: `No hay existencias de ${item.sku} para la Nota de Débito.` });
+            setIsProcessing(false);
+            return;
+          }
+        }
+      }
       const { error } = await supabase
         .from(table_name)
         .insert({
@@ -1065,7 +1094,8 @@ export default function BillingPage() {
       if (error) throw error;
       
       // Si es nota de crédito (devolución), reintegrar stock en la primera bodega
-      if (type === 'CREDITO' && warehouses.length > 0) {
+      // Si es nota de débito (salida adicional), deducir stock de la primera bodega
+      if ((type === 'CREDITO' || type === 'DEBITO') && warehouses.length > 0) {
         const defaultWh = warehouses[0];
         for (const item of adjustmentForm.items) {
           const { data: stRecord } = await supabase
@@ -1076,7 +1106,7 @@ export default function BillingPage() {
             .maybeSingle();
 
           const currentStock = stRecord ? (parseFloat(stRecord.quantity) || 0) : 0;
-          const newQty = currentStock + item.quantity;
+          const newQty = type === 'CREDITO' ? currentStock + item.quantity : currentStock - item.quantity;
 
           await supabase
             .from('inventory_stock')
@@ -1094,7 +1124,7 @@ export default function BillingPage() {
         title: `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida`, 
         description: `Se procesó el ajuste por $${totalAdjustment.toFixed(2)}.` 
       });
-      setAdjustmentForm({ refDoc: '', customerName: '', reason: '', items: [], total: 0 });
+      setAdjustmentForm({ refDoc: '', customerId: null, customerName: '', reason: '', items: [], total: 0 });
       await loadBillingData();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message || "No se pudo registrar la nota." });
@@ -1480,6 +1510,7 @@ export default function BillingPage() {
                         </ScrollArea>
                       </PopoverContent>
                     </Popover>
+                    <CustomerHistoryDialog customerId={selectedCustomer?.id || null} customerName={selectedCustomer?.name || ''} />
                   </div>
                 </div>
                 <div className="w-full sm:w-48 space-y-1.5">
@@ -1695,7 +1726,10 @@ export default function BillingPage() {
                          <div className="flex flex-col gap-1">
                             <Input disabled placeholder="FACT-001" value={adjustmentForm.refDoc} className="h-10 bg-slate-50/50 dark:bg-black/40 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-500 dark:text-white/40" />
                             {adjustmentForm.customerName && (
-                              <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
+                              <div className="flex items-center">
+                                <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
+                                <CustomerHistoryDialog customerId={adjustmentForm.customerId} customerName={adjustmentForm.customerName} />
+                              </div>
                             )}
                          </div>
                       </div>
@@ -1842,7 +1876,10 @@ export default function BillingPage() {
                          <div className="flex flex-col gap-1">
                             <Input disabled placeholder="FACT-001" value={adjustmentForm.refDoc} className="h-10 bg-slate-50/50 dark:bg-black/40 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-500 dark:text-white/40" />
                             {adjustmentForm.customerName && (
-                              <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
+                              <div className="flex items-center">
+                                <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
+                                <CustomerHistoryDialog customerId={adjustmentForm.customerId} customerName={adjustmentForm.customerName} />
+                              </div>
                             )}
                          </div>
                       </div>
