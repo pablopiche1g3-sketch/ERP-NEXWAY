@@ -16,6 +16,7 @@ import {
   Minimize2,
   Pointer
 } from 'lucide-react';
+import { supabase } from '@/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -187,6 +188,27 @@ export function NexBotFlotante() {
     setLoading(true);
 
     try {
+      let recentEvents: any[] = [];
+      const moduleKeyMap: Record<string, string> = {
+        'Registro de Compras': 'compras',
+        'Facturación y Ventas': 'billing',
+        'Inventario y Logística': 'inventory',
+        'Gerencia y Reportes': 'management',
+        'CRM Comercial': 'crm',
+      };
+      const modKey = moduleKeyMap[currentModule];
+      if (modKey) {
+        const { data } = await supabase
+          .from('nexbot_context_feed')
+          .select('*')
+          .eq('modulo', modKey)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (data) {
+          recentEvents = data;
+        }
+      }
+
       const response = await fetch('/api/chat-asistente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -194,7 +216,8 @@ export function NexBotFlotante() {
           messages: updatedMessages,
           currentModule: currentModule,
           bmsData: {
-            tasks: bmsTasks
+            tasks: bmsTasks,
+            recent_events: recentEvents
           }
         })
       });

@@ -3,6 +3,18 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { supabase } from '@/supabase/client';
 
+export const logNexbotEvent = async (modulo: string, tipo_evento: string, payload: any, descripcion: string) => {
+  try {
+    await supabase.from('nexbot_context_feed').insert({
+      modulo,
+      tipo_evento,
+      payload_datos: payload,
+      descripcion_natural: descripcion
+    });
+  } catch (error) {
+    console.error('Error logging to nexbot_context_feed:', error);
+  }
+};
 export interface GuideTask {
   id: string;
   title: string;

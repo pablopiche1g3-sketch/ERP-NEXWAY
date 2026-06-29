@@ -65,7 +65,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useStation } from './components/use-station';
 import { useTabs } from '@/hooks/use-tabs';
 import { useModuleConfig } from '@/supabase/use-module-config';
-import { useBms } from '@/contexts/BmsContext';
+import { useBms, logNexbotEvent } from '@/contexts/BmsContext';
 import type { CartItem, PaymentMethod } from './components/types';
 import QuotationsTab from './components/QuotationsTab';
 
@@ -423,6 +423,13 @@ export default function BillingPage() {
         type: 'Ingreso',
         amount: editingPaymentSale.total
       });
+
+      await logNexbotEvent(
+        'billing', 
+        'CORRECCION_PAGO', 
+        { correlative: editingPaymentSale.correlative, old: editingPaymentSale.paymentMethod, new: newPaymentMethod, amount: editingPaymentSale.total }, 
+        `El usuario corrigió el método de pago de la venta ${editingPaymentSale.correlative} de ${editingPaymentSale.paymentMethod} a ${newPaymentMethod}. El sistema registró el cambio en auditoría y generó un asiento dual contable.`
+      );
 
       toast({ title: "Método de Pago Actualizado", description: "El cambio ha sido registrado correctamente." });
       await loadBillingData();
@@ -1104,6 +1111,13 @@ export default function BillingPage() {
         const pendingIncoming = pendingIncomingQty[item.sku] || 0;
         const available = physical + pendingIncoming;
         if (available < (Number(item.quantity) || 0)) {
+          logNexbotEvent(
+            'inventory',
+            'BLOQUEO_STOCK',
+            { sku: item.sku, name: item.name, available, requested: item.quantity },
+            `El sistema bloqueó una venta porque intentaron facturar ${item.quantity} unidades del producto "${item.name}" (SKU: ${item.sku}), pero solo hay ${available} disponibles en stock físico de bodega.`
+          );
+
           toast({
             variant: "destructive",
             title: "Stock Insuficiente (Bloqueado)",
@@ -1370,6 +1384,14 @@ export default function BillingPage() {
         });
 
       if (error) throw error;
+      
+      logNexbotEvent(
+        'billing',
+        'AUDITORIA_JORNADA',
+        { difference: cashDifference, closed_by: user?.email },
+        `El cajero ${user?.email || 'Admin'} acaba de realizar un cierre de caja ciego. La diferencia de efectivo detectada fue de $${cashDifference}.`
+      );
+      
       toast({ title: "Cierre de Día Guardado", description: "El arqueo ha sido formalizado." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error al guardar cierre", description: e.message });

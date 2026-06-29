@@ -41,3 +41,27 @@ CREATE TABLE IF NOT EXISTS facturas_proveedores_json (
     estado TEXT NOT NULL CHECK (estado IN ('PENDIENTE_PROCESAR', 'PROCESADO')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 5. Context Feed para NexBot
+CREATE TABLE IF NOT EXISTS nexbot_context_feed (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  modulo TEXT NOT NULL,
+  tipo_evento TEXT NOT NULL,
+  payload_datos JSONB,
+  descripcion_natural TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE nexbot_context_feed ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow authenticated inserts to nexbot_context_feed"
+  ON nexbot_context_feed
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated selects from nexbot_context_feed"
+  ON nexbot_context_feed
+  FOR SELECT
+  TO authenticated
+  USING (true);

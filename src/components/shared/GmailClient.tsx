@@ -8,7 +8,8 @@ import {
   AlertCircle, SlidersHorizontal, RotateCcw, Database, X, Reply, Check
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
+import { logNexbotEvent } from '@/contexts/BmsContext';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
@@ -128,6 +129,13 @@ export default function GmailClient({ context = 'compras' }: { context?: 'compra
       });
 
       if (error) throw error;
+
+      await logNexbotEvent(
+        'compras',
+        'DTE_CATALOGO',
+        { nit: mockPayload.emisor.nit, dte: mockPayload.identificacion.numeroControl },
+        `Se pre-cargó exitosamente el DTE ${mockPayload.identificacion.numeroControl} del proveedor ${mockPayload.emisor.nombre} desde la bandeja de Gmail hacia el Catálogo de Compras.`
+      );
 
       toast({
         title: "DTE Almacenado",
