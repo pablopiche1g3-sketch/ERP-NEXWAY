@@ -1,53 +1,100 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Mail, Search, Paperclip, Clock, ArrowRight, User } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { 
+  Search, Paperclip, Clock, Star, Inbox, Send, File, 
+  Tag, MoreVertical, Plus, ChevronRight, ChevronLeft, Settings, 
+  HelpCircle, Grid, Image as ImageIcon, FileText,
+  AlertCircle, SlidersHorizontal, RotateCcw
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+
+interface Attachment {
+  name: string;
+  type: 'pdf' | 'image' | 'xml';
+}
 
 interface Email {
   id: string;
   sender: string;
   subject: string;
   date: string;
-  hasAttachment: boolean;
   isRead: boolean;
+  isStarred: boolean;
   snippet: string;
+  attachments?: Attachment[];
 }
 
 const mockEmails: Email[] = [
   {
     id: '1',
-    sender: 'ventas@ferreteria-industrial.com',
-    subject: 'Cotización Materiales - Proyecto A',
-    date: '10:30 AM',
-    hasAttachment: true,
+    sender: 'Sherwin Williams de...',
+    subject: 'Documento Tributario Electrónico 976B9795-4440...',
+    date: '29 jun',
     isRead: false,
-    snippet: 'Adjunto la cotización solicitada para los materiales del proyecto...'
+    isStarred: true,
+    snippet: 'Documento Tributario Electrónico Estimado Cliente: JULIO NEFTALI CAÑAS ZELAYA Conforme a la nor...',
+    attachments: [
+      { name: 'logo.png', type: 'image' },
+      { name: '976B9795-444...', type: 'pdf' },
+      { name: '976B9795-444...', type: 'xml' }
+    ]
   },
   {
     id: '2',
-    sender: 'facturacion@distribuidora-global.com',
-    subject: 'Factura Electrónica FCF-2023-0891',
-    date: 'Ayer',
-    hasAttachment: true,
-    isRead: true,
-    snippet: 'Buen día, adjuntamos la factura electrónica correspondiente a su última compra...'
+    sender: 'Sherwin Williams de...',
+    subject: 'Documento Tributario Electrónico D26D8BB5-8F73...',
+    date: '29 jun',
+    isRead: false,
+    isStarred: true,
+    snippet: 'Documento Tributario Electrónico Estimado Cliente: JULIO NEFTALI CAÑAS ZELAYA Conforme a la nor...',
+    attachments: [
+      { name: 'logo.png', type: 'image' },
+      { name: 'D26D8BB5-8F7...', type: 'pdf' },
+      { name: 'D26D8BB5-8F7...', type: 'xml' }
+    ]
   },
   {
     id: '3',
-    sender: 'soporte@proveedor-logistico.com',
-    subject: 'Actualización de Envío #90123',
-    date: 'Mar 24',
-    hasAttachment: false,
+    sender: 'Google',
+    subject: 'Obtén más información sobre nuestros Términos del Servicio actualizados',
+    date: '29 jun',
     isRead: true,
-    snippet: 'Su pedido ha sido despachado y está en ruta hacia sus instalaciones.'
+    isStarred: false,
+    snippet: 'compras.tecnicolorsw@gmail.com Cada pocos años, actualizamos nuestros Términos del Servicio. Querem...',
+  },
+  {
+    id: '4',
+    sender: 'Facturación',
+    subject: 'DTE de PRINT TAPES S.A. DE C.V.',
+    date: '29 jun',
+    isRead: true,
+    isStarred: false,
+    snippet: 'DTE: A3DF9CE7-9F5C-4158-AB77-2B1E27118D83 ____________ JULIO NEFTALI CAÑAS ZELAYA Código de generación: A3DF9CE7-9F5C-4158-AB77-2...',
+    attachments: [
+      { name: 'A3DF9CE7-9F5...', type: 'pdf' },
+      { name: 'A3DF9CE7-9F5...', type: 'xml' }
+    ]
+  },
+  {
+    id: '5',
+    sender: 'SUMINISTROS SANTA M.',
+    subject: 'Ha recibido un nuevo comprobante digital (COMPROBANTE DE CRÉDITO FISCAL) | Acatha',
+    date: '28 jun',
+    isRead: true,
+    isStarred: false,
+    snippet: 'Domingo, 28 de junio de 2026 16:47 Ha recibido un nuevo comprobante digital (COMPROB...',
+    attachments: [
+      { name: 'E4B57062 865...', type: 'pdf' },
+      { name: 'E4B57062-865...', type: 'xml' }
+    ]
   }
 ];
 
 export default function GmailSuppliersTab() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFolder, setActiveFolder] = useState('recibidos');
 
   const filteredEmails = mockEmails.filter(email => 
     email.subject.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -55,91 +102,162 @@ export default function GmailSuppliersTab() {
   );
 
   return (
-    <div className="space-y-4">
-      {/* Header and Search - Mobile Optimized */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-[#0a0a14] p-4 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-2.5 rounded-lg">
-            <Mail size={24} />
+    <div className="h-[calc(100vh-120px)] w-full flex bg-[#f6f8fc] dark:bg-[#1a1a24] overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 font-sans shadow-inner">
+      
+      {/* LEFT SIDEBAR (GMAIL STYLE) */}
+      <div className="w-[250px] min-w-[250px] hidden md:flex flex-col bg-[#f6f8fc] dark:bg-[#1a1a24] h-full p-3 overflow-y-auto custom-scrollbar">
+        <Button className="w-[140px] h-12 bg-[#c2e7ff] hover:bg-[#b0d8f3] dark:bg-[#c2e7ff]/20 dark:hover:bg-[#c2e7ff]/30 text-[#001d35] dark:text-[#c2e7ff] rounded-2xl shadow-sm mb-4 justify-start px-4 font-medium">
+          <Plus size={20} className="mr-3" /> Redactar
+        </Button>
+
+        <div className="space-y-0.5 mb-6 text-sm">
+          <div className="flex items-center justify-between px-4 py-2 bg-[#d3e3fd] dark:bg-[#004a77]/40 text-[#041e49] dark:text-[#c2e7ff] rounded-r-full cursor-pointer font-bold">
+            <div className="flex items-center"><Inbox size={18} className="mr-4" /> Recibidos</div>
+            <span className="text-xs">17</span>
           </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Bandeja de Proveedores</h3>
-            <p className="text-xs text-slate-500 dark:text-white/50">Conexión Gmail (Cotizaciones y Facturas)</p>
+          <div className="flex items-center px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-700 dark:text-white/70 rounded-r-full cursor-pointer">
+            <Star size={18} className="mr-4" /> Destacados
+          </div>
+          <div className="flex items-center px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-700 dark:text-white/70 rounded-r-full cursor-pointer">
+            <Clock size={18} className="mr-4" /> Pospuestos
+          </div>
+          <div className="flex items-center px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-700 dark:text-white/70 rounded-r-full cursor-pointer">
+            <Send size={18} className="mr-4" /> Enviados
+          </div>
+          <div className="flex items-center justify-between px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-700 dark:text-white/70 rounded-r-full cursor-pointer">
+            <div className="flex items-center"><File size={18} className="mr-4" /> Borradores</div>
+            <span className="text-xs">1</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-700 dark:text-white/70 rounded-r-full cursor-pointer">
+            <div className="flex items-center"><Tag size={18} className="mr-4" /> Compras</div>
+            <span className="text-xs">5</span>
           </div>
         </div>
-        
-        <div className="w-full sm:w-auto relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <Input 
-            placeholder="Buscar por asunto, remitente..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-10 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl w-full sm:w-[280px]"
-          />
+
+        <div className="flex items-center justify-between px-4 mb-2 text-sm font-semibold text-slate-600 dark:text-white/60">
+          Etiquetas <Plus size={16} className="cursor-pointer hover:bg-slate-200 dark:hover:bg-white/10 rounded" />
+        </div>
+        <div className="space-y-0.5 text-sm">
+          {['Anulado', 'COMPRAS VARIAS', 'FAC. FREUND', 'FAC. MATRIZ', 'FAC. PUMA', 'FAC. SHERWIN', 'FAC. VIDRI'].map(tag => (
+            <div key={tag} className="flex items-center px-4 py-1.5 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-600 dark:text-white/60 rounded-r-full cursor-pointer truncate">
+              <Tag size={16} className="mr-4 shrink-0 text-slate-400 dark:text-white/40" /> <span className="truncate">{tag}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Email List */}
-      <div className="space-y-3">
-        {filteredEmails.map((email) => (
-          <Card key={email.id} className={`overflow-hidden transition-all hover:shadow-md cursor-pointer border-l-4 ${!email.isRead ? 'border-l-indigo-500 bg-white dark:bg-[#0a0a14]' : 'border-l-transparent bg-slate-50/50 dark:bg-white/[0.02]'}`}>
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-                
-                <div className="flex items-start gap-4 flex-1">
-                  <div className={`hidden sm:flex h-10 w-10 rounded-full items-center justify-center shrink-0 ${!email.isRead ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400' : 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-white/40'}`}>
-                    <User size={18} />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1 sm:mb-0">
-                      <p className={`text-sm sm:text-base truncate ${!email.isRead ? 'font-bold text-slate-800 dark:text-white' : 'font-medium text-slate-600 dark:text-white/70'}`}>
-                        {email.sender}
-                      </p>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0 sm:hidden">
-                        <Clock size={12} /> {email.date}
-                      </div>
-                    </div>
-                    
-                    <p className={`text-sm truncate mb-1 ${!email.isRead ? 'font-semibold text-slate-700 dark:text-white/90' : 'text-slate-500 dark:text-white/60'}`}>
-                      {email.subject}
-                    </p>
-                    
-                    <p className="text-xs text-slate-400 dark:text-white/40 truncate">
-                      {email.snippet}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-slate-100 dark:border-white/5">
-                  <div className="flex items-center gap-3">
-                    {email.hasAttachment && (
-                      <div className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 px-2 py-1 rounded-md">
-                        <Paperclip size={12} /> Adjuntos
-                      </div>
-                    )}
-                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 whitespace-nowrap">
-                      <Clock size={12} /> {email.date}
-                    </div>
-                  </div>
-                  
-                  <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10">
-                    Vincular Compra <ArrowRight size={14} className="ml-1.5" />
-                  </Button>
-                </div>
-
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* RIGHT MAIN AREA */}
+      <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#0a0a14] rounded-xl sm:rounded-none sm:rounded-l-3xl shadow-sm border-l border-slate-200 dark:border-white/10 overflow-hidden m-2 sm:m-0 sm:mt-2">
         
-        {filteredEmails.length === 0 && (
-          <div className="text-center py-12 bg-white dark:bg-[#0a0a14] rounded-xl border border-slate-200 dark:border-white/10">
-            <Mail className="mx-auto h-12 w-12 text-slate-300 dark:text-white/20 mb-3" />
-            <h3 className="text-lg font-medium text-slate-900 dark:text-white">Sin correos</h3>
-            <p className="text-sm text-slate-500 dark:text-white/50">No se encontraron correos que coincidan con la búsqueda.</p>
+        {/* Top Header Search */}
+        <div className="h-16 flex items-center px-4 sm:px-6 gap-4 border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#0a0a14]">
+          <div className="flex-1 max-w-2xl relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-slate-400" />
+            </div>
+            <Input 
+              placeholder="Buscar correo" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-12 bg-[#eaf1fb] dark:bg-white/5 border-transparent focus-visible:bg-white dark:focus-visible:bg-white/10 focus-visible:shadow-md focus-visible:ring-0 rounded-full w-full"
+            />
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+              <SlidersHorizontal className="h-5 w-5 text-slate-500 cursor-pointer hover:bg-slate-200 dark:hover:bg-white/10 p-1 rounded-full box-content" />
+            </div>
           </div>
-        )}
+          
+          <div className="hidden sm:flex items-center gap-2 ml-auto text-slate-500 dark:text-white/60">
+            <HelpCircle size={22} className="cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 p-1 rounded-full box-content" />
+            <Settings size={22} className="cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 p-1 rounded-full box-content" />
+            <Grid size={22} className="cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 p-1 rounded-full box-content ml-2" />
+          </div>
+        </div>
+
+        {/* Toolbar & Pagination */}
+        <div className="h-12 flex items-center px-4 border-b border-slate-100 dark:border-white/5 justify-between">
+          <div className="flex items-center gap-4 text-slate-500 dark:text-white/60">
+            <div className="w-4 h-4 border border-slate-400 rounded-sm cursor-pointer ml-1"></div>
+            <RotateCcw size={18} className="cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 p-1 rounded-full box-content" />
+            <MoreVertical size={18} className="cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 p-1 rounded-full box-content" />
+          </div>
+          <div className="text-xs text-slate-500 dark:text-white/60 flex items-center gap-3">
+            <span>1-50 de 6,155</span>
+            <div className="flex items-center gap-1">
+              <ChevronLeft size={18} className="cursor-pointer text-slate-300 dark:text-white/20" />
+              <ChevronRight size={18} className="cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 p-1 rounded-full box-content" />
+            </div>
+          </div>
+        </div>
+
+        {/* Categorization Tabs */}
+        <div className="flex border-b border-slate-100 dark:border-white/5">
+          <div className="flex items-center gap-4 px-6 py-3 border-b-2 border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 cursor-pointer w-64 hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+            <Inbox size={18} />
+            <span className="font-semibold text-sm">Principal</span>
+          </div>
+          <div className="flex items-center gap-4 px-6 py-3 text-slate-600 dark:text-white/60 cursor-pointer w-64 hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+            <Tag size={18} />
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm">Promociones <span className="ml-2 bg-green-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">7 nuevos</span></span>
+            </div>
+          </div>
+          <div className="hidden lg:flex items-center gap-4 px-6 py-3 text-slate-600 dark:text-white/60 cursor-pointer w-64 hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+            <AlertCircle size={18} />
+            <span className="font-semibold text-sm">Notificaciones</span>
+          </div>
+        </div>
+
+        {/* Email List Dense */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {filteredEmails.map((email) => (
+            <div 
+              key={email.id} 
+              className={`flex flex-col border-b border-slate-100 dark:border-white/5 cursor-pointer hover:shadow-[inset_1px_0_0_#dadce0,inset_-1px_0_0_#dadce0,0_1px_2px_0_rgba(60,64,67,.3),0_1px_3px_1px_rgba(60,64,67,.15)] dark:hover:shadow-[inset_1px_0_0_#3c4043,inset_-1px_0_0_#3c4043,0_1px_2px_0_rgba(0,0,0,.3),0_1px_3px_1px_rgba(0,0,0,.15)] z-0 hover:z-10 relative transition-none
+                ${!email.isRead ? 'bg-white dark:bg-[#1a1a24]' : 'bg-[#f2f6fc] dark:bg-[#0a0a14]/60'}
+              `}
+            >
+              <div className="flex items-center px-4 py-2 gap-3 h-10">
+                {/* Actions */}
+                <div className="flex items-center gap-2 shrink-0 text-slate-300 dark:text-white/30">
+                  <div className="w-4 h-4 border border-slate-400 dark:border-white/30 rounded-sm"></div>
+                  <Star size={18} className={email.isStarred ? 'text-yellow-400 fill-yellow-400' : 'hover:text-slate-500'} />
+                </div>
+                
+                {/* Sender */}
+                <div className={`w-[180px] shrink-0 truncate text-sm ${!email.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-700 dark:text-white/80'}`}>
+                  {email.sender}
+                </div>
+
+                {/* Subject & Snippet */}
+                <div className="flex-1 truncate text-sm min-w-0 flex items-center">
+                  <span className={`${!email.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-700 dark:text-white/80'} mr-2 truncate shrink-0 max-w-[40%]`}>
+                    {email.subject}
+                  </span>
+                  <span className="text-slate-500 dark:text-white/50 truncate">- {email.snippet}</span>
+                </div>
+
+                {/* Date */}
+                <div className={`w-[60px] text-right shrink-0 text-xs ${!email.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-600 dark:text-white/60'}`}>
+                  {email.date}
+                </div>
+              </div>
+
+              {/* Attachments Row */}
+              {email.attachments && email.attachments.length > 0 && (
+                <div className="flex items-center px-[228px] pb-2 gap-2 overflow-x-auto custom-scrollbar">
+                  {email.attachments.map((att, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 dark:border-white/10 text-xs font-medium bg-white dark:bg-[#1a1a24] text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 shrink-0 max-w-[150px]">
+                      {att.type === 'image' && <ImageIcon size={14} className="text-red-500 shrink-0" />}
+                      {att.type === 'pdf' && <FileText size={14} className="text-red-600 shrink-0" />}
+                      {att.type === 'xml' && <File size={14} className="text-blue-500 shrink-0" />}
+                      <span className="truncate">{att.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
