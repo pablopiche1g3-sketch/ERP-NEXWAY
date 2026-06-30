@@ -1167,22 +1167,41 @@ export default function BillingPage() {
 
       if (itemsErr) throw itemsErr;
 
-      // 3. Update Inventory Stock (subtract purchased quantity from assigned warehouse)
+      // 3. Update Inventory Stock and Kardex Atomically
       if (deductWh) {
+        const stockUpdates = [];
+        const kardexInserts = [];
+        
         for (const item of cart) {
           const currentStock = stockMap[item.sku] || 0;
-          const newQty = currentStock - (Number(item.quantity) || 0); // Allow negative stock for pending pre-transfers
+          const qty = Number(item.quantity) || 0;
+          const newQty = currentStock - qty; // Allow negative stock for pending pre-transfers
 
-          await supabase
-            .from('inventory_stock')
-            .upsert({
-              sku: item.sku,
-              warehouse_id: deductWh.id,
-              quantity: newQty
-            }, {
-              onConflict: 'sku,warehouse_id'
-            });
+          stockUpdates.push({
+            action: 'UPSERT',
+            sku: item.sku,
+            warehouse_id: deductWh.id,
+            quantity: newQty
+          });
+          
+          kardexInserts.push({
+            sku: item.sku,
+            movement_type: 'FACTURA',
+            location: deductWh.name,
+            document_ref: `${docType}-${correlative}`,
+            qty_in: 0,
+            qty_out: qty,
+            balance: newQty,
+            unit_cost: item.price
+          });
         }
+        
+        const { error: rpcErr } = await supabase.rpc('process_inventory_transaction', {
+          p_stock_updates: stockUpdates,
+          p_kardex_inserts: kardexInserts
+        });
+        
+        if (rpcErr) throw rpcErr;
       }
 
       // Marcar cotización como FACTURADA si se usó una
@@ -1260,7 +1279,7 @@ export default function BillingPage() {
           }
         }
       }
-      const { error } = await supabase
+      const { data: insertedAdjustment, error } = await supabase
         .from(table_name)
         .insert({
           ref_doc: adjustmentForm.refDoc,
@@ -1269,7 +1288,9 @@ export default function BillingPage() {
           items: adjustmentForm.items,
           total: totalAdjustment,
           status: 'EMITIDA'
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
       
@@ -1277,6 +1298,9 @@ export default function BillingPage() {
       // Si es nota de débito (salida adicional), deducir stock de la primera bodega
       if ((type === 'CREDITO' || type === 'DEBITO') && warehouses.length > 0) {
         const defaultWh = warehouses[0];
+        const stockUpdates = [];
+        const kardexInserts = [];
+        
         for (const item of adjustmentForm.items) {
           const { data: stRecord } = await supabase
             .from('inventory_stock')
@@ -1287,17 +1311,32 @@ export default function BillingPage() {
 
           const currentStock = stRecord ? (parseFloat(stRecord.quantity) || 0) : 0;
           const newQty = type === 'CREDITO' ? currentStock + item.quantity : currentStock - item.quantity;
-
-          await supabase
-            .from('inventory_stock')
-            .upsert({
-              sku: item.sku,
-              warehouse_id: defaultWh.id,
-              quantity: newQty
-            }, {
-              onConflict: 'sku,warehouse_id'
-            });
+          
+          stockUpdates.push({
+            action: 'UPSERT',
+            sku: item.sku,
+            warehouse_id: defaultWh.id,
+            quantity: newQty
+          });
+          
+          kardexInserts.push({
+            sku: item.sku,
+            movement_type: 'FACTURA',
+            location: defaultWh.name,
+            document_ref: `${type}-${insertedAdjustment.id.split('-')[0]}`,
+            qty_in: type === 'CREDITO' ? item.quantity : 0,
+            qty_out: type === 'DEBITO' ? item.quantity : 0,
+            balance: newQty,
+            unit_cost: 0
+          });
         }
+        
+        const { error: rpcErr } = await supabase.rpc('process_inventory_transaction', {
+          p_stock_updates: stockUpdates,
+          p_kardex_inserts: kardexInserts
+        });
+        
+        if (rpcErr) throw rpcErr;
       }
 
       toast({ 

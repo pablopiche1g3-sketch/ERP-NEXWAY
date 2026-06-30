@@ -678,6 +678,9 @@ export default function OrdersTab() {
           return;
         }
 
+        const stockUpdates = [];
+        const kardexInserts = [];
+
         for (const item of order.items) {
           // Restar stock de origen
           const { data: stockOrig } = await supabase
@@ -688,11 +691,25 @@ export default function OrdersTab() {
             .maybeSingle();
 
           const currentOrigQty = stockOrig ? parseFloat(stockOrig.quantity) || 0 : 0;
-          await supabase.from('inventory_stock').upsert({
+          const newOrigQty = Math.max(0, currentOrigQty - item.quantity);
+          
+          stockUpdates.push({
+            action: 'UPSERT',
             sku: item.sku,
             warehouse_id: whOrigen.id,
-            quantity: Math.max(0, currentOrigQty - item.quantity)
-          }, { onConflict: 'sku,warehouse_id' });
+            quantity: newOrigQty
+          });
+          
+          kardexInserts.push({
+            sku: item.sku,
+            movement_type: 'TRASLADO',
+            location: whOrigen.name,
+            document_ref: `TRASLADO-OUT-${order.id.split('-')[0]}`,
+            qty_in: 0,
+            qty_out: item.quantity,
+            balance: newOrigQty,
+            unit_cost: item.price || 0
+          });
 
           // Sumar stock de destino
           const { data: stockDest } = await supabase
@@ -703,12 +720,32 @@ export default function OrdersTab() {
             .maybeSingle();
 
           const currentDestQty = stockDest ? parseFloat(stockDest.quantity) || 0 : 0;
-          await supabase.from('inventory_stock').upsert({
+          const newDestQty = currentDestQty + item.quantity;
+          
+          stockUpdates.push({
+            action: 'UPSERT',
             sku: item.sku,
             warehouse_id: whDestino.id,
-            quantity: currentDestQty + item.quantity
-          }, { onConflict: 'sku,warehouse_id' });
+            quantity: newDestQty
+          });
+          
+          kardexInserts.push({
+            sku: item.sku,
+            movement_type: 'TRASLADO',
+            location: whDestino.name,
+            document_ref: `TRASLADO-IN-${order.id.split('-')[0]}`,
+            qty_in: item.quantity,
+            qty_out: 0,
+            balance: newDestQty,
+            unit_cost: item.price || 0
+          });
         }
+        
+        const { error: rpcErr } = await supabase.rpc('process_inventory_transaction', {
+          p_stock_updates: stockUpdates,
+          p_kardex_inserts: kardexInserts
+        });
+        if (rpcErr) throw rpcErr;
         toast({ title: "Inventario Actualizado", description: "Se ha transferido el stock físico entre las bodegas." });
       }
 
@@ -901,6 +938,9 @@ export default function OrdersTab() {
           return;
         }
 
+        const stockUpdates = [];
+        const kardexInserts = [];
+
         for (const item of order.items) {
           const { data: stockDest } = await supabase
             .from('inventory_stock')
@@ -910,17 +950,37 @@ export default function OrdersTab() {
             .maybeSingle();
 
           const currentDestQty = stockDest ? parseFloat(stockDest.quantity) || 0 : 0;
-          await supabase.from('inventory_stock').upsert({
+          const newDestQty = currentDestQty + item.quantity;
+          
+          stockUpdates.push({
+            action: 'UPSERT',
             sku: item.sku,
             warehouse_id: whDestino.id,
-            quantity: currentDestQty + item.quantity
-          }, { onConflict: 'sku,warehouse_id' });
+            quantity: newDestQty
+          });
+          
+          kardexInserts.push({
+            sku: item.sku,
+            movement_type: 'INGRESO RÁPIDO',
+            location: whDestino.name,
+            document_ref: `ORDEN-${order.id.split('-')[0]}`,
+            qty_in: item.quantity,
+            qty_out: 0,
+            balance: newDestQty,
+            unit_cost: item.cost || 0
+          });
 
           // Actualizar precio con el nuevo costo si aplica
           if (item.cost && item.cost > 0) {
             await supabase.from('inventory').update({ price: item.cost }).eq('sku', item.sku);
           }
         }
+        
+        const { error: rpcErr } = await supabase.rpc('process_inventory_transaction', {
+          p_stock_updates: stockUpdates,
+          p_kardex_inserts: kardexInserts
+        });
+        if (rpcErr) throw rpcErr;
         toast({ title: "Mercadería Recibida", description: `El stock se ha ingresado con éxito a la bodega '${order.destinationWarehouse}'.` });
       }
 

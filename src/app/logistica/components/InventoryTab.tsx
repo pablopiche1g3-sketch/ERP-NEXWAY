@@ -99,6 +99,33 @@ export default function InventoryTab() {
     { id: 'auditoria', key: 'inventory_toma_fisica' },
   ], []);
 
+  const [kardexItems, setKardexItems] = useState<any[]>([]);
+  const [loadingKardex, setLoadingKardex] = useState(false);
+
+  useEffect(() => {
+    const fetchKardex = async () => {
+      if (!searchTerm.trim()) {
+        setKardexItems([]);
+        return;
+      }
+      setLoadingKardex(true);
+      const { data } = await supabase
+        .from('inventario_kardex')
+        .select('*')
+        .ilike('sku', `%${searchTerm}%`)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      setKardexItems(data || []);
+      setLoadingKardex(false);
+    };
+    
+    const delayDebounceFn = setTimeout(() => {
+      fetchKardex();
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
   useEffect(() => {
     if (!config) return;
     const currentTabObj = tabsList.find(t => t.id === activeTab);
@@ -1110,15 +1137,28 @@ export default function InventoryTab() {
       const currentQty = product.bodegas[targetWarehouseName] || 0;
       const newQty = currentQty + addedQty;
 
-      const { error } = await supabase
-        .from('inventory_stock')
-        .upsert({
-          sku: product.sku,
-          warehouse_id: targetWarehouseId,
-          quantity: newQty
-        }, {
-          onConflict: 'sku,warehouse_id'
-        });
+      const stockUpdates = [{
+        action: 'UPSERT',
+        sku: product.sku,
+        warehouse_id: targetWarehouseId,
+        quantity: newQty
+      }];
+
+      const kardexInserts = [{
+        sku: product.sku,
+        movement_type: 'INGRESO RÁPIDO',
+        location: targetWarehouseName,
+        document_ref: `INGRESO-MANUAL`,
+        qty_in: addedQty,
+        qty_out: 0,
+        balance: newQty,
+        unit_cost: product.price || 0
+      }];
+
+      const { error } = await supabase.rpc('process_inventory_transaction', {
+        p_stock_updates: stockUpdates,
+        p_kardex_inserts: kardexInserts
+      });
 
       if (error) throw error;
       
@@ -1156,13 +1196,28 @@ export default function InventoryTab() {
           .single();
           
         const currentQty = currentStock ? parseFloat(currentStock.quantity) : 0;
-        await supabase
-          .from('inventory_stock')
-          .upsert({
-            sku: product.sku,
-            warehouse_id: targetWhId,
-            quantity: currentQty + parseFloat(item.quantity)
-          }, { onConflict: 'sku,warehouse_id' });
+        const stockUpdates = [{
+          action: 'UPSERT',
+          sku: product.sku,
+          warehouse_id: targetWhId,
+          quantity: currentQty + parseFloat(item.quantity)
+        }];
+
+        const kardexInserts = [{
+          sku: product.sku,
+          movement_type: 'INGRESO RÁPIDO',
+          location: warehouses.find(w => w.id === targetWhId)?.name || 'N/A',
+          document_ref: `COMPRA-${purchaseId.split('-')[0]}`,
+          qty_in: parseFloat(item.quantity),
+          qty_out: 0,
+          balance: currentQty + parseFloat(item.quantity),
+          unit_cost: item.price || product.price || 0
+        }];
+
+        await supabase.rpc('process_inventory_transaction', {
+          p_stock_updates: stockUpdates,
+          p_kardex_inserts: kardexInserts
+        });
           
         console.log(`[NEXBOT EVENT] Compra Pre-pagada Recibida: ${item.quantity} de ${product.sku}`);
       }
@@ -1502,40 +1557,61 @@ export default function InventoryTab() {
                     <TableHeader className="bg-white/10 border-b border-white/10">
                       <TableRow>
                         <TableHead className="text-[10px] font-black uppercase px-6">Fecha</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Código SKU</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Descripción del Producto</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Tipo Movimiento</TableHead>
-                        <TableHead className="text-center text-[10px] font-black uppercase">Cantidad</TableHead>
-                        <TableHead className="text-right text-[10px] font-black uppercase">Stock Consolidado</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Código</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Movimiento</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Ubicación</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Documento</TableHead>
+                        <TableHead className="text-center text-[10px] font-black uppercase text-emerald-600">Ingreso</TableHead>
+                        <TableHead className="text-center text-[10px] font-black uppercase text-rose-600">Salida</TableHead>
+                        <TableHead className="text-center text-[10px] font-black uppercase">Saldo</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase px-6">Costo Unit.</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {!searchTerm.trim() ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs font-medium">
-                            Digite un código de SKU o nombre en la barra de búsqueda para ver sus movimientos en el Kardex.
+                          <TableCell colSpan={9} className="text-center py-16 text-slate-400 italic text-xs font-medium">
+                            Digite un código de SKU en la barra de búsqueda para ver sus movimientos en el Kardex.
                           </TableCell>
                         </TableRow>
-                      ) : filteredItems.length === 0 ? (
+                      ) : loadingKardex ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-16 text-slate-400 italic text-xs">
+                          <TableCell colSpan={9} className="text-center py-16 text-slate-400 italic text-xs">
+                            Cargando kardex...
+                          </TableCell>
+                        </TableRow>
+                      ) : kardexItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-16 text-slate-400 italic text-xs">
                             No se encontraron registros de inventario para este filtro.
                           </TableCell>
                         </TableRow>
-                      ) : filteredItems.map((item: any) => (
+                      ) : kardexItems.map((item: any) => (
                         <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
-                          <TableCell className="px-6 text-[11px] font-mono text-slate-400">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleString('es-SV') : new Date().toLocaleString('es-SV')}
+                          <TableCell className="px-6 text-[11px] font-mono text-slate-400 whitespace-nowrap">
+                            {new Date(item.created_at).toLocaleString('es-SV', { dateStyle: 'short', timeStyle: 'short' })}
                           </TableCell>
                           <TableCell className="font-mono font-bold text-xs text-slate-700 dark:text-foreground">{item.sku}</TableCell>
-                          <TableCell className="font-bold text-xs">{item.name}</TableCell>
                           <TableCell>
-                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[9px] font-bold">
-                              CARGA INICIAL / INGRESO
+                            <Badge className={
+                              item.movement_type === 'INGRESO RÁPIDO' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                              item.movement_type === 'TRASLADO' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                              item.movement_type === 'FACTURA' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                              'bg-amber-50 text-amber-700 border-amber-100'
+                            } style={{ fontSize: '9px', fontWeight: 'bold' }}>
+                              {item.movement_type}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-center font-bold text-emerald-600 text-xs">+{item.quantity || 0}</TableCell>
-                          <TableCell className="text-right font-black text-xs px-6">${(item.price || 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-[11px] text-slate-500">{item.location}</TableCell>
+                          <TableCell className="text-[11px] font-mono text-blue-600 underline cursor-pointer">{item.document_ref}</TableCell>
+                          <TableCell className="text-center font-bold text-emerald-600 text-xs">
+                            {Number(item.qty_in) > 0 ? `+${item.qty_in}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-center font-bold text-rose-600 text-xs">
+                            {Number(item.qty_out) > 0 ? `-${item.qty_out}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-center font-black text-xs">{item.balance}</TableCell>
+                          <TableCell className="text-right font-black text-xs px-6 text-slate-600">${Number(item.unit_cost).toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
