@@ -121,7 +121,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('role, branch_id, cash_register_id, permissions')
+          .select('role, branch_id, station_id, permissions')
           .eq('id', currentUser.id)
           .single();
 
@@ -137,7 +137,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
           if (mounted) {
             setRole(profile.role);
             setBranchId(profile.branch_id);
-            setCashRegisterId(profile.cash_register_id);
+            setCashRegisterId(profile.station_id);
             setPermissions(profile.permissions || {});
             
             // Si el usuario tiene una sucursal asignada y no es administrador,
@@ -145,8 +145,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
             if (profile.branch_id && profile.role !== 'admin' && profile.role !== 'gerencia') {
               localStorage.setItem('active_branch_id', profile.branch_id);
             }
-            if (profile.cash_register_id && profile.role !== 'admin' && profile.role !== 'gerencia') {
-              localStorage.setItem('active_cash_register_id', profile.cash_register_id);
+            if (profile.station_id && profile.role !== 'admin' && profile.role !== 'gerencia') {
+              localStorage.setItem('active_cash_register_id', profile.station_id);
             }
             // Disparar evento para que otras vistas se actualicen reactivamente
             window.dispatchEvent(new Event('branchChanged'));

@@ -795,7 +795,7 @@ export default function ManagementPage() {
         const updatePayload: any = { role: preAssignRole };
         if (preAssignBranchId) {
           updatePayload.branch_id = preAssignBranchId === '__none' ? null : preAssignBranchId;
-          updatePayload.cash_register_id = preAssignCashRegisterId === '__none' ? null : preAssignCashRegisterId;
+          updatePayload.station_id = preAssignCashRegisterId === '__none' ? null : preAssignCashRegisterId;
         }
         const { error } = await supabase.from('profiles').update(updatePayload).eq('id', existingUser.id);
         if (error) throw error;
@@ -831,7 +831,7 @@ export default function ManagementPage() {
             password: preAssignPassword,
             role: preAssignRole,
             branch_id: preAssignBranchId === '__none' ? null : preAssignBranchId,
-            cash_register_id: preAssignCashRegisterId === '__none' ? null : preAssignCashRegisterId
+            station_id: preAssignCashRegisterId === '__none' ? null : preAssignCashRegisterId
           })
         });
 
