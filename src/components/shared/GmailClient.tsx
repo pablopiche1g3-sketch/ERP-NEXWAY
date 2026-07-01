@@ -5,7 +5,8 @@ import {
   Search, Paperclip, Clock, Star, Inbox, Send, File, 
   Tag, MoreVertical, Plus, ChevronRight, ChevronLeft, Settings, 
   HelpCircle, Grid, Image as ImageIcon, FileText,
-  AlertCircle, SlidersHorizontal, RotateCcw, Database, X, Reply, Check
+  AlertCircle, SlidersHorizontal, RotateCcw, Database, X, Reply, Check,
+  Trash2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,15 @@ export default function GmailClient({ context = 'compras' }: { context?: 'compra
     thread.subject.toLowerCase().includes(searchTerm.toLowerCase()) || 
     thread.sender.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleDeleteThread = (threadId: string, event?: React.MouseEvent) => {
+    if (event) event.stopPropagation();
+    setThreads(prev => prev.filter(t => t.id !== threadId));
+    if (selectedThread?.id === threadId) {
+      setSelectedThread(null);
+    }
+    toast({ title: 'Correo eliminado', description: 'El correo ha sido eliminado.' });
+  };
 
   const handleStoreInCatalog = async (thread: EmailThread, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -288,6 +298,9 @@ export default function GmailClient({ context = 'compras' }: { context?: 'compra
             <Button variant="ghost" size="icon" onClick={() => toggleReadStatus(selectedThread.id, selectedThread.isRead)} title="Marcar como no leído">
               <Inbox size={18} />
             </Button>
+            <Button variant="ghost" size="icon" onClick={() => handleDeleteThread(selectedThread.id)} title="Eliminar correo" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+              <Trash2 size={18} />
+            </Button>
           </div>
         </div>
 
@@ -417,7 +430,7 @@ export default function GmailClient({ context = 'compras' }: { context?: 'compra
                   setSelectedThread(thread);
                   if (!thread.isRead) toggleReadStatus(thread.id, false);
                 }}
-                className={`flex flex-col border-b border-slate-100 dark:border-white/5 cursor-pointer hover:shadow-md z-0 hover:z-10 relative
+                className={`group flex flex-col border-b border-slate-100 dark:border-white/5 cursor-pointer hover:shadow-md z-0 hover:z-10 relative
                   ${!thread.isRead ? 'bg-white dark:bg-[#1a1a24]' : 'bg-[#f2f6fc] dark:bg-[#0a0a14]/60'}
                 `}
               >
@@ -439,6 +452,17 @@ export default function GmailClient({ context = 'compras' }: { context?: 'compra
 
                   <div className={`w-[60px] text-right shrink-0 text-xs ${!thread.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-600 dark:text-white/60'}`}>
                     {thread.date}
+                  </div>
+                  <div className="shrink-0 flex items-center ml-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => handleDeleteThread(thread.id, e)}
+                      title="Eliminar correo"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
                   </div>
                 </div>
 
