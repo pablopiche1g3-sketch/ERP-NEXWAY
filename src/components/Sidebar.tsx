@@ -9,18 +9,13 @@ import {
   BarChart3, 
   Building2, 
   CalendarClock, 
-  FileText, 
-  ArrowLeftRight, 
-  ClipboardList, 
-  Users, 
-  Package, 
   Building, 
   ShieldCheck,
-  LogOut,
   ChevronRight,
   ChevronLeft,
-  FolderOpen,
-  Sparkles
+  Sparkles,
+  Package,
+  LogOut
 } from 'lucide-react';
 import { useUser, getTenantName, ROLE_PERMISSIONS } from '@/supabase/use-user';
 import { Button } from '@/components/ui/button';

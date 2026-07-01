@@ -63,15 +63,15 @@ interface BmsContextType {
   tasks: GuideTask[];
   loading: boolean;
   auditSystem: () => Promise<void>;
-  processChange: (total: number, paid: number) => void;
-  triggerArqueoAlert: (difference: number) => void;
+  processChange: (_total: number, _paid: number) => void;
+  triggerArqueoAlert: (_difference: number) => void;
   requestChange: () => void;
   confirmChange: () => void;
   // Guide Mode State
   isGuideActive: boolean;
   targetElementId: string | null;
   guideMessage: string | null;
-  startGuide: (targetId: string, message: string) => void;
+  startGuide: (_targetId: string, _message: string) => void;
   stopGuide: () => void;
   // Map Data
   mapData: MapData;
