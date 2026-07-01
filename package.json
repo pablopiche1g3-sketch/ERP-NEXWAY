@@ -68,7 +68,6 @@
     "@typescript-eslint/parser": "^8.62.1",
     "dotenv": "^16.5.0",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^16.2.9",
     "genkit-cli": "^1.28.0",
     "knip": "^6.23.0",
     "postcss": "^8",
