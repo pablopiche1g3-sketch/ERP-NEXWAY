@@ -2701,7 +2701,7 @@ export default function BillingPage() {
                         CERRAR TURNO (CONTEO FÍSICO)
                       </Button>
                       
-                      <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black shadow-lg shadow-blue-500/20 transition-all text-xs" onClick={handleDayClosing} disabled={isProcessing}>
+                      <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black shadow-lg shadow-blue-500/20 transition-all text-xs" onClick={() => setIsDayClosingConfirmOpen(true)} disabled={isProcessing}>
                         {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
                         [ 💾 ENVIAR Y AUDITAR JORNADA ]
                       </Button>
@@ -2721,6 +2721,28 @@ export default function BillingPage() {
                 </div>
               </div>
             </div>
+
+                        <Dialog open={isDayClosingConfirmOpen} onOpenChange={setIsDayClosingConfirmOpen}>
+              <DialogContent className="max-w-md rounded-2xl border shadow-xl">
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-black tracking-tight text-foreground text-rose-600">
+                    Aviso de Cierre del Día
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-2">
+                    Estás a punto de formalizar el cierre de caja. Esto enviará la auditoría a la gerencia y <strong className="text-rose-500">reiniciará todas las ventas y conteos físicos del sistema a cero</strong> para empezar un nuevo turno/día limpio.
+                    <br /><br />
+                    ¿Estás seguro de que deseas proceder con el cierre de la jornada?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex gap-3 justify-end mt-4">
+                  <Button variant="outline" onClick={() => setIsDayClosingConfirmOpen(false)}>Cancelar</Button>
+                  <Button className="bg-rose-600 hover:bg-rose-700 text-white font-bold" onClick={handleDayClosing} disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
+                    Confirmar Cierre de Día
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <Dialog open={isCloseShiftOpen} onOpenChange={setIsCloseShiftOpen}>
               <DialogContent className="max-w-md rounded-2xl border shadow-xl">
