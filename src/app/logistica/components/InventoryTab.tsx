@@ -1380,7 +1380,7 @@ export default function InventoryTab() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full glass hover:bg-white/10 border-white/10 text-white" 
+            className="rounded-full bg-card border-border shadow-sm hover:bg-white/10 border-white/10 text-white" 
             onClick={() => router.push('/')}
           >
             <ArrowLeft className="text-white" size={20} />
@@ -1394,7 +1394,7 @@ export default function InventoryTab() {
  
       <div className="max-w-7xl mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="glass-card p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="bg-card border-border shadow-sm p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['inventory_existencia'] !== false && (
               <TabsTrigger data-tour-id="tab-existencias" value="existencias" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <Package size={14} className="mr-2" /> Existencias y Kárdex
@@ -1430,7 +1430,7 @@ export default function InventoryTab() {
               <TabsContent value="existencia" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-1 space-y-4">
-                <Card className="glass-card rounded-2xl h-fit hidden lg:block">
+                <Card className="bg-card border-border shadow-sm rounded-2xl h-fit hidden lg:block">
                   <CardHeader>
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Warehouse size={18} className="text-blue-600" /> Bodega de Consulta
@@ -1460,7 +1460,7 @@ export default function InventoryTab() {
                 </Card>
                 <div className="lg:hidden">
                   <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
-                    <SelectTrigger className="w-full rounded-xl glass-card h-11 border-none shadow-sm text-xs font-bold">
+                    <SelectTrigger className="w-full rounded-xl bg-card border-border shadow-sm h-11 border-none shadow-sm text-xs font-bold">
                       <SelectValue placeholder="Filtrar por bodega" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1480,11 +1480,11 @@ export default function InventoryTab() {
                     placeholder={selectedWarehouse === 'Todas' ? "Buscar en stock consolidado..." : `Buscar existencias en '${selectedWarehouse}'...`} 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-12 h-12 glass-input border-none shadow-sm rounded-2xl text-xs md:text-sm"
+                    className="pl-12 h-12 bg-background border-input border-none shadow-sm rounded-2xl text-xs md:text-sm"
                   />
                 </div>
  
-                <Card className="glass-card rounded-2xl overflow-hidden">
+                <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader className="bg-white/10 border-b border-white/10">
@@ -1533,7 +1533,7 @@ export default function InventoryTab() {
             </div>
           </TabsContent>
               <TabsContent value="kardex" className="space-y-6 outline-none animate-in fade-in duration-300">
-              <Card className="glass-card rounded-2xl">
+              <Card className="bg-card border-border shadow-sm rounded-2xl">
                 <CardHeader className="p-6 border-b">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <History className="text-blue-600" size={18} />
@@ -1631,7 +1631,7 @@ export default function InventoryTab() {
                 <TabsTrigger value="vinculacion" className="rounded-lg text-xs font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white">Vincular Proveedores</TabsTrigger>
               </TabsList>
               <TabsContent value="maestro" className="space-y-4 outline-none">
-            <div className="flex gap-2 glass p-1 rounded-xl w-fit">
+            <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl w-fit">
               <Button 
                 variant={maestroSubTab === 'catalogo' ? 'default' : 'ghost'} 
                 size="sm" 
@@ -1654,7 +1654,7 @@ export default function InventoryTab() {
               // CATÁLOGO MAESTRO
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Plus className="text-blue-400" size={18} /> Registro de Códigos Autorizados
@@ -1672,7 +1672,7 @@ export default function InventoryTab() {
                                 placeholder="EJ: ACC-001" 
                                 value={productForm.sku}
                                 onChange={e => setProductForm({...productForm, sku: e.target.value.toUpperCase()})}
-                                className="pl-9 h-11 glass-input rounded-xl font-bold text-xs"
+                                className="pl-9 h-11 bg-background border-input rounded-xl font-bold text-xs"
                               />
                             </div>
                             <Button 
@@ -1695,7 +1695,7 @@ export default function InventoryTab() {
                             placeholder="Descripción completa..." 
                             value={productForm.name}
                             onChange={e => setProductForm({...productForm, name: e.target.value})}
-                            className="h-11 glass-input rounded-xl text-xs"
+                            className="h-11 bg-background border-input rounded-xl text-xs"
                           />
                         </div>
  
@@ -1705,7 +1705,7 @@ export default function InventoryTab() {
                             value={productForm.category} 
                             onValueChange={(val) => setProductForm({...productForm, category: val})}
                           >
-                            <SelectTrigger className="h-11 glass-input rounded-xl text-xs">
+                            <SelectTrigger className="h-11 bg-background border-input rounded-xl text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1731,7 +1731,7 @@ export default function InventoryTab() {
                               placeholder="0.00" 
                               value={(productForm as any).cost}
                               onChange={e => handleBmsChange('cost', e.target.value)}
-                              className="h-11 glass-input rounded-xl text-xs"
+                              className="h-11 bg-background border-input rounded-xl text-xs"
                             />
                           </div>
                           <div className="space-y-2">
@@ -1741,7 +1741,7 @@ export default function InventoryTab() {
                               placeholder="0.00" 
                               value={(productForm as any).margin}
                               onChange={e => handleBmsChange('margin', e.target.value)}
-                              className="h-11 glass-input rounded-xl text-xs border-amber-500/30"
+                              className="h-11 bg-background border-input rounded-xl text-xs border-amber-500/30"
                             />
                           </div>
                           <div className="space-y-2">
@@ -1751,7 +1751,7 @@ export default function InventoryTab() {
                               placeholder="0.00" 
                               value={(productForm as any).price}
                               onChange={e => handleBmsChange('price', e.target.value)}
-                              className="h-11 glass-input rounded-xl text-xs border-emerald-500/30 font-bold"
+                              className="h-11 bg-background border-input rounded-xl text-xs border-emerald-500/30 font-bold"
                             />
                           </div>
                         </div>
@@ -1786,11 +1786,11 @@ export default function InventoryTab() {
                       placeholder="Buscar en el catálogo maestro..." 
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
-                      className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs"
+                      className="pl-12 h-12 bg-card border-border shadow-sm border-none shadow-sm rounded-2xl text-xs"
                     />
                   </div>
  
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <ScrollArea className="h-[500px]">
                       <Table>
                         <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
@@ -1832,7 +1832,7 @@ export default function InventoryTab() {
               // CÓDIGOS INTERNOS DE EMPRESAS
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Link2 className="text-blue-400" size={18} /> Mapeo de Código por Empresa
@@ -1847,7 +1847,7 @@ export default function InventoryTab() {
                             value={companyForm.masterSku} 
                             onValueChange={(val) => setCompanyForm({...companyForm, masterSku: val})}
                           >
-                            <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-11 bg-background border-input rounded-xl text-xs font-bold">
                               <SelectValue placeholder="Seleccione SKU..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1866,7 +1866,7 @@ export default function InventoryTab() {
                             placeholder="Ej. Cemento del Norte S.A..." 
                             value={companyForm.companyName}
                             onChange={e => setCompanyForm({...companyForm, companyName: e.target.value})}
-                            className="h-11 glass-input rounded-xl text-xs font-bold"
+                            className="h-11 bg-background border-input rounded-xl text-xs font-bold"
                           />
                         </div>
 
@@ -1878,7 +1878,7 @@ export default function InventoryTab() {
                               placeholder="Ej: COD-CEM-409" 
                               value={companyForm.companySku}
                               onChange={e => setCompanyForm({...companyForm, companySku: e.target.value})}
-                              className="pl-9 h-11 glass-input rounded-xl text-xs font-mono font-bold"
+                              className="pl-9 h-11 bg-background border-input rounded-xl text-xs font-mono font-bold"
                             />
                           </div>
                         </div>
@@ -1913,11 +1913,11 @@ export default function InventoryTab() {
                       placeholder="Buscar por Empresa, SKU Maestro o Código Interno..." 
                       value={companySearchTerm}
                       onChange={e => setCompanySearchTerm(e.target.value)}
-                      className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs"
+                      className="pl-12 h-12 bg-card border-border shadow-sm border-none shadow-sm rounded-2xl text-xs"
                     />
                   </div>
 
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <ScrollArea className="h-[500px]">
                       <Table>
                         <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
@@ -1966,7 +1966,7 @@ export default function InventoryTab() {
               
               {/* Formulario Izquierdo: Editor de Producto */}
               <div className="lg:col-span-7 space-y-6">
-                <Card className="glass-card rounded-2xl overflow-hidden">
+                <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                   <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Tag className="text-emerald-400" size={18} /> Editor de Producto
@@ -1991,11 +1991,11 @@ export default function InventoryTab() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Nombre del Producto</Label>
-                            <Input value={productNameValue} onChange={e => setProductNameValue(e.target.value)} className="h-11 glass-input rounded-xl text-xs font-bold" />
+                            <Input value={productNameValue} onChange={e => setProductNameValue(e.target.value)} className="h-11 bg-background border-input rounded-xl text-xs font-bold" />
                           </div>
                           <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Marca</Label>
-                            <Input value={productBrand} onChange={e => setProductBrand(e.target.value)} placeholder="Ej. Sony, Samsung..." className="h-11 glass-input rounded-xl text-xs font-bold" />
+                            <Input value={productBrand} onChange={e => setProductBrand(e.target.value)} placeholder="Ej. Sony, Samsung..." className="h-11 bg-background border-input rounded-xl text-xs font-bold" />
                           </div>
                         </div>
 
@@ -2003,7 +2003,7 @@ export default function InventoryTab() {
                           <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Tipo</Label>
                             <Select value={productType} onValueChange={setProductType}>
-                              <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-11 bg-background border-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
                               <SelectContent className="rounded-xl">
                                 <SelectItem value="Terminado">Terminado</SelectItem>
                                 <SelectItem value="Materia Prima">Materia Prima</SelectItem>
@@ -2015,7 +2015,7 @@ export default function InventoryTab() {
                           <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Categoría / Área Contable</Label>
                             <Select value={selectedPriceCategory} onValueChange={setSelectedPriceCategory}>
-                              <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-11 bg-background border-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
                               <SelectContent className="rounded-xl">
                                 <SelectItem value="Inventario de Mercadería">Inventario</SelectItem>
                                 <SelectItem value="Gastos de Administración">Gtos. Admin</SelectItem>
@@ -2028,7 +2028,7 @@ export default function InventoryTab() {
                           <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Unidad</Label>
                             <Select value={productUnit} onValueChange={setProductUnit}>
-                              <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-11 bg-background border-input rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
                               <SelectContent className="rounded-xl">
                                 <SelectItem value="Unidad">Unidad</SelectItem>
                                 <SelectItem value="Kilogramo">Kilogramo</SelectItem>
@@ -2046,7 +2046,7 @@ export default function InventoryTab() {
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Costo (Sin Impuesto)</Label>
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-xs text-muted-foreground">$</span>
-                              <Input type="number" placeholder="0.00" value={productCost} onChange={e => setProductCost(e.target.value)} className="pl-7 h-11 glass-input rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300" />
+                              <Input type="number" placeholder="0.00" value={productCost} onChange={e => setProductCost(e.target.value)} className="pl-7 h-11 bg-background border-input rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300" />
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -2063,11 +2063,11 @@ export default function InventoryTab() {
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="space-y-2">
                               <Label className="text-[10px] font-black uppercase text-slate-400">Min. Stock</Label>
-                              <Input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="h-10 glass-input rounded-xl text-xs font-bold" />
+                              <Input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} className="h-10 bg-background border-input rounded-xl text-xs font-bold" />
                             </div>
                             <div className="space-y-2">
                               <Label className="text-[10px] font-black uppercase text-slate-400">Max. Stock</Label>
-                              <Input type="number" value={maxStock} onChange={e => setMaxStock(e.target.value)} className="h-10 glass-input rounded-xl text-xs font-bold" />
+                              <Input type="number" value={maxStock} onChange={e => setMaxStock(e.target.value)} className="h-10 bg-background border-input rounded-xl text-xs font-bold" />
                             </div>
                             <div className="space-y-2">
                               <Label className="text-[10px] font-black uppercase text-slate-400">Punto Pedido</Label>
@@ -2077,11 +2077,11 @@ export default function InventoryTab() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div className="space-y-2">
                               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Ubicación Física</Label>
-                              <Input value={productLocation} onChange={e => setProductLocation(e.target.value)} placeholder="Ej. Estante A, Pasillo 3" className="h-10 glass-input rounded-xl text-xs font-bold" />
+                              <Input value={productLocation} onChange={e => setProductLocation(e.target.value)} placeholder="Ej. Estante A, Pasillo 3" className="h-10 bg-background border-input rounded-xl text-xs font-bold" />
                             </div>
                             <div className="space-y-2">
                               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Código del Proveedor</Label>
-                              <Input value={selectedPriceSupplierSku} onChange={e => setSelectedPriceSupplierSku(e.target.value)} placeholder="Código externo..." className="h-10 glass-input rounded-xl text-xs font-mono font-bold" />
+                              <Input value={selectedPriceSupplierSku} onChange={e => setSelectedPriceSupplierSku(e.target.value)} placeholder="Código externo..." className="h-10 bg-background border-input rounded-xl text-xs font-mono font-bold" />
                             </div>
                           </div>
                         </div>
@@ -2089,15 +2089,15 @@ export default function InventoryTab() {
                         <div className="border-t border-white/10 border-slate-100 dark:border-zinc-800 pt-4 mt-2">
                           <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Tag size={14}/> Propiedades</h4>
                           <div className="flex flex-wrap gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer glass-input px-3 py-2 rounded-xl">
+                            <label className="flex items-center gap-2 cursor-pointer bg-background border-input px-3 py-2 rounded-xl">
                               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
                               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Activo</span>
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer glass-input px-3 py-2 rounded-xl">
+                            <label className="flex items-center gap-2 cursor-pointer bg-background border-input px-3 py-2 rounded-xl">
                               <input type="checkbox" checked={isService} onChange={e => setIsService(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
                               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Servicio</span>
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer glass-input px-3 py-2 rounded-xl">
+                            <label className="flex items-center gap-2 cursor-pointer bg-background border-input px-3 py-2 rounded-xl">
                               <input type="checkbox" checked={isExempt} onChange={e => setIsExempt(e.target.checked)} className="rounded text-emerald-500 focus:ring-emerald-500 bg-slate-200 dark:bg-zinc-800 border-none w-4 h-4" />
                               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Exento (Sin IVA)</span>
                             </label>
@@ -2128,11 +2128,11 @@ export default function InventoryTab() {
                     placeholder="Buscar por SKU o descripción..." 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs"
+                    className="pl-12 h-12 bg-card border-border shadow-sm border-none shadow-sm rounded-2xl text-xs"
                   />
                 </div>
 
-                <Card className="glass-card rounded-2xl overflow-hidden">
+                <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                   <ScrollArea className="h-[500px]">
                     <Table>
                       <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
@@ -2185,7 +2185,7 @@ export default function InventoryTab() {
                 
                 {/* Panel Izquierdo: Carga y Progreso */}
                 <div className="lg:col-span-5 space-y-6">
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <div className="flex justify-between items-center">
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -2255,7 +2255,7 @@ export default function InventoryTab() {
                                 <span>{bulkProgressText}</span>
                                 <span>{bulkProgressPercent}%</span>
                               </div>
-                              <div className="w-full glass rounded-full h-2 overflow-hidden">
+                              <div className="w-full bg-card border-border shadow-sm rounded-full h-2 overflow-hidden">
                                 <div 
                                   className="bg-blue-600 h-full transition-all duration-150 rounded-full" 
                                   style={{ width: `${bulkProgressPercent}%` }}
@@ -2277,7 +2277,7 @@ export default function InventoryTab() {
                   </Card>
 
                   {/* NUEVO CARD: LIMPIEZA DE CATÁLOGO EXISTENTE */}
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Trash2 size={18} className="text-rose-455 dark:text-rose-400" /> Limpieza de Catálogo
@@ -2302,7 +2302,7 @@ export default function InventoryTab() {
 
                 {/* Panel Derecho: Previsualización / Catálogo en Sistema */}
                 <div className="lg:col-span-7 space-y-4">
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <Tabs defaultValue="excel" className="w-full">
                       
                       {/* Header Integrado de Sub-pestañas */}
@@ -2439,7 +2439,7 @@ export default function InventoryTab() {
                 
                 {/* Panel Izquierdo: Formulario de Vinculación */}
                 <div className="lg:col-span-4 space-y-6">
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Link2 className="text-amber-400 drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]" size={18} /> Vinculación de Catálogo
@@ -2456,7 +2456,7 @@ export default function InventoryTab() {
                             value={mappingInternalSku} 
                             onValueChange={setMappingInternalSku}
                           >
-                            <SelectTrigger className="h-11 glass-input rounded-xl text-xs font-bold">
+                            <SelectTrigger className="h-11 bg-background border-input rounded-xl text-xs font-bold">
                               <SelectValue placeholder="Seleccione SKU..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -2477,7 +2477,7 @@ export default function InventoryTab() {
                               placeholder="Ej: PRV-90812-A" 
                               value={mappingSupplierCode}
                               onChange={e => setMappingSupplierCode(e.target.value)}
-                              className="pl-9 h-11 glass-input rounded-xl text-xs font-mono font-bold"
+                              className="pl-9 h-11 bg-background border-input rounded-xl text-xs font-mono font-bold"
                             />
                           </div>
                         </div>
@@ -2513,11 +2513,11 @@ export default function InventoryTab() {
                       placeholder="Buscar por SKU Interno, Código Proveedor o Producto..." 
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
-                      className="pl-12 h-12 glass-card border-none shadow-sm rounded-2xl text-xs"
+                      className="pl-12 h-12 bg-card border-border shadow-sm border-none shadow-sm rounded-2xl text-xs"
                     />
                   </div>
 
-                  <Card className="glass-card rounded-2xl overflow-hidden">
+                  <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                     <ScrollArea className="h-[500px]">
                       <Table>
                         <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">
@@ -2578,7 +2578,7 @@ export default function InventoryTab() {
           <TabsContent value="transitos" className="space-y-4 outline-none">
             <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
                 {/* Nueva Columna: Tránsitos Pre-pagados */}
-                <Card className="glass-card border-0 shadow-2xl rounded-3xl overflow-hidden flex flex-col">
+                <Card className="bg-card border-border shadow-sm border-0 shadow-2xl rounded-3xl overflow-hidden flex flex-col">
                   <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 md:p-8">
                     <div className="flex items-center gap-4 mb-2">
                       <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
@@ -2612,7 +2612,7 @@ export default function InventoryTab() {
                     )}
                   </div>
                 </Card>
-             <Card className="glass-card rounded-2xl h-fit">
+             <Card className="bg-card border-border shadow-sm rounded-2xl h-fit">
                <CardHeader className="p-5 md:p-6">
                  <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
                    <Zap size={18} className="text-amber-500" /> Entrada Rápida de Stock
@@ -2627,7 +2627,7 @@ export default function InventoryTab() {
                        placeholder="SKU..." 
                        value={quickEntry.sku}
                        onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
-                       className="glass-input h-10 md:h-12 text-base md:text-lg font-bold text-xs"
+                       className="bg-background border-input h-10 md:h-12 text-base md:text-lg font-bold text-xs"
                      />
                    </div>
                    <div className="space-y-2">
@@ -2638,7 +2638,7 @@ export default function InventoryTab() {
                        value={quickEntry.quantity}
                        onFocus={e => e.target.select()}
                        onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
-                       className="glass-input h-10 md:h-12 text-lg font-black text-blue-600 dark:text-blue-400"
+                       className="bg-background border-input h-10 md:h-12 text-lg font-black text-blue-600 dark:text-blue-400"
                      />
                    </div>
                    {selectedWarehouse !== 'Todas' && (
@@ -3045,7 +3045,7 @@ export default function InventoryTab() {
                {/* Columna Izquierda: Crear Bodega y Vincular Producto */}
                <div className="lg:col-span-4 space-y-6">
                  {/* Tarjeta 1: Crear Bodega */}
-                 <Card className="glass-card rounded-2xl h-fit">
+                 <Card className="bg-card border-border shadow-sm rounded-2xl h-fit">
                    <CardHeader className="p-5">
                      <CardTitle className="text-sm font-bold flex items-center gap-2">
                        <Warehouse size={16} className="text-blue-600" /> Crear Almacén / Bodega
@@ -3059,7 +3059,7 @@ export default function InventoryTab() {
                          placeholder="Ej. Sucursal Santa Tecla..." 
                          value={warehouseName}
                          onChange={e => setWarehouseName(e.target.value)}
-                         className="glass-input h-10 text-xs font-bold"
+                         className="bg-background border-input h-10 text-xs font-bold"
                        />
                      </div>
                      
@@ -3069,7 +3069,7 @@ export default function InventoryTab() {
                          value={warehouseBranchId}
                          onValueChange={setWarehouseBranchId}
                        >
-                         <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                         <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs font-bold">
                            <SelectValue placeholder="Seleccione sucursal..." />
                          </SelectTrigger>
                          <SelectContent>
@@ -3108,7 +3108,7 @@ export default function InventoryTab() {
                  </Card>
 
                  {/* Tarjeta 2: Vincular Producto a Bodega */}
-                 <Card className="glass-card rounded-2xl h-fit">
+                 <Card className="bg-card border-border shadow-sm rounded-2xl h-fit">
                    <CardHeader className="p-5">
                      <CardTitle className="text-sm font-bold flex items-center gap-2">
                        <Link2 size={16} className="text-blue-600" /> Vincular Producto a Bodega
@@ -3123,7 +3123,7 @@ export default function InventoryTab() {
                            value={linkForm.warehouseName}
                            onValueChange={(val) => setLinkForm({ ...linkForm, warehouseName: val })}
                          >
-                           <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                           <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs font-bold">
                              <SelectValue placeholder="Seleccione..." />
                            </SelectTrigger>
                            <SelectContent>
@@ -3140,7 +3140,7 @@ export default function InventoryTab() {
                            value={linkForm.productSku}
                            onValueChange={(val) => setLinkForm({ ...linkForm, productSku: val })}
                          >
-                           <SelectTrigger className="h-10 glass-input rounded-xl text-xs font-bold">
+                           <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs font-bold">
                              <SelectValue placeholder="Seleccione SKU..." />
                            </SelectTrigger>
                            <SelectContent>
@@ -3157,7 +3157,7 @@ export default function InventoryTab() {
                            type="number"
                            value={linkForm.initialStock}
                            onChange={e => setLinkForm({ ...linkForm, initialStock: e.target.value })}
-                           className="glass-input h-10 text-xs font-black text-blue-600 dark:text-blue-400"
+                           className="bg-background border-input h-10 text-xs font-black text-blue-600 dark:text-blue-400"
                          />
                        </div>
 
@@ -3176,11 +3176,11 @@ export default function InventoryTab() {
 
                {/* Columna Derecha: Vista de Productos por Bodega */}
                <div className="lg:col-span-8 space-y-4">
-                 <Card className="p-4 glass-card border shadow-sm rounded-2xl flex justify-between items-center">
+                 <Card className="p-4 bg-card border-border shadow-sm border shadow-sm rounded-2xl flex justify-between items-center">
                    <div className="space-y-1">
                      <Label className="text-[9px] font-black uppercase text-slate-400">Ver Productos en Bodega</Label>
                      <Select value={selectedWhView} onValueChange={setSelectedWhView}>
-                       <SelectTrigger className="w-52 h-9 text-xs rounded-xl glass-input font-bold">
+                       <SelectTrigger className="w-52 h-9 text-xs rounded-xl bg-background border-input font-bold">
                          <SelectValue />
                        </SelectTrigger>
                        <SelectContent>
@@ -3197,7 +3197,7 @@ export default function InventoryTab() {
                    </div>
                  </Card>
 
-                 <Card className="glass-card rounded-2xl overflow-hidden">
+                 <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                    <ScrollArea className="h-[480px]">
                      <Table>
                        <TableHeader className="bg-white/10 border-b border-white/10 sticky top-0 z-10 shadow-sm">

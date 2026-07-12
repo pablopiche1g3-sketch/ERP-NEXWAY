@@ -578,7 +578,7 @@ export default function CRMPage() {
               placeholder="Buscar oportunidad o contacto..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 pl-9 glass-input text-xs font-medium rounded-lg w-full"
+              className="h-9 pl-9 bg-background border-input text-xs font-medium rounded-lg w-full"
             />
           </div>
           <div className="flex gap-2 w-full sm:w-auto shrink-0">
@@ -764,7 +764,7 @@ export default function CRMPage() {
                   value={oppForm.title}
                   onChange={e => setOppForm({...oppForm, title: e.target.value})}
                   placeholder="Ej: Lote de 50 licencias NexWay"
-                  className="glass-input h-10 rounded-xl text-xs focus:ring-amber-500"
+                  className="bg-background border-input h-10 rounded-xl text-xs focus:ring-amber-500"
                   required
                 />
               </div>
@@ -793,7 +793,7 @@ export default function CRMPage() {
                     value={oppForm.contact_name}
                     onChange={e => setOppForm({...oppForm, contact_name: e.target.value})}
                     placeholder="Nombre del prospecto"
-                    className="glass-input h-10 rounded-xl text-xs"
+                    className="bg-background border-input h-10 rounded-xl text-xs"
                   />
                 </div>
               </div>
@@ -806,7 +806,7 @@ export default function CRMPage() {
                     value={oppForm.estimated_value}
                     onChange={e => setOppForm({...oppForm, estimated_value: e.target.value})}
                     placeholder="0.00"
-                    className="glass-input h-10 rounded-xl text-xs"
+                    className="bg-background border-input h-10 rounded-xl text-xs"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1027,7 +1027,7 @@ export default function CRMPage() {
                           value={newInteraction.summary}
                           onChange={e => setNewInteraction({...newInteraction, summary: e.target.value})}
                           placeholder="Resumen rápido de la acción (Ej: Llamó para pedir precio especial)"
-                          className="h-8 glass-input text-[11px] rounded-lg"
+                          className="h-8 bg-background border-input text-[11px] rounded-lg"
                           required
                         />
                         <Textarea 
@@ -1093,7 +1093,7 @@ export default function CRMPage() {
                           value={newTask.title}
                           onChange={e => setNewTask({...newTask, title: e.target.value})}
                           placeholder="Ej: Llamar para concretar firma"
-                          className="h-8 glass-input text-[11px] rounded-lg"
+                          className="h-8 bg-background border-input text-[11px] rounded-lg"
                           required
                         />
                       </div>
@@ -1103,7 +1103,7 @@ export default function CRMPage() {
                           type="datetime-local"
                           value={newTask.due_date}
                           onChange={e => setNewTask({...newTask, due_date: e.target.value})}
-                          className="h-8 glass-input text-[10px] rounded-lg"
+                          className="h-8 bg-background border-input text-[10px] rounded-lg"
                           required
                         />
                       </div>

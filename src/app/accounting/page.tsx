@@ -813,7 +813,7 @@ export default function AccountingPage() {
       {/* Header */}
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 relative z-10">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full glass-card shadow-sm border border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-muted" onClick={() => router.push('/')}>
+          <Button variant="ghost" size="icon" className="rounded-full bg-card border-border shadow-sm shadow-sm border border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-muted" onClick={() => router.push('/')}>
             <ArrowLeft className="text-white" size={20} />
           </Button>
           <div>
@@ -843,7 +843,7 @@ export default function AccountingPage() {
       <div className="max-w-7xl mx-auto space-y-6 relative z-10">
         
         {/* Selector de Canal / Vista Contable */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between glass-card p-5 rounded-2xl gap-4 transition-all duration-300">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-card border-border shadow-sm p-5 rounded-2xl gap-4 transition-all duration-300">
           <div className="space-y-1">
             <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 dark:text-muted-foreground">Canal Contable de Evaluación</h3>
             <p className="text-xs text-slate-400 leading-none">Filtre y compare las ventas e inventarios por canal de distribución.</p>
@@ -884,7 +884,7 @@ export default function AccountingPage() {
 
         {/* KPI Panel */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <Card className="glass-card rounded-2xl p-5">
+          <Card className="bg-card border-border shadow-sm rounded-2xl p-5">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-xl"><TrendingUp size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/50">Unificado</Badge>
@@ -893,7 +893,7 @@ export default function AccountingPage() {
             <p className="text-2xl font-black text-white">${activeIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </Card>
 
-          <Card className="glass-card rounded-2xl p-5">
+          <Card className="bg-card border-border shadow-sm rounded-2xl p-5">
             <div className="flex justify-between items-start mb-4">
               <div className="p-2 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 rounded-xl"><TrendingDown size={18} /></div>
               <Badge variant="outline" className="text-[9px] text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/50">Consolidado</Badge>
@@ -923,7 +923,7 @@ export default function AccountingPage() {
 
         {/* MÓDULO PRINCIPAL CON PESTAÑAS */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="glass-card p-1 rounded-2xl flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
+          <TabsList className="bg-card border-border shadow-sm p-1 rounded-2xl flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['accounting_diario'] !== false && (
               <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
                 <FileText size={14} className="mr-2"/> Libro Diario
@@ -978,7 +978,7 @@ export default function AccountingPage() {
 
           <TabsContent value="diario" className="space-y-4 outline-none">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="flex gap-2 glass p-1 rounded-xl">
+              <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl">
                 <Button variant={activeSubTab === 'movimientos' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveSubTab('movimientos')}>
                   Movimientos Contables
                 </Button>
@@ -990,13 +990,13 @@ export default function AccountingPage() {
               {activeSubTab === 'movimientos' && (
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                  <Input placeholder="Buscar en el diario..." className="pl-9 h-9 text-xs glass-card rounded-xl border-slate-200 dark:border-border text-foreground" />
+                  <Input placeholder="Buscar en el diario..." className="pl-9 h-9 text-xs bg-card border-border shadow-sm rounded-xl border-slate-200 dark:border-border text-foreground" />
                 </div>
               )}
             </div>
 
             {activeSubTab === 'movimientos' ? (
-              <Card className="glass-card rounded-2xl overflow-hidden">
+              <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader className="bg-slate-50/70 dark:bg-muted/50 border-b border-slate-100 dark:border-border">
@@ -1020,7 +1020,7 @@ export default function AccountingPage() {
                         const isAdv = entry.type === 'Avanzado';
                         return (
                           <React.Fragment key={entry.id}>
-                            <TableRow className="glass-card hover:bg-slate-50/50 dark:hover:bg-muted/20">
+                            <TableRow className="bg-card border-border shadow-sm hover:bg-slate-50/50 dark:hover:bg-muted/20">
                               <TableCell className="px-6 py-4 text-xs font-medium text-slate-400 whitespace-nowrap">
                                 {new Date(entry.timestamp).toLocaleDateString()}
                               </TableCell>
@@ -1079,7 +1079,7 @@ export default function AccountingPage() {
               </Card>
             ) : (
               // CATÁLOGO DE CUENTAS
-              <Card className="glass-card rounded-2xl p-6">
+              <Card className="bg-card border-border shadow-sm rounded-2xl p-6">
                 <div className="mb-4">
                   <h3 className="font-bold text-white text-sm">Estructura del Catálogo de Cuentas</h3>
                   <p className="text-slate-400 text-xs">Cuentas contables organizadas según el esquema estándar del Ministerio de Hacienda de El Salvador.</p>
@@ -1110,7 +1110,7 @@ export default function AccountingPage() {
                             }`}>{acc.group}</Badge>
                           </TableCell>
                           <TableCell className="text-center">
-                            <Badge className="glass text-slate-600 dark:text-slate-400 text-[8px] font-bold">Activa</Badge>
+                            <Badge className="bg-card border-border shadow-sm text-slate-600 dark:text-slate-400 text-[8px] font-bold">Activa</Badge>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1123,7 +1123,7 @@ export default function AccountingPage() {
 
           {/* TAB 2: NUEVA PESTAÑA - RENTABILIDAD & GANANCIAS POR COSTO DE PRODUCTO Y LICITACIONES */}
           <TabsContent value="rentabilidad" className="space-y-6 outline-none">
-            <div className="flex gap-2 glass p-1 rounded-xl w-fit">
+            <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl w-fit">
               <Button variant={rentabilidadSubTab === 'productos' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setRentabilidadSubTab('productos')}>
                 Rentabilidad por Producto (Ganado / Perdido)
               </Button>
@@ -1135,7 +1135,7 @@ export default function AccountingPage() {
             {rentabilidadSubTab === 'productos' ? (
               // RENTABILIDAD POR PRODUCTO
               <div className="space-y-4 animate-in fade-in duration-300">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 glass-card p-4 rounded-2xl border border-slate-100 dark:border-border">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card border-border shadow-sm p-4 rounded-2xl border border-slate-100 dark:border-border">
                   <div>
                     <h3 className="font-black text-sm text-white">Análisis de Ganancias por Costo de Suministro</h3>
                     <p className="text-xs text-slate-400">Muestra cuánto se vendió cada producto, su costo unitario estimado/real y el margen de ganancia o pérdida total.</p>
@@ -1146,12 +1146,12 @@ export default function AccountingPage() {
                       placeholder="Filtrar por SKU o Nombre..." 
                       value={rentabilidadSearch}
                       onChange={e => setRentabilidadSearch(e.target.value)}
-                      className="pl-9 h-9 text-xs glass-input rounded-xl text-foreground"
+                      className="pl-9 h-9 text-xs bg-background border-input rounded-xl text-foreground"
                     />
                   </div>
                 </div>
 
-                <Card className="glass-card rounded-2xl overflow-hidden">
+                <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader className="bg-slate-50/70 dark:bg-muted/50 border-b border-slate-100 dark:border-border">
@@ -1208,12 +1208,12 @@ export default function AccountingPage() {
             ) : (
               // RENTABILIDAD DE LICITACIONES
               <div className="space-y-4 animate-in fade-in duration-300">
-                <div className="glass-card p-4 rounded-2xl border border-slate-100 dark:border-border">
+                <div className="bg-card border-border shadow-sm p-4 rounded-2xl border border-slate-100 dark:border-border">
                   <h3 className="font-black text-sm text-white">Análisis Consolidado de Proyectos Institucionales</h3>
                   <p className="text-xs text-slate-400">Muestra el monto total adjudicado (presupuesto), costos reales de suministros cargados y la ganancia neta líquida obtenida por Licitación.</p>
                 </div>
 
-                <Card className="glass-card rounded-2xl border-slate-100 dark:border-border overflow-hidden">
+                <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border overflow-hidden">
                   <Table>
                     <TableHeader className="bg-slate-50/70 dark:bg-muted/50">
                       <TableRow>
@@ -1267,7 +1267,7 @@ export default function AccountingPage() {
 
           {/* TAB 3: LIBROS DE IVA DEL EL SALVADOR */}
           <TabsContent value="libros_iva" className="space-y-6 outline-none">
-            <Card className="p-5 glass-card border border-slate-100 dark:border-border shadow-sm rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <Card className="p-5 bg-card border-border shadow-sm border border-slate-100 dark:border-border shadow-sm rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
                 <div className="space-y-1">
                   <Label className="text-[10px] font-black uppercase text-slate-400 dark:text-muted-foreground">Filtrar Mes Fiscal</Label>
@@ -1304,7 +1304,7 @@ export default function AccountingPage() {
             </Card>
 
             <div className="space-y-4">
-              <div className="flex gap-2 glass p-1 rounded-xl w-full justify-start overflow-x-auto">
+              <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl w-full justify-start overflow-x-auto">
                 <Button variant={activeTaxTab === 'vcf' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold whitespace-nowrap" onClick={() => setActiveTaxTab('vcf')}>
                   Ventas a Consumidor Final (CF)
                 </Button>
@@ -1317,7 +1317,7 @@ export default function AccountingPage() {
               </div>
 
               {activeTaxTab === 'vcf' && (
-                <Card className="glass-card rounded-2xl border-slate-100 dark:border-border overflow-hidden p-6">
+                <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border overflow-hidden p-6">
                   <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
                       <h3 className="font-bold text-sm text-foreground">Libro de Ventas a Consumidor Final</h3>
@@ -1374,7 +1374,7 @@ export default function AccountingPage() {
               )}
 
               {activeTaxTab === 'vc' && (
-                <Card className="glass-card rounded-2xl border-slate-100 dark:border-border overflow-hidden p-6">
+                <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border overflow-hidden p-6">
                   <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
                       <h3 className="font-bold text-sm text-foreground">Libro de Ventas a Contribuyentes</h3>
@@ -1441,7 +1441,7 @@ export default function AccountingPage() {
               )}
 
               {activeTaxTab === 'compras' && (
-                <Card className="glass-card rounded-2xl border-slate-100 dark:border-border overflow-hidden p-6">
+                <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border overflow-hidden p-6">
                   <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-border pb-4">
                     <div>
                       <h3 className="font-bold text-sm text-foreground">Libro de Compras</h3>
@@ -1507,7 +1507,7 @@ export default function AccountingPage() {
 
           {/* TAB 4: FORMULARIOS DE HACIENDA */}
           <TabsContent value="mh_forms" className="space-y-6 outline-none">
-            <div className="flex gap-2 glass p-1 rounded-xl w-fit">
+            <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl w-fit">
               <Button variant={activeFormTab === 'f07' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveFormTab('f07')}>
                 F07 - Declaración Mensual de IVA
               </Button>
@@ -1519,7 +1519,7 @@ export default function AccountingPage() {
             {activeFormTab === 'f07' ? (
               // FORMULARIO F07
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 border border-slate-100 dark:border-glass-card rounded-2xl p-6 md:p-8 space-y-6">
+                <Card className="lg:col-span-2 border border-slate-100 dark:border-bg-card border-border shadow-sm rounded-2xl p-6 md:p-8 space-y-6">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-4">
                     <h3 className="font-black text-white text-base">F07 - Impuesto al Valor Agregado (Esquema Mensual)</h3>
                     <Badge className="bg-blue-600 text-white font-bold text-[9px] uppercase px-3 h-6">Ministerio de Hacienda</Badge>
@@ -1589,7 +1589,7 @@ export default function AccountingPage() {
             ) : (
               // FORMULARIO F14
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 border border-slate-100 dark:border-glass-card rounded-2xl p-6 md:p-8 space-y-6">
+                <Card className="lg:col-span-2 border border-slate-100 dark:border-bg-card border-border shadow-sm rounded-2xl p-6 md:p-8 space-y-6">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-border pb-4">
                     <h3 className="font-black text-white text-base">F14 - Declaración de Pago a Cuenta y Retenciones de Renta</h3>
                     <Badge className="bg-blue-600 text-white font-bold text-[9px] uppercase px-3 h-6">Ministerio de Hacienda</Badge>
@@ -1650,7 +1650,7 @@ export default function AccountingPage() {
           {/* TAB 5: ESTADO DE RESULTADOS (P&L) */}
           <TabsContent value="pnl" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-              <Card className="glass-card rounded-2xl border-slate-100 dark:border-border overflow-hidden p-6 md:p-8 space-y-6">
+              <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border overflow-hidden p-6 md:p-8 space-y-6">
                 <h3 className="text-lg md:text-xl font-bold border-b border-slate-100 dark:border-border pb-4 text-white">Estructura de Pérdidas y Ganancias (P&L)</h3>
                 <div className="space-y-4 md:space-y-6">
                   <div className="flex justify-between items-center text-xs md:text-sm">
@@ -1725,7 +1725,7 @@ export default function AccountingPage() {
 
           {/* TAB BALANCE DE COMPROBACION */}
           <TabsContent value="balance-comprobacion" className="space-y-6 outline-none animate-in fade-in duration-300">
-            <Card className="glass-card rounded-2xl border-slate-100 dark:border-border">
+            <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border">
               <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                 <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
                   <Scale className="text-blue-600" size={18} />
@@ -1796,7 +1796,7 @@ export default function AccountingPage() {
           <TabsContent value="tributario" className="space-y-6 outline-none animate-in fade-in duration-300">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 space-y-4">
-                <Card className="glass-card rounded-2xl border-slate-100 dark:border-border">
+                <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border">
                   <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
                       <Percent className="text-blue-600" size={18} />
@@ -1808,7 +1808,7 @@ export default function AccountingPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Período Tributario Activo</Label>
                       <Select value={filterMonth} onValueChange={setFilterMonth}>
-                        <SelectTrigger className="h-11 glass-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
+                        <SelectTrigger className="h-11 bg-background border-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1831,7 +1831,7 @@ export default function AccountingPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Forma de Pago Predeterminada DTE</Label>
                       <Select defaultValue="01">
-                        <SelectTrigger className="h-11 glass-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
+                        <SelectTrigger className="h-11 bg-background border-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1846,7 +1846,7 @@ export default function AccountingPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Municipio Sede Contribuyente</Label>
                       <Select defaultValue="0501">
-                        <SelectTrigger className="h-11 glass-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
+                        <SelectTrigger className="h-11 bg-background border-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1867,7 +1867,7 @@ export default function AccountingPage() {
               </div>
 
               <div className="lg:col-span-7">
-                <Card className="glass-card rounded-2xl border-slate-100 dark:border-border overflow-hidden">
+                <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border overflow-hidden">
                   <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
                       <BookOpen className="text-blue-600" size={18} />
@@ -1877,15 +1877,15 @@ export default function AccountingPage() {
                   </CardHeader>
                   <CardContent className="p-6 space-y-6">
                     <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="p-4 glass-input/40 border dark:border-border rounded-2xl">
+                      <div className="p-4 bg-background border-input/40 border dark:border-border rounded-2xl">
                         <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground">IVA Débito Fiscal</p>
                         <p className="text-lg font-black text-white mt-1">${totalDebitFiscal.toFixed(2)}</p>
                       </div>
-                      <div className="p-4 glass-input/40 border dark:border-border rounded-2xl">
+                      <div className="p-4 bg-background border-input/40 border dark:border-border rounded-2xl">
                         <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground">IVA Crédito Fiscal</p>
                         <p className="text-lg font-black text-white mt-1">${totalCreditFiscal.toFixed(2)}</p>
                       </div>
-                      <div className="p-4 glass-input/40 border dark:border-border rounded-2xl">
+                      <div className="p-4 bg-background border-input/40 border dark:border-border rounded-2xl">
                         <p className="text-[9px] font-black uppercase text-slate-400 dark:text-muted-foreground">Saldo a Pagar (F07)</p>
                         <p className={`text-lg font-black mt-1 ${f07TaxBalance >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                           ${Math.abs(f07TaxBalance).toFixed(2)}
@@ -1935,7 +1935,7 @@ export default function AccountingPage() {
           <TabsContent value="caja-chica" className="space-y-6 outline-none animate-in fade-in duration-300">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5 space-y-4">
-                <Card className="glass-card rounded-2xl border-slate-100 dark:border-border">
+                <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border">
                   <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
                       <Briefcase className="text-blue-600" size={18} />
@@ -1950,7 +1950,7 @@ export default function AccountingPage() {
                         placeholder="Ej. Combustible, papelería..." 
                         value={newEntry.description}
                         onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })}
-                        className="h-11 glass-input border-slate-100 dark:border-border rounded-xl text-xs text-foreground"
+                        className="h-11 bg-background border-input border-slate-100 dark:border-border rounded-xl text-xs text-foreground"
                       />
                     </div>
 
@@ -1961,7 +1961,7 @@ export default function AccountingPage() {
                           value={newEntry.account}
                           onValueChange={(val) => setNewEntry({ ...newEntry, account: val })}
                         >
-                          <SelectTrigger className="h-11 glass-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
+                          <SelectTrigger className="h-11 bg-background border-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1979,7 +1979,7 @@ export default function AccountingPage() {
                           placeholder="0.00" 
                           value={newEntry.amount}
                           onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
-                          className="h-11 glass-input border-slate-100 dark:border-border rounded-xl font-bold text-rose-600 text-sm text-foreground"
+                          className="h-11 bg-background border-input border-slate-100 dark:border-border rounded-xl font-bold text-rose-600 text-sm text-foreground"
                         />
                       </div>
                     </div>
@@ -1997,7 +1997,7 @@ export default function AccountingPage() {
               </div>
 
               <div className="lg:col-span-7">
-                <Card className="glass-card rounded-2xl border-slate-100 dark:border-border overflow-hidden">
+                <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border overflow-hidden">
                   <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
                       <FileText className="text-blue-600" size={18} />
@@ -2049,7 +2049,7 @@ export default function AccountingPage() {
           </TabsContent>
 
           <TabsContent value="cuentas-pagar" className="space-y-6 outline-none animate-in fade-in duration-300">
-            <Card className="border shadow-md rounded-2xl glass-card border-slate-100 dark:border-border overflow-hidden">
+            <Card className="border shadow-md rounded-2xl bg-card border-border shadow-sm border-slate-100 dark:border-border overflow-hidden">
               <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-black uppercase tracking-tight flex items-center gap-2">
@@ -2127,7 +2127,7 @@ export default function AccountingPage() {
 
       {/* --- MODAL NUEVO ASIENTO SIMPLE --- */}
       <Dialog open={isJournalModalOpen} onOpenChange={setIsJournalModalOpen}>
-        <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm glass-card text-foreground border-slate-100 dark:border-border">
+        <DialogContent className="rounded-2xl max-w-[90vw] md:max-w-sm bg-card border-border shadow-sm text-foreground border-slate-100 dark:border-border">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2 text-white">
                <PlusCircle className="text-blue-600" /> Nuevo Movimiento Simple
@@ -2141,7 +2141,7 @@ export default function AccountingPage() {
                  placeholder="Ej. Pago de Internet corporativo..." 
                  value={newEntry.description} 
                  onChange={e => setNewEntry({...newEntry, description: e.target.value})}
-                 className="rounded-xl text-xs glass-card border-slate-200 dark:border-border text-foreground"
+                 className="rounded-xl text-xs bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground"
                />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -2152,13 +2152,13 @@ export default function AccountingPage() {
                    placeholder="0.00" 
                    value={newEntry.amount} 
                    onChange={e => setNewEntry({...newEntry, amount: e.target.value})}
-                   className="rounded-xl font-bold text-xs glass-card border-slate-200 dark:border-border text-foreground"
+                   className="rounded-xl font-bold text-xs bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground"
                  />
               </div>
               <div className="space-y-2">
                  <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Tipo de Flujo</Label>
                  <Select value={newEntry.type} onValueChange={(v) => setNewEntry({...newEntry, type: v})}>
-                    <SelectTrigger className="h-10 rounded-xl text-xs glass-card border-slate-200 dark:border-border text-foreground">
+                    <SelectTrigger className="h-10 rounded-xl text-xs bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground">
                        <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2171,7 +2171,7 @@ export default function AccountingPage() {
             <div className="space-y-2">
                <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Cuenta de Clasificación</Label>
                <Select value={newEntry.account} onValueChange={(v) => setNewEntry({...newEntry, account: v})}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs glass-card border-slate-200 dark:border-border text-foreground">
+                  <SelectTrigger className="h-10 rounded-xl text-xs bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground">
                      <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2193,7 +2193,7 @@ export default function AccountingPage() {
 
       {/* --- MODAL NUEVO ASIENTO AVANZADO (DOBLE ENTRADA) --- */}
       <Dialog open={isAdvancedModalOpen} onOpenChange={setIsAdvancedModalOpen}>
-        <DialogContent className="rounded-2xl max-w-[95vw] md:max-w-xl glass-card border-slate-100 dark:border-border text-foreground">
+        <DialogContent className="rounded-2xl max-w-[95vw] md:max-w-xl bg-card border-border shadow-sm border-slate-100 dark:border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2 text-white">
                <ArrowRightLeft className="text-blue-600" size={18} /> Partida Contable de Doble Entrada
@@ -2211,7 +2211,7 @@ export default function AccountingPage() {
                   placeholder="Ej. Registro de costo de venta y salida de almacén..." 
                   value={advDescription} 
                   onChange={e => setAdvDescription(e.target.value)}
-                  className="rounded-xl text-xs h-9 border-slate-200 dark:border-border glass-card text-foreground"
+                  className="rounded-xl text-xs h-9 border-slate-200 dark:border-border bg-card border-border shadow-sm text-foreground"
                 />
               </div>
               <div className="space-y-1.5">
@@ -2220,7 +2220,7 @@ export default function AccountingPage() {
                   type="date" 
                   value={advDate} 
                   onChange={e => setAdvDate(e.target.value)}
-                  className="rounded-xl text-xs h-9 border-slate-200 dark:border-border glass-card font-bold text-foreground"
+                  className="rounded-xl text-xs h-9 border-slate-200 dark:border-border bg-card border-border shadow-sm font-bold text-foreground"
                 />
               </div>
             </div>
@@ -2228,7 +2228,7 @@ export default function AccountingPage() {
             <div className="border border-slate-100 dark:border-border rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-muted/10">
               <div className="max-h-60 overflow-y-auto">
                 <Table>
-                  <TableHeader className="glass/50">
+                  <TableHeader className="bg-card border-border shadow-sm/50">
                     <TableRow className="h-8">
                       <TableHead className="text-[9px] uppercase font-bold py-1">Cuenta Contable</TableHead>
                       <TableHead className="w-24 text-[9px] uppercase font-bold py-1">Cargo (Debe)</TableHead>
@@ -2244,7 +2244,7 @@ export default function AccountingPage() {
                             value={line.accountCode} 
                             onValueChange={(v) => handleLineChange(idx, 'accountCode', v)}
                           >
-                            <SelectTrigger className="h-8 text-[11px] rounded-lg glass-card border-slate-200 dark:border-border text-foreground">
+                            <SelectTrigger className="h-8 text-[11px] rounded-lg bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -2263,7 +2263,7 @@ export default function AccountingPage() {
                             value={line.debit}
                             onChange={(e) => handleLineChange(idx, 'debit', e.target.value)}
                             onFocus={e => e.target.select()}
-                            className="h-8 w-24 text-right text-[11px] font-mono font-bold glass-card border-slate-200 dark:border-border rounded-lg text-foreground"
+                            className="h-8 w-24 text-right text-[11px] font-mono font-bold bg-card border-border shadow-sm border-slate-200 dark:border-border rounded-lg text-foreground"
                           />
                         </TableCell>
                         <TableCell className="p-1">
@@ -2273,7 +2273,7 @@ export default function AccountingPage() {
                             value={line.credit}
                             onChange={(e) => handleLineChange(idx, 'credit', e.target.value)}
                             onFocus={e => e.target.select()}
-                            className="h-8 w-24 text-right text-[11px] font-mono font-bold glass-card border-slate-200 dark:border-border rounded-lg text-foreground"
+                            className="h-8 w-24 text-right text-[11px] font-mono font-bold bg-card border-border shadow-sm border-slate-200 dark:border-border rounded-lg text-foreground"
                           />
                         </TableCell>
                         <TableCell className="p-1 text-center">
@@ -2293,11 +2293,11 @@ export default function AccountingPage() {
                 </Table>
               </div>
 
-              <div className="p-2 glass-input/40 border-t border-white/10 border-slate-100 dark:border-border">
+              <div className="p-2 bg-background border-input/40 border-t border-white/10 border-slate-100 dark:border-border">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="rounded-lg h-7 text-[10px] font-bold border-slate-200 dark:border-border glass-card" 
+                  className="rounded-lg h-7 text-[10px] font-bold border-slate-200 dark:border-border bg-card border-border shadow-sm" 
                   onClick={handleAddLine}
                 >
                   <Plus size={10} className="mr-1" /> Añadir Cuenta
@@ -2305,7 +2305,7 @@ export default function AccountingPage() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center p-3 rounded-2xl border border-slate-100 dark:border-border text-xs font-bold glass-card">
+            <div className="flex justify-between items-center p-3 rounded-2xl border border-slate-100 dark:border-border text-xs font-bold bg-card border-border shadow-sm">
               <div className="flex gap-4">
                 <div>
                   <span className="text-[9px] uppercase text-slate-400 dark:text-muted-foreground block">Total Debe</span>
@@ -2346,7 +2346,7 @@ export default function AccountingPage() {
       {/* --- DIALOG DETALLE PARTIDA AVANZADA --- */}
       <Dialog open={selectedAdvEntry !== null} onOpenChange={() => setSelectedAdvEntry(null)}>
         {selectedAdvEntry && (
-          <DialogContent className="rounded-2xl max-w-lg glass-card border-slate-100 dark:border-border text-foreground overflow-y-auto max-h-[90vh]">
+          <DialogContent className="rounded-2xl max-w-lg bg-card border-border shadow-sm border-slate-100 dark:border-border text-foreground overflow-y-auto max-h-[90vh]">
             <style dangerouslySetInnerHTML={{__html: `
               @media print {
                 body * {

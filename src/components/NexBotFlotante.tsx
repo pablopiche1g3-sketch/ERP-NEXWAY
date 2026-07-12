@@ -351,10 +351,10 @@ export function NexBotFlotante() {
         </button>
       )}
 
-      {/* VENTANA DE CHAT INTEGRADA (GLASSMORPHISM) */}
+      {/* VENTANA DE CHAT INTEGRADA */}
       {isOpen && (
-        <Card 
-          className={`glass-card border-white/15 shadow-[0_0_40px_rgba(59,130,246,0.15)] rounded-2xl overflow-hidden backdrop-blur-xl flex flex-col transition-all duration-300 ${
+        <div 
+          className={`bg-card border-border shadow-lg rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ${
             isMinimized ? 'w-80 h-14' : 'w-[360px] h-[520px] md:w-[380px] md:h-[550px]'
           }`}
           style={{ background: 'linear-gradient(135deg, rgba(11,13,25,0.95) 0%, rgba(15,17,40,0.95) 100%)' }}

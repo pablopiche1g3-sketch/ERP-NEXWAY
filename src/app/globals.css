@@ -59,76 +59,21 @@
 
 @layer base {
   * {
-    @apply border-white/10;
+    @apply border-border;
   }
   body {
     font-family: 'DM Sans', sans-serif;
-    background: linear-gradient(135deg, #0a0a14 0%, #12103a 50%, #0a1a14 100%) !important;
-    color: #fff;
+    @apply bg-background text-foreground;
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
-  }
-  body::before {
-    content: '';
-    position: fixed;
-    width: 500px;
-    height: 500px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(var(--tint-glow-1), 0.15) 0%, transparent 70%);
-    top: -100px;
-    left: 300px;
-    pointer-events: none;
-    z-index: -1;
-  }
-  body::after {
-    content: '';
-    position: fixed;
-    width: 350px;
-    height: 350px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(var(--tint-glow-2), 0.1) 0%, transparent 70%);
-    bottom: 0;
-    right: 100px;
-    pointer-events: none;
-    z-index: -1;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
   }
 }
 
-/* Glassmorphism Styles - Optimized for performance */
-.glass {
-  background: #11111e;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glass-card {
-  @apply bg-[#11111e] border border-white/10 transition-all duration-200 transform-gpu;
-}
-
-.glass-strong {
-  @apply bg-[#1c1c2e] border border-white/20 transition-all duration-200 transform-gpu;
-}
-
-.glass-input {
-  @apply bg-[#0c0c14] border border-white/10 focus:bg-[#161622] focus:border-white/20 transition-all duration-200 outline-none transform-gpu;
-}
-
-/* Overrides for third-party widgets and tables to inherit glass theme */
-.dark .bg-slate-50, .bg-slate-50 {
-  @apply bg-[#161625];
-}
-.dark .bg-white, .bg-white {
-  @apply bg-[#11111e];
-}
-.dark .text-slate-500, .dark .text-slate-400, .text-slate-500, .text-slate-400 {
-  @apply text-slate-300/80;
-}
-.dark .border-slate-100, .dark .border-slate-50, .border-slate-100, .border-slate-50 {
-  @apply border-white/10;
-}
+/* Base utility overrides for fast rendering */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -136,25 +81,4 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-/* Desactivar backdrop-filter a nivel global para computadoras lentas */
-* {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* Omitir animaciones y sombras pesadas en tarjetas para optimización extrema */
-.card, .shadow-sm, .shadow-md, .shadow-lg, .shadow-2xl {
-  box-shadow: none !important;
-}
-
-/* Asegurar legibilidad en los componentes sobre fondo oscuro */
-.bg-white\/40, .bg-white\/5, .bg-white\/80 {
-  background-color: #11111e !important;
-}
-.dark\:bg-zinc-900\/40, .dark\:bg-white\/5, .bg-card {
-  background-color: #0b0b14 !important;
-}
-.bg-muted, .bg-muted\/50 {
-  background-color: #161624 !important;
-}
+

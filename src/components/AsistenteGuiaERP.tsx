@@ -39,7 +39,7 @@ export function AsistenteGuiaERP() {
   }
 
   return (
-    <Card className="glass-card rounded-2xl mb-8 overflow-hidden relative z-10 border border-white/10 shadow-xl">
+    <Card className="bg-card rounded-2xl mb-8 overflow-hidden relative z-10 border-border shadow-sm">
       <CardHeader 
         className="p-5 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-b border-white/10 flex flex-row items-center justify-between cursor-pointer select-none"
         onClick={() => setIsOpen(!isOpen)}

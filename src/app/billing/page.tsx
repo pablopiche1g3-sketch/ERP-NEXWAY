@@ -2553,7 +2553,7 @@ export default function BillingPage() {
                   </div>
                   <div className="p-0">
                     <Table>
-                      <TableHeader className="glass-input/40">
+                      <TableHeader className="bg-background border-input/40">
                         <TableRow className="border-b dark:border-border">
                           <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-400">Medio de Pago</TableHead>
                           {role === 'admin' && <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Ventas Sistema</TableHead>}
@@ -2570,7 +2570,7 @@ export default function BillingPage() {
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl glass-input border-slate-200 dark:border-border" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-background border-input border-slate-200 dark:border-border" 
                               value={physicalCard || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
@@ -2592,7 +2592,7 @@ export default function BillingPage() {
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl glass-input border-slate-200 dark:border-border" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-background border-input border-slate-200 dark:border-border" 
                               value={physicalCheck || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
@@ -2614,7 +2614,7 @@ export default function BillingPage() {
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl glass-input border-slate-200 dark:border-border" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-background border-input border-slate-200 dark:border-border" 
                               value={physicalTransfer || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
@@ -2636,7 +2636,7 @@ export default function BillingPage() {
                           <TableCell className="text-right py-2">
                             <Input 
                               type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl glass-input border-slate-200 dark:border-border" 
+                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-background border-input border-slate-200 dark:border-border" 
                               value={physicalCredit || ''} 
                               placeholder="0.00"
                               onFocus={e => e.target.select()}
@@ -2670,9 +2670,9 @@ export default function BillingPage() {
                     </div>
                     <div className="p-5 space-y-4">
                       <div className="flex gap-2">
-                        <Input placeholder="Descripción..." value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} className="h-10 text-xs glass-input border-slate-100 dark:border-border rounded-xl text-foreground" />
-                        <Input type="number" placeholder="0.00" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="h-10 w-20 text-xs glass-input border-slate-100 dark:border-border rounded-xl font-black text-rose-500" />
-                        <Button onClick={addExpense} variant="secondary" size="icon" className="h-10 w-10 rounded-xl glass dark:text-foreground hover:bg-slate-200 border-none flex-shrink-0"><Plus size={16}/></Button>
+                        <Input placeholder="Descripción..." value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} className="h-10 text-xs bg-background border-input border-slate-100 dark:border-border rounded-xl text-foreground" />
+                        <Input type="number" placeholder="0.00" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="h-10 w-20 text-xs bg-background border-input border-slate-100 dark:border-border rounded-xl font-black text-rose-500" />
+                        <Button onClick={addExpense} variant="secondary" size="icon" className="h-10 w-10 rounded-xl bg-card border-border shadow-sm dark:text-foreground hover:bg-slate-200 border-none flex-shrink-0"><Plus size={16}/></Button>
                       </div>
                       <ScrollArea className="h-40 pr-1">
                         {expenses.length === 0 ? (
@@ -2779,7 +2779,7 @@ export default function BillingPage() {
                   <div className="p-0">
                     <div className="overflow-x-auto">
                       <Table>
-                        <TableHeader className="glass-input/40">
+                        <TableHeader className="bg-background border-input/40">
                           <TableRow className="border-b dark:border-border">
                             <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-400">Factura / Correlativo</TableHead>
                             <TableHead className="text-[10px] uppercase font-black py-3 text-slate-400">Cliente</TableHead>
@@ -2873,7 +2873,7 @@ export default function BillingPage() {
                           </div>
                           <div className="flex justify-between items-center text-[9px] text-slate-400 dark:text-muted-foreground">
                             <span>{new Date(j.created_at).toLocaleDateString()} a las {new Date(j.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                            <Badge variant="outline" className="text-[8px] h-4 py-0 font-bold glass-input text-slate-500">Ingreso Caja</Badge>
+                            <Badge variant="outline" className="text-[8px] h-4 py-0 font-bold bg-background border-input text-slate-500">Ingreso Caja</Badge>
                           </div>
                         </div>
                       ))}
@@ -3084,7 +3084,7 @@ export default function BillingPage() {
               </DialogHeader>
               <div className="space-y-4 py-3">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 glass-input/40 border dark:border-border rounded-xl">
+                  <div className="p-3 bg-background border-input/40 border dark:border-border rounded-xl">
                     <span className="text-[9px] font-black uppercase text-slate-400 block">Total de Venta</span>
                     <span className="text-sm font-black text-slate-950 dark:text-foreground">${selectedSaleForAbono.total.toFixed(2)}</span>
                   </div>
@@ -3101,14 +3101,14 @@ export default function BillingPage() {
                     placeholder="0.00" 
                     value={abonoAmount}
                     onChange={e => setAbonoAmount(e.target.value)}
-                    className="h-11 glass-input border-slate-100 dark:border-border rounded-xl font-black text-emerald-600 dark:text-emerald-400"
+                    className="h-11 bg-background border-input border-slate-100 dark:border-border rounded-xl font-black text-emerald-600 dark:text-emerald-400"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-slate-400">Método de Pago</Label>
                   <Select value={abonoPaymentMethod} onValueChange={setAbonoPaymentMethod}>
-                    <SelectTrigger className="h-11 glass-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
+                    <SelectTrigger className="h-11 bg-background border-input border-slate-100 dark:border-border rounded-xl text-xs font-bold text-foreground">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -3126,7 +3126,7 @@ export default function BillingPage() {
                     placeholder="Referencia de pago, detalles..." 
                     value={abonoNotes}
                     onChange={e => setAbonoNotes(e.target.value)}
-                    className="glass-input border-slate-100 dark:border-border rounded-xl text-xs text-foreground"
+                    className="bg-background border-input border-slate-100 dark:border-border rounded-xl text-xs text-foreground"
                     rows={2}
                   />
                 </div>
@@ -3135,7 +3135,7 @@ export default function BillingPage() {
                 <div className="flex gap-3 w-full">
                   <Button 
                     variant="outline"
-                    className="flex-1 h-11 rounded-xl text-xs font-bold border-slate-200 dark:border-border text-foreground glass-card" 
+                    className="flex-1 h-11 rounded-xl text-xs font-bold border-slate-200 dark:border-border text-foreground bg-card border-border shadow-sm" 
                     onClick={() => setSelectedSaleForAbono(null)}
                   >
                     Cancelar

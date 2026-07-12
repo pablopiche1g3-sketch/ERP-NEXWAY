@@ -113,21 +113,17 @@ export default function LoginForm() {
   }
 
   return (
-    <Card className="border border-slate-200/60 dark:border-slate-800/60 shadow-[0_20px_50px_rgba(8,112,184,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] py-4 relative overflow-hidden transition-all duration-300">
-      {/* Decorative inner light sweep */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/20 dark:via-blue-400/30 to-transparent" />
+    <Card className="border border-border shadow-md bg-card rounded-[2.5rem] py-4 relative overflow-hidden transition-all duration-300">
       
       <CardHeader className="flex flex-col items-center space-y-4 pt-8">
         <div className="relative group">
-          {/* Logo glow effect */}
-          <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur-lg opacity-40 group-hover:opacity-70 transition duration-500 group-hover:duration-200 animate-pulse" />
-          <div className="relative w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105">
-            <ShieldCheck className="w-9 h-9 text-white animate-pulse" />
+          <div className="relative w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105">
+            <ShieldCheck className="w-9 h-9 text-primary-foreground" />
           </div>
         </div>
         
         <div className="text-center space-y-1.5">
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-950 via-blue-900 to-slate-950 dark:from-white dark:via-blue-200 dark:to-white bg-clip-text text-transparent font-headline">
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground font-headline">
             NexWay ERP
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
@@ -164,7 +160,7 @@ export default function LoginForm() {
                         type="text"
                         placeholder="Ingresa tu usuario o correo" 
                         {...field} 
-                        className="pl-11 pr-4 bg-slate-50/50 dark:bg-slate-950/40 border-slate-200/80 dark:border-slate-800/80 h-12 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all font-medium"
+                        className="pl-11 pr-4 bg-background border-input h-12 rounded-xl text-foreground placeholder:text-muted-foreground transition-all font-medium"
                       />
                     </div>
                   </FormControl>
@@ -190,7 +186,7 @@ export default function LoginForm() {
                         type="password"
                         placeholder="••••••••"
                         {...field}
-                        className="pl-11 pr-4 bg-slate-50/50 dark:bg-slate-950/40 border-slate-200/80 dark:border-slate-800/80 h-12 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all font-medium"
+                        className="pl-11 pr-4 bg-background border-input h-12 rounded-xl text-foreground placeholder:text-muted-foreground transition-all font-medium"
                       />
                     </div>
                   </FormControl>
@@ -201,7 +197,7 @@ export default function LoginForm() {
 
             <Button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold h-12 rounded-xl shadow-lg shadow-blue-500/20 dark:shadow-blue-500/5 hover:shadow-blue-500/30 transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full h-12 rounded-xl transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-2"
               disabled={isLoading}
             >
               {isLoading ? (
