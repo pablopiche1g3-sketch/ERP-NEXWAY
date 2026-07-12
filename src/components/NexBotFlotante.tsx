@@ -509,7 +509,7 @@ export function NexBotFlotante() {
               </CardContent>
             </>
           )}
-        </Card>
+        </div>
       )}
     </div>
   );
