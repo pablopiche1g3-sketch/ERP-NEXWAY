@@ -1511,16 +1511,14 @@ export default function BillingPage() {
                   )}
                 </>
               ) : (
-                isUserAdmin && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleEstablishStation}
-                    className="h-8 px-3 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 dark:bg-indigo-500/15 hover:bg-indigo-500/20 rounded-lg text-[11px] font-medium"
-                  >
-                    Establecer Caja
-                  </Button>
-                )
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleEstablishStation}
+                  className="h-8 px-3 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 dark:bg-indigo-500/15 hover:bg-indigo-500/20 rounded-lg text-[11px] font-medium"
+                >
+                  Establecer Caja
+                </Button>
               )
             )}
           </div>
