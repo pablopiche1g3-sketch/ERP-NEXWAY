@@ -164,10 +164,10 @@ export function NexBotFlotante() {
 
   return (
     <>
-      {/* Botón flotante top right */}
+      {/* Botón flotante top right (ajustado para no solapar el perfil) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed top-4 right-4 z-[90] h-12 w-12 rounded-full shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all ${
+        className={`fixed top-24 right-6 z-[90] h-12 w-12 rounded-full shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all ${
           isGuideActive ? 'animate-pulse ring-4 ring-indigo-500/50' : ''
         } ${isOpen ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'}`}
       >
