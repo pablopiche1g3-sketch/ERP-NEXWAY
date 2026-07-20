@@ -339,6 +339,7 @@ export default function BillingPage() {
   // Close Shift States
   const [isCloseShiftOpen, setIsCloseShiftOpen] = useState(false);
   const [reportedCash, setReportedCash] = useState('');
+  const [isDayClosingConfirmOpen, setIsDayClosingConfirmOpen] = useState(false);
 
   const handleOpenShift = async () => {
     setShiftError('');
