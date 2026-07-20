@@ -92,7 +92,7 @@ const defaultStats: BmsStats = {
 const defaultMapData: MapData = {
   locations: [
     { id: 'b1', name: 'Sucursal Matriz', lat: 13.7029, lng: -89.2082, type: 'BRANCH' },
-    { id: 'b2', name: 'Sucursal Puma', lat: 13.6829, lng: -89.2282, type: 'BRANCH' },
+    { id: 'b2', name: 'Sucursal Norte', lat: 13.6829, lng: -89.2282, type: 'BRANCH' },
     { id: 'c1', name: 'Cliente Alfa (VIP)', lat: 13.6850, lng: -89.2250, type: 'VIP', balance: 1500 },
     { id: 'c2', name: 'Distribuidora Beta', lat: 13.6810, lng: -89.2290, type: 'VIP', balance: 3200 },
     { id: 'd1', name: 'Entrega Express A', lat: 13.6880, lng: -89.2210, type: 'DELIVERY', balance: 150 },
@@ -101,7 +101,7 @@ const defaultMapData: MapData = {
   routes: [
     { id: 'r1', status: 'ACTIVE', path: [{ lat: 13.7029, lng: -89.2082 }, { lat: 13.6850, lng: -89.2250 }] }
   ],
-  densityAlert: 'Detecté 4 entregas pendientes concentradas en la zona de la sucursal Puma para esta tarde. Sugiero consolidar la carga en un solo viaje para ahorrar costos de combustible y optimizar el tiempo del conductor.'
+  densityAlert: 'Detecté varias entregas pendientes en la misma zona para esta tarde. Sugiero consolidar la carga en un solo viaje para ahorrar costos de combustible y optimizar el tiempo del conductor.'
 };
 
 const BmsContext = createContext<BmsContextType>({
