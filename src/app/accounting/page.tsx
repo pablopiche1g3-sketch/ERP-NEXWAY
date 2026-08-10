@@ -108,6 +108,8 @@ export default function AccountingPage() {
   const [instSales, setInstSales] = useState<any[]>([]);
   const [instPurchases, setInstPurchases] = useState<any[]>([]);
   const [instProjects, setInstProjects] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [costCenters, setCostCenters] = useState<any[]>([]);
 
   const [loadingSales, setLoadingSales] = useState(true);
   const [loadingExpenses, setLoadingExpenses] = useState(true);
@@ -221,6 +223,12 @@ export default function AccountingPage() {
       setInstSales([]);
       setInstPurchases([]);
       setInstProjects([]);
+
+      // 5. Cargar Sucursales y Centros de Costo
+      const { data: bData } = await supabase.from('branches').select('*');
+      setBranches(bData || []);
+      const { data: cData } = await supabase.from('cost_centers').select('*');
+      setCostCenters(cData || []);
 
     } catch (err: any) {
       console.error('Error al cargar datos contables de Supabase:', err);
