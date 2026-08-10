@@ -35,11 +35,11 @@ export default function ProjectDetailsModal({ project, open, onOpenChange, allSa
 
   if (!project) return null;
 
-  const projectSales = allSales.filter((s: any) => s.projectId === project.id && s.status !== 'CANCELADA');
-  const projectPurchases = allPurchases.filter((p: any) => p.projectId === project.id);
+  const projectSales = (allSales || []).filter((s: any) => s.projectId === project.id && s.status !== 'CANCELADA');
+  const projectPurchases = (allPurchases || []).filter((p: any) => p.projectId === project.id);
   
-  const totalSales = projectSales.reduce((sum: number, s: any) => sum + s.total, 0);
-  const totalCosts = projectPurchases.reduce((sum: number, p: any) => sum + p.total, 0);
+  const totalSales = projectSales.reduce((sum: number, s: any) => sum + (s.total || 0), 0);
+  const totalCosts = projectPurchases.reduce((sum: number, p: any) => sum + (p.total || 0), 0);
   
   const operatingExpenses = journal
     .filter(j => j.type === 'Egreso' || j.amount > 0)
