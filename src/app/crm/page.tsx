@@ -31,15 +31,17 @@ import {
   FileText,
   MapPin,
   ListTodo,
-  Navigation
+  Navigation,
+  Mails
 } from 'lucide-react';
 import { useUser } from '@/supabase/use-user';
 import { supabase } from '@/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import RetentionTab from './components/RetentionTab';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -610,10 +612,17 @@ export default function CRMPage() {
             <TabsTrigger data-tour-id="tab-gmail" value="gmail" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-red-500 data-[state=active]:text-white">
               <Mail size={14} className="mr-2" /> Bandeja CRM
             </TabsTrigger>
+            <TabsTrigger data-tour-id="tab-retention" value="retention" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-orange-600 data-[state=active]:text-white">
+               Retención de Clientes
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="gmail" className="mt-0 outline-none">
             <GmailClient context="crm" />
+          </TabsContent>
+
+          <TabsContent value="retention" className="outline-none mt-6">
+             <RetentionTab />
           </TabsContent>
 
           <TabsContent value="kanban" className="mt-0 outline-none">

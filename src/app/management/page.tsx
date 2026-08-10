@@ -44,6 +44,7 @@ import { DashboardComercialKPI } from '@/components/DashboardComercialKPI';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import DocumentsTab from './components/DocumentsTab';
+import HrPayrollTab from './components/HrPayrollTab';
 import GmailClient from '@/components/shared/GmailClient';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -1423,6 +1424,7 @@ export default function ManagementPage() {
                 <>
                   <TabsTrigger value="permissions" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Usuarios y Accesos</TabsTrigger>
                   <TabsTrigger value="roles" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Gestión de Roles</TabsTrigger>
+                  <TabsTrigger value="hr" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Nómina y RH</TabsTrigger>
                 </>
               )}
             </TabsList>
@@ -1796,6 +1798,11 @@ export default function ManagementPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* pestaña: NÓMINA Y RH */}
+          <TabsContent value="hr" className="outline-none">
+            <HrPayrollTab />
           </TabsContent>
 
           {/* pestaña 3: ROLES DE USUARIO */}

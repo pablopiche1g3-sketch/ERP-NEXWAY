@@ -287,12 +287,16 @@ export default function AccountingPage() {
     description: '',
     amount: '',
     type: 'Egreso',
-    account: 'Gastos de Administración'
+    account: 'Gastos de Administración',
+    branchId: '',
+    costCenterId: ''
   });
 
   // Estado para Nuevo Asiento Avanzado (Doble Entrada)
   const [advDescription, setAdvDescription] = useState('');
   const [advDate, setAdvDate] = useState(new Date().toISOString().split('T')[0]);
+  const [advBranchId, setAdvBranchId] = useState('');
+  const [advCostCenterId, setAdvCostCenterId] = useState('');
   const [advLines, setAdvLines] = useState<Array<{ accountCode: string; debit: string; credit: string }>>([
     { accountCode: '1101', debit: '0.00', credit: '0.00' },
     { accountCode: '4101', debit: '0.00', credit: '0.00' }
@@ -573,13 +577,15 @@ export default function AccountingPage() {
         .insert({
           description: newEntry.description,
           amount: parseFloat(newEntry.amount),
-          type: newEntry.type
+          type: newEntry.type,
+          branch_id: newEntry.branchId || null,
+          cost_center_id: newEntry.costCenterId || null
         });
 
       if (error) throw error;
 
       toast({ title: "Asiento Registrado", description: "Movimiento simple guardado." });
-      setNewEntry({ description: '', amount: '', type: 'Egreso', account: 'Gastos de Administración' });
+      setNewEntry({ description: '', amount: '', type: 'Egreso', account: 'Gastos de Administración', branchId: '', costCenterId: '' });
       setIsJournalModalOpen(false);
       await loadAccountingData();
     } catch (e: any) {
@@ -599,7 +605,9 @@ export default function AccountingPage() {
           description: advDescription || 'Partida Contable Diaria',
           created_at: new Date(advDate).toISOString(),
           type: 'Avanzado',
-          amount: totalDebitLines
+          amount: totalDebitLines,
+          branch_id: advBranchId || null,
+          cost_center_id: advCostCenterId || null
         })
         .select()
         .single();
@@ -621,6 +629,8 @@ export default function AccountingPage() {
 
       toast({ title: "Asiento Cuadrado Registrado", description: "Partida de doble entrada formalizada con éxito." });
       setAdvDescription('');
+      setAdvBranchId('');
+      setAdvCostCenterId('');
       setAdvLines([
         { accountCode: '1101', debit: '0.00', credit: '0.00' },
         { accountCode: '4101', debit: '0.00', credit: '0.00' }
@@ -2167,7 +2177,7 @@ export default function AccountingPage() {
                     </SelectContent>
                  </Select>
               </div>
-            </div>
+             </div>
             <div className="space-y-2">
                <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Cuenta de Clasificación</Label>
                <Select value={newEntry.account} onValueChange={(v) => setNewEntry({...newEntry, account: v})}>
@@ -2181,6 +2191,32 @@ export default function AccountingPage() {
                      <SelectItem value="Arrendamientos y Alquileres" className="text-xs">Arrendamientos y Alquileres</SelectItem>
                   </SelectContent>
                </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Sucursal (Opcional)</Label>
+                 <Select value={newEntry.branchId} onValueChange={(v) => setNewEntry({...newEntry, branchId: v === 'none' ? '' : v})}>
+                    <SelectTrigger className="h-10 rounded-xl text-xs bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground">
+                       <SelectValue placeholder="Ninguna" />
+                    </SelectTrigger>
+                    <SelectContent>
+                       <SelectItem value="none" className="text-xs">Ninguna</SelectItem>
+                       {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>)}
+                    </SelectContent>
+                 </Select>
+              </div>
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Centro de Costo (Opcional)</Label>
+                 <Select value={newEntry.costCenterId} onValueChange={(v) => setNewEntry({...newEntry, costCenterId: v === 'none' ? '' : v})}>
+                    <SelectTrigger className="h-10 rounded-xl text-xs bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground">
+                       <SelectValue placeholder="Ninguno" />
+                    </SelectTrigger>
+                    <SelectContent>
+                       <SelectItem value="none" className="text-xs">Ninguno</SelectItem>
+                       {costCenters.map(c => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}
+                    </SelectContent>
+                 </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -2222,6 +2258,30 @@ export default function AccountingPage() {
                   onChange={e => setAdvDate(e.target.value)}
                   className="rounded-xl text-xs h-9 border-slate-200 dark:border-border bg-card border-border shadow-sm font-bold text-foreground"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Sucursal (Opcional)</Label>
+                <Select value={advBranchId} onValueChange={(v) => setAdvBranchId(v === 'none' ? '' : v)}>
+                  <SelectTrigger className="h-9 rounded-xl text-xs bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground">
+                    <SelectValue placeholder="Ninguna" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-xs">Ninguna</SelectItem>
+                    {branches.map(b => <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 dark:text-muted-foreground">Centro de Costo (Opcional)</Label>
+                <Select value={advCostCenterId} onValueChange={(v) => setAdvCostCenterId(v === 'none' ? '' : v)}>
+                  <SelectTrigger className="h-9 rounded-xl text-xs bg-card border-border shadow-sm border-slate-200 dark:border-border text-foreground">
+                    <SelectValue placeholder="Ninguno" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-xs">Ninguno</SelectItem>
+                    {costCenters.map(c => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

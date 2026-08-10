@@ -64,6 +64,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import ProjectDetailsModal from './components/ProjectDetailsModal';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_FROM_EMAIL } from '@/lib/admin-emails';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -234,6 +235,9 @@ export default function InstitutionalModulePage() {
   // States
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [viewingProject, setViewingProject] = useState<any>(null);
+
   const [customerSearch, setCustomerSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [docNumber, setDocNumber] = useState('');
@@ -753,6 +757,9 @@ export default function InstitutionalModulePage() {
                            </TableCell>
                            <TableCell>
                               <div className="flex gap-1">
+                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-500" onClick={() => setViewingProject(p)}>
+                                    <BarChart3 size={12}/>
+                                 </Button>
                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500"><Edit3 size={12}/></Button>
                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500" onClick={async () => {
                                     try {
@@ -974,6 +981,14 @@ export default function InstitutionalModulePage() {
            </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ProjectDetailsModal 
+        open={!!viewingProject} 
+        onOpenChange={(o: boolean) => !o && setViewingProject(null)}
+        project={viewingProject}
+        allSales={allSales}
+        allPurchases={allPurchases}
+      />
     </div>
   );
 }

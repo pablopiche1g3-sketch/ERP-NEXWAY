@@ -439,3 +439,101 @@ BEGIN
   EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.cash_registers;';
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- 25. CENTROS DE COSTO
+CREATE TABLE IF NOT EXISTS public.cost_centers (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  description text,
+  branch_id uuid references public.branches(id) on delete cascade,
+  status text default 'ACTIVO',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 26. NÓMINA Y RECURSOS HUMANOS
+CREATE TABLE IF NOT EXISTS public.payroll_records (
+  id uuid default uuid_generate_v4() primary key,
+  profile_id text references public.profiles(id) on delete cascade,
+  base_salary numeric(10,2) not null default 0.00,
+  isss_deduction numeric(10,2) default 0.00,
+  afp_deduction numeric(10,2) default 0.00,
+  renta_deduction numeric(10,2) default 0.00,
+  period text not null, -- ej. "2026-08 Q1"
+  net_paid numeric(10,2) default 0.00,
+  status text default 'BORRADOR',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+CREATE TABLE IF NOT EXISTS public.employee_loans (
+  id uuid default uuid_generate_v4() primary key,
+  profile_id text references public.profiles(id) on delete cascade,
+  amount numeric(10,2) not null default 0.00,
+  balance numeric(10,2) not null default 0.00,
+  installment_amount numeric(10,2) not null default 0.00,
+  reason text,
+  status text default 'ACTIVO', -- ACTIVO, PAGADO
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+CREATE TABLE IF NOT EXISTS public.employee_bonuses (
+  id uuid default uuid_generate_v4() primary key,
+  profile_id text references public.profiles(id) on delete cascade,
+  amount numeric(10,2) not null default 0.00,
+  reason text,
+  month text, -- ej. "2026-08"
+  status text default 'PENDIENTE', -- PENDIENTE, PAGADO
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- ALTER TABLES PARA SOPORTE DE NUEVOS MÓDULOS
+DO $$ BEGIN
+  ALTER TABLE public.inventory ADD COLUMN cost_center_id uuid references public.cost_centers(id);
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE public.journal ADD COLUMN branch_id uuid references public.branches(id);
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE public.journal ADD COLUMN cost_center_id uuid references public.cost_centers(id);
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE public.journal ADD COLUMN project_id uuid references public.institutional_projects(id);
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE public.journal_lines ADD COLUMN branch_id uuid references public.branches(id);
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE public.journal_lines ADD COLUMN cost_center_id uuid references public.cost_centers(id);
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE public.sales ADD COLUMN seller_id text references public.profiles(id);
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE public.institutional_sales ADD COLUMN seller_id text references public.profiles(id);
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+-- 27. VISTA DE CRM (CLIENTES INACTIVOS)
+CREATE OR REPLACE VIEW public.vw_inactive_customers AS
+SELECT 
+  c.id,
+  c.name,
+  c.email,
+  c.phone,
+  c.category,
+  MAX(s.created_at) as last_purchase_date,
+  EXTRACT(DAY FROM (now() - MAX(s.created_at))) as days_inactive
+FROM public.customers c
+LEFT JOIN public.sales s ON c.id = s.customer_id
+GROUP BY c.id, c.name, c.email, c.phone, c.category;
+
+-- Habilitar realtime para las nuevas tablas de Nómina y RH
+DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.cost_centers;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.payroll_records;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.employee_loans;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.employee_bonuses;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;

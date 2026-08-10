@@ -1478,7 +1478,7 @@ export default function BillingPage() {
             <Select 
               value={activeStation?.id || ''} 
               onValueChange={handleAssignStation}
-              disabled={!isUserAdmin || !!establishedStationId}
+              disabled={!!establishedStationId}
             >
               <SelectTrigger className="h-8 w-[160px] text-xs rounded-lg bg-white/50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-medium text-slate-700 dark:text-white/70">
                 <SelectValue placeholder="Seleccionar..." />
