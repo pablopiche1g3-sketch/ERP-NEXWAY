@@ -559,14 +559,18 @@ CREATE TABLE IF NOT EXISTS public.cxp_payments (
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- 29. DISEÑADOR DE IMPRESIÓN MODULAR (HTML/CSS TO PDF)
+-- 29. DISEÑADOR DE IMPRESIÓN MODULAR (CANVA-STYLE / HTML/CSS TO PDF)
 CREATE TABLE IF NOT EXISTS public.plantillas_impresion (
   id uuid default uuid_generate_v4() primary key,
   nombre text not null,
   modulo_origen text not null default 'POS', -- 'POS', 'Cotización', 'Proyecto', 'Quedan'
-  html_template text not null,
+  html_template text not null default '',
+  json_scheme jsonb,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
+ALTER TABLE public.plantillas_impresion ADD COLUMN IF NOT EXISTS json_scheme jsonb;
+
 DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.plantillas_impresion;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
 
