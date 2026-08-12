@@ -1400,7 +1400,7 @@ export default function BillingPage() {
     try {
       const { error } = await supabase
         .from('daily_closings')
-        .insert({
+        .upsert({
           date: new Date().toISOString().split('T')[0],
           cash_float: cashConfig?.cashFloat || 0,
           system_cash_sales: systemCashSales,
@@ -1421,7 +1421,7 @@ export default function BillingPage() {
           physical_credit_found: physicalCredit,
           credit_difference: creditDifference,
           closed_by: user?.email || 'Admin'
-        });
+        }, { onConflict: 'date' });
 
       if (error) throw error;
       

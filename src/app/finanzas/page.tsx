@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CxcTab from './components/CxcTab';
 import CxpTab from './components/CxpTab';
 import QuedanTab from './components/QuedanTab';
+import PayrollTab from './components/PayrollTab';
 import { CalendarClock } from 'lucide-react';
 
 export default function FinanzasPage() {
@@ -18,12 +19,12 @@ export default function FinanzasPage() {
         </div>
         <div>
           <h2 className="text-2xl md:text-3xl font-black tracking-tight text-slate-800 dark:text-white">Finanzas y Créditos</h2>
-          <p className="text-xs text-slate-500 dark:text-white/60 font-medium">Control de cuentas por cobrar, cuentas por pagar y gestión integral de quedan.</p>
+          <p className="text-xs text-slate-500 dark:text-white/60 font-medium">Control de cuentas por cobrar, cuentas por pagar, gestión de quedan y nómina de personal.</p>
         </div>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
-        <TabsList className="bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 inline-flex gap-1">
+        <TabsList className="bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 flex flex-wrap gap-1 w-full md:w-auto">
           <TabsTrigger 
             value="cxc" 
             className="rounded-xl px-5 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
@@ -42,6 +43,12 @@ export default function FinanzasPage() {
           >
             Gestión de Quedan
           </TabsTrigger>
+          <TabsTrigger 
+            value="payroll" 
+            className="rounded-xl px-5 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+          >
+            Nómina & Recursos Humanos
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="cxc" className="outline-none">
@@ -52,6 +59,9 @@ export default function FinanzasPage() {
         </TabsContent>
         <TabsContent value="quedan" className="outline-none">
           <QuedanTab />
+        </TabsContent>
+        <TabsContent value="payroll" className="outline-none">
+          <PayrollTab />
         </TabsContent>
       </Tabs>
     </div>
