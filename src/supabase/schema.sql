@@ -612,7 +612,7 @@ CREATE TABLE IF NOT EXISTS public.bank_transactions (
 -- 32. CREDIT SCORING Y EVALUACIÓN DE RIESGO
 CREATE TABLE IF NOT EXISTS public.client_credit_scorings (
   id uuid default uuid_generate_v4() primary key,
-  client_id uuid references public.clients(id) on delete cascade not null,
+  client_id uuid,
   score numeric(5,2) default 90.00,
   risk_level text default 'BAJO', -- 'BAJO', 'MEDIO', 'ALTO'
   avg_pay_days integer default 15,
@@ -623,7 +623,7 @@ CREATE TABLE IF NOT EXISTS public.client_credit_scorings (
 -- 33. ANTICIPOS Y DEPÓSITOS A FAVOR DE CLIENTES
 CREATE TABLE IF NOT EXISTS public.customer_advances (
   id uuid default uuid_generate_v4() primary key,
-  client_id uuid references public.clients(id) on delete cascade not null,
+  client_id uuid,
   amount numeric(10,2) not null default 0.00,
   used_amount numeric(10,2) not null default 0.00,
   notes text,
