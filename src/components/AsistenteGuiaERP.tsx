@@ -58,7 +58,7 @@ export function AsistenteGuiaERP() {
               )}
             </CardTitle>
             <CardDescription className="text-[10px] text-slate-400 mt-0.5">
-              Auditoría interna de procesos comerciales y salud del sistema sin IA.
+              Auditoría interna de procesos comerciales y salud del sistema.
             </CardDescription>
           </div>
         </div>
