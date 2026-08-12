@@ -273,7 +273,7 @@ export default function PrintDesignerTab() {
           <div>
             <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
               <Printer className="text-emerald-400" size={20} />
-              Diseñador de Impresión Interactivo por Bloques (Canva-Style)
+              Diseñador de Impresión Interactivo por Bloques
             </CardTitle>
             <CardDescription className="text-slate-400 text-xs">
               Crea y modifica tiras de papel térmico (80mm/58mm) o formatos A4 arrastrando bloques sin programar código.

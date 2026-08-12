@@ -559,7 +559,7 @@ CREATE TABLE IF NOT EXISTS public.cxp_payments (
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- 29. DISEÑADOR DE IMPRESIÓN MODULAR (CANVA-STYLE / HTML/CSS TO PDF)
+-- 29. DISEÑADOR DE IMPRESIÓN MODULAR (HTML/CSS TO PDF)
 CREATE TABLE IF NOT EXISTS public.plantillas_impresion (
   id uuid default uuid_generate_v4() primary key,
   nombre text not null,
