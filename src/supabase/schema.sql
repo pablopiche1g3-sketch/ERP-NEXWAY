@@ -573,4 +573,18 @@ ALTER TABLE public.plantillas_impresion ADD COLUMN IF NOT EXISTS json_scheme jso
 
 DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.plantillas_impresion;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
+-- 30. AGENDA INTELIGENTE DE TAREAS Y RECOMENDACIONES IA
+CREATE TABLE IF NOT EXISTS public.agenda_tasks (
+  id uuid default uuid_generate_v4() primary key,
+  title text not null,
+  description text,
+  category text default 'manual', -- 'manual', 'ai_suggested'
+  status text default 'pending', -- 'pending', 'completed'
+  due_date date default current_date,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.agenda_tasks;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+
 
