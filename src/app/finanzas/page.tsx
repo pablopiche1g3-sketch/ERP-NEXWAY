@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import CxcTab from './components/CxcTab';
+import CxpTab from './components/CxpTab';
 import QuedanTab from './components/QuedanTab';
 import { CalendarClock } from 'lucide-react';
 
@@ -43,16 +45,10 @@ export default function FinanzasPage() {
         </TabsList>
         
         <TabsContent value="cxc" className="outline-none">
-          <div className="p-8 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-center shadow-sm">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Cuentas por Cobrar (CXC)</h3>
-            <p className="text-slate-500 dark:text-white/60 text-xs mt-2">Monitoreo de facturas al crédito emitidas, vencimientos y abonos de clientes.</p>
-          </div>
+          <CxcTab />
         </TabsContent>
         <TabsContent value="cxp" className="outline-none">
-          <div className="p-8 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-center shadow-sm">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Cuentas por Pagar (CXP)</h3>
-            <p className="text-slate-500 dark:text-white/60 text-xs mt-2">Gestión de obligaciones fiscales, compras a crédito y programación de pagos a proveedores.</p>
-          </div>
+          <CxpTab />
         </TabsContent>
         <TabsContent value="quedan" className="outline-none">
           <QuedanTab />

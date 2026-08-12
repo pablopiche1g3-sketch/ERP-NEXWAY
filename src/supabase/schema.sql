@@ -537,3 +537,24 @@ DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.cost_c
 DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.payroll_records;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.employee_loans;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.employee_bonuses;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+-- 28. TABLAS DE ABONOS Y SEGUIMIENTO CXC / CXP
+CREATE TABLE IF NOT EXISTS public.cxc_payments (
+  id uuid default uuid_generate_v4() primary key,
+  sale_id uuid references public.sales(id) on delete cascade not null,
+  amount numeric(10,2) not null default 0.00,
+  payment_method text default 'Efectivo',
+  reference text,
+  notes text,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+CREATE TABLE IF NOT EXISTS public.cxp_payments (
+  id uuid default uuid_generate_v4() primary key,
+  purchase_id uuid references public.purchases(id) on delete cascade not null,
+  amount numeric(10,2) not null default 0.00,
+  payment_method text default 'Transferencia',
+  reference text,
+  notes text,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
