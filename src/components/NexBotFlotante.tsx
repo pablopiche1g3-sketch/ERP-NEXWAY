@@ -9,7 +9,9 @@ import {
   Sparkles, 
   Loader2, 
   Bot,
-  MessageSquare
+  GripHorizontal,
+  Minimize2,
+  BookOpen
 } from 'lucide-react';
 import { supabase } from '@/supabase/client';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -38,6 +40,7 @@ const MODULE_NAMES: Record<string, string> = {
   '/institutional': 'Módulo Institucional',
   '/documents': 'Centro Documental',
   '/management': 'Gerencia y Reportes',
+  '/finanzas': 'Finanzas y Créditos',
 };
 
 export function NexBotFlotante() {
@@ -46,26 +49,97 @@ export function NexBotFlotante() {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'assistant', 
-      content: '¡Hola! Soy **NexBot**, tu asistente operativo. 🤖✨\n\n¿En qué puedo ayudarte hoy? Analizo los datos del sistema por ti y te explico qué pasos seguir.' 
+      content: '¡Hola! Soy **NexBot**, tu asistente y capacitador operativo. 🤖✨\n\nPuedo enseñarte a usar cualquier módulo de NexWay ERP, explicarte paso a paso las operaciones o guiarte por la pantalla.\n\n¿Qué deseas aprender o consultar hoy?' 
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   
+  // Posicionamiento arrastrable de la ventana
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number }>({ startX: 0, startY: 0, initialX: 0, initialY: 0 });
+
   // Consumimos el BMS
   const { tasks: bmsTasks, isGuideActive, guideMessage, startGuide, stopGuide } = useBms();
 
   const currentModule = MODULE_NAMES[pathname] || 'Módulo Desconocido';
 
+  // Inicializar posición por defecto (esquina inferior derecha)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !position) {
+      const defaultX = Math.max(16, window.innerWidth - 410);
+      const defaultY = Math.max(16, window.innerHeight - 560);
+      setPosition({ x: defaultX, y: defaultY });
+    }
+  }, [isOpen]);
+
+  // Manejo de Arrastre (Drag)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsDragging(true);
+    const initialX = position?.x ?? (window.innerWidth - 410);
+    const initialY = position?.y ?? (window.innerHeight - 560);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, initialX, initialY };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    setIsDragging(true);
+    const initialX = position?.x ?? (window.innerWidth - 410);
+    const initialY = position?.y ?? (window.innerHeight - 560);
+    dragRef.current = { startX: touch.clientX, startY: touch.clientY, initialX, initialY };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      const newX = Math.min(Math.max(10, dragRef.current.initialX + dx), window.innerWidth - 360);
+      const newY = Math.min(Math.max(10, dragRef.current.initialY + dy), window.innerHeight - 150);
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - dragRef.current.startX;
+      const dy = touch.clientY - dragRef.current.startY;
+      const newX = Math.min(Math.max(10, dragRef.current.initialX + dx), window.innerWidth - 360);
+      const newY = Math.min(Math.max(10, dragRef.current.initialY + dy), window.innerHeight - 150);
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleDragEnd = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleDragEnd);
+      window.addEventListener('touchmove', handleTouchMove);
+      window.addEventListener('touchend', handleDragEnd);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleDragEnd);
+    };
+  }, [isDragging]);
+
   // Si se activa una guía, auto-abrimos el panel
   useEffect(() => {
     if (isGuideActive) {
       setIsOpen(true);
-      // Opcional: añadir el mensaje de la guía como un mensaje en el chat
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
-        if (lastMsg && lastMsg.content === guideMessage) return prev; // Evita duplicados seguidos
+        if (lastMsg && lastMsg.content === guideMessage) return prev;
         return [...prev, { role: 'assistant', content: `[Guía] ${guideMessage}` }];
       });
     }
@@ -150,7 +224,7 @@ export function NexBotFlotante() {
         ...prev, 
         { 
           role: 'assistant', 
-          content: 'Lo siento, tuve un problema de conexión para procesar tu consulta. Por favor verifica que la API Key de Gemini esté activa. *bip-error*' 
+          content: 'Lo siento, tuve un problema de conexión para procesar tu consulta. Por favor verifica que la API Key de Gemini esté activa.' 
         }
       ]);
     } finally {
@@ -164,10 +238,10 @@ export function NexBotFlotante() {
 
   return (
     <>
-      {/* Botón superior derecho */}
+      {/* Botón superior derecho para desplegar/abrir NexBot */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed top-4 right-4 md:right-8 z-[90] h-10 px-4 rounded-xl shadow-md bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 transition-all ${
+        className={`fixed top-4 right-4 md:right-8 z-[90] h-10 px-4 rounded-xl shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 transition-all active:scale-95 ${
           isGuideActive ? 'animate-pulse ring-4 ring-indigo-500/50' : ''
         }`}
       >
@@ -175,143 +249,152 @@ export function NexBotFlotante() {
         <span className="text-xs font-bold uppercase tracking-wider hidden md:inline">NexBot</span>
       </button>
 
-      {/* OVERLAY OSCURO (Opcional, para destacar el panel) */}
+      {/* VENTANA FLOTANTE Y ARRASTRABLE (SIN OVERLAY NI DESENFOQUE DE PANTALLA) */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[95] transition-opacity" 
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
-      {/* PANEL LATERAL (TIPO DRAWER) */}
-      <div 
-        className={`fixed top-0 right-0 h-full w-[360px] md:w-[400px] z-[100] flex flex-col bg-card shadow-2xl transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-        style={{ background: 'linear-gradient(135deg, rgba(11,13,25,0.98) 0%, rgba(15,17,40,0.98) 100%)' }}
-      >
-        {/* Header del Asistente */}
-        <CardHeader className="p-4 border-b border-white/10 flex flex-row items-center justify-between bg-white/5 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-400/30 flex items-center justify-center text-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.3)]">
-              <Bot size={20} className="animate-pulse" />
-            </div>
-            <div>
-              <CardTitle className="text-sm font-black text-white tracking-wide flex items-center gap-1.5">
-                NexBot
-                <Sparkles size={13} className="text-amber-400 animate-pulse" />
-              </CardTitle>
-              <CardDescription className="text-[10px] text-indigo-400/80 font-semibold tracking-wider uppercase mt-0.5">
-                {currentModule}
-              </CardDescription>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              setIsOpen(false);
-              if (isGuideActive) stopGuide();
-            }}
-            className="h-8 w-8 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl"
+          className="fixed z-[100] w-[360px] md:w-[390px] h-[520px] max-h-[85vh] flex flex-col bg-card shadow-2xl rounded-3xl border border-indigo-500/30 overflow-hidden transition-shadow duration-200"
+          style={{ 
+            left: position ? `${position.x}px` : undefined,
+            top: position ? `${position.y}px` : undefined,
+            right: !position ? '24px' : undefined,
+            bottom: !position ? '24px' : undefined,
+            background: 'linear-gradient(135deg, rgba(11,13,25,0.96) 0%, rgba(15,17,40,0.96) 100%)',
+            backdropFilter: 'blur(16px)'
+          }}
+        >
+          {/* Header Arrastrable */}
+          <CardHeader 
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            className="p-3.5 border-b border-white/10 flex flex-row items-center justify-between bg-white/5 shrink-0 cursor-grab active:cursor-grabbing select-none"
           >
-            <X size={16} />
-          </Button>
-        </CardHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="text-slate-500 hover:text-white transition-colors">
+                <GripHorizontal size={18} />
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.3)]">
+                <Bot size={18} className="animate-pulse" />
+              </div>
+              <div>
+                <CardTitle className="text-xs font-black text-white tracking-wide flex items-center gap-1.5">
+                  NexBot Trainer
+                  <Sparkles size={12} className="text-amber-400 animate-pulse" />
+                </CardTitle>
+                <CardDescription className="text-[10px] text-indigo-400/90 font-semibold tracking-wider uppercase">
+                  {currentModule}
+                </CardDescription>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsOpen(false)}
+                className="h-7 w-7 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg"
+                title="Minimizar"
+              >
+                <Minimize2 size={14} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setIsOpen(false);
+                  if (isGuideActive) stopGuide();
+                }}
+                className="h-7 w-7 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg"
+                title="Cerrar"
+              >
+                <X size={14} />
+              </Button>
+            </div>
+          </CardHeader>
 
-        {/* Cuerpo del Chat */}
-        <CardContent className="flex-1 overflow-hidden p-0 flex flex-col bg-transparent relative">
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex gap-3 max-w-[85%] ${
-                    msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''
-                  }`}
-                >
-                  {msg.role === 'assistant' && (
-                    <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-blue-400 shrink-0 text-xs shadow-md">
-                      🤖
-                    </div>
-                  )}
+          {/* Cuerpo del Chat */}
+          <CardContent className="flex-1 overflow-hidden p-0 flex flex-col bg-transparent relative">
+            <ScrollArea className="flex-1 p-3.5">
+              <div className="space-y-3.5">
+                {messages.map((msg, idx) => (
                   <div
-                    className={`rounded-2xl p-3.5 text-sm leading-relaxed whitespace-pre-line shadow-sm ${
-                      msg.role === 'user'
-                        ? 'bg-blue-600 text-white rounded-tr-none shadow-blue-600/20'
-                        : 'bg-white/5 border border-white/10 text-slate-200 rounded-tl-none'
+                    key={idx}
+                    className={`flex gap-2.5 max-w-[90%] ${
+                      msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''
                     }`}
                   >
-                    {msg.content}
+                    {msg.role === 'assistant' && (
+                      <div className="w-6 h-6 rounded-lg bg-indigo-950 border border-indigo-700/50 flex items-center justify-center text-indigo-400 shrink-0 text-xs shadow-md">
+                        🤖
+                      </div>
+                    )}
+                    <div
+                      className={`rounded-2xl p-3 text-xs leading-relaxed whitespace-pre-line shadow-sm ${
+                        msg.role === 'user'
+                          ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-600/20 font-medium'
+                          : 'bg-white/5 border border-white/10 text-slate-200 rounded-tl-none'
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
                   </div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex gap-3 max-w-[85%]">
-                  <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-blue-400 shrink-0 shadow-md">
-                    <Loader2 size={14} className="animate-spin" />
+                ))}
+                {loading && (
+                  <div className="flex gap-2.5 max-w-[90%]">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-950 border border-indigo-700/50 flex items-center justify-center text-indigo-400 shrink-0 shadow-md">
+                      <Loader2 size={12} className="animate-spin" />
+                    </div>
+                    <div className="bg-white/5 border border-white/10 text-slate-400 rounded-2xl rounded-tl-none p-3 text-xs italic flex items-center gap-2">
+                      Consultando manuales del sistema...
+                    </div>
                   </div>
-                  <div className="bg-white/5 border border-white/10 text-slate-400 rounded-2xl rounded-tl-none p-3.5 text-sm italic flex items-center gap-2">
-                    Pensando...
-                  </div>
-                </div>
-              )}
-              <div ref={scrollRef} />
+                )}
+                <div ref={scrollRef} />
+              </div>
+            </ScrollArea>
+
+            {/* Sugerencias Rápidas */}
+            <div className="p-2.5 border-t border-white/5 bg-black/30 flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
+              <button 
+                onClick={() => suggestQuestion('¿Cómo se usa este módulo paso a paso?')} 
+                className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 hover:border-indigo-400/50 text-indigo-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm flex items-center gap-1"
+              >
+                <BookOpen size={10} /> Capacitarme en este módulo
+              </button>
+              <button 
+                onClick={() => suggestQuestion('¿Cómo registro una venta o factura al crédito?')} 
+                className="text-[10px] bg-white/5 border border-white/10 hover:border-indigo-400/40 text-slate-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm"
+              >
+                💳 Facturas Crédito
+              </button>
+              <button 
+                onClick={() => suggestQuestion('¿Cómo controlo préstamos y nómina de empleados?')} 
+                className="text-[10px] bg-white/5 border border-white/10 hover:border-indigo-400/40 text-slate-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm"
+              >
+                👥 Nómina y Préstamos
+              </button>
             </div>
-          </ScrollArea>
 
-          {/* Sugerencias Rápidas */}
-          <div className="p-3 border-t border-white/5 bg-black/20 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
-            {pathname === '/inventory' ? (
-              <>
-                <button onClick={() => suggestQuestion('¿Cómo vinculo el código de un proveedor a mi SKU?')} className="text-[11px] bg-white/5 border border-white/10 hover:border-blue-400/40 hover:bg-white/10 text-slate-300 hover:text-white px-3 py-1.5 rounded-full whitespace-nowrap transition-all shadow-sm">
-                  🔗 Mapear Proveedor
-                </button>
-                <button onClick={() => suggestQuestion('¿Cómo hago una Toma Física de inventario?')} className="text-[11px] bg-white/5 border border-white/10 hover:border-blue-400/40 hover:bg-white/10 text-slate-300 hover:text-white px-3 py-1.5 rounded-full whitespace-nowrap transition-all shadow-sm">
-                  ✏ Toma Física
-                </button>
-              </>
-            ) : pathname === '/crm' ? (
-              <>
-                <button onClick={() => suggestQuestion('¿Cómo funciona el embudo Kanban de oportunidades?')} className="text-[11px] bg-white/5 border border-white/10 hover:border-blue-400/40 hover:bg-white/10 text-slate-300 hover:text-white px-3 py-1.5 rounded-full whitespace-nowrap transition-all shadow-sm">
-                  💼 Kanban CRM
-                </button>
-                <button onClick={() => suggestQuestion('Ayúdame a redactar un correo para reactivar un cliente estancado.')} className="text-[11px] bg-white/5 border border-white/10 hover:border-blue-400/40 hover:bg-white/10 text-slate-300 hover:text-white px-3 py-1.5 rounded-full whitespace-nowrap transition-all shadow-sm">
-                  ✉ Redactar Correo
-                </button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => suggestQuestion('¿Qué módulos tengo autorizados en mi perfil?')} className="text-[11px] bg-white/5 border border-white/10 hover:border-blue-400/40 hover:bg-white/10 text-slate-300 hover:text-white px-3 py-1.5 rounded-full whitespace-nowrap transition-all shadow-sm">
-                  🔑 Mis Permisos
-                </button>
-                <button onClick={() => suggestQuestion('Ayúdame a redactar una minuta para el Centro Documental.')} className="text-[11px] bg-white/5 border border-white/10 hover:border-blue-400/40 hover:bg-white/10 text-slate-300 hover:text-white px-3 py-1.5 rounded-full whitespace-nowrap transition-all shadow-sm">
-                  📝 Crear Minuta
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Input de Chat */}
-          <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-white/5 flex gap-2 shrink-0">
-            <Input
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              placeholder="Escribe tu consulta..."
-              disabled={loading}
-              className="h-10 text-sm bg-black/40 border-white/10 text-white placeholder:text-white/40 rounded-xl focus-visible:ring-blue-500 shadow-inner"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={loading || !inputValue.trim()}
-              className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shrink-0 transition-all active:scale-95 shadow-md shadow-blue-600/20"
-            >
-              <Send size={16} />
-            </Button>
-          </form>
-        </CardContent>
-      </div>
+            {/* Input de Chat */}
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-white/10 bg-white/5 flex gap-2 shrink-0">
+              <Input
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                placeholder="Pregúntale a NexBot cómo usar el sistema..."
+                disabled={loading}
+                className="h-9 text-xs bg-black/50 border-white/10 text-white placeholder:text-white/40 rounded-xl focus-visible:ring-indigo-500 shadow-inner"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={loading || !inputValue.trim()}
+                className="h-9 w-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shrink-0 transition-all active:scale-95 shadow-md shadow-indigo-600/20"
+              >
+                <Send size={14} />
+              </Button>
+            </form>
+          </CardContent>
+        </div>
+      )}
     </>
   );
 }
