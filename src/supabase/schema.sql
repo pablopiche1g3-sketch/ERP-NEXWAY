@@ -586,5 +586,54 @@ CREATE TABLE IF NOT EXISTS public.agenda_tasks (
 
 DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.agenda_tasks;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
+-- 31. CUENTAS BANCARIAS Y TRANSACCIONES DE CONCILIACIÓN
+CREATE TABLE IF NOT EXISTS public.bank_accounts (
+  id uuid default uuid_generate_v4() primary key,
+  bank_name text not null,
+  account_number text not null,
+  account_type text default 'Corriente', -- 'Corriente', 'Ahorro', 'Caja Chica'
+  balance numeric(12,2) not null default 0.00,
+  currency text default 'USD',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+CREATE TABLE IF NOT EXISTS public.bank_transactions (
+  id uuid default uuid_generate_v4() primary key,
+  bank_account_id uuid references public.bank_accounts(id) on delete cascade not null,
+  type text not null, -- 'INGRESO', 'EGRESO'
+  amount numeric(12,2) not null default 0.00,
+  reference text,
+  description text,
+  date date default current_date,
+  status text default 'CONCILIADO', -- 'CONCILIADO', 'PENDIENTE'
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 32. CREDIT SCORING Y EVALUACIÓN DE RIESGO
+CREATE TABLE IF NOT EXISTS public.client_credit_scorings (
+  id uuid default uuid_generate_v4() primary key,
+  client_id uuid references public.clients(id) on delete cascade not null,
+  score numeric(5,2) default 90.00,
+  risk_level text default 'BAJO', -- 'BAJO', 'MEDIO', 'ALTO'
+  avg_pay_days integer default 15,
+  recommended_limit numeric(10,2) default 5000.00,
+  updated_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- 33. ANTICIPOS Y DEPÓSITOS A FAVOR DE CLIENTES
+CREATE TABLE IF NOT EXISTS public.customer_advances (
+  id uuid default uuid_generate_v4() primary key,
+  client_id uuid references public.clients(id) on delete cascade not null,
+  amount numeric(10,2) not null default 0.00,
+  used_amount numeric(10,2) not null default 0.00,
+  notes text,
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.bank_accounts;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.bank_transactions;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.customer_advances;'; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+
 
 
