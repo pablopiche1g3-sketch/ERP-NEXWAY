@@ -32,8 +32,8 @@ export default function RootLayout({
         <SupabaseAuthProvider>
           <ThemeProvider
             attribute="class"
-            defaultTheme="dark"
-            forcedTheme="dark"
+            defaultTheme="system"
+            enableSystem
             disableTransitionOnChange
           >
             <ClientAuthGate>
