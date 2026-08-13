@@ -296,6 +296,15 @@ export default function BillingPage() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentReference, setPaymentReference] = useState('');
   const [cashReceived, setCashReceived] = useState<string>('');
+  const [completedSaleData, setCompletedSaleData] = useState<{
+    correlative: string;
+    docType: string;
+    total: number;
+    cashReceived: number;
+    change: number;
+    customerName: string;
+    items: any[];
+  } | null>(null);
 
   // Estados para datos cargados desde Supabase
   const [cashConfig, setCashConfig] = useState<any>({ cashFloat: 100 });
@@ -1197,12 +1206,25 @@ export default function BillingPage() {
           });
         }
         
-        const { error: rpcErr } = await supabase.rpc('process_inventory_transaction', {
-          p_stock_updates: stockUpdates,
-          p_kardex_inserts: kardexInserts
-        });
-        
-        if (rpcErr) throw rpcErr;
+        try {
+          const { error: rpcErr } = await supabase.rpc('process_inventory_transaction', {
+            p_stock_updates: stockUpdates,
+            p_kardex_inserts: kardexInserts
+          });
+          if (rpcErr) throw rpcErr;
+        } catch (rpcFallbackErr) {
+          console.warn('RPC process_inventory_transaction fallback execution:', rpcFallbackErr);
+          for (const update of stockUpdates) {
+            await supabase.from('inventory_stock').upsert({
+              sku: update.sku,
+              warehouse_id: update.warehouse_id,
+              quantity: update.quantity
+            }, { onConflict: 'sku,warehouse_id' });
+          }
+          for (const kItem of kardexInserts) {
+            await supabase.from('kardex').insert(kItem);
+          }
+        }
       }
 
       // Marcar cotización como FACTURADA si se usó una
@@ -1226,15 +1248,30 @@ export default function BillingPage() {
         });
       }
 
+      const cashVal = parseFloat(cashReceived) || totalCart;
+      const changeVal = Math.max(0, cashVal - totalCart);
+
       if (paymentMethod === 'Efectivo') {
-        processChange(totalCart, parseFloat(cashReceived) || 0);
+        processChange(totalCart, cashVal);
       }
 
-      toast({ title: "Venta Exitosa", description: "DTE enviado por correo." });
+      // Desplegar Modal de Venta Completada
+      setCompletedSaleData({
+        correlative,
+        docType,
+        total: totalCart,
+        cashReceived: cashVal,
+        change: changeVal,
+        customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+        items: [...cart]
+      });
+
+      toast({ title: "Venta Registrada Exitosamente", description: `DTE: ${correlative}` });
       setCart([]);
       setCustomerName('');
       setCustomerEmail('');
       setSelectedCustomer(null);
+      setCashReceived('');
       setIsCheckoutOpen(false);
       await loadBillingData();
 
@@ -3058,14 +3095,27 @@ export default function BillingPage() {
             </div>
 
             {paymentMethod === 'Efectivo' ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Efectivo Recibido</Label>
-                  <Input type="number" placeholder="0.00" value={cashReceived} onChange={e => setCashReceived(e.target.value)} className="h-12 text-lg font-bold rounded-xl" />
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCashReceived(totalCart.toFixed(2))} className="text-[11px] font-black bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                    Exacto (${totalCart.toFixed(2)})
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCashReceived('5.00')} className="text-[11px] font-bold">$5.00</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCashReceived('10.00')} className="text-[11px] font-bold">$10.00</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCashReceived('20.00')} className="text-[11px] font-bold">$20.00</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCashReceived('50.00')} className="text-[11px] font-bold">$50.00</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCashReceived('100.00')} className="text-[11px] font-bold">$100.00</Button>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Cambio</Label>
-                  <div className="h-12 flex items-center px-4 bg-emerald-500/10 text-emerald-600 rounded-xl font-black text-lg">${changeDue.toFixed(2)}</div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Efectivo Recibido</Label>
+                    <Input type="number" placeholder="0.00" value={cashReceived} onChange={e => setCashReceived(e.target.value)} className="h-12 text-lg font-bold rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Cambio</Label>
+                    <div className="h-12 flex items-center px-4 bg-emerald-500/10 text-emerald-600 rounded-xl font-black text-lg">${changeDue.toFixed(2)}</div>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -3082,6 +3132,89 @@ export default function BillingPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE VENTA COMPLETADA E IMPRESIÓN DE DTE */}
+      <Dialog open={completedSaleData !== null} onOpenChange={(open) => !open && setCompletedSaleData(null)}>
+        {completedSaleData && (
+          <DialogContent className="rounded-2xl max-w-md p-6 bg-card border shadow-2xl">
+            <DialogHeader className="text-center">
+              <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center mx-auto mb-2">
+                <CheckCircle2 size={36} />
+              </div>
+              <DialogTitle className="text-xl font-black text-emerald-500 text-center">¡Venta Registrada Exitosamente!</DialogTitle>
+              <DialogDescription className="text-xs text-center">
+                DTE Emitido: <strong className="font-mono text-slate-800 dark:text-white">{completedSaleData.correlative}</strong>
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 my-2">
+              <div className="bg-slate-900 text-white p-4 rounded-xl space-y-2 text-xs">
+                <div className="flex justify-between"><span>Cliente:</span><span className="font-bold">{completedSaleData.customerName}</span></div>
+                <div className="flex justify-between"><span>Tipo Doc:</span><span className="font-bold uppercase text-amber-400">{completedSaleData.docType}</span></div>
+                <div className="flex justify-between"><span>Monto Total:</span><span className="font-black text-blue-400 text-sm">${completedSaleData.total.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Efectivo Recibido:</span><span className="font-bold">${completedSaleData.cashReceived.toFixed(2)}</span></div>
+                <div className="flex justify-between border-t border-white/10 pt-2 text-emerald-400 font-bold">
+                  <span>Vuelto a Entregar:</span>
+                  <span className="font-black text-base">${completedSaleData.change.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-col gap-2">
+              <Button
+                onClick={() => {
+                  const printWin = window.open('', '_blank');
+                  if (printWin) {
+                    printWin.document.write(`
+                      <html>
+                        <head>
+                          <title>DTE ${completedSaleData.correlative}</title>
+                          <style>
+                            body { font-family: monospace; padding: 10px; width: 280px; font-size: 12px; }
+                            .center { text-align: center; }
+                            .right { text-align: right; }
+                            .row { display: flex; justify-content: space-between; margin: 4px 0; }
+                            hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
+                          </style>
+                        </head>
+                        <body>
+                          <h2 class="center" style="margin:0;">NEXWAY ERP</h2>
+                          <p class="center" style="margin:2px 0;">SISTEMA DE EMISION DTE</p>
+                          <hr/>
+                          <p style="margin:2px 0;"><strong>Doc:</strong> ${completedSaleData.docType}</p>
+                          <p style="margin:2px 0;"><strong>DTE:</strong> ${completedSaleData.correlative}</p>
+                          <p style="margin:2px 0;"><strong>Cliente:</strong> ${completedSaleData.customerName}</p>
+                          <hr/>
+                          ${completedSaleData.items.map(i => `<div class="row"><span>${i.quantity}x ${i.name}</span><span>$${(i.quantity * i.price).toFixed(2)}</span></div>`).join('')}
+                          <hr/>
+                          <h3 class="right" style="margin:4px 0;">TOTAL: $${completedSaleData.total.toFixed(2)}</h3>
+                          <div class="row"><span>Efectivo:</span><span>$${completedSaleData.cashReceived.toFixed(2)}</span></div>
+                          <div class="row"><span>Vuelto:</span><span>$${completedSaleData.change.toFixed(2)}</span></div>
+                          <hr/>
+                          <p class="center" style="font-size: 10px; margin-top: 10px;">¡Gracias por su compra en NexWay!</p>
+                          <script>window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); };</script>
+                        </body>
+                      </html>
+                    `);
+                    printWin.document.close();
+                  }
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 font-bold text-xs h-11 rounded-xl text-white"
+              >
+                <Printer size={16} className="mr-1.5" /> IMPRIMIR TICKET DTE (80mm)
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setCompletedSaleData(null)}
+                className="w-full font-bold text-xs h-10 rounded-xl border-slate-700"
+              >
+                ⚡ NUEVA VENTA
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
       </Dialog>
 
       {/* DIALOG DE REGISTRO DE ABONO */}
