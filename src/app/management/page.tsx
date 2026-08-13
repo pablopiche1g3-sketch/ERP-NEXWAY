@@ -46,6 +46,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import DocumentsTab from './components/DocumentsTab';
 import HrPayrollTab from './components/HrPayrollTab';
 import PrintDesignerTab from './components/PrintDesignerTab';
+import PerformanceThemesTab from './components/PerformanceThemesTab';
 import GmailClient from '@/components/shared/GmailClient';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -1417,6 +1418,7 @@ export default function ManagementPage() {
                   <TabsTrigger value="company" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Perfil de Empresa</TabsTrigger>
                   <TabsTrigger value="branches" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Sucursales y Entorno</TabsTrigger>
                   <TabsTrigger value="print-designer" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Diseñador Impresión</TabsTrigger>
+                  <TabsTrigger value="performance-themes" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-indigo-600 text-xs">Rendimiento y Temas</TabsTrigger>
                   <TabsTrigger value="documental" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Auditoría (Documental)</TabsTrigger>
                   <TabsTrigger value="gmail" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-red-500 text-xs">Auditoría Gmail</TabsTrigger>
                 </>
@@ -1430,6 +1432,11 @@ export default function ManagementPage() {
               )}
             </TabsList>
           </div>
+
+          {/* pestaña: RENDIMIENTO Y TEMAS */}
+          <TabsContent value="performance-themes" className="m-0 p-0 outline-none">
+            <PerformanceThemesTab />
+          </TabsContent>
 
           {/* pestaña: AUDITORÍA GMAIL */}
           <TabsContent value="gmail" className="m-0 p-0 outline-none">
