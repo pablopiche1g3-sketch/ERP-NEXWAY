@@ -9,34 +9,74 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Coins, Plus, User, CheckCircle2 } from 'lucide-react';
-
-const MOCK_ADVANCES = [
-  { id: 'adv_1', client_name: 'DISTRIBUIDORA BETA S.A.', amount: 1500.00, used_amount: 500.00, notes: 'Anticipo para pedido especial de varilla', created_at: '2026-08-10' },
-  { id: 'adv_2', client_name: 'CONSTRUCTORA ALFA', amount: 800.00, used_amount: 800.00, notes: 'Prima del 20% por compra de cemento', created_at: '2026-08-05' }
-];
+import { Landmark, Plus, Users, Loader2, CheckCircle2, UserCheck, Calendar } from 'lucide-react';
 
 export default function AdvancesTab() {
   const { toast } = useToast();
-  const [advances, setAdvances] = useState<any[]>(MOCK_ADVANCES);
-  const [isAdding, setIsAdding] = useState(false);
-  const [clientName, setClientName] = useState('COMERCIALIZADORA GAMA');
-  const [amount, setAmount] = useState('500.00');
-  const [notes, setNotes] = useState('Reserva de mercadería');
+  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [loans, setLoans] = useState<any[]>([]);
 
-  const handleAddAdvance = (e: React.FormEvent) => {
+  const [isAdding, setIsAdding] = useState(false);
+  const [selectedEmpId, setSelectedEmpId] = useState('');
+  const [amount, setAmount] = useState('150.00');
+  const [installmentsCount, setInstallmentsCount] = useState('1'); // número de meses a descontar
+  const [reason, setReason] = useState('Adelanto de salario quincenal');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // 1. Obtener empleados
+      const { data: profs } = await supabase.from('profiles').select('id, email, role');
+      setEmployees(profs || []);
+      if (profs && profs.length > 0) setSelectedEmpId(profs[0].id);
+
+      // 2. Obtener anticipos/préstamos de empleados
+      const { data: lns } = await supabase.from('employee_loans').select('*, profiles(email)').order('created_at', { ascending: false });
+      setLoans(lns || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleAddAdvance = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newAdv = {
-      id: 'adv_' + Date.now(),
-      client_name: clientName,
-      amount: parseFloat(amount) || 0,
-      used_amount: 0,
-      notes,
-      created_at: new Date().toISOString().split('T')[0]
-    };
-    setAdvances(prev => [newAdv, ...prev]);
-    setIsAdding(false);
-    toast({ title: 'Anticipo Registrado', description: `Se registró anticipo por $${amount} a favor de ${clientName}.` });
+    if (!selectedEmpId || !amount) return;
+
+    const totalNum = parseFloat(amount) || 0;
+    const countNum = parseInt(installmentsCount) || 1;
+    const installmentAmt = totalNum / countNum;
+
+    setIsSaving(true);
+    try {
+      const { data, error } = await supabase.from('employee_loans').insert({
+        profile_id: selectedEmpId,
+        amount: totalNum,
+        installment_amount: installmentAmt,
+        balance: totalNum,
+        reason,
+        status: 'ACTIVO'
+      }).select('*, profiles(email)').single();
+
+      if (error) throw error;
+
+      toast({ title: 'Anticipo Registrado', description: `Se asignó un adelanto de $${totalNum.toFixed(2)} al colaborador.` });
+      setLoans(prev => [data, ...prev]);
+      setIsAdding(false);
+      setAmount('150.00');
+      setReason('Adelanto de salario quincenal');
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message || 'No se pudo guardar el anticipo.' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -44,76 +84,115 @@ export default function AdvancesTab() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border shadow-sm">
         <div>
           <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
-            <Coins className="text-amber-500" size={20} />
-            Gestión de Anticipos y Saldos a Favor de Clientes
+            <Landmark className="text-indigo-500" size={20} />
+            Gestión de Anticipos y Adelantos de Sueldo a Empleados
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Control de primas y depósitos recibidos previamente antes de la facturación final.
+            Control de anticipos quincenales y préstamos internos descontados automáticamente de la nómina laboral.
           </p>
         </div>
 
-        <Button onClick={() => setIsAdding(!isAdding)} className="bg-amber-600 hover:bg-amber-700 font-bold text-xs h-9 rounded-xl text-white">
-          <Plus size={15} className="mr-1.5" /> Registrar Anticipo
+        <Button onClick={() => setIsAdding(!isAdding)} className="bg-indigo-600 hover:bg-indigo-700 font-bold text-xs h-9 rounded-xl text-white">
+          <Plus size={15} className="mr-1.5" /> Registrar Anticipo a Empleado
         </Button>
       </div>
 
+      {/* Formulario Registrar Anticipo */}
       {isAdding && (
         <Card className="border shadow-md rounded-2xl p-5 bg-card animate-in fade-in duration-200">
           <form onSubmit={handleAddAdvance} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Razón Social del Cliente</Label>
-              <Input value={clientName} onChange={e => setClientName(e.target.value)} className="h-9 text-xs" required />
+              <Label className="text-xs font-bold">Colaborador / Empleado</Label>
+              <Select value={selectedEmpId} onValueChange={setSelectedEmpId}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                <SelectContent>
+                  {employees.map(emp => (
+                    <SelectItem key={emp.id} value={emp.id} className="text-xs">
+                      {emp.email} ({emp.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Monto Recibido ($)</Label>
+              <Label className="text-xs font-bold">Monto del Adelanto ($)</Label>
               <Input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="h-9 text-xs font-mono" required />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Concepto / Notas</Label>
-              <Input value={notes} onChange={e => setNotes(e.target.value)} className="h-9 text-xs" />
+              <Label className="text-xs font-bold">Cuotas a Descontar (Meses)</Label>
+              <Select value={installmentsCount} onValueChange={setInstallmentsCount}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Quincena / 1 Mes (Descuento Único)</SelectItem>
+                  <SelectItem value="2">2 Meses (Cuotas iguales)</SelectItem>
+                  <SelectItem value="3">3 Meses (Cuotas iguales)</SelectItem>
+                  <SelectItem value="6">6 Meses (Cuotas iguales)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5 col-span-1 sm:col-span-3">
+              <Label className="text-xs font-bold">Motivo / Concepto del Adelanto</Label>
+              <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="Ej. Adelanto quincena, emergencia médica" className="h-9 text-xs" required />
             </div>
 
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={() => setIsAdding(false)} className="h-9 text-xs font-bold flex-1">Cancelar</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 h-9 text-xs font-bold flex-1">Guardar</Button>
+              <Button type="submit" disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 h-9 text-xs font-bold flex-1">
+                {isSaving ? <Loader2 className="animate-spin" size={14} /> : 'Guardar Anticipo'}
+              </Button>
             </div>
           </form>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {advances.map(adv => {
-          const available = adv.amount - adv.used_amount;
+      {/* Grid de Anticipos de Empleados */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {loans.map(loan => {
+          const empEmail = loan.profiles?.email || 'Empleado';
+          const balanceNum = parseFloat(loan.balance) || 0;
+          const totalNum = parseFloat(loan.amount) || 0;
+
           return (
-            <Card key={adv.id} className="border shadow-sm p-5 rounded-2xl bg-card">
+            <Card key={loan.id} className="border shadow-sm p-5 rounded-2xl bg-card">
               <div className="flex justify-between items-start">
                 <div>
-                  <Badge className="bg-amber-500/10 text-amber-500 border-0 text-[9px] font-black uppercase mb-1">Anticipo de Cliente</Badge>
-                  <h4 className="text-sm font-black text-slate-800 dark:text-white">{adv.client_name}</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">{adv.notes}</p>
+                  <Badge className={`border-0 text-[9px] font-black uppercase mb-1 ${balanceNum > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                    {balanceNum > 0 ? 'Anticipo Activo' : 'Saldado / Liquidado'}
+                  </Badge>
+                  <h4 className="text-xs font-black text-slate-800 dark:text-white flex items-center gap-1">
+                    <UserCheck size={14} className="text-indigo-500" />
+                    {empEmail}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-1">{loan.reason}</p>
                 </div>
-                <User size={20} className="text-slate-400" />
               </div>
 
               <div className="mt-4 pt-3 border-t grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <span className="text-[9px] text-slate-400 uppercase font-bold">Monto Inicial</span>
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200 mt-0.5">${adv.amount.toFixed(2)}</p>
+                  <span className="text-[9px] text-slate-400 uppercase font-bold">Adelanto Total</span>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-200 mt-0.5">${totalNum.toFixed(2)}</p>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-400 uppercase font-bold">Aplicado</span>
-                  <p className="text-sm font-bold text-rose-500 mt-0.5">${adv.used_amount.toFixed(2)}</p>
+                  <span className="text-[9px] text-slate-400 uppercase font-bold">Cuota Planilla</span>
+                  <p className="text-xs font-bold text-rose-500 mt-0.5">${(parseFloat(loan.installment_amount) || 0).toFixed(2)}</p>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-400 uppercase font-bold">Disponible</span>
-                  <p className="text-sm font-black text-emerald-500 mt-0.5">${available.toFixed(2)}</p>
+                  <span className="text-[9px] text-slate-400 uppercase font-bold">Saldo Pendiente</span>
+                  <p className="text-xs font-black text-indigo-500 mt-0.5">${balanceNum.toFixed(2)}</p>
                 </div>
               </div>
             </Card>
           );
         })}
+
+        {loans.length === 0 && !loading && (
+          <div className="col-span-full p-8 text-center text-slate-500 border border-dashed rounded-2xl text-xs">
+            No hay anticipos o adelantos de sueldo a empleados registrados actualmente.
+          </div>
+        )}
       </div>
     </div>
   );
