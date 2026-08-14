@@ -27,24 +27,21 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
-  CREATE POLICY "Permitir a usuarios actualizar su propio perfil" ON public.profiles FOR UPDATE USING (auth.uid()::text = id);
+  CREATE POLICY "Permitir inserción y actualización de app_users" ON public.app_users FOR ALL USING (true);
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
--- 3. DISPARADOR (TRIGGER) AUTOMÁTICO PARA NUEVOS USUARIOS (Si se usa auth nativo de Supabase)
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.profiles (id, email, role)
-  VALUES (new.id::text, new.email, 'pedidos');
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- TABLA DE PERFILES DE RESPALDO (profiles)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id text primary key,
+  email text not null,
+  role text not null default 'cajero',
+  created_at timestamptz default timezone('utc'::text, now()) not null
+);
 
--- Eliminamos el trigger si existe para volver a crearlo de forma segura
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY "Permitir lectura pública de perfiles" ON public.profiles FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- 4. TABLA DE BODEGAS (ALMACENES)
 CREATE TABLE IF NOT EXISTS public.warehouses (
