@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ClientAuthGate } from '@/components/ClientAuthGate';
 import { NexBotTutorWidget } from '@/components/NexBotTutorWidget';
+import { FeedbackCaptureWidget } from '@/components/FeedbackCaptureWidget';
 
 export const metadata: Metadata = {
   title: 'NexWay ERP - Sistema de Planificación de Recursos Empresariales',
@@ -41,6 +42,7 @@ export default function RootLayout({
               {children}
             </ClientAuthGate>
             <NexBotTutorWidget />
+            <FeedbackCaptureWidget />
             <Toaster />
           </ThemeProvider>
         </SupabaseAuthProvider>

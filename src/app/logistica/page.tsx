@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import InventoryTab from './components/InventoryTab';
 import TransfersTab from './components/TransfersTab';
+import KardexValuedTab from './components/KardexValuedTab';
 import { Package } from 'lucide-react';
 
 export default function LogisticaPage() {
@@ -25,6 +26,12 @@ export default function LogisticaPage() {
             Inventario
           </TabsTrigger>
           <TabsTrigger 
+            value="kardex-valued" 
+            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors"
+          >
+            Kardex Valorizado FIFO
+          </TabsTrigger>
+          <TabsTrigger 
             value="traslados" 
             className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors"
           >
@@ -34,6 +41,9 @@ export default function LogisticaPage() {
         
         <TabsContent value="inventario" className="outline-none">
           <InventoryTab />
+        </TabsContent>
+        <TabsContent value="kardex-valued" className="outline-none">
+          <KardexValuedTab />
         </TabsContent>
         <TabsContent value="traslados" className="outline-none">
           <TransfersTab />

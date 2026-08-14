@@ -41,6 +41,7 @@ import { useModuleConfig } from '@/supabase/use-module-config';
 import { useTabs } from '@/hooks/use-tabs';
 import { useToast } from '@/hooks/use-toast';
 import { SettingsTab } from './components/settings-tab';
+import FiscalReportsTab from './components/FiscalReportsTab';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
@@ -1525,7 +1526,8 @@ export default function AccountingPage() {
 
           {/* TAB 4: FORMULARIOS DE HACIENDA */}
           <TabsContent value="mh_forms" className="space-y-6 outline-none">
-            <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl w-fit">
+            <FiscalReportsTab />
+            <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl w-fit mt-6">
               <Button variant={activeFormTab === 'f07' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveFormTab('f07')}>
                 F07 - Declaración Mensual de IVA
               </Button>
