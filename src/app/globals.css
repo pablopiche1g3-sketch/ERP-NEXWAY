@@ -6,6 +6,35 @@
 
 @layer base {
   :root {
+    /* Modo Claro (Light Theme) */
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;
+
+    --tint-glow-1: 99 102 241; /* indigo-500 */
+    --tint-glow-2: 59 130 246; /* blue-500 */
+    --tint-text: 79 70 229; /* indigo-600 */
+  }
+
+  .dark {
+    /* Modo Noche (Dark / Obsidian Theme) */
     --background: 240 10% 4%;
     --foreground: 210 40% 98%;
     --card: 240 10% 6%;
@@ -25,35 +54,28 @@
     --border: 217.2 32.6% 15%;
     --input: 217.2 32.6% 15%;
     --ring: 224.3 76.3% 48%;
-    --radius: 0.75rem;
-    --chart-1: 221 83% 53%;
-    --chart-2: 212 95% 68%;
-    --chart-3: 216 92% 60%;
-    --chart-4: 210 98% 78%;
-    --chart-5: 212 97% 87%;
 
-    /* Tints */
-    --tint-glow-1: 99 102 241; /* indigo-500 */
-    --tint-glow-2: 59 130 246; /* blue-500 */
-    --tint-text: 129 140 248; /* indigo-400 */
+    --tint-glow-1: 99 102 241;
+    --tint-glow-2: 59 130 246;
+    --tint-text: 129 140 248;
   }
 
   [data-color-theme='esmeralda'] {
-    --tint-glow-1: 16 185 129; /* emerald-500 */
-    --tint-glow-2: 6 182 212; /* cyan-500 */
-    --tint-text: 52 211 153; /* emerald-400 */
+    --tint-glow-1: 16 185 129;
+    --tint-glow-2: 6 182 212;
+    --tint-text: 52 211 153;
   }
 
   [data-color-theme='rosa'] {
-    --tint-glow-1: 244 63 94; /* rose-500 */
-    --tint-glow-2: 249 115 22; /* orange-500 */
-    --tint-text: 251 113 133; /* rose-400 */
+    --tint-glow-1: 244 63 94;
+    --tint-glow-2: 249 115 22;
+    --tint-text: 251 113 133;
   }
 
   [data-color-theme='ambar'] {
-    --tint-glow-1: 245 158 11; /* amber-500 */
-    --tint-glow-2: 234 179 8; /* yellow-500 */
-    --tint-text: 252 211 77; /* amber-400 */
+    --tint-glow-1: 245 158 11;
+    --tint-glow-2: 234 179 8;
+    --tint-text: 252 211 77;
   }
 }
 
@@ -73,7 +95,6 @@
   }
 }
 
-/* Base utility overrides for fast rendering */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -81,4 +102,3 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
