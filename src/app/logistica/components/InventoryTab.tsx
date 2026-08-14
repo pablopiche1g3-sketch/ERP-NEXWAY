@@ -418,7 +418,7 @@ export default function InventoryTab() {
         .order('name');
       setBranches(branchesData || []);
 
-      // Helper function to bypass Supabase 1000-row limit
+      // Helper function to bypass Supabase 1000-row limit with JWT error handling
       const fetchAllRows = async (table: string, orderByCol?: string) => {
         let allData: any[] = [];
         let start = 0;
@@ -427,8 +427,17 @@ export default function InventoryTab() {
           let query = supabase.from(table).select('*').range(start, start + limit - 1);
           if (orderByCol) query = query.order(orderByCol);
           
-          const { data, error } = await query;
-          if (error) throw error;
+          let { data, error } = await query;
+          if (error && error.message?.includes('JWT expired')) {
+            await supabase.auth.signOut();
+            const retry = await supabase.from(table).select('*').range(start, start + limit - 1);
+            data = retry.data;
+            error = retry.error;
+          }
+          if (error) {
+            console.warn(`InventoryTab fetchAllRows error on ${table}:`, error.message);
+            break;
+          }
           if (data && data.length > 0) {
             allData = [...allData, ...data];
           }
@@ -512,11 +521,13 @@ export default function InventoryTab() {
 
     } catch (err: any) {
       console.error('Error al cargar datos desde Supabase:', err);
-      toast({
-        variant: 'destructive',
-        title: 'Error de Conexión',
-        description: 'No se pudieron cargar los datos desde la nube de Supabase.'
-      });
+      if (!err?.message?.includes('JWT expired')) {
+        toast({
+          variant: 'destructive',
+          title: 'Error de Conexión',
+          description: 'No se pudieron cargar los datos desde la nube de Supabase.'
+        });
+      }
     } finally {
       // 5. Obtener compras en tránsito (BMS)
       const { data: transitData, error: transitErr } = await supabase
