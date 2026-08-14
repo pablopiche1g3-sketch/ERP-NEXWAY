@@ -219,15 +219,15 @@ export function AsistenteGuiaERP() {
   return (
     <Card className="bg-card rounded-2xl mb-8 overflow-hidden relative z-10 border-border shadow-sm">
       <CardHeader 
-        className="p-5 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-b border-white/10 flex flex-row items-center justify-between cursor-pointer select-none"
+        className="p-5 bg-card dark:bg-slate-950 border-b border-border flex flex-row items-center justify-between cursor-pointer select-none"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/5">
+          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-sm">
             <Award size={18} className="animate-pulse" />
           </div>
           <div>
-            <CardTitle className="text-xs md:text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+            <CardTitle className="text-xs md:text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2 font-headline">
               Asistente de Control y Agenda Táctica ERP
               {pendingTasksCount > 0 && (
                 <Badge className="bg-amber-500 text-slate-950 text-[9px] font-black h-4 px-1.5 rounded-full animate-bounce">
@@ -235,7 +235,7 @@ export function AsistenteGuiaERP() {
                 </Badge>
               )}
             </CardTitle>
-            <CardDescription className="text-[10px] text-slate-400 mt-0.5">
+            <CardDescription className="text-[10px] text-muted-foreground mt-0.5">
               Auditoría interna de procesos comerciales y salud del sistema.
             </CardDescription>
           </div>
@@ -245,20 +245,20 @@ export function AsistenteGuiaERP() {
             variant="ghost"
             size="sm"
             onClick={(e) => { e.stopPropagation(); setShowCompleted(!showCompleted); }}
-            className="text-[10px] text-slate-400 hover:text-white h-7 px-2 flex items-center gap-1 rounded-lg border border-white/10 bg-white/5"
+            className="text-[10px] text-muted-foreground hover:text-foreground h-7 px-2 flex items-center gap-1 rounded-lg border border-border bg-background"
           >
             {showCompleted ? <EyeOff size={12} /> : <Eye size={12} />}
             {showCompleted ? 'Ocultar Listas' : 'Ver Completadas'}
           </Button>
 
-          <div className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg">
+          <div className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg">
             {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
         </div>
       </CardHeader>
 
       {isOpen && (
-        <CardContent className="p-6 bg-slate-950/20 space-y-6">
+        <CardContent className="p-6 bg-background/50 space-y-6">
           
           {/* PANEL DE 3 COLUMNAS DEL BMS (FILTRADO AUTOMÁTICO DE VERDES) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
