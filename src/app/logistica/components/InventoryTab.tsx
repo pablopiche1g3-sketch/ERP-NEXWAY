@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { DEMO_INVENTORY, forceSeedDemoData, seedDemoDataIfEmpty } from '@/services/demoDataSeeder';
 import { 
   Truck,
   Package, 
@@ -448,7 +449,19 @@ export default function InventoryTab() {
       };
 
       // 2. Obtener productos maestro
-      const invList = await fetchAllRows('inventory', 'sku');
+      let invList = await fetchAllRows('inventory', 'sku');
+
+      // Si no hay acceso a la nube de pruebas o el inventario está vacío, usar datos demo locales
+      if (!invList || invList.length === 0) {
+        const localInvStr = localStorage.getItem('nexway_inventory');
+        if (localInvStr) {
+          try { invList = JSON.parse(localInvStr); } catch (e) {}
+        }
+        if (!invList || invList.length === 0) {
+          invList = DEMO_INVENTORY;
+          localStorage.setItem('nexway_inventory', JSON.stringify(DEMO_INVENTORY));
+        }
+      }
 
       // 3. Obtener existencias por bodega
       const stockList = await fetchAllRows('inventory_stock');
@@ -544,8 +557,18 @@ export default function InventoryTab() {
     }
   };
 
+  const handleLoadDemoData = () => {
+    forceSeedDemoData();
+    toast({
+      title: "¡Datos Demo Cargados! ⚡",
+      description: "Se han cargado productos, bodegas, clientes y usuarios de prueba."
+    });
+    loadSupabaseData();
+  };
+
   // Cargar datos en el montaje
   useEffect(() => {
+    seedDemoDataIfEmpty();
     loadSupabaseData();
   }, []);
 
@@ -1401,6 +1424,13 @@ export default function InventoryTab() {
             <p className="text-slate-400 text-xs md:text-sm">Administración de stock por bodega, códigos maestros de empresas y almacenes</p>
           </div>
         </div>
+
+        <Button
+          onClick={handleLoadDemoData}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl shadow-md flex items-center gap-1.5"
+        >
+          <Zap size={15} /> Cargar Datos Demo de Prueba
+        </Button>
       </div>
  
       <div className="max-w-7xl mx-auto relative z-10">
