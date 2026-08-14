@@ -7,23 +7,23 @@
 -- 1. EXTENSIONES ÚTILES
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. TABLA DE PERFILES DE USUARIOS (Roles de Acceso)
--- ADVERTENCIA: Borramos la tabla vieja en caso de que existiera con el tipo UUID incorrecto para evitar conflictos.
-DROP TABLE IF EXISTS public.profiles CASCADE;
-
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id uuid references auth.users(id) on delete cascade primary key,
-  email text not null,
-  role text not null default 'pedidos',
+-- 2. TABLA DE USUARIOS Y PERMISOS PROPIA DEL ERP (app_users)
+CREATE TABLE IF NOT EXISTS public.app_users (
+  id text primary key default uuid_generate_v4()::text,
+  username text not null unique,
+  email text not null unique,
+  full_name text not null,
+  role text not null default 'cajero',
+  pin_code text default '1234',
+  password_hash text,
+  status text default 'active',
+  allowed_modules jsonb default '["billing"]'::jsonb,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Habilitar Row Level Security (RLS) en la tabla perfiles
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
--- Crear políticas básicas de acceso para perfiles (Usa 'OR REPLACE' si la base de datos lo soporta, o ignora errores si ya existen)
+ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
-  CREATE POLICY "Permitir lectura pública de perfiles" ON public.profiles FOR SELECT USING (true);
+  CREATE POLICY "Permitir lectura pública de app_users" ON public.app_users FOR SELECT USING (true);
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN

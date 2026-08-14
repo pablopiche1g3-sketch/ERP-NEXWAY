@@ -47,6 +47,7 @@ import DocumentsTab from './components/DocumentsTab';
 import HrPayrollTab from './components/HrPayrollTab';
 import PrintDesignerTab from './components/PrintDesignerTab';
 import PerformanceThemesTab from './components/PerformanceThemesTab';
+import UserAccessManagementTab from './components/UserAccessManagementTab';
 import GmailClient from '@/components/shared/GmailClient';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -1757,8 +1758,9 @@ export default function ManagementPage() {
             </Card>
           </TabsContent>
 
-          {/* pestaña 2: PERMISOS DE MÓDULOS */}
-          <TabsContent value="permissions" className="outline-none">
+          {/* pestaña 2: PERMISOS DE MÓDULOS & GESTOR DE USUARIOS PROPIO */}
+          <TabsContent value="permissions" className="space-y-6 outline-none">
+            <UserAccessManagementTab />
             <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
               <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
                 <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
