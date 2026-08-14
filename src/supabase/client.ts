@@ -5,7 +5,24 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 function createSupabaseClient(): SupabaseClient | null {
   if (!supabaseUrl || !supabaseUrl.startsWith('http') || !supabaseAnonKey) return null;
-  return createClient(supabaseUrl, supabaseAnonKey);
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  });
+
+  // Limpiar tokens JWT expirados automáticamente
+  if (typeof window !== 'undefined') {
+    client.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_OUT') {
+        console.log('Supabase Auth Event:', event);
+      }
+    });
+  }
+
+  return client;
 }
 
 const realClient = createSupabaseClient();

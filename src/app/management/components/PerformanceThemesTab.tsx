@@ -56,7 +56,15 @@ export default function PerformanceThemesTab() {
     const start = performance.now();
     try {
       // 1. Test ping contra Supabase
-      const { data, error } = await supabase.from('system_config').select('id').limit(1);
+      let { data, error } = await supabase.from('system_config').select('id').limit(1);
+      
+      // Si el token JWT expiró en el navegador, limpiar la sesión vieja y reintentar
+      if (error && error.message.includes('JWT expired')) {
+        await supabase.auth.signOut();
+        const retry = await supabase.from('system_config').select('id').limit(1);
+        error = retry.error;
+      }
+
       const end = performance.now();
       const elapsed = Math.round(end - start);
       setDbLatencyMs(elapsed);
@@ -69,7 +77,7 @@ export default function PerformanceThemesTab() {
 
       toast({ 
         title: 'Diagnóstico Completado', 
-        description: `Latencia DB: ${elapsed} ms. Rendimiento de interfaz: Excelente.` 
+        description: `Latencia DB: ${elapsed} ms. Conexión de datos restablecida.` 
       });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error en prueba', description: e.message });
