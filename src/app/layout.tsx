@@ -4,6 +4,7 @@ import { SupabaseAuthProvider } from '@/supabase/use-user';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ClientAuthGate } from '@/components/ClientAuthGate';
+import { NexBotTutorWidget } from '@/components/NexBotTutorWidget';
 
 export const metadata: Metadata = {
   title: 'NexWay ERP - Sistema de Planificación de Recursos Empresariales',
@@ -39,6 +40,7 @@ export default function RootLayout({
             <ClientAuthGate>
               {children}
             </ClientAuthGate>
+            <NexBotTutorWidget />
             <Toaster />
           </ThemeProvider>
         </SupabaseAuthProvider>
