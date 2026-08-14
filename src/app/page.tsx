@@ -36,6 +36,7 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { AsistenteGuiaERP } from '@/components/AsistenteGuiaERP';
+import { PwaInstallButton } from '@/components/PwaInstallButton';
 
 interface ModuleConfig {
   id: string;
@@ -224,6 +225,7 @@ description: 'Movimiento entre bodegas',
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <PwaInstallButton />
             <ModeToggle />
             {/* Perfil del Administrador (Solo Icono en Móvil) */}
             <div className="hidden sm:flex items-center gap-2.5 bg-card border border-border p-1.5 pr-3.5 rounded-xl shadow-sm">

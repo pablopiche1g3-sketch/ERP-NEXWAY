@@ -98,7 +98,15 @@ export default function DocumentsTab() {
 
       const { data, error } = await query.order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message?.includes('JWT expired')) {
+          console.warn('DocumentsTab: Supabase JWT expired, retrying quietly...');
+          await supabase.auth.signOut();
+          setDocuments([]);
+          return;
+        }
+        throw error;
+      }
 
       // Filter local items to only map custom docs (or type field)
       const mapped: DocumentItem[] = (data || []).map((item: any) => ({
@@ -114,11 +122,13 @@ export default function DocumentsTab() {
       setDocuments(mapped);
     } catch (err: any) {
       console.error(err);
-      toast({
-        variant: 'destructive',
-        title: 'Error al cargar Centro Documental',
-        description: err.message || 'No se pudieron recuperar los archivos libres.'
-      });
+      if (!err.message?.includes('JWT expired')) {
+        toast({
+          variant: 'destructive',
+          title: 'Error al cargar Centro Documental',
+          description: err.message || 'No se pudieron recuperar los archivos libres.'
+        });
+      }
     } finally {
       setLoading(false);
     }

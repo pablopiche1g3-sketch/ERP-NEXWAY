@@ -220,6 +220,31 @@ export default function UserAccessManagementTab() {
     });
   };
 
+  const handleUnifyUsers = () => {
+    // Filtrar correos duplicados y consolidar en lista única
+    const seen = new Set<string>();
+    const unified: AppUser[] = [];
+    let cleanedCount = 0;
+
+    users.forEach(u => {
+      const normalizedEmail = u.email.toLowerCase().trim();
+      if (!seen.has(normalizedEmail)) {
+        seen.add(normalizedEmail);
+        unified.push(u);
+      } else {
+        cleanedCount++;
+      }
+    });
+
+    setUsers(unified);
+    localStorage.setItem('nexway_app_users', JSON.stringify(unified));
+
+    toast({
+      title: 'Unificación Completada 🧹',
+      description: `Se eliminaron ${cleanedCount} correo(s) duplicado(s). Se unificó la lista de usuarios.`
+    });
+  };
+
   const filteredUsers = users.filter(u => 
     u.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -240,12 +265,22 @@ export default function UserAccessManagementTab() {
           </p>
         </div>
 
-        <Button
-          onClick={() => { resetForm(); setIsModalOpen(true); }}
-          className="bg-indigo-600 hover:bg-indigo-700 font-bold text-xs h-10 rounded-xl text-white flex items-center gap-1.5"
-        >
-          <UserPlus size={16} /> Crear Nuevo Usuario / Cajero
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleUnifyUsers}
+            variant="outline"
+            className="font-bold text-xs h-10 rounded-xl flex items-center gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400"
+          >
+            <RefreshCw size={15} /> Unificar & Limpiar Duplicados
+          </Button>
+
+          <Button
+            onClick={() => { resetForm(); setIsModalOpen(true); }}
+            className="bg-indigo-600 hover:bg-indigo-700 font-bold text-xs h-10 rounded-xl text-white flex items-center gap-1.5"
+          >
+            <UserPlus size={16} /> Crear Nuevo Usuario / Cajero
+          </Button>
+        </div>
       </div>
 
       {/* Buscador y Filtro */}
