@@ -391,8 +391,14 @@ export default function PrintDesignerTab() {
               </div>
 
               {/* Contenedor Físico Simulador */}
-              <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 min-h-[500px] flex justify-center overflow-auto shadow-inner">
-                <div className="bg-white text-black p-4 shadow-2xl rounded-sm w-full space-y-3" style={{ maxWidth: paperSize === '58mm' ? '220px' : paperSize === '80mm' ? '300px' : '100%' }}>
+              <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 min-h-[550px] flex justify-center overflow-auto shadow-inner">
+                <div 
+                  className="bg-white text-black p-5 shadow-2xl rounded-sm w-full space-y-3 transition-all" 
+                  style={{ 
+                    maxWidth: paperSize === '58mm' ? '220px' : paperSize === '80mm' ? '320px' : '650px',
+                    minHeight: paperSize === 'A4' ? '700px' : 'auto'
+                  }}
+                >
                   {blocks.map((blk, idx) => {
                     const isSelected = blk.id === selectedBlockId;
                     return (
