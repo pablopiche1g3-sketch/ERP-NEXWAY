@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { DEMO_INVENTORY, forceSeedDemoData, seedDemoDataIfEmpty } from '@/services/demoDataSeeder';
+import { RealDataImporterModal } from '@/components/RealDataImporterModal';
 import { 
   Truck,
   Package, 
@@ -390,6 +391,7 @@ export default function InventoryTab() {
   const [companyMappings, setCompanyMappings] = useState<any[]>([]);
   const [loadingInv, setLoadingInv] = useState(true);
   const [loadingCompMappings, setLoadingCompMappings] = useState(true);
+  const [isRealDataModalOpen, setIsRealDataModalOpen] = useState(false);
 
   // Estados para la pestaña de Vinculación de Proveedor
   const [mappingInternalSku, setMappingInternalSku] = useState('');
@@ -1426,11 +1428,17 @@ export default function InventoryTab() {
         </div>
 
         <Button
-          onClick={handleLoadDemoData}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 rounded-xl shadow-md flex items-center gap-1.5"
+          onClick={() => setIsRealDataModalOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-9 rounded-xl shadow-md flex items-center gap-1.5"
         >
-          <Zap size={15} /> Cargar Datos Demo de Prueba
+          <Upload size={15} /> Cargar / Importar Datos Reales
         </Button>
+
+        <RealDataImporterModal
+          isOpen={isRealDataModalOpen}
+          onClose={() => setIsRealDataModalOpen(false)}
+          onSuccess={() => loadSupabaseData()}
+        />
       </div>
  
       <div className="max-w-7xl mx-auto relative z-10">
