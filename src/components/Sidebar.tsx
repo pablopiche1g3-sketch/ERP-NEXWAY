@@ -134,13 +134,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   };
 
   return (
-    <aside className={`print:hidden bg-white/5 backdrop-blur-md text-slate-300 flex flex-col h-screen border-r border-white/10 select-none shrink-0 font-body transition-[width] duration-200 ease-in-out will-change-[width] ${
+    <aside className={`print:hidden bg-card text-foreground flex flex-col h-screen border-r border-border select-none shrink-0 font-body transition-[width] duration-200 ease-in-out will-change-[width] shadow-sm ${
       isCollapsed ? 'w-20' : 'w-64'
     }`}>
       {/* Brand Header al Estilo Mockup */}
       {!isCollapsed ? (
         <>
-          <div className="p-6 flex items-center justify-between border-b border-white/10">
+          <div className="p-6 flex items-center justify-between border-b border-border">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline relative group-hover:scale-105 transition-transform duration-200">
                 <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
@@ -148,9 +148,9 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 </div>
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-black text-white tracking-wide font-headline">NexWay ERP</span>
+                <span className="text-sm font-black text-foreground tracking-wide font-headline">NexWay ERP</span>
                 {activeTenant && (
-                  <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mt-0.5">
+                  <span className="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-widest mt-0.5">
                     {activeTenant}
                   </span>
                 )}
@@ -160,26 +160,26 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               variant="ghost"
               size="icon"
               onClick={onToggle}
-              className="h-8 w-8 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-colors"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-xl hover:bg-accent active:scale-95 transition-colors"
               title="Colapsar menú"
             >
               <ChevronLeft size={16} />
             </Button>
           </div>
-          <div className="px-6 py-3 border-b border-white/10 space-y-1.5 animate-in fade-in duration-200 shrink-0">
-            <div className="text-[9px] font-black uppercase text-indigo-400/80 tracking-widest px-0.5">
+          <div className="px-6 py-3 border-b border-border space-y-1.5 animate-in fade-in duration-200 shrink-0">
+            <div className="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-widest px-0.5">
               Sucursal Activa
             </div>
             <Select value={activeBranch} onValueChange={handleBranchChange}>
-              <SelectTrigger className="h-9 w-full bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-xs font-bold text-slate-200 flex items-center justify-between transition-colors focus:ring-0 focus:ring-offset-0">
+              <SelectTrigger className="h-9 w-full bg-accent/40 border border-border hover:bg-accent rounded-xl text-xs font-bold text-foreground flex items-center justify-between transition-colors focus:ring-0 focus:ring-offset-0">
                 <div className="flex items-center gap-2 truncate">
-                  <Building size={14} className="text-indigo-400 shrink-0" />
+                  <Building size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
                   <SelectValue placeholder="Seleccionar sucursal..." />
                 </div>
               </SelectTrigger>
-              <SelectContent className="dark:bg-[#09090b] dark:border-white/10 rounded-xl shadow-2xl">
+              <SelectContent className="bg-popover border-border rounded-xl shadow-2xl">
                 {branches.map(b => (
-                  <SelectItem key={b.id} value={b.id} className="text-xs font-semibold focus:bg-white/10 focus:text-white">{b.name}</SelectItem>
+                  <SelectItem key={b.id} value={b.id} className="text-xs font-semibold focus:bg-accent focus:text-accent-foreground">{b.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -225,30 +225,30 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
             } ${
               pathname === '/' 
-                ? 'bg-indigo-500/20 border border-indigo-500/40 text-white shadow-[0_0_15px_rgba(99,102,241,0.25)]' 
-                : 'hover:bg-white/10 bg-transparent hover:text-white text-slate-400'
+                ? 'bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-white font-bold shadow-sm' 
+                : 'hover:bg-accent text-muted-foreground hover:text-foreground'
             }`}
           >
             <div className="flex items-center gap-3">
               <span className={`transition-all duration-200 ${
                 pathname === '/' 
-                  ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.85)] scale-105' 
-                  : 'text-slate-400 group-hover:text-white'
+                  ? 'text-indigo-600 dark:text-indigo-400 scale-105' 
+                  : 'text-muted-foreground group-hover:text-foreground'
               }`}>
                 <Building size={18} />
               </span>
               {!isCollapsed && (
                 <span className={`transition-all duration-200 ${
                   pathname === '/' 
-                    ? 'text-white font-bold drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]' 
-                    : 'text-slate-400 group-hover:text-slate-200'
+                    ? 'text-indigo-900 dark:text-white font-black' 
+                    : 'text-muted-foreground group-hover:text-foreground'
                 }`}>
                   Inicio
                 </span>
               )}
             </div>
             {!isCollapsed && pathname !== '/' && (
-              <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 translate-x-[-4px] group-hover:translate-x-0" />
+              <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground translate-x-[-4px] group-hover:translate-x-0" />
             )}
           </Link>
         )}
@@ -258,29 +258,29 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           return (
             <Link 
               key={item.id}
-              href={item.path} 
+              href={item.path}
               title={isCollapsed ? item.title : undefined}
               className={`flex items-center rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group ${
                 isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
               } ${
                 isActive 
-                  ? 'bg-indigo-500/20 border border-indigo-500/40 text-white shadow-[0_0_15px_rgba(99,102,241,0.25)]' 
-                  : 'hover:bg-white/10 bg-transparent hover:text-white text-slate-400'
+                  ? 'bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-white font-bold shadow-sm' 
+                  : 'hover:bg-accent text-muted-foreground hover:text-foreground'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className={`transition-all duration-200 ${
                   isActive 
-                    ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(129,140,248,0.85)] scale-105' 
-                    : 'text-slate-400 group-hover:text-white'
+                    ? 'text-indigo-600 dark:text-indigo-400 scale-105' 
+                    : 'text-muted-foreground group-hover:text-foreground'
                 }`}>
                   {item.icon}
                 </span>
                 {!isCollapsed && (
                   <span className={`truncate transition-all duration-200 ${
                     isActive 
-                      ? 'text-white font-bold drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]' 
-                      : 'text-slate-400 group-hover:text-slate-200'
+                      ? 'text-indigo-900 dark:text-white font-black' 
+                      : 'text-muted-foreground group-hover:text-foreground'
                   }`}>
                     {item.title}
                   </span>
@@ -288,7 +288,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               </div>
               
               {!isCollapsed && !isActive && (
-                <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-all text-slate-400 translate-x-[-4px] group-hover:translate-x-0" />
+                <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-all text-muted-foreground translate-x-[-4px] group-hover:translate-x-0" />
               )}
             </Link>
           );
@@ -297,31 +297,31 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* Profile Card / Sign Out */}
       {isCollapsed ? (
-        <div className="p-3 flex flex-col items-center gap-3 bg-black/20 border-t border-white/10">
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-black uppercase text-xs border border-indigo-500/10" title={user?.email || 'Usuario'}>
+        <div className="p-3 flex flex-col items-center gap-3 bg-muted/40 border-t border-border">
+          <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black uppercase text-xs border border-indigo-500/20" title={user?.email || 'Usuario'}>
             {user?.email?.slice(0, 2) || 'US'}
           </div>
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={handleSignOut}
-            className="h-8 w-8 text-slate-400 hover:text-rose-450 hover:bg-rose-500/10 rounded-xl shrink-0"
+            className="h-8 w-8 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-xl shrink-0"
             title="Cerrar sesión"
           >
             <LogOut size={15} />
           </Button>
         </div>
       ) : (
-        <div className="p-4 bg-black/20 border-t border-white/10 flex items-center justify-between gap-2.5">
+        <div className="p-4 bg-muted/40 border-t border-border flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-black uppercase text-xs border border-indigo-500/10">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black uppercase text-xs border border-indigo-500/20">
               {user?.email?.slice(0, 2) || 'US'}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-xs font-bold text-white truncate leading-tight select-all">
+              <span className="text-xs font-bold text-foreground truncate leading-tight select-all">
                 {user?.email?.split('@')[0] || 'Usuario'}
               </span>
-              <span className="text-[9px] font-black uppercase text-slate-400 mt-0.5 truncate tracking-wider">
+              <span className="text-[9px] font-black uppercase text-muted-foreground mt-0.5 truncate tracking-wider">
                 {ROLE_LABELS[role || ''] || 'Personal'}
               </span>
             </div>
@@ -331,7 +331,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             variant="ghost" 
             size="icon" 
             onClick={handleSignOut}
-            className="h-8 w-8 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl shrink-0"
+            className="h-8 w-8 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-xl shrink-0"
             title="Cerrar sesión"
           >
             <LogOut size={15} />

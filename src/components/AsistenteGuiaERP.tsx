@@ -265,29 +265,29 @@ export function AsistenteGuiaERP() {
             
             {/* Columna 1: Configuración Maestro */}
             <div>
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                <Building2 size={12} className="text-indigo-400" /> 1. Configuración de Base
+              <h4 className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                <Building2 size={12} className="text-indigo-600 dark:text-indigo-400" /> 1. Configuración de Base
               </h4>
               <div className="space-y-3.5">
                 {visibleTasks.filter(t => t.category === 'setup').map(task => (
                   <div key={task.id} className={`p-4 rounded-xl border transition-all ${
                     task.status === 'completed' 
-                      ? 'bg-emerald-500/5 border-emerald-500/10' 
-                      : 'bg-rose-500/5 border-rose-500/10 shadow-[0_0_15px_rgba(239,68,68,0.05)]'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30' 
+                      : 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/30 shadow-sm'
                   }`}>
                     <div className="flex gap-2.5 items-start">
                       {task.status === 'completed' ? (
-                        <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                        <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                       ) : (
-                        <AlertCircle size={14} className="text-rose-500 shrink-0 mt-0.5 animate-pulse" />
+                        <AlertCircle size={14} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5 animate-pulse" />
                       )}
                       <div>
-                        <p className="text-xs font-bold text-white leading-snug">{task.title}</p>
-                        <p className="text-[9.5px] text-slate-400 leading-relaxed mt-1">{task.description}</p>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white leading-snug">{task.title}</p>
+                        <p className="text-[9.5px] text-slate-600 dark:text-slate-300 leading-relaxed mt-1">{task.description}</p>
                         {task.status === 'pending' && task.actionLabel && (
                           <Button 
                             variant="link" 
-                            className="text-indigo-400 hover:text-indigo-300 p-0 h-auto text-[9.5px] font-black uppercase tracking-wider mt-2 flex items-center gap-1"
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 p-0 h-auto text-[9.5px] font-black uppercase tracking-wider mt-2 flex items-center gap-1"
                             onClick={() => window.location.href = task.actionPath || '#'}
                           >
                             <Play size={8} /> {task.actionLabel}
@@ -298,10 +298,10 @@ export function AsistenteGuiaERP() {
                   </div>
                 ))}
                 {visibleTasks.filter(t => t.category === 'setup').length === 0 && (
-                  <div className="p-4 rounded-xl border bg-emerald-500/5 border-emerald-500/10 text-center">
-                    <CheckCircle size={16} className="text-emerald-500 mx-auto mb-1" />
-                    <p className="text-[10px] text-emerald-400 font-bold">Configuración de Base Completa</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5">Todas las sucursales y catálogos iniciales están al día.</p>
+                  <div className="p-4 rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 text-center">
+                    <CheckCircle size={16} className="text-emerald-600 dark:text-emerald-400 mx-auto mb-1" />
+                    <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">Configuración de Base Completa</p>
+                    <p className="text-[9px] text-slate-600 dark:text-slate-400 mt-0.5">Todas las sucursales y catálogos iniciales están al día.</p>
                   </div>
                 )}
               </div>
@@ -309,33 +309,33 @@ export function AsistenteGuiaERP() {
 
             {/* Columna 2: Operaciones Diarias */}
             <div>
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                <CalendarCheck size={12} className="text-blue-400" /> 2. Operación Diaria
+              <h4 className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                <CalendarCheck size={12} className="text-blue-600 dark:text-blue-400" /> 2. Operación Diaria
               </h4>
               <div className="space-y-3.5">
                 {visibleTasks.filter(t => t.category === 'operations').map(task => (
                   <div key={task.id} className={`p-4 rounded-xl border transition-all ${
                     task.status === 'completed' 
-                      ? 'bg-emerald-500/5 border-emerald-500/10' 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30' 
                       : task.status === 'pending'
-                        ? 'bg-rose-500/5 border-rose-500/10'
-                        : 'bg-blue-500/5 border-blue-500/10'
+                        ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/30'
+                        : 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/30'
                   }`}>
                     <div className="flex gap-2.5 items-start">
                       {task.status === 'completed' ? (
-                        <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                        <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                       ) : task.status === 'pending' ? (
-                        <AlertCircle size={14} className="text-rose-500 shrink-0 mt-0.5 animate-pulse" />
+                        <AlertCircle size={14} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5 animate-pulse" />
                       ) : (
-                        <HelpCircle size={14} className="text-blue-400 shrink-0 mt-0.5" />
+                        <HelpCircle size={14} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                       )}
                       <div>
-                        <p className="text-xs font-bold text-white leading-snug">{task.title}</p>
-                        <p className="text-[9.5px] text-slate-400 leading-relaxed mt-1">{task.description}</p>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white leading-snug">{task.title}</p>
+                        <p className="text-[9.5px] text-slate-600 dark:text-slate-300 leading-relaxed mt-1">{task.description}</p>
                         {task.status === 'pending' && task.actionLabel && (
                           <Button 
                             variant="link" 
-                            className="text-indigo-400 hover:text-indigo-300 p-0 h-auto text-[9.5px] font-black uppercase tracking-wider mt-2 flex items-center gap-1"
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 p-0 h-auto text-[9.5px] font-black uppercase tracking-wider mt-2 flex items-center gap-1"
                             onClick={() => window.location.href = task.actionPath || '#'}
                           >
                             <Play size={8} /> {task.actionLabel}
@@ -346,10 +346,10 @@ export function AsistenteGuiaERP() {
                   </div>
                 ))}
                 {visibleTasks.filter(t => t.category === 'operations').length === 0 && (
-                  <div className="p-4 rounded-xl border bg-emerald-500/5 border-emerald-500/10 text-center">
-                    <CheckCircle size={16} className="text-emerald-500 mx-auto mb-1" />
-                    <p className="text-[10px] text-emerald-400 font-bold">Operaciones al Día</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5">No hay alertas ni descuadres pendientes de resolución.</p>
+                  <div className="p-4 rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 text-center">
+                    <CheckCircle size={16} className="text-emerald-600 dark:text-emerald-400 mx-auto mb-1" />
+                    <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">Operaciones al Día</p>
+                    <p className="text-[9px] text-slate-600 dark:text-slate-400 mt-0.5">No hay alertas ni descuadres pendientes de resolución.</p>
                   </div>
                 )}
               </div>
@@ -357,21 +357,21 @@ export function AsistenteGuiaERP() {
 
             {/* Columna 3: Oportunidades Comerciales */}
             <div>
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                <Sparkles size={12} className="text-amber-400" /> 3. Oportunidades Comerciales
+              <h4 className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                <Sparkles size={12} className="text-amber-600 dark:text-amber-400" /> 3. Oportunidades Comerciales
               </h4>
               <div className="space-y-3.5">
                 {visibleTasks.filter(t => t.category === 'opportunities').map(task => (
-                  <div key={task.id} className="p-4 rounded-xl border bg-amber-500/5 border-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.02)] transition-all">
+                  <div key={task.id} className="p-4 rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/30 transition-all shadow-sm">
                     <div className="flex gap-2.5 items-start">
-                      <TrendingUp size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                      <TrendingUp size={14} className="text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-xs font-bold text-white leading-snug">{task.title}</p>
-                        <p className="text-[9.5px] text-slate-400 leading-relaxed mt-1">{task.description}</p>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white leading-snug">{task.title}</p>
+                        <p className="text-[9.5px] text-slate-600 dark:text-slate-300 leading-relaxed mt-1">{task.description}</p>
                         {task.actionLabel && (
                           <Button 
                             variant="link" 
-                            className="text-amber-400 hover:text-amber-300 p-0 h-auto text-[9.5px] font-black uppercase tracking-wider mt-2 flex items-center gap-1"
+                            className="text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 p-0 h-auto text-[9.5px] font-black uppercase tracking-wider mt-2 flex items-center gap-1"
                             onClick={() => window.location.href = task.actionPath || '#'}
                           >
                             <Play size={8} /> {task.actionLabel}
@@ -382,8 +382,8 @@ export function AsistenteGuiaERP() {
                   </div>
                 ))}
                 {visibleTasks.filter(t => t.category === 'opportunities').length === 0 && (
-                  <div className="p-4 rounded-xl border bg-slate-900/40 border-border text-center">
-                    <p className="text-[10px] text-emerald-400 font-bold">🎯 Stock Óptimo</p>
+                  <div className="p-4 rounded-xl border bg-card border-border text-center">
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">🎯 Stock Óptimo</p>
                     <p className="text-[9px] text-muted-foreground mt-1 leading-relaxed">No se detectan inventarios estancados en los últimos 30 días.</p>
                   </div>
                 )}
@@ -392,14 +392,14 @@ export function AsistenteGuiaERP() {
           </div>
 
           {/* SECCIÓN DE AGENDA TÁCTICA DIARIA CON IA */}
-          <div className="pt-6 border-t border-white/10 space-y-4">
+          <div className="pt-6 border-t border-border space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
-                <h4 className="text-xs font-black uppercase text-white flex items-center gap-2">
-                  <BrainCircuit size={16} className="text-emerald-400" />
+                <h4 className="text-xs font-black uppercase text-foreground flex items-center gap-2">
+                  <BrainCircuit size={16} className="text-emerald-600 dark:text-emerald-400" />
                   Agenda Táctica del Día y Asistencia IA
                 </h4>
-                <p className="text-[10px] text-slate-400">
+                <p className="text-[10px] text-muted-foreground">
                   Agrega pendientes personales o solicita a NexBot que genere recomendaciones inteligentes.
                 </p>
               </div>
@@ -417,7 +417,7 @@ export function AsistenteGuiaERP() {
                 <Button
                   onClick={() => setIsAddingTask(!isAddingTask)}
                   variant="outline"
-                  className="h-8 text-xs font-bold rounded-xl border-white/10 hover:bg-white/5"
+                  className="h-8 text-xs font-bold rounded-xl border-border hover:bg-accent text-foreground"
                 >
                   <Plus size={14} className="mr-1" /> Nueva Tarea
                 </Button>
@@ -426,31 +426,31 @@ export function AsistenteGuiaERP() {
 
             {/* FORMULARIO AGREGAR TAREA MANUAL */}
             {isAddingTask && (
-              <form onSubmit={handleAddManualTask} className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 animate-in fade-in duration-200">
+              <form onSubmit={handleAddManualTask} className="p-4 rounded-xl bg-card border border-border space-y-3 animate-in fade-in duration-200">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-300 uppercase">Título de la Tarea</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Título de la Tarea</label>
                   <Input
                     value={newTitle}
                     onChange={e => setNewTitle(e.target.value)}
                     placeholder="Ej. Revisar cotización con Proveedor X"
-                    className="h-8 text-xs bg-slate-950 border-slate-800"
+                    className="h-8 text-xs bg-background border-border text-foreground"
                     required
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-300 uppercase">Detalle / Notas</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Detalle / Notas</label>
                   <Input
                     value={newDesc}
                     onChange={e => setNewDesc(e.target.value)}
                     placeholder="Ej. Confirmar plazo de entrega y descuento por volumen"
-                    className="h-8 text-xs bg-slate-950 border-slate-800"
+                    className="h-8 text-xs bg-background border-border text-foreground"
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
                   <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddingTask(false)} className="h-7 text-xs">
                     Cancelar
                   </Button>
-                  <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-7 text-xs font-bold">
+                  <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-7 text-xs font-bold text-white">
                     Guardar Tarea
                   </Button>
                 </div>
@@ -464,40 +464,40 @@ export function AsistenteGuiaERP() {
                   key={item.id}
                   className={`p-3 rounded-xl border transition-all flex items-start justify-between gap-3 ${
                     item.status === 'completed'
-                      ? 'bg-slate-900/40 border-slate-800 opacity-60 line-through'
+                      ? 'bg-muted/40 border-border opacity-60 line-through'
                       : item.category === 'ai_suggested'
-                        ? 'bg-emerald-500/5 border-emerald-500/20'
-                        : 'bg-slate-900/80 border-slate-800'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30'
+                        : 'bg-card border-border'
                   }`}
                 >
                   <div className="flex items-start gap-2.5">
                     <button
                       onClick={() => toggleAgendaStatus(item.id, item.status)}
-                      className="mt-0.5 text-slate-400 hover:text-emerald-400 transition-colors"
+                      className="mt-0.5 text-muted-foreground hover:text-emerald-600 transition-colors"
                     >
                       {item.status === 'completed' ? (
-                        <CheckSquare size={16} className="text-emerald-500" />
+                        <CheckSquare size={16} className="text-emerald-600 dark:text-emerald-400" />
                       ) : (
                         <Square size={16} />
                       )}
                     </button>
 
                     <div>
-                      <p className="text-xs font-bold text-white leading-snug flex items-center gap-1.5">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white leading-snug flex items-center gap-1.5">
                         {item.title}
                         {item.category === 'ai_suggested' && (
-                          <Badge className="bg-emerald-500/20 text-emerald-300 text-[8px] font-black h-3.5 px-1 border-0">
+                          <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[8px] font-black h-3.5 px-1 border-0">
                             IA
                           </Badge>
                         )}
                       </p>
-                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-0.5">{item.description}</p>
+                      <p className="text-[9.5px] text-slate-600 dark:text-slate-400 leading-relaxed mt-0.5">{item.description}</p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => deleteAgendaTask(item.id)}
-                    className="text-slate-500 hover:text-rose-400 transition-colors"
+                    className="text-muted-foreground hover:text-rose-600 transition-colors"
                     title="Eliminar tarea"
                   >
                     <Trash2 size={13} />
@@ -506,7 +506,7 @@ export function AsistenteGuiaERP() {
               ))}
 
               {activeAgendaTasks.length === 0 && (
-                <div className="col-span-full p-4 rounded-xl border border-dashed border-slate-800 text-center text-slate-500 text-xs">
+                <div className="col-span-full p-4 rounded-xl border border-dashed border-border text-center text-muted-foreground text-xs">
                   No hay tareas pendientes en tu agenda táctica de hoy. Haz clic en "⚡ NexBot: Generar Sugerencias" para que la IA agregue recomendaciones automáticas.
                 </div>
               )}
