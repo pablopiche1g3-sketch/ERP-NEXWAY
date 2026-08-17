@@ -548,7 +548,25 @@ export default function ManagementPage() {
       const { data: preConf } = await supabase.from('system_config').select('*').eq('key', 'preassigned_roles').maybeSingle();
       const preassignedMap = preConf?.value || {};
 
-      const consolidatedUsers = (profsData || []).map(p => ({
+      // Deduplicar automáticamente por correo electrónico (conservando la entrada de mayor privilegio o la más reciente)
+      const uniqueProfilesMap = new Map<string, any>();
+      (profsData || []).forEach(p => {
+        const emailKey = p.email?.toLowerCase()?.trim();
+        if (!emailKey) return;
+
+        if (!uniqueProfilesMap.has(emailKey)) {
+          uniqueProfilesMap.set(emailKey, p);
+        } else {
+          // Si ya existe, preferir el rol con mayor jerarquía (admin/gerencia)
+          const existing = uniqueProfilesMap.get(emailKey);
+          const isHigherRole = (p.role === 'admin' || p.role === 'gerencia') && (existing.role !== 'admin' && existing.role !== 'gerencia');
+          if (isHigherRole) {
+            uniqueProfilesMap.set(emailKey, p);
+          }
+        }
+      });
+
+      const consolidatedUsers = Array.from(uniqueProfilesMap.values()).map(p => ({
         id: p.id,
         email: p.email,
         role: p.role,
