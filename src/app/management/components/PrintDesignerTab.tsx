@@ -103,28 +103,155 @@ export default function PrintDesignerTab() {
   }, []);
 
   const handleSelectTemplate = (id: string) => {
-    if (id === 'new_ticket') {
+    const presetMap: Record<string, { nombre: string; modulo: string; paper: 'A4' | '80mm' | '58mm'; blocks: PrintBlock[] }> = {
+      'dte_01': {
+        nombre: 'Factura Electrónica (FE - 01)',
+        modulo: 'POS',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'FACTURA ELECTRÓNICA - CONSUMIDOR FINAL (TIPO 01)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: false, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: true },
+          { id: 'b4', type: 'totals', showIva: false, fontSize: 'large' },
+          { id: 'b5', type: 'qr_hacienda', showSello: true },
+          { id: 'b6', type: 'footer', customMessage: 'Documento Fiscal Electrónico Transmitido a Ministerio de Hacienda', showSignatures: false }
+        ]
+      },
+      'dte_03': {
+        nombre: 'Comprobante de Crédito Fiscal (CCF - 03)',
+        modulo: 'POS',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'COMPROBANTE DE CRÉDITO FISCAL (TIPO 03)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: true, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: true },
+          { id: 'b4', type: 'totals', showIva: true, showRetencion: true, fontSize: 'large' },
+          { id: 'b5', type: 'qr_hacienda', showSello: true },
+          { id: 'b6', type: 'footer', customMessage: 'Crédito Fiscal Electrónico Válido para Deducción de IVA', showSignatures: true }
+        ]
+      },
+      'dte_04': {
+        nombre: 'Nota de Remisión (NR - 04)',
+        modulo: 'POS',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'NOTA DE REMISIÓN ELECTRÓNICA (TIPO 04)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: true, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: true },
+          { id: 'b4', type: 'totals', showIva: false, fontSize: 'normal' },
+          { id: 'b5', type: 'qr_hacienda', showSello: true },
+          { id: 'b6', type: 'footer', customMessage: 'Documento para el Traslado Físico de Mercadería entre Bodegas', showSignatures: true }
+        ]
+      },
+      'dte_05': {
+        nombre: 'Nota de Crédito (NC - 05)',
+        modulo: 'POS',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'NOTA DE CRÉDITO ELECTRÓNICA (TIPO 05)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: true, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: true },
+          { id: 'b4', type: 'totals', showIva: true, fontSize: 'large' },
+          { id: 'b5', type: 'qr_hacienda', showSello: true },
+          { id: 'b6', type: 'footer', customMessage: 'Ajuste / Devolución Aplicado a Factura o CCF de Referencia', showSignatures: true }
+        ]
+      },
+      'dte_06': {
+        nombre: 'Nota de Débito (ND - 06)',
+        modulo: 'POS',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'NOTA DE DÉBITO ELECTRÓNICA (TIPO 06)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: true, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: true },
+          { id: 'b4', type: 'totals', showIva: true, fontSize: 'large' },
+          { id: 'b5', type: 'qr_hacienda', showSello: true },
+          { id: 'b6', type: 'footer', customMessage: 'Cargo Adicional por Mora o Recargo Fiscal', showSignatures: true }
+        ]
+      },
+      'dte_07': {
+        nombre: 'Comprobante de Retención (CR - 07)',
+        modulo: 'POS',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'COMPROBANTE DE RETENCIÓN IVA / ISR (TIPO 07)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: true, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: false },
+          { id: 'b4', type: 'totals', showIva: false, showRetencion: true, fontSize: 'large' },
+          { id: 'b5', type: 'qr_hacienda', showSello: true },
+          { id: 'b6', type: 'footer', customMessage: 'Retención de IVA 1% / 10% ISR Enterada al Ministerio de Hacienda', showSignatures: true }
+        ]
+      },
+      'dte_11': {
+        nombre: 'Factura de Exportación (FEX - 11)',
+        modulo: 'POS',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'FACTURA DE EXPORTACIÓN ELECTRÓNICA (FEX - TIPO 11)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: false, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: true },
+          { id: 'b4', type: 'totals', showIva: false, fontSize: 'large' },
+          { id: 'b5', type: 'qr_hacienda', showSello: true },
+          { id: 'b6', type: 'footer', customMessage: 'Exportación a Tasa 0% IVA conforme a Ley de IVA de El Salvador', showSignatures: true }
+        ]
+      },
+      'dte_14': {
+        nombre: 'Factura Sujeto Excluido (FSE - 14)',
+        modulo: 'POS',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'FACTURA DE SUJETO EXCLUIDO (FSE - TIPO 14)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: false, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: true },
+          { id: 'b4', type: 'totals', showIva: false, showRetencion: true, fontSize: 'large' },
+          { id: 'b5', type: 'qr_hacienda', showSello: true },
+          { id: 'b6', type: 'footer', customMessage: 'Compra a No Contribuyente de IVA con Retención 10% ISR', showSignatures: true }
+        ]
+      },
+      'doc_quedan': {
+        nombre: 'Comprobante de Quedan de Proveedores',
+        modulo: 'Quedan',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'COMPROBANTE DE QUEDAN A PROVEEDORES', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: true, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: false },
+          { id: 'b4', type: 'totals', showIva: true, fontSize: 'large' },
+          { id: 'b6', type: 'footer', customMessage: 'Documento Comercial de Pago a Fecha Programada', showSignatures: true }
+        ]
+      },
+      'doc_cotizacion': {
+        nombre: 'Cotización / Oferta Comercial',
+        modulo: 'Cotización',
+        paper: 'A4',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'COTIZACIÓN / OFERTA COMERCIAL', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b2', type: 'customer', showNit: true, showNrc: true, fontSize: 'normal' },
+          { id: 'b3', type: 'items_table', fontSize: 'normal', showSku: true },
+          { id: 'b4', type: 'totals', showIva: true, fontSize: 'large' },
+          { id: 'b6', type: 'footer', customMessage: 'Precios sujetos a cambio sin previo aviso. Validez 15 días.', showSignatures: true }
+        ]
+      },
+      'doc_corte_z': {
+        nombre: 'Cierre Diario de Caja (Corte Z)',
+        modulo: 'POS',
+        paper: '80mm',
+        blocks: [
+          { id: 'b1', type: 'header', title: 'ARQUEO Y CIERRE DIARIO DE CAJA (CORTE Z)', showLogo: true, showAddress: true, showPhone: true },
+          { id: 'b3', type: 'items_table', fontSize: 'small', showSku: false },
+          { id: 'b4', type: 'totals', showIva: true, fontSize: 'normal' },
+          { id: 'b6', type: 'footer', customMessage: 'Cierre Auditado por Cajero y Supervisor', showSignatures: true }
+        ]
+      }
+    };
+
+    if (presetMap[id]) {
+      const p = presetMap[id];
       setSelectedTemplateId('');
-      setNombre('Nuevo Ticket 80mm');
-      setModuloOrigen('POS');
-      setPaperSize('80mm');
-      setBlocks(DEFAULT_BLOCKS);
-      setSelectedBlockId('b1');
-      return;
-    }
-    if (id === 'new_a4') {
-      setSelectedTemplateId('');
-      setNombre('Nuevo Crédito Fiscal A4');
-      setModuloOrigen('POS');
-      setPaperSize('A4');
-      setBlocks([
-        { id: 'b1', type: 'header', title: 'NEXWAY CORPORATIVO', showLogo: true, showAddress: true, showPhone: true },
-        { id: 'b2', type: 'customer', showNit: true, showNrc: true, fontSize: 'normal' },
-        { id: 'b3', type: 'items_table', fontSize: 'normal' },
-        { id: 'b4', type: 'totals', showIva: true, fontSize: 'large' },
-        { id: 'b5', type: 'qr_hacienda', showSello: true },
-        { id: 'b6', type: 'footer', customMessage: 'Documento Fiscal Válido por Hacienda', showSignatures: true }
-      ]);
+      setNombre(p.nombre);
+      setModuloOrigen(p.modulo);
+      setPaperSize(p.paper);
+      setBlocks(p.blocks);
       setSelectedBlockId('b1');
       return;
     }
@@ -285,12 +412,30 @@ export default function PrintDesignerTab() {
               <SelectTrigger className="w-56 h-10 text-xs bg-slate-800 border-0 text-white rounded-xl">
                 <SelectValue placeholder="Cargar plantilla..." />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new_ticket" className="text-xs font-bold text-emerald-500">+ Preset Ticket 80mm</SelectItem>
-                <SelectItem value="new_a4" className="text-xs font-bold text-blue-500">+ Preset Crédito Fiscal A4</SelectItem>
-                {templates.map(t => (
-                  <SelectItem key={t.id} value={t.id} className="text-xs">{t.nombre} ({t.modulo_origen})</SelectItem>
-                ))}
+              <SelectContent className="max-h-80">
+                <div className="px-2 py-1 text-[10px] font-black uppercase text-indigo-400">🇸🇻 DTE Fiscales El Salvador (MH)</div>
+                <SelectItem value="dte_01" className="text-xs font-bold">FE 01 - Factura Electrónica (Carta)</SelectItem>
+                <SelectItem value="dte_03" className="text-xs font-bold text-blue-500">CCF 03 - Crédito Fiscal (Carta)</SelectItem>
+                <SelectItem value="dte_04" className="text-xs font-bold">NR 04 - Nota de Remisión (Carta)</SelectItem>
+                <SelectItem value="dte_05" className="text-xs font-bold">NC 05 - Nota de Crédito (Carta)</SelectItem>
+                <SelectItem value="dte_06" className="text-xs font-bold">ND 06 - Nota de Débito (Carta)</SelectItem>
+                <SelectItem value="dte_07" className="text-xs font-bold">CR 07 - Comprobante Retención (Carta)</SelectItem>
+                <SelectItem value="dte_11" className="text-xs font-bold">FEX 11 - Factura Exportación (Carta)</SelectItem>
+                <SelectItem value="dte_14" className="text-xs font-bold">FSE 14 - Sujeto Excluido (Carta)</SelectItem>
+                
+                <div className="px-2 py-1 text-[10px] font-black uppercase text-emerald-400 border-t mt-1 pt-1">🏢 Documentos Comerciales & POS</div>
+                <SelectItem value="doc_quedan" className="text-xs font-bold">Quedan de Proveedores (Carta)</SelectItem>
+                <SelectItem value="doc_cotizacion" className="text-xs font-bold">Cotización Commercial (Carta)</SelectItem>
+                <SelectItem value="doc_corte_z" className="text-xs font-bold text-emerald-500">Ticket Térmico POS 80mm / Corte Z</SelectItem>
+                
+                {templates.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-[10px] font-black uppercase text-slate-400 border-t mt-1 pt-1">📁 Mis Plantillas Guardadas</div>
+                    {templates.map(t => (
+                      <SelectItem key={t.id} value={t.id} className="text-xs">{t.nombre} ({t.modulo_origen})</SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
 

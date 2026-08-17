@@ -58,28 +58,33 @@ export function renderTemplateToPrint(scheme: PrintTemplateScheme, data?: any): 
   (scheme.blocks || []).forEach(block => {
     switch (block.type) {
       case 'header':
+        const dteTipoNombre = dte.tipo_doc_nombre || 'FACTURA ELECTRÓNICA (FE - TIPO 01)';
+        const dteTipoCodigo = dte.tipo_doc_codigo || '01';
+
         if (isA4) {
-          // Encabezado Corporativo Formal de 2 Columnas para Tamaño Carta
+          // Encabezado Corporativo Formal de 2 Columnas para Tamaño Carta DTE El Salvador
           blocksHtml += `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px;">
-              <div style="width: 60%;">
+              <div style="width: 58%;">
                 ${block.showLogo ? `<div style="font-weight:900; font-size:22px; color:#1e293b; letter-spacing:-0.5px; margin-bottom:2px;">NEXWAY ERP</div>` : ''}
                 <h2 style="margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase;">${block.title || 'NEXWAY ERP S.A. DE C.V.'}</h2>
-                <p style="margin: 2px 0; font-size: 10px; color:#475569;">Giro: Venta al por mayor de materiales y soluciones de software</p>
+                <p style="margin: 2px 0; font-size: 10px; color:#475569;">Giro: Venta al por mayor de materiales y soluciones informáticas</p>
                 ${block.showAddress ? `<p style="margin: 1px 0; font-size: 10px; color:#475569;">Dirección: San Salvador, El Salvador C.A.</p>` : ''}
-                ${block.showPhone ? `<p style="margin: 1px 0; font-size: 10px; color:#475569;">Teléfono: (503) 2200-0000 | Email: contacto@nexway.sv</p>` : ''}
+                ${block.showPhone ? `<p style="margin: 1px 0; font-size: 10px; color:#475569;">Teléfono: (503) 2200-0000 | Email: facturacion@nexway.sv</p>` : ''}
                 <p style="margin: 1px 0; font-size: 10px; font-weight:bold;">NIT: 0614-010124-101-9 | NRC: 301290-4</p>
               </div>
 
-              <div style="width: 38%; border: 1.5px solid #000; border-radius: 6px; padding: 8px; background: #f8fafc; text-align: center;">
-                <p style="margin: 0; font-size: 11px; font-weight: 900; text-transform: uppercase; color:#1e3a8a;">DOCUMENTO TRIBUTARIO ELECTRÓNICO</p>
-                <p style="margin: 2px 0; font-size: 12px; font-weight: 800;">REPRESENTACIÓN GRÁFICA (CARTA)</p>
+              <div style="width: 40%; border: 1.5px solid #000; border-radius: 6px; padding: 8px; background: #f8fafc; text-align: center;">
+                <p style="margin: 0; font-size: 10px; font-weight: 900; text-transform: uppercase; color:#1e3a8a;">MINISTERIO DE HACIENDA DE EL SALVADOR</p>
+                <p style="margin: 2px 0; font-size: 11px; font-weight: 900; text-transform: uppercase; color:#0f172a; background:#e2e8f0; padding:3px; border-radius:4px;">${dteTipoNombre}</p>
                 <hr style="margin: 4px 0; border: none; border-top: 1px solid #cbd5e1;"/>
                 <p style="margin: 2px 0; font-size: 9px;"><strong>Código Generación:</strong></p>
-                <p style="margin: 0; font-size: 9.5px; font-family: monospace; font-weight: bold; color: #2563eb;">${dte.codigo_generacion}</p>
+                <p style="margin: 0; font-size: 9px; font-family: monospace; font-weight: bold; color: #2563eb;">${dte.codigo_generacion}</p>
+                <p style="margin: 2px 0; font-size: 9px;"><strong>Número de Control:</strong></p>
+                <p style="margin: 0; font-size: 9px; font-family: monospace;">${dte.numero_control || 'DTE-' + dteTipoCodigo + '-00000000-000000000001'}</p>
                 <p style="margin: 2px 0; font-size: 9px;"><strong>Sello Recepción MH:</strong></p>
-                <p style="margin: 0; font-size: 8.5px; font-family: monospace;">${dte.sello_recepcion}</p>
-                <p style="margin: 3px 0 0 0; font-size: 9.5px; font-weight: bold; background: #e2e8f0; padding: 2px; border-radius: 3px;">FECHA EMISIÓN: ${fecha}</p>
+                <p style="margin: 0; font-size: 8.5px; font-family: monospace; color:#16a34a;">${dte.sello_recepcion}</p>
+                <p style="margin: 3px 0 0 0; font-size: 9.5px; font-weight: bold;">FECHA EMISIÓN: ${fecha}</p>
               </div>
             </div>
           `;
