@@ -1411,7 +1411,7 @@ export default function InventoryTab() {
 
   return (
     <div className="min-h-screen bg-transparent">
-      <div className="max-w-7xl mx-auto mb-6 md:mb-8 flex items-center justify-between relative z-10">
+      <div className="w-full max-w-[1920px] mx-auto mb-6 md:mb-8 flex items-center justify-between relative z-10">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
@@ -1441,7 +1441,7 @@ export default function InventoryTab() {
         />
       </div>
  
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="w-full max-w-[1920px] mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-card border-border shadow-sm p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
             {config?.['inventory_existencia'] !== false && (

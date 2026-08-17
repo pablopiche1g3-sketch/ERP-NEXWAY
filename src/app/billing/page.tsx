@@ -1484,7 +1484,7 @@ export default function BillingPage() {
   return (
     <div className="min-h-screen bg-transparent">
       {/* Header Estilo Terminal */}
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 print:hidden relative z-10 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 p-4 px-6 rounded-2xl">
+      <div className="w-full max-w-[1920px] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 print:hidden relative z-10 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 p-4 px-6 rounded-2xl">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10" onClick={() => router.push('/')}>
             <ArrowLeft className="text-slate-600 dark:text-white/50" size={16} />
@@ -1563,7 +1563,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto print:hidden relative z-10">
+      <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6 print:hidden relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
           <TabsList className="bg-transparent p-0 h-auto flex flex-wrap w-full justify-start overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-white/10 gap-1 px-4 sm:px-6">
             {config?.['billing_facturacion'] !== false && (
