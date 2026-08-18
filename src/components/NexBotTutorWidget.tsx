@@ -61,7 +61,7 @@ const MODULE_GUIDES: Record<string, { title: string; steps: string[]; taxTip: st
       '1. Revisa la proyección de Flujo de Caja a 30, 60 y 90 días.',
       '2. Registra los saldos de Cuentas Bancarias y concilia los estados en CSV.',
       '3. Consulta la evaluación de Credit Scoring antes de aprobar créditos a clientes.',
-      '4. Genera archivos TXT masivos para pago a proveedores vía BAC o Banco Agrícola.'
+      '4. Genera archivos TXT masivos para pago a proveedores vía banca en línea empresarial.'
     ],
     taxTip: '💡 Tip Financiero: Mantén un margen de liquidez de al menos 1.5 en el indicador Razón Corriente.'
   },
@@ -99,7 +99,7 @@ export function NexBotTutorWidget() {
       id: 'prop_1',
       module: 'finanzas',
       title: 'Sugerencia de Reconciliación Bancaria',
-      description: 'Se detectó 1 depósito de $500.00 en Banco Agrícola coincidente con el cliente Comercializadora Gama.',
+      description: 'Se detectó 1 depósito abonado coincidente con la factura pendiente del cliente.',
       impact: 'Conciliación Automática de Factura Pendiente',
       status: 'pending'
     },
