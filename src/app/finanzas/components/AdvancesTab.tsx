@@ -83,11 +83,11 @@ export default function AdvancesTab() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border shadow-sm">
         <div>
-          <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
+          <h3 className="text-lg font-black text-foreground flex items-center gap-2">
             <Landmark className="text-indigo-500" size={20} />
             Gestión de Anticipos y Adelantos de Sueldo a Empleados
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Control de anticipos quincenales y préstamos internos descontados automáticamente de la nómina laboral.
           </p>
         </div>

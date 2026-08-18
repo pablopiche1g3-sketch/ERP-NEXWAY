@@ -121,6 +121,33 @@ export function RealDataImporterModal({ isOpen, onClose, onSuccess }: RealDataIm
     }
   };
 
+  const handlePurgeDemoData = () => {
+    try {
+      localStorage.removeItem('nexway_inventory');
+      localStorage.removeItem('nexway_customers');
+      localStorage.removeItem('nexway_suppliers');
+      localStorage.removeItem('nexway_app_users');
+      localStorage.removeItem('nexway_sales');
+      localStorage.removeItem('nexway_quotations');
+      localStorage.removeItem('nexway_agenda_tasks');
+      localStorage.removeItem('nexway_journal_payments');
+
+      toast({
+        title: '¡Datos de Ejemplo Purgados! 🧹',
+        description: 'Se limpiaron todas las muestras de prueba. El sistema está listo para operar únicamente con datos reales.'
+      });
+
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al purgar',
+        description: e.message
+      });
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="rounded-2xl max-w-lg p-6 bg-card border shadow-2xl">
@@ -213,8 +240,16 @@ export function RealDataImporterModal({ isOpen, onClose, onSuccess }: RealDataIm
           )}
         </div>
 
-        <DialogFooter>
-          <Button onClick={onClose} variant="ghost" className="text-xs font-bold">
+        <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-2">
+          <Button
+            onClick={handlePurgeDemoData}
+            variant="outline"
+            className="w-full sm:w-auto text-xs font-bold text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+          >
+            🧹 Limpiar / Purgar Datos de Ejemplo
+          </Button>
+
+          <Button onClick={onClose} variant="ghost" className="text-xs font-bold w-full sm:w-auto">
             Cancelar
           </Button>
         </DialogFooter>

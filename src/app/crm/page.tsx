@@ -515,12 +515,12 @@ export default function CRMPage() {
   return (
     <div className="p-6 md:p-8 space-y-6">
         {/* Cabecera del CRM */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/40 p-5 rounded-2xl border border-white/10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-5 rounded-2xl border border-border shadow-sm">
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-white font-headline flex items-center gap-2">
-              <Sparkles className="text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.8)] animate-pulse" size={24} /> CRM Comercial y Embudo de Ventas
+            <h1 className="text-xl md:text-2xl font-black text-foreground font-headline flex items-center gap-2">
+              <Sparkles className="text-amber-500 animate-pulse" size={24} /> CRM Comercial y Embudo de Ventas
             </h1>
-            <p className="text-xs text-slate-400 mt-1">Monitorea prospectos, programa llamadas de seguimiento y rota stock vinculando oportunidades.</p>
+            <p className="text-xs text-muted-foreground mt-1">Monitorea prospectos, programa llamadas de seguimiento y rota stock vinculando oportunidades.</p>
           </div>
           <Button onClick={openCreateOppModal} className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs gap-1.5 h-10 px-4 shrink-0 transition-all">
             <Plus size={16} /> Nueva Oportunidad
@@ -637,11 +637,11 @@ export default function CRMPage() {
             {STAGES.map(stage => {
               const oppsInStage = oppsByStage[stage.id] || [];
               return (
-                <div key={stage.id} className="flex flex-col rounded-xl bg-slate-900/20 border border-white/5 min-w-[220px] max-h-[70vh] overflow-hidden">
+                <div key={stage.id} className="flex flex-col rounded-xl bg-card border border-border min-w-[220px] max-h-[70vh] overflow-hidden shadow-sm">
                   {/* Título de Columna */}
-                  <div className={`p-3.5 border-t-2 ${stage.color} flex items-center justify-between border-b border-white/5 bg-slate-900/40`}>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-white">{stage.label}</span>
-                    <Badge className="bg-white/5 text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-full">{oppsInStage.length}</Badge>
+                  <div className={`p-3.5 border-t-2 ${stage.color} flex items-center justify-between border-b border-border bg-muted/40`}>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-foreground">{stage.label}</span>
+                    <Badge className="bg-accent text-accent-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">{oppsInStage.length}</Badge>
                   </div>
 
                   {/* Tarjetas de Oportunidades */}
@@ -650,16 +650,16 @@ export default function CRMPage() {
                       <div 
                         key={opp.id} 
                         onClick={() => handleOpenDetail(opp)}
-                        className="p-3.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-white/5 hover:border-white/10 cursor-pointer transition-all duration-200 space-y-3.5 relative group shadow-md"
+                        className="p-3.5 rounded-xl bg-card hover:bg-accent border border-border cursor-pointer transition-all duration-200 space-y-3.5 relative group shadow-sm"
                       >
                         <div>
                           <div className="flex justify-between items-start gap-2">
-                            <h4 className="text-xs font-bold text-white leading-snug group-hover:text-amber-400 transition-colors truncate max-w-[120px]">{opp.title}</h4>
+                            <h4 className="text-xs font-bold text-foreground leading-snug group-hover:text-amber-500 transition-colors truncate max-w-[120px]">{opp.title}</h4>
                             <span className={`text-[8px] font-black font-mono px-1.5 py-0.5 rounded ${
-                              opp.priority === 'ALTA' ? 'bg-rose-500/10 text-rose-400' : opp.priority === 'MEDIA' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-500/10 text-slate-400'
+                              opp.priority === 'ALTA' ? 'bg-rose-500/10 text-rose-500' : opp.priority === 'MEDIA' ? 'bg-amber-500/10 text-amber-500' : 'bg-muted text-muted-foreground'
                             }`}>{opp.priority}</span>
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-1 truncate">
+                          <p className="text-[10px] text-muted-foreground mt-1 truncate">
                             👤 {opp.contact_name || customers.find(c => c.id === opp.customer_id)?.name || 'Sin contacto'}
                           </p>
                         </div>

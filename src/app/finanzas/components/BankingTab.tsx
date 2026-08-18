@@ -165,7 +165,7 @@ export default function BankingTab() {
 
       {/* Sección Conciliación Bancaria CSV / Extracto */}
       <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
-        <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+        <CardHeader className="bg-card text-card-foreground p-6 border-b border-border">
           <CardTitle className="text-base font-black uppercase tracking-tight flex items-center gap-2">
             <FileSpreadsheet className="text-emerald-400" size={18} />
             Conciliador Automático de Estado de Cuenta (CSV / Excel)

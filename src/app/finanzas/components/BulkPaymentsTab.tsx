@@ -30,7 +30,7 @@ export default function BulkPaymentsTab() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
-        <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+        <CardHeader className="bg-card text-card-foreground p-6 border-b border-border">
           <CardTitle className="text-base font-black uppercase tracking-tight flex items-center gap-2">
             <FileText className="text-indigo-400" size={20} />
             Generador de Archivos de Pago Masivo Bancario (.TXT / .CSV)

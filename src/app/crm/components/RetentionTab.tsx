@@ -56,7 +56,7 @@ export default function RetentionTab() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <Card className="border shadow-md rounded-2xl bg-card">
-        <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-t-2xl">
+        <CardHeader className="bg-card text-card-foreground p-6 border-b border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-t-2xl">
           <div>
              <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
                <Activity className="text-orange-400" size={20} />

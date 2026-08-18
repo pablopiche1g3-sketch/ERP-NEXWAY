@@ -22,7 +22,7 @@ interface SettingsTabProps {
 export function SettingsTab({ settings, onSave, onChange }: SettingsTabProps) {
   return (
     <Card className="border shadow-sm rounded-2xl bg-white dark:bg-card border-slate-100 dark:border-border">
-      <CardHeader className="bg-slate-900 dark:bg-zinc-950 text-white p-6">
+      <CardHeader className="bg-card text-card-foreground p-6 border-b border-border">
         <CardTitle className="text-sm font-black flex items-center gap-2">
           Configuración Contable
         </CardTitle>

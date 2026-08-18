@@ -77,7 +77,7 @@ export default function CostCentersTab() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <Card className="border shadow-md rounded-2xl bg-card">
-        <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
+        <CardHeader className="bg-card text-card-foreground p-6 border-b border-border">
           <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
             <Building2 className="text-amber-400" size={20} />
             Análisis de Centros de Costo

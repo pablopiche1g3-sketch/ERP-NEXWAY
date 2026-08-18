@@ -2390,7 +2390,7 @@ export default function BillingPage() {
               {/* Conteo de Billetes/Monedas */}
               <div className="lg:col-span-5 space-y-6">
                 <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                  <div className="bg-slate-900/80 dark:bg-black/40 text-white p-5 flex flex-row items-center justify-between border-b border-white/10">
+                  <div className="bg-card text-foreground p-5 flex flex-row items-center justify-between border-b border-border">
                     <div>
                       <h3 className="text-sm font-bold flex items-center gap-2">
                         <Coins size={18} className="text-amber-400 animate-pulse" /> Conteo de Efectivo
@@ -2582,7 +2582,7 @@ export default function BillingPage() {
 
                 {/* Conciliación de Otros Medios de Pago */}
                 <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                  <div className="bg-slate-900/80 dark:bg-black/40 text-white p-4 border-b border-white/10">
+                  <div className="bg-card text-foreground p-4 border-b border-border">
                     <h3 className="text-sm font-bold flex items-center gap-2">
                       <CardIcon size={18} className="text-blue-400" /> Conciliación de Medios Electrónicos y Crédito
                     </h3>
@@ -2821,12 +2821,12 @@ export default function BillingPage() {
               {/* Cuentas por Cobrar / Ventas al Crédito */}
               <div className="lg:col-span-8 space-y-4">
                 <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                  <div className="bg-slate-900/80 dark:bg-black/40 text-white p-5 flex flex-row items-center justify-between border-b border-white/10">
+                  <div className="bg-card text-foreground p-5 flex flex-row items-center justify-between border-b border-border">
                     <div>
                       <h3 className="text-sm font-bold flex items-center gap-2">
                         <Wallet size={18} className="text-indigo-400" /> Cuentas por Cobrar (Créditos Activos)
                       </h3>
-                      <p className="text-[10px] text-slate-300 dark:text-white/50 mt-1">
+                      <p className="text-[10px] text-muted-foreground mt-1">
                         Consulte las ventas otorgadas al crédito y registre los abonos parciales de sus clientes.
                       </p>
                     </div>
@@ -2839,19 +2839,19 @@ export default function BillingPage() {
                       <Table>
                         <TableHeader className="bg-background border-input/40">
                           <TableRow className="border-b dark:border-border">
-                            <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-400">Factura / Correlativo</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black py-3 text-slate-400">Cliente</TableHead>
-                            <TableHead className="text-[10px] uppercase font-black py-3 text-slate-400">Fecha Venta</TableHead>
-                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Total Venta</TableHead>
-                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Total Abonado</TableHead>
-                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Saldo Pendiente</TableHead>
+                            <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-muted-foreground">Factura / Correlativo</TableHead>
+                            <TableHead className="text-[10px] uppercase font-black py-3 text-muted-foreground">Cliente</TableHead>
+                            <TableHead className="text-[10px] uppercase font-black py-3 text-muted-foreground">Fecha Venta</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-muted-foreground">Total Venta</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-muted-foreground">Total Abonado</TableHead>
+                            <TableHead className="text-right text-[10px] uppercase font-black py-3 text-muted-foreground">Saldo Pendiente</TableHead>
                             <TableHead className="w-24 py-3 px-6"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE').length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={7} className="text-center py-16 text-slate-400 italic text-xs">
+                              <TableCell colSpan={7} className="text-center py-16 text-muted-foreground italic text-xs">
                                 🎉 No hay créditos pendientes de pago. ¡Todas las cuentas están al día!
                               </TableCell>
                             </TableRow>
@@ -2863,17 +2863,17 @@ export default function BillingPage() {
                             const saldoPendiente = s.total - totalAbonado;
 
                             return (
-                              <TableRow key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
-                                <TableCell className="font-mono font-bold text-xs px-6 py-4 text-white">
+                              <TableRow key={s.id} className="hover:bg-accent border-b border-border">
+                                <TableCell className="font-mono font-bold text-xs px-6 py-4 text-foreground">
                                   {s.correlative}
                                 </TableCell>
-                                <TableCell className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                                <TableCell className="font-bold text-xs text-foreground">
                                   {s.customer}
                                 </TableCell>
-                                <TableCell className="text-xs text-slate-400">
+                                <TableCell className="text-xs text-muted-foreground">
                                   {new Date(s.timestamp).toLocaleDateString()}
                                 </TableCell>
-                                <TableCell className="text-right font-bold text-xs text-white">
+                                <TableCell className="text-right font-bold text-xs text-foreground">
                                   ${s.total.toFixed(2)}
                                 </TableCell>
                                 <TableCell className="text-right font-black text-xs text-emerald-600 dark:text-emerald-400">
@@ -2907,22 +2907,22 @@ export default function BillingPage() {
               {/* Historial de Abonos Recientes */}
               <div className="lg:col-span-4 space-y-4">
                 <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                  <div className="bg-slate-900/80 dark:bg-black/40 text-white p-4 border-b border-white/10 flex flex-row items-center justify-between">
+                  <div className="bg-card text-foreground p-4 border-b border-border flex flex-row items-center justify-between">
                     <div>
                       <h3 className="text-sm font-bold flex items-center gap-2">
                         <History size={16} className="text-emerald-400" /> Abonos Recientes
                       </h3>
-                      <p className="text-[10px] text-slate-300 dark:text-white/50 mt-1">Historial de abonos registrados el día de hoy.</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Historial de abonos registrados el día de hoy.</p>
                     </div>
                   </div>
                   <div className="p-0">
                     <ScrollArea className="h-[400px]">
                       {journalPayments.length === 0 ? (
-                        <div className="text-center py-20 text-xs text-slate-400 italic">No hay abonos registrados recientemente.</div>
+                        <div className="text-center py-20 text-xs text-muted-foreground italic">No hay abonos registrados recientemente.</div>
                       ) : journalPayments.map(j => (
-                        <div key={j.id} className="p-4 border-b border-slate-50 dark:border-border/30 last:border-0 hover:bg-slate-50/50 dark:hover:bg-muted/10 transition-all flex flex-col gap-1.5">
+                        <div key={j.id} className="p-4 border-b border-border last:border-0 hover:bg-accent transition-all flex flex-col gap-1.5">
                           <div className="flex justify-between items-start">
-                            <span className="text-[10px] font-black text-white line-clamp-2 pr-2">
+                            <span className="text-[10px] font-black text-foreground line-clamp-2 pr-2">
                               {j.description}
                             </span>
                             <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex-shrink-0">

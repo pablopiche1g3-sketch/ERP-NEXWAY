@@ -2070,7 +2070,7 @@ export default function AccountingPage() {
 
           <TabsContent value="cuentas-pagar" className="space-y-6 outline-none animate-in fade-in duration-300">
             <Card className="border shadow-md rounded-2xl bg-card border-border shadow-sm border-slate-100 dark:border-border overflow-hidden">
-              <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950 flex flex-row items-center justify-between">
+              <CardHeader className="bg-card text-card-foreground p-6 border-b border-border flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-black uppercase tracking-tight flex items-center gap-2">
                     <FileText className="text-rose-400" size={20} />
