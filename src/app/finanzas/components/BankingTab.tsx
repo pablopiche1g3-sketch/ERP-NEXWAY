@@ -11,17 +11,11 @@ import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Plus, CreditCard, ArrowDownLeft, ArrowUpRight, CheckCircle2, FileSpreadsheet, Loader2 } from 'lucide-react';
 
-const DEFAULT_ACCOUNTS = [
-  { id: 'acc_1', bank_name: 'Banco Agrícola', account_number: '00300124901-01', account_type: 'Corriente', balance: 8450.00, currency: 'USD' },
-  { id: 'acc_2', bank_name: 'BAC Credomatic', account_number: '112094120-00', account_type: 'Corriente', balance: 3800.50, currency: 'USD' },
-  { id: 'acc_3', bank_name: 'Caja Chica Matriz', account_number: 'CCH-001', account_type: 'Caja Chica', balance: 290.00, currency: 'USD' }
-];
-
 export default function BankingTab() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [accounts, setAccounts] = useState<any[]>(DEFAULT_ACCOUNTS);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('acc_1');
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   const [bankName, setBankName] = useState('Banco Cuscatlán');
   const [accNumber, setAccNumber] = useState('');
@@ -39,6 +33,15 @@ export default function BankingTab() {
       if (data && data.length > 0) {
         setAccounts(data);
         setSelectedAccountId(data[0].id);
+      } else {
+        const stored = localStorage.getItem('nexway_bank_accounts');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setAccounts(parsed);
+          if (parsed.length > 0) setSelectedAccountId(parsed[0].id);
+        } else {
+          setAccounts([]);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -144,24 +147,41 @@ export default function BankingTab() {
       )}
 
       {/* Grid de Cuentas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {accounts.map(acc => (
-          <Card key={acc.id} className="border shadow-sm p-5 rounded-2xl bg-card relative overflow-hidden">
-            <div className="flex justify-between items-start">
-              <div>
-                <Badge className="bg-indigo-600/10 text-indigo-500 border-0 text-[9px] font-black uppercase mb-1">{acc.account_type}</Badge>
-                <h4 className="text-sm font-black text-slate-800 dark:text-white">{acc.bank_name}</h4>
-                <p className="text-xs font-mono text-slate-400 mt-0.5">{acc.account_number}</p>
+      {accounts.length === 0 ? (
+        <Card className="border border-dashed p-8 rounded-2xl bg-card text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 mx-auto flex items-center justify-center">
+            <Building2 size={24} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-foreground">No hay cuentas bancarias registradas</h4>
+            <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+              Haz clic en "+ Nueva Cuenta Bancaria" para agregar los saldos y números de cuenta reales de tu empresa.
+            </p>
+          </div>
+          <Button onClick={() => setIsAddingAcc(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl h-9 px-4">
+            <Plus size={15} className="mr-1" /> Registrar Primera Cuenta
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {accounts.map(acc => (
+            <Card key={acc.id} className="border shadow-sm p-5 rounded-2xl bg-card relative overflow-hidden">
+              <div className="flex justify-between items-start">
+                <div>
+                  <Badge className="bg-indigo-600/10 text-indigo-500 border-0 text-[9px] font-black uppercase mb-1">{acc.account_type}</Badge>
+                  <h4 className="text-sm font-black text-foreground">{acc.bank_name}</h4>
+                  <p className="text-xs font-mono text-muted-foreground mt-0.5">{acc.account_number}</p>
+                </div>
+                <CreditCard className="text-muted-foreground" size={24} />
               </div>
-              <CreditCard className="text-slate-400" size={24} />
-            </div>
-            <div className="mt-4 pt-3 border-t">
-              <span className="text-[10px] text-slate-400 uppercase font-bold">Saldo Disponible</span>
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">${parseFloat(acc.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-            </div>
-          </Card>
-        ))}
-      </div>
+              <div className="mt-4 pt-3 border-t">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Saldo Disponible</span>
+                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">${parseFloat(acc.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Sección Conciliación Bancaria CSV / Extracto */}
       <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
