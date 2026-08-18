@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck, ShieldAlert, Sparkles, UserCheck, AlertTriangle, RefreshCw } from 'lucide-react';
 
 const MOCK_CLIENT_SCORINGS = [
