@@ -1392,7 +1392,7 @@ export default function ManagementPage() {
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
-<div className="max-w-4xl mx-auto flex items-center justify-between mb-8 gap-4 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
+      <div className="w-full max-w-[1920px] mx-auto flex items-center justify-between mb-8 gap-4 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
@@ -1405,7 +1405,7 @@ export default function ManagementPage() {
         <ModeToggle />
       </div>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6">
         <Tabs value={currentTab} onValueChange={(val) => {
           if (activeGroup === 'bi') setActiveBiTab(val);
           if (activeGroup === 'config') setActiveConfigTab(val);

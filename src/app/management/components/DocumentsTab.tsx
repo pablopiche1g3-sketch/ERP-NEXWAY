@@ -357,30 +357,26 @@ export default function DocumentsTab() {
   );
 
   return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden text-white font-body">
-      
-      {/* BACKGROUND DECORATIONS */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-500/10 rounded-full blur-[150px] pointer-events-none" />
+    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden text-foreground font-body">
 
       {/* TOP HEADER */}
       {!isEditorOpen && (
-        <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
+        <div className="w-full max-w-[1920px] mx-auto flex items-center justify-between mb-6 bg-card border border-border rounded-2xl p-4 md:p-5 relative z-10 shadow-sm">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10" 
+              className="w-10 h-10 rounded-xl bg-accent border border-border hover:bg-accent/80" 
               onClick={() => router.push('/')}
             >
-              <ArrowLeft className="text-slate-300" size={18} />
+              <ArrowLeft className="text-foreground" size={18} />
             </Button>
             <div>
-              <h1 className="text-lg md:text-xl font-bold font-headline leading-tight flex items-center gap-2">
+              <h1 className="text-lg md:text-xl font-bold font-headline leading-tight flex items-center gap-2 text-foreground">
                 Centro Documental 
-                <Sparkles size={16} className="text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" />
+                <Sparkles size={16} className="text-indigo-500" />
               </h1>
-              <p className="text-white/40 text-[11px] md:text-xs">Espacios de trabajo libres para hojas de cálculo y documentos de texto</p>
+              <p className="text-muted-foreground text-[11px] md:text-xs">Espacios de trabajo libres para hojas de cálculo y documentos de texto</p>
             </div>
           </div>
           <ModeToggle />
@@ -389,7 +385,7 @@ export default function DocumentsTab() {
 
       {/* EXPLORER SCREEN */}
       {!isEditorOpen && (
-        <div className="max-w-7xl mx-auto relative z-10 space-y-6">
+        <div className="w-full max-w-[1920px] mx-auto relative z-10 space-y-6">
           {/* Action buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Button
@@ -505,7 +501,7 @@ export default function DocumentsTab() {
 
       {/* EDITOR SCREEN CONTAINER */}
       {isEditorOpen && currentDoc && (
-        <div className="max-w-7xl mx-auto relative z-10 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-full max-w-[1920px] mx-auto relative z-10 space-y-4 animate-in fade-in zoom-in-95 duration-200">
           
           {/* EDITOR MENU TOP BAR */}
           <div className="flex items-center justify-between bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
