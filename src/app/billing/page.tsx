@@ -447,6 +447,7 @@ export default function BillingPage() {
   const [physicalCredit, setPhysicalCredit] = useState<number>(0);
   const [physicalCheck, setPhysicalCheck] = useState<number>(0);
   const [reportedSalesAmount, setReportedSalesAmount] = useState<number | ''>('');
+  const [lastClosingTimestamp, setLastClosingTimestamp] = useState<string | null>(null);
 
   // Persistencia de borrador de conteo de arqueo
   useEffect(() => {
@@ -797,6 +798,20 @@ export default function BillingPage() {
         customer: s.customer_name || 'Consumidor Final'
       })));
 
+      // Cargar último cierre formalizado de jornada
+      const { data: lastClosingData } = await supabase
+        .from('daily_closings')
+        .select('created_at, date')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastClosingData) {
+        setLastClosingTimestamp(lastClosingData.created_at || lastClosingData.date);
+      } else {
+        setLastClosingTimestamp(null);
+      }
+
       // Cargar abonos realizados registrados en el diario contable
       const { data: jData } = await supabase
         .from('journal')
@@ -1135,11 +1150,31 @@ export default function BillingPage() {
     );
   }, [customerSearch, customers]);
 
-  // Arqueo Calculations
+  // Ventas asociadas únicamente a la Jornada / Turno Activo (posteriores al último cierre)
+  const activeShiftSales = useMemo(() => {
+    if (!salesAll || salesAll.length === 0) return [];
+
+    if (lastClosingTimestamp) {
+      const closingTime = new Date(lastClosingTimestamp).getTime();
+      return salesAll.filter(s => {
+        if (!s.timestamp) return false;
+        const saleTime = new Date(s.timestamp).getTime();
+        return saleTime > closingTime;
+      });
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    return salesAll.filter(s => {
+      if (!s.timestamp) return false;
+      const saleDateStr = new Date(s.timestamp).toISOString().split('T')[0];
+      return saleDateStr === todayStr;
+    });
+  }, [salesAll, lastClosingTimestamp]);
+
   const systemCashSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Efectivo' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
+    activeShiftSales?.filter(s => s.paymentMethod === 'Efectivo' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
-  , [salesAll]);
+  , [activeShiftSales]);
 
   // Cart Functions
   const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * (Number(item.quantity) || 0)), 0), [cart]);
@@ -1214,24 +1249,24 @@ export default function BillingPage() {
   }, [creditValidation.disabled, paymentMethod, toast]);
 
   const systemCardSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Tarjeta' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
+    activeShiftSales?.filter(s => s.paymentMethod === 'Tarjeta' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
-  , [salesAll]);
+  , [activeShiftSales]);
 
   const systemTransferSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Transferencia' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
+    activeShiftSales?.filter(s => s.paymentMethod === 'Transferencia' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
-  , [salesAll]);
+  , [activeShiftSales]);
 
   const systemCreditSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status !== 'CANCELADA')
+    activeShiftSales?.filter(s => s.paymentMethod === 'Credito' && s.status !== 'CANCELADA')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
-  , [salesAll]);
+  , [activeShiftSales]);
 
   const systemCheckSales = useMemo(() => 
-    salesAll?.filter(s => s.paymentMethod === 'Cheque' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
+    activeShiftSales?.filter(s => s.paymentMethod === 'Cheque' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
       .reduce((acc, s) => acc + (s.total || 0), 0) || 0
-  , [salesAll]);
+  , [activeShiftSales]);
 
   const totalPhysicalCash = useMemo(() => 
     Object.entries(cashDenominations).reduce((acc, [den, qty]) => acc + (parseFloat(den) * qty), 0)
@@ -1265,15 +1300,29 @@ export default function BillingPage() {
   const creditDifference = useMemo(() => physicalCredit - systemCreditSales, [physicalCredit, systemCreditSales]);
   const checkDifference = useMemo(() => physicalCheck - systemCheckSales, [physicalCheck, systemCheckSales]);
 
+  const formattedTodayDate = useMemo(() => {
+    const d = new Date();
+    return d.toLocaleDateString('es-SV', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }, []);
+
   // --- BMS & AI AUTOMATED CASH RECONCILIATION ---
   const bmsReconciliationStatus = useMemo(() => {
     const totalDiff = Math.abs(cashDifference) + Math.abs(cardDifference) + Math.abs(transferDifference) + Math.abs(checkDifference);
+    const isZeroSalesDay = systemCashSales === 0 && systemCardSales === 0 && systemTransferSales === 0 && systemCheckSales === 0;
+
     if (totalDiff === 0) {
       return {
         isApproved: true,
-        statusLabel: '🤖 BMS AUTORIZADO - CUADRE OK',
+        statusLabel: isZeroSalesDay ? '🤖 BMS AUTORIZADO - CAJA SIN VENTAS OK' : '🤖 BMS AUTORIZADO - CUADRE OK',
         badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-        suggestion: 'Sugerencia IA: El conteo físico coincide al 100% con los registros del sistema. Proceda a otorgar el Visto Bueno del Cajero e imprimir el reporte de cierre de jornada.'
+        suggestion: isZeroSalesDay 
+          ? `Sugerencia IA: Jornada sin ventas registradas. El saldo concuerda 100% con el Fondo Base ($${(cashConfig?.cashFloat || 0).toFixed(2)}). Cierre autorizado.`
+          : 'Sugerencia IA: El conteo físico coincide al 100% con los registros del sistema. Proceda a otorgar el Visto Bueno del Cajero e imprimir el reporte de cierre de jornada.'
       };
     } else if (Math.abs(cashDifference) > 0 && Math.abs(cardDifference) === 0 && Math.abs(transferDifference) === 0) {
       return {
@@ -1290,7 +1339,7 @@ export default function BillingPage() {
         suggestion: 'Sugerencia IA: Existen descuadres en múltiples medios de pago. Por favor revise vouchers de tarjeta, cheques y bancas en línea antes de otorgar la conformidad.'
       };
     }
-  }, [cashDifference, cardDifference, transferDifference, checkDifference]);
+  }, [cashDifference, cardDifference, transferDifference, checkDifference, systemCashSales, systemCardSales, systemTransferSales, systemCheckSales, cashConfig]);
 
   // CLASIFICACIÓN DE FACTURAS (CF), CRÉDITOS FISCALES (CCF) Y ABONOS DEL DÍA
   const salesCF = useMemo(() => 
@@ -3135,6 +3184,22 @@ export default function BillingPage() {
               {/* Conciliación y Gastos */}
               <div className="lg:col-span-7 space-y-6">
                 
+                {/* Banner de Fecha del Día Actual y Estado de Cierre */}
+                <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 flex justify-between items-center flex-wrap gap-2 shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400">
+                      <Clock size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider">Jornada Activa de Caja</h4>
+                      <p className="text-[11px] font-bold text-slate-200 capitalize">{formattedTodayDate}</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-3 py-1">
+                    {systemCashSales + systemCardSales + systemTransferSales === 0 ? '✓ Cierre Limpio (Sin Ventas / Solo Fondo Base)' : '⚡ Jornada con Ventas Activas'}
+                  </Badge>
+                </div>
+
                 {/* Ingreso de Monto Total de Venta Reportado Manualmente */}
                 <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 shadow-md space-y-2">
                   <div className="flex items-center justify-between flex-wrap gap-2">
