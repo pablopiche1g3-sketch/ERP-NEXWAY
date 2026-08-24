@@ -749,25 +749,46 @@ export default function CRMPage() {
                         <span>Saldo: <strong className="text-emerald-400 font-mono">${(loc.balance || 0).toLocaleString()}</strong></span>
                         <span className="text-[9px] text-slate-500">{loc.address || 'San Salvador'}</span>
                       </div>
-                      {/* Botones de Navegacion GPS */}
-                      <div className="flex items-center gap-1.5 pt-1 border-t border-white/5">
+                      {/* Botones de Accion */}
+                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`, '_blank')}
+                            className="h-6 px-2 text-[9px] font-bold text-blue-400 hover:text-white hover:bg-blue-600/30 rounded-lg flex items-center gap-1"
+                          >
+                            <Navigation size={10} /> Google Maps
+                          </Button>
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                            onClick={() => window.open(`https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`, '_blank')}
+                            className="h-6 px-2 text-[9px] font-bold text-sky-400 hover:text-white hover:bg-sky-600/30 rounded-lg flex items-center gap-1"
+                          >
+                            <Car size={10} /> Waze GPS
+                          </Button>
+                        </div>
                         <Button
                           size="sm"
                           type="button"
                           variant="ghost"
-                          onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`, '_blank')}
-                          className="h-6 px-2 text-[9px] font-bold text-blue-400 hover:text-white hover:bg-blue-600/30 rounded-lg flex items-center gap-1"
+                          onClick={() => {
+                            setMapData(prev => ({
+                              ...prev,
+                              locations: prev.locations.filter(l => l.id !== loc.id)
+                            }));
+                            toast({
+                              title: "Dirección Eliminada 🗑️",
+                              description: `Se eliminó "${loc.name}" del mapa.`
+                            });
+                          }}
+                          className="h-6 w-6 p-0 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg"
+                          title="Borrar Dirección"
                         >
-                          <Navigation size={10} /> Google Maps
-                        </Button>
-                        <Button
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                          onClick={() => window.open(`https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`, '_blank')}
-                          className="h-6 px-2 text-[9px] font-bold text-sky-400 hover:text-white hover:bg-sky-600/30 rounded-lg flex items-center gap-1"
-                        >
-                          <Car size={10} /> Waze GPS
+                          <Trash2 size={12} />
                         </Button>
                       </div>
                     </div>
@@ -777,7 +798,30 @@ export default function CRMPage() {
 
               {/* Mapa a la derecha */}
               <div className="w-full lg:w-2/3 h-[400px] lg:h-full">
-                <CrmMap locations={mapData.locations} routes={mapData.routes} />
+                <CrmMap 
+                  locations={mapData.locations} 
+                  routes={mapData.routes} 
+                  onAddLocation={(newLoc) => {
+                    setMapData(prev => ({
+                      ...prev,
+                      locations: [newLoc, ...prev.locations]
+                    }));
+                    toast({
+                      title: "Dirección Agregada 📍",
+                      description: `Se guardó "${newLoc.name}" en el mapa.`
+                    });
+                  }}
+                  onDeleteLocation={(locId) => {
+                    setMapData(prev => ({
+                      ...prev,
+                      locations: prev.locations.filter(l => l.id !== locId)
+                    }));
+                    toast({
+                      title: "Dirección Eliminada 🗑️",
+                      description: "Se removió la ubicación del mapa."
+                    });
+                  }}
+                />
               </div>
             </div>
           </TabsContent>
