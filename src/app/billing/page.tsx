@@ -314,7 +314,6 @@ export default function BillingPage() {
       if (e.key === 'Escape') {
         setInvoiceSearchResults([]);
         setInvoiceSearchTerm('');
-        setInventory([]);
         setSearchTerm('');
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
@@ -757,7 +756,44 @@ export default function BillingPage() {
           }
         });
       }
-      setPendingIncomingQty(incomingMap);
+      // Cargar catálogo de productos inicial
+      const { data: initInvData } = await supabase
+        .from('inventory')
+        .select('*')
+        .limit(50);
+
+      if (initInvData && initInvData.length > 0) {
+        const initSkus = initInvData.map(item => item.sku);
+        const { data: initStData } = await supabase
+          .from('inventory_stock')
+          .select('*')
+          .in('sku', initSkus);
+
+        const whMap: Record<string, string> = {};
+        (warehouses || []).forEach((w: any) => { whMap[w.id] = w.name; });
+
+        const mappedInit = initInvData.map(item => {
+          const itemStocks = (initStData || []).filter(s => s.sku === item.sku);
+          const bodegasMap: Record<string, number> = {};
+          itemStocks.forEach(s => {
+            const whName = whMap[s.warehouse_id];
+            if (whName) bodegasMap[whName] = parseFloat(s.quantity) || 0;
+          });
+          const stationWhName = activeWarehouse?.name || null;
+          const filteredQty = stationWhName ? (bodegasMap[stationWhName] || 0) : Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
+
+          return {
+            id: item.sku,
+            sku: item.sku,
+            name: item.name,
+            category: item.category,
+            price: parseFloat(item.price) || 0,
+            quantity: filteredQty,
+            bodegas: bodegasMap
+          };
+        });
+        setInventory(mappedInit);
+      }
 
     } catch (e: any) {
       console.error('Error al cargar datos en facturación:', e);
