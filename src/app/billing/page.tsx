@@ -58,6 +58,8 @@ import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { ModeToggle } from '@/components/mode-toggle';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
 import { CustomerHistoryDialog } from './components/CustomerHistoryDialog';
@@ -211,8 +213,17 @@ export default function BillingPage() {
     const term = e.target.value;
     setInvoiceSearchTerm(term);
     
-    if (term.trim().length < 2) {
-      setInvoiceSearchResults([]);
+    if (term.trim().length === 0) {
+      try {
+        const { data } = await supabase
+          .from('sales')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (data) setInvoiceSearchResults(data);
+      } catch (err) {
+        console.error(err);
+      }
       return;
     }
 
@@ -220,9 +231,9 @@ export default function BillingPage() {
       const { data, error } = await supabase
         .from('sales')
         .select('*')
-        .or(`customer.ilike.%${term}%,correlative.ilike.%${term}%`)
+        .or(`customer_name.ilike.%${term}%,correlative.ilike.%${term}%`)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(12);
       
       if (!error && data) {
         setInvoiceSearchResults(data);
@@ -232,28 +243,58 @@ export default function BillingPage() {
     }
   };
 
-  const handleSelectInvoice = (sale: any) => {
-    // Si la venta tiene items (generalmente los guardamos como JSON), los cargamos.
-    // Asegurarse de que tengan un ID (si no lo tienen, usar sku o index como id temporal)
-    const saleItems = (sale.items || []).map((item: any, idx: number) => ({
-      ...item,
-      id: item.id || item.sku || `item-${idx}`,
-      originalQuantity: item.quantity // Guardamos la cantidad original para referencia
-    }));
+  const handleSelectInvoice = async (sale: any) => {
+    try {
+      const { data: dbItems } = await supabase
+        .from('sales_items')
+        .select('*')
+        .eq('sale_id', sale.id);
 
-    setAdjustmentForm({
-      ...adjustmentForm,
-      refDoc: sale.correlative || sale.id.substring(0, 8),
-      customerId: sale.customer_id,
-      customerName: sale.customer,
-      items: saleItems
-    });
-    setInvoiceSearchTerm('');
-    setInvoiceSearchResults([]);
-    toast({
-      title: "Factura cargada",
-      description: `Se han cargado los datos y ${saleItems.length} productos de la factura.`,
-    });
+      const itemsList = dbItems || [];
+      const skus = Array.from(new Set(itemsList.map(i => i.sku).filter(Boolean)));
+      let inventoryMap: Record<string, string> = {};
+
+      if (skus.length > 0) {
+        const { data: products } = await supabase
+          .from('inventory')
+          .select('sku, name')
+          .in('sku', skus);
+
+        if (products) {
+          products.forEach(p => {
+            inventoryMap[p.sku] = p.name;
+          });
+        }
+      }
+
+      const loadedItems = itemsList.map((item: any, idx: number) => ({
+        id: item.id || `item-${idx}`,
+        sku: item.sku,
+        name: inventoryMap[item.sku] || item.product_name || item.sku || 'Producto',
+        price: Number(item.price) || 0,
+        quantity: Number(item.quantity) || 1,
+        originalQuantity: Number(item.quantity) || 1
+      }));
+
+      setAdjustmentForm({
+        refDoc: sale.correlative || sale.id.substring(0, 8),
+        customerId: sale.customer_id || null,
+        customerName: sale.customer_name || 'Cliente Consumidor Final',
+        reason: adjustmentForm.reason || (adjustmentType === 'CREDITO' ? 'Devoluciones de mercancías (Cliente retorna producto)' : 'Intereses por mora (Cargos financieros por atraso)'),
+        items: loadedItems,
+        total: Number(sale.total) || 0
+      });
+
+      setInvoiceSearchTerm('');
+      setInvoiceSearchResults([]);
+
+      toast({
+        title: "Factura DTE cargada",
+        description: `Se cargó ${sale.correlative || 'comprobante'} con ${loadedItems.length} producto(s).`
+      });
+    } catch (err) {
+      console.error('Error al cargar factura:', err);
+    }
   };
 
   // Arqueo States
@@ -2026,35 +2067,40 @@ export default function BillingPage() {
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5 relative">
                          <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Buscar Factura / Cliente</Label>
-                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                            <Input 
-                              placeholder="Nombre del cliente o N° Factura..." 
-                              value={invoiceSearchTerm} 
-                              onChange={handleSearchInvoices}
-                              className="pl-9 h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70"
-                            />
-                         </div>
-                         {invoiceSearchResults.length > 0 && invoiceSearchTerm.trim() !== '' && (
-                           <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 shadow-2xl z-50 max-h-64 overflow-y-auto rounded-xl p-1">
-                             {invoiceSearchResults.map((sale) => (
-                               <div 
-                                 key={sale.id}
-                                 onClick={() => handleSelectInvoice(sale)}
-                                 className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer rounded-lg border-b last:border-none border-slate-100 dark:border-white/5 flex flex-col gap-1"
-                               >
-                                 <div className="flex justify-between items-center">
-                                   <span className="text-xs font-bold text-slate-800 dark:text-white/80">{sale.customer}</span>
-                                   <span className="text-[10px] font-mono font-medium bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded text-slate-600 dark:text-white/60">{sale.correlative || sale.id.substring(0,8)}</span>
-                                 </div>
-                                 <div className="flex justify-between items-center">
-                                   <span className="text-[10px] text-slate-500 dark:text-white/40">{new Date(sale.timestamp).toLocaleDateString()}</span>
-                                   <span className="text-[10px] font-bold text-slate-700 dark:text-white/60">${sale.total?.toFixed(2)}</span>
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                         )}
+                          <div className="relative">
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                             <Input 
+                               placeholder="Nombre del cliente o N° Factura..." 
+                               value={invoiceSearchTerm} 
+                               onFocus={() => handleSearchInvoices({ target: { value: invoiceSearchTerm } } as any)}
+                               onChange={handleSearchInvoices}
+                               className="pl-9 h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70"
+                             />
+                          </div>
+                          {invoiceSearchResults.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 shadow-2xl z-50 max-h-64 overflow-y-auto rounded-xl p-1">
+                              {invoiceSearchResults.map((sale) => (
+                                <div 
+                                  key={sale.id}
+                                  onClick={() => handleSelectInvoice(sale)}
+                                  className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer rounded-lg border-b last:border-none border-slate-100 dark:border-white/5 flex flex-col gap-1 transition-colors"
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-800 dark:text-white/80">{sale.customer_name || 'Consumidor Final'}</span>
+                                    <span className="text-[10px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                      {sale.correlative || sale.id.substring(0,8)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-[10px] text-slate-500 dark:text-white/40">
+                                      {sale.doc_type || 'CF'} • {sale.created_at ? format(new Date(sale.created_at), "dd MMM yyyy, h:mm a", { locale: es }) : 'Reciente'}
+                                    </span>
+                                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">${Number(sale.total || 0).toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                       </div>
                       <div className="space-y-1.5">
                          <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Documento Seleccionado</Label>
