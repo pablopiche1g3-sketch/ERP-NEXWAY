@@ -425,6 +425,7 @@ export default function BillingPage() {
   };
 
   // Arqueo States
+  const [cashierVistoBueno, setCashierVistoBueno] = useState(false);
   const [cashDenominations, setCashDenominations] = useState<Record<string, number>>({
     '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
     '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
@@ -447,6 +448,7 @@ export default function BillingPage() {
     setPhysicalTransfer(0);
     setPhysicalCredit(0);
     setPhysicalCheck(0);
+    setCashierVistoBueno(false);
     toast({ title: "Arqueo Reiniciado", description: "Los valores de conteo han sido restaurados a cero." });
   };
   const [expenses, setExpenses] = useState<{description: string, amount: number}[]>([]);
@@ -1136,6 +1138,46 @@ export default function BillingPage() {
   const transferDifference = useMemo(() => physicalTransfer - systemTransferSales, [physicalTransfer, systemTransferSales]);
   const creditDifference = useMemo(() => physicalCredit - systemCreditSales, [physicalCredit, systemCreditSales]);
   const checkDifference = useMemo(() => physicalCheck - systemCheckSales, [physicalCheck, systemCheckSales]);
+
+  // --- BMS & AI AUTOMATED CASH RECONCILIATION ---
+  const bmsReconciliationStatus = useMemo(() => {
+    const totalDiff = Math.abs(cashDifference) + Math.abs(cardDifference) + Math.abs(transferDifference) + Math.abs(checkDifference);
+    if (totalDiff === 0) {
+      return {
+        isApproved: true,
+        statusLabel: '🤖 BMS AUTORIZADO - CUADRE OK',
+        badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+        suggestion: 'Sugerencia IA: El conteo físico coincide al 100% con los registros del sistema. Proceda a otorgar el Visto Bueno del Cajero e imprimir el reporte de cierre de jornada.'
+      };
+    } else if (Math.abs(cashDifference) > 0 && Math.abs(cardDifference) === 0 && Math.abs(transferDifference) === 0) {
+      return {
+        isApproved: false,
+        statusLabel: '⚠️ BMS ALERTA - DIFERENCIA EN EFECTIVO',
+        badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30',
+        suggestion: `Sugerencia IA: Se detectó un ${cashDifference < 0 ? 'faltante' : 'sobrante'} de $${Math.abs(cashDifference).toFixed(2)} en efectivo. Verifique si existe algún comprobante de gasto no registrado o cambio entregado de más.`
+      };
+    } else {
+      return {
+        isApproved: false,
+        statusLabel: '⚠️ BMS AUDITORÍA REQUERIDA - DESCUADRE MULTIMEDIO',
+        badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30',
+        suggestion: 'Sugerencia IA: Existen descuadres en múltiples medios de pago. Por favor revise vouchers de tarjeta, cheques y bancas en línea antes de otorgar la conformidad.'
+      };
+    }
+  }, [cashDifference, cardDifference, transferDifference, checkDifference]);
+
+  // CLASIFICACIÓN DE FACTURAS (CF), CRÉDITOS FISCALES (CCF) Y ABONOS DEL DÍA
+  const salesCF = useMemo(() => 
+    salesAll?.filter(s => (s.docType === 'CF' || s.correlative?.startsWith('CF')) && s.status !== 'CANCELADA') || []
+  , [salesAll]);
+
+  const salesCCF = useMemo(() => 
+    salesAll?.filter(s => (s.docType === 'CCF' || s.correlative?.startsWith('CCF')) && s.status !== 'CANCELADA') || []
+  , [salesAll]);
+
+  const todaysAbonos = useMemo(() => 
+    journalPayments?.filter(j => j.description?.toLowerCase().includes('abono') || j.description?.toLowerCase().includes('cobro') || j.description?.toLowerCase().includes('crédito') || j.amount > 0) || []
+  , [journalPayments]);
 
 
   // Cart Functions
@@ -3131,14 +3173,45 @@ export default function BillingPage() {
                     </div>
                   </div>
 
-                  {/* Acciones de Arqueo */}
+                  {/* Acciones de Arqueo y Auditoría BMS / IA */}
                   <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none p-5 flex flex-col justify-between space-y-4">
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-white/80 uppercase tracking-wider">Finalizar Turno</h4>
-                      <p className="text-[10px] text-slate-500 dark:text-white/40 leading-normal font-medium">
-                        Cierra la sesión actual con un conteo físico o envía la auditoría al finalizar el día.
-                      </p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-white/80 uppercase tracking-wider">Auditoría BMS e IA</h4>
+                        <Badge className={`text-[9px] font-black uppercase px-2 py-0.5 border ${bmsReconciliationStatus.badgeColor}`}>
+                          {bmsReconciliationStatus.statusLabel}
+                        </Badge>
+                      </div>
+
+                      {/* Tarjeta de Sugerencia Inteligente IA */}
+                      <div className="p-3 rounded-xl bg-slate-900/90 dark:bg-black/50 border border-slate-700/50 text-slate-200 space-y-1">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400">
+                          <Sparkles size={13} /> Asistente de Cierre IA-BMS
+                        </div>
+                        <p className="text-[11px] font-medium leading-relaxed text-slate-300">
+                          {bmsReconciliationStatus.suggestion}
+                        </p>
+                      </div>
+
+                      {/* Casilla Visto Bueno del Cajero */}
+                      <div 
+                        onClick={() => setCashierVistoBueno(!cashierVistoBueno)}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                          cashierVistoBueno 
+                            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-700 dark:text-emerald-300' 
+                            : 'bg-white/50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-indigo-400'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center ${cashierVistoBueno ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-400'}`}>
+                            {cashierVistoBueno && <CheckCircle2 size={12} />}
+                          </div>
+                          <span className="text-xs font-bold uppercase tracking-tight">Visto Bueno del Cajero (Conformidad)</span>
+                        </div>
+                        <Badge variant="outline" className="text-[8px] font-bold">{cashierVistoBueno ? 'Aprobado ✅' : 'Pendiente'}</Badge>
+                      </div>
                     </div>
+
                     <div className="space-y-2.5 pt-2">
                       <Button className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-black shadow-lg transition-all text-xs" onClick={() => setIsCloseShiftOpen(true)}>
                         <Lock className="mr-2" size={14} />
@@ -3451,40 +3524,109 @@ export default function BillingPage() {
             </Table>
          </div>
 
-        <div className="space-y-4">
-           <h2 className="text-lg font-black border-b pb-2 uppercase text-blue-800">Historial de Ventas del Día</h2>
+        {/* FACTURAS CONSUMIDOR FINAL (CF) */}
+        <div className="space-y-3">
+           <div className="flex justify-between items-center border-b pb-1">
+              <h2 className="text-base font-black uppercase text-blue-900">1. Facturas Consumidor Final (CF) ({salesCF.length})</h2>
+              <span className="text-xs font-black text-slate-700">Total CF: ${salesCF.reduce((acc, s) => acc + (s.total || 0), 0).toFixed(2)}</span>
+           </div>
            <Table className="border text-[10px]">
               <TableHeader>
                  <TableRow className="bg-gray-100">
-                    <TableHead>Hora</TableHead>
-                    <TableHead>DTE/Doc</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Método</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="font-bold text-black">Correlativo</TableHead>
+                    <TableHead className="font-bold text-black">Hora</TableHead>
+                    <TableHead className="font-bold text-black">Cliente</TableHead>
+                    <TableHead className="font-bold text-black">Método Pago</TableHead>
+                    <TableHead className="text-right font-bold text-black">Monto Total</TableHead>
                  </TableRow>
               </TableHeader>
               <TableBody>
-                 {salesAll?.map((sale: any) => (
+                 {salesCF.length === 0 ? (
+                   <TableRow><TableCell colSpan={5} className="text-center py-2 text-gray-400 italic">No se emitieron Facturas CF en la jornada.</TableCell></TableRow>
+                 ) : salesCF.map((sale: any) => (
                     <TableRow key={sale.id}>
+                       <TableCell className="font-mono font-bold">{sale.correlative || sale.docType}</TableCell>
                        <TableCell>{new Date(sale.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</TableCell>
-                       <TableCell>{sale.docType}</TableCell>
-                       <TableCell className="font-bold">{sale.customer}</TableCell>
+                       <TableCell className="font-semibold">{sale.customer}</TableCell>
                        <TableCell>{sale.paymentMethod}</TableCell>
-                       <TableCell className="text-right font-black">${sale.total.toFixed(2)}</TableCell>
+                       <TableCell className="text-right font-black font-mono">${(sale.total || 0).toFixed(2)}</TableCell>
                     </TableRow>
                  ))}
               </TableBody>
            </Table>
         </div>
 
-        <div className="grid grid-cols-2 gap-20 pt-20">
-           <div className="border-t border-white/10 border-black text-center pt-4">
-              <p className="text-sm font-black">Firma Cajero</p>
-              <p className="text-[10px] text-gray-500 uppercase">{user?.email || 'Admin'}</p>
+        {/* CRÉDITOS FISCALES (CCF) */}
+        <div className="space-y-3">
+           <div className="flex justify-between items-center border-b pb-1">
+              <h2 className="text-base font-black uppercase text-blue-900">2. Comprobantes de Crédito Fiscal (CCF) ({salesCCF.length})</h2>
+              <span className="text-xs font-black text-slate-700">Total CCF: ${salesCCF.reduce((acc, s) => acc + (s.total || 0), 0).toFixed(2)}</span>
            </div>
-           <div className="border-t border-white/10 border-black text-center pt-4">
-              <p className="text-sm font-black">Firma Auditoría / Gerencia</p>
-              <p className="text-[10px] text-gray-500 uppercase">NexWay Solutions</p>
+           <Table className="border text-[10px]">
+              <TableHeader>
+                 <TableRow className="bg-gray-100">
+                    <TableHead className="font-bold text-black">Correlativo / Control DTE</TableHead>
+                    <TableHead className="font-bold text-black">Hora</TableHead>
+                    <TableHead className="font-bold text-black">Cliente / Empresa</TableHead>
+                    <TableHead className="font-bold text-black">Método Pago</TableHead>
+                    <TableHead className="text-right font-bold text-black">Monto Total</TableHead>
+                 </TableRow>
+              </TableHeader>
+              <TableBody>
+                 {salesCCF.length === 0 ? (
+                   <TableRow><TableCell colSpan={5} className="text-center py-2 text-gray-400 italic">No se emitieron Créditos Fiscales CCF en la jornada.</TableCell></TableRow>
+                 ) : salesCCF.map((sale: any) => (
+                    <TableRow key={sale.id}>
+                       <TableCell className="font-mono font-bold">{sale.correlative || sale.docType}</TableCell>
+                       <TableCell>{new Date(sale.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</TableCell>
+                       <TableCell className="font-semibold">{sale.customer}</TableCell>
+                       <TableCell>{sale.paymentMethod}</TableCell>
+                       <TableCell className="text-right font-black font-mono">${(sale.total || 0).toFixed(2)}</TableCell>
+                    </TableRow>
+                 ))}
+              </TableBody>
+           </Table>
+        </div>
+
+        {/* ABONOS Y COBROS DE CRÉDITO */}
+        <div className="space-y-3">
+           <div className="flex justify-between items-center border-b pb-1">
+              <h2 className="text-base font-black uppercase text-blue-900">3. Abonos y Cobros de Crédito ({todaysAbonos.length})</h2>
+              <span className="text-xs font-black text-slate-700">Total Abonos: ${todaysAbonos.reduce((acc, a) => acc + (parseFloat(a.amount) || 0), 0).toFixed(2)}</span>
+           </div>
+           <Table className="border text-[10px]">
+              <TableHeader>
+                 <TableRow className="bg-gray-100">
+                    <TableHead className="font-bold text-black">Fecha / Hora</TableHead>
+                    <TableHead className="font-bold text-black">Concepto / Referencia</TableHead>
+                    <TableHead className="text-right font-bold text-black">Monto Ingresado</TableHead>
+                 </TableRow>
+              </TableHeader>
+              <TableBody>
+                 {todaysAbonos.length === 0 ? (
+                   <TableRow><TableCell colSpan={3} className="text-center py-2 text-gray-400 italic">No hay abonos a crédito procesados en esta jornada.</TableCell></TableRow>
+                 ) : todaysAbonos.map((abono: any) => (
+                    <TableRow key={abono.id}>
+                       <TableCell>{new Date(abono.created_at).toLocaleString()}</TableCell>
+                       <TableCell className="font-medium">{abono.description}</TableCell>
+                       <TableCell className="text-right font-black font-mono">${(parseFloat(abono.amount) || 0).toFixed(2)}</TableCell>
+                    </TableRow>
+                 ))}
+              </TableBody>
+           </Table>
+        </div>
+
+        {/* FIRMAS DE CONFORMIDAD Y AUDITORÍA BMS */}
+        <div className="grid grid-cols-2 gap-16 pt-16 border-t border-gray-300">
+           <div className="border-t border-black text-center pt-3">
+              <p className="text-sm font-black uppercase">Visto Bueno del Cajero</p>
+              <p className="text-xs font-bold text-gray-700">{user?.email || selectedSellerEmail || 'Cajero POS'}</p>
+              <p className="text-[10px] text-gray-500 italic mt-0.5">{cashierVistoBueno ? '✓ Conformidad Otorgada Digitalmente' : 'Pendiente de firma'}</p>
+           </div>
+           <div className="border-t border-black text-center pt-3">
+              <p className="text-sm font-black uppercase">Autorización BMS / Gerencia</p>
+              <p className="text-xs font-bold text-blue-900">{bmsReconciliationStatus.statusLabel}</p>
+              <p className="text-[10px] text-gray-500 italic mt-0.5">Sistema Integrado BMS NexWay ERP</p>
            </div>
         </div>
       </div>
