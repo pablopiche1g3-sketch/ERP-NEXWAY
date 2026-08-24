@@ -1000,6 +1000,65 @@ export default function BillingPage() {
     });
   };
 
+  const handleAddToCartFromHistory = (itemToAdd: { sku: string; name: string; price: number; quantity?: number }) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.sku === itemToAdd.sku || item.id === itemToAdd.sku);
+      const qtyToAdd = itemToAdd.quantity || 1;
+      if (existing) {
+        return prev.map(item => (item.sku === itemToAdd.sku || item.id === itemToAdd.sku)
+          ? { ...item, quantity: Number(item.quantity || 0) + qtyToAdd }
+          : item
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: itemToAdd.sku,
+          sku: itemToAdd.sku,
+          name: itemToAdd.name || itemToAdd.sku,
+          price: itemToAdd.price || 0,
+          originalPrice: itemToAdd.price || 0,
+          quantity: qtyToAdd
+        } as any
+      ];
+    });
+    toast({
+      title: "Producto agregado",
+      description: `${itemToAdd.name} se añadió a la factura actual.`
+    });
+  };
+
+  const handleAddMultipleToCartFromHistory = (itemsToAdd: Array<{ sku: string; name: string; price: number; quantity?: number }>) => {
+    if (!itemsToAdd || itemsToAdd.length === 0) return;
+    setCart(prev => {
+      let currentCart = [...prev];
+      itemsToAdd.forEach(itemToAdd => {
+        const existingIndex = currentCart.findIndex(item => item.sku === itemToAdd.sku || item.id === itemToAdd.sku);
+        const qtyToAdd = itemToAdd.quantity || 1;
+        if (existingIndex > -1) {
+          currentCart[existingIndex] = {
+            ...currentCart[existingIndex],
+            quantity: Number(currentCart[existingIndex].quantity || 0) + qtyToAdd
+          };
+        } else {
+          currentCart.push({
+            id: itemToAdd.sku,
+            sku: itemToAdd.sku,
+            name: itemToAdd.name || itemToAdd.sku,
+            price: itemToAdd.price || 0,
+            originalPrice: itemToAdd.price || 0,
+            quantity: qtyToAdd
+          } as any);
+        }
+      });
+      return currentCart;
+    });
+    toast({
+      title: "Compra cargada",
+      description: `Se añadieron ${itemsToAdd.length} producto(s) a la factura actual.`
+    });
+  };
+
   const updateCartQuantity = (id: string, qty: number | string) => {
     const numQty = typeof qty === 'string' ? (qty === '' ? '' : parseFloat(qty)) : qty;
     setCart(prev => prev.map(item => item.id === id ? { ...item, quantity: (numQty === '' ? '' : (numQty || 0)) as any } : item));
@@ -1763,7 +1822,12 @@ export default function BillingPage() {
                         </ScrollArea>
                       </PopoverContent>
                     </Popover>
-                    <CustomerHistoryDialog customerId={selectedCustomer?.id || null} customerName={selectedCustomer?.name || ''} />
+                    <CustomerHistoryDialog 
+                      customerId={selectedCustomer?.id || null} 
+                      customerName={selectedCustomer?.name || customerName || ''} 
+                      onAddToCart={handleAddToCartFromHistory}
+                      onAddMultipleToCart={handleAddMultipleToCartFromHistory}
+                    />
                   </div>
                 </div>
                 <div className="w-full sm:w-48 space-y-1.5">
@@ -1999,7 +2063,12 @@ export default function BillingPage() {
                             {adjustmentForm.customerName && (
                               <div className="flex items-center">
                                 <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
-                                <CustomerHistoryDialog customerId={adjustmentForm.customerId} customerName={adjustmentForm.customerName} />
+                                <CustomerHistoryDialog 
+                                  customerId={adjustmentForm.customerId} 
+                                  customerName={adjustmentForm.customerName} 
+                                  onAddToCart={handleAddToCartFromHistory}
+                                  onAddMultipleToCart={handleAddMultipleToCartFromHistory}
+                                />
                               </div>
                             )}
                          </div>

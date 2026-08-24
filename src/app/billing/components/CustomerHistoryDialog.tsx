@@ -6,56 +6,103 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Eye, Clock, Package, Calendar } from 'lucide-react';
+import { Eye, Clock, Package, Calendar, Plus, ShoppingCart } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+interface HistoryItem {
+  sku: string;
+  name: string;
+  price: number;
+  quantity?: number;
+}
+
 interface CustomerHistoryDialogProps {
   customerId: string | null;
   customerName: string;
+  onAddToCart?: (item: HistoryItem) => void;
+  onAddMultipleToCart?: (items: HistoryItem[]) => void;
 }
 
-export function CustomerHistoryDialog({ customerId, customerName }: CustomerHistoryDialogProps) {
+export function CustomerHistoryDialog({ 
+  customerId, 
+  customerName,
+  onAddToCart,
+  onAddMultipleToCart
+}: CustomerHistoryDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchHistory = async () => {
-    if (!customerId) return;
+    if (!customerId && !customerName) return;
     setLoading(true);
     try {
       // 1. Fetch sales for this customer
-      const { data: sales, error: salesErr } = await supabase
+      let query = supabase
         .from('sales')
         .select('*')
-        .eq('customer_id', customerId)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(15);
+
+      if (customerId && customerName) {
+        query = query.or(`customer_id.eq.${customerId},customer_name.ilike.%${customerName}%`);
+      } else if (customerId) {
+        query = query.eq('customer_id', customerId);
+      } else if (customerName) {
+        query = query.ilike('customer_name', `%${customerName}%`);
+      }
+
+      const { data: sales, error: salesErr } = await query;
       
       if (salesErr) throw salesErr;
 
-      // 2. Fetch items for these sales
       if (sales && sales.length > 0) {
         const saleIds = sales.map(s => s.id);
         const { data: items, error: itemsErr } = await supabase
-          .from('invoice_items')
+          .from('sales_items')
           .select('*')
-          .in('invoice_id', saleIds);
+          .in('sale_id', saleIds);
           
-        if (itemsErr) throw itemsErr;
+        if (itemsErr) {
+          console.error("Error fetching sales_items:", itemsErr);
+        }
 
-        const historyData = sales.map(s => ({
-          ...s,
-          items: (items || []).filter(i => i.invoice_id === s.id)
-        }));
+        const skus = Array.from(new Set((items || []).map(i => i.sku).filter(Boolean)));
+        const inventoryMap: Record<string, string> = {};
+        
+        if (skus.length > 0) {
+          const { data: products } = await supabase
+            .from('inventory')
+            .select('sku, name')
+            .in('sku', skus);
+
+          if (products) {
+            products.forEach(p => {
+              inventoryMap[p.sku] = p.name;
+            });
+          }
+        }
+
+        const historyData = sales.map(s => {
+          const saleItems = (items || []).filter(i => i.sale_id === s.id).map(i => ({
+            ...i,
+            product_name: inventoryMap[i.sku] || i.product_name || i.sku || 'Producto'
+          }));
+          return {
+            ...s,
+            items: saleItems
+          };
+        });
         setHistory(historyData);
       } else {
         setHistory([]);
       }
     } catch (err) {
       console.error("Error fetching history:", err);
+      setHistory([]);
     } finally {
       setLoading(false);
     }
@@ -72,34 +119,34 @@ export function CustomerHistoryDialog({ customerId, customerName }: CustomerHist
         variant="ghost" 
         size="icon" 
         onClick={handleOpen}
-        disabled={!customerId}
+        disabled={!customerId && !customerName}
         className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg shrink-0 ml-1"
-        title="Ver historial del cliente"
+        title="Ver historial de compras del cliente"
       >
         <Eye size={16} />
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-white/80 dark:bg-[#0f111a]/80 backdrop-blur-xl border-white/20 dark:border-white/10">
+        <DialogContent className="sm:max-w-[650px] bg-white/95 dark:bg-[#0f111a]/95 backdrop-blur-xl border-white/20 dark:border-white/10">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-black">
               <Clock className="text-blue-500" />
               Historial de Compras
             </DialogTitle>
             <DialogDescription>
-              Últimas transacciones del cliente <strong className="text-slate-800 dark:text-white">{customerName}</strong>
+              Últimas transacciones del cliente <strong className="text-slate-800 dark:text-white">{customerName || 'Seleccionado'}</strong>
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-white/50 dark:bg-black/20">
+          <ScrollArea className="h-[450px] w-full rounded-md border p-4 bg-white/50 dark:bg-black/20">
             {loading ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 min-h-[300px]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
                 Cargando historial...
               </div>
             ) : history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                <Package size={32} className="mb-2 opacity-50" />
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 min-h-[300px]">
+                <Package size={36} className="mb-2 opacity-50" />
                 No hay compras previas registradas.
               </div>
             ) : (
@@ -112,15 +159,37 @@ export function CustomerHistoryDialog({ customerId, customerName }: CustomerHist
                         <Calendar size={14} className="text-blue-500" />
                         {format(new Date(sale.created_at), "dd MMM yyyy, h:mm a", { locale: es })}
                       </div>
-                      <Badge variant="outline" className="font-mono text-xs bg-white dark:bg-black/50">
-                        {sale.correlative}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs bg-white dark:bg-black/50">
+                          {sale.correlative}
+                        </Badge>
+                        {onAddMultipleToCart && sale.items && sale.items.length > 0 && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[10px] px-2 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 gap-1 rounded-lg font-medium"
+                            onClick={() => {
+                              const itemsToAdd = sale.items.map((i: any) => ({
+                                sku: i.sku,
+                                name: i.product_name,
+                                price: Number(i.price) || 0,
+                                quantity: Number(i.quantity) || 1
+                              }));
+                              onAddMultipleToCart(itemsToAdd);
+                            }}
+                            title="Agregar todos los productos de esta compra a la factura actual"
+                          >
+                            <ShoppingCart size={11} />
+                            Cargar Venta
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="bg-white dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/10 p-3 shadow-sm">
                       <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100 dark:border-white/10">
                         <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                          {sale.payment_method === 'Crédito' ? (
+                          {sale.payment_method === 'Crédito' || sale.payment_method === 'Credito' ? (
                             <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px]">Al Crédito</Badge>
                           ) : (
                             <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[10px]">Al Contado</Badge>
@@ -132,26 +201,55 @@ export function CustomerHistoryDialog({ customerId, customerName }: CustomerHist
                       </div>
                       
                       <div className="space-y-2 mt-2">
-                        {sale.items?.map((item: any) => (
-                          <div key={item.id} className="flex justify-between items-center text-xs group hover:bg-slate-50 dark:hover:bg-white/5 p-1 rounded-md transition-colors">
-                            <div className="flex items-center gap-2 truncate max-w-[70%]">
-                              <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/60 px-1.5 py-0.5 rounded font-mono text-[9px] shrink-0">
-                                {item.sku}
-                              </span>
-                              <span className="truncate text-slate-700 dark:text-slate-300 font-medium">
-                                {item.product_name}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                              <span className="text-slate-500 dark:text-slate-400 text-[10px]">
-                                {item.quantity} x ${Number(item.unit_price).toFixed(2)}
-                              </span>
-                              <span className="font-bold text-slate-700 dark:text-slate-200 w-12 text-right">
-                                ${(item.quantity * item.unit_price).toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                        {sale.items?.length === 0 ? (
+                          <p className="text-[11px] text-slate-400 italic">Sin detalle de productos</p>
+                        ) : (
+                          sale.items?.map((item: any) => {
+                            const unitPrice = Number(item.price) || 0;
+                            const qty = Number(item.quantity) || 0;
+                            const subtotal = item.subtotal ? Number(item.subtotal) : (qty * unitPrice);
+
+                            return (
+                              <div key={item.id || item.sku} className="flex justify-between items-center text-xs group hover:bg-slate-50 dark:hover:bg-white/5 p-1.5 rounded-md transition-colors">
+                                <div className="flex items-center gap-2 truncate max-w-[55%]">
+                                  <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/60 px-1.5 py-0.5 rounded font-mono text-[9px] shrink-0">
+                                    {item.sku}
+                                  </span>
+                                  <span className="truncate text-slate-700 dark:text-slate-300 font-medium" title={item.product_name}>
+                                    {item.product_name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-slate-500 dark:text-slate-400 text-[10px]">
+                                    {qty} x ${unitPrice.toFixed(2)}
+                                  </span>
+                                  <span className="font-bold text-slate-700 dark:text-slate-200 w-14 text-right">
+                                    ${subtotal.toFixed(2)}
+                                  </span>
+                                  {onAddToCart && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 text-[10px] px-1.5 py-0 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-semibold gap-0.5 rounded ml-1"
+                                      onClick={() => {
+                                        onAddToCart({
+                                          sku: item.sku,
+                                          name: item.product_name,
+                                          price: unitPrice,
+                                          quantity: qty > 0 ? qty : 1
+                                        });
+                                      }}
+                                      title="Agregar a la factura actual"
+                                    >
+                                      <Plus size={12} />
+                                      Agregar
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   </div>
