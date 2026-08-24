@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/supabase/client';
@@ -16,19 +14,145 @@ import {
   Users, 
   UserPlus, 
   ShieldCheck, 
-  KeyRound, 
   Lock, 
   Unlock, 
-  Monitor, 
-  Smartphone, 
-  CheckCircle2, 
-  XCircle, 
   Search, 
-  Settings, 
   RefreshCw, 
   LogOut,
-  Laptop
+  Laptop,
+  CheckCircle2,
+  Edit3,
+  Sliders,
+  ChevronDown,
+  ChevronUp,
+  Sparkles
 } from 'lucide-react';
+
+export interface ModuleDefinition {
+  id: string;
+  name: string;
+  tabs: { id: string; name: string }[];
+}
+
+export const MODULE_CATALOG: ModuleDefinition[] = [
+  {
+    id: 'billing',
+    name: 'Facturación y POS',
+    tabs: [
+      { id: 'facturacion', name: 'Facturación Rápida' },
+      { id: 'historial', name: 'Historial / Ventas' },
+      { id: 'nota_credito', name: 'Nota de Crédito' },
+      { id: 'nota_debito', name: 'Nota de Débito' },
+      { id: 'arqueo', name: 'Arqueo / Cierre de Caja' },
+      { id: 'creditos', name: 'Créditos / Abonos' },
+    ]
+  },
+  {
+    id: 'compras',
+    name: 'Compras y Proveedores',
+    tabs: [
+      { id: 'interno', name: 'Pedidos Internos (Tiendas)' },
+      { id: 'externo', name: 'Pedidos Externos (Proveedores)' },
+      { id: 'cargar-codigos', name: 'Cargar Códigos (Excel)' },
+      { id: 'historial', name: 'Historial de Pedidos' },
+    ]
+  },
+  {
+    id: 'logistica',
+    name: 'Logística e Inventarios',
+    tabs: [
+      { id: 'existencia', name: 'Existencias y Kárdex' },
+      { id: 'maestro', name: 'Catálogo Maestro' },
+      { id: 'auditoria', name: 'Auditoría de Bodegas' },
+      { id: 'config', name: 'Mapeo / Configuración' },
+    ]
+  },
+  {
+    id: 'accounting',
+    name: 'Contabilidad y Hacienda',
+    tabs: [
+      { id: 'diario', name: 'Libro Diario' },
+      { id: 'balance-comprobacion', name: 'Balance de Comprobación' },
+      { id: 'libros_iva', name: 'Libros IVA' },
+      { id: 'mh_forms', name: 'Formularios MH' },
+      { id: 'tributario', name: 'Resumen Tributario' },
+      { id: 'caja-chica', name: 'Caja Chica' },
+      { id: 'pnl', name: 'Estado PnL' },
+    ]
+  },
+  {
+    id: 'finanzas',
+    name: 'Finanzas, Bancos y Créditos',
+    tabs: [
+      { id: 'cuentas', name: 'Cuentas Bancarias' },
+      { id: 'movimientos', name: 'Movimientos' },
+      { id: 'creditos', name: 'Créditos y Préstamos' },
+    ]
+  },
+  {
+    id: 'crm',
+    name: 'CRM Comercial',
+    tabs: [
+      { id: 'clientes', name: 'Clientes y Oportunidades' },
+      { id: 'cotizaciones', name: 'Cotizaciones' },
+      { id: 'seguimiento', name: 'Seguimiento' },
+    ]
+  },
+  {
+    id: 'management',
+    name: 'Gerencia y Reportes',
+    tabs: [
+      { id: 'usuarios', name: 'Control de Usuarios' },
+      { id: 'bi', name: 'Centro Analítico (BI)' },
+      { id: 'payroll', name: 'Nómina y RH' },
+    ]
+  }
+];
+
+export const ROLE_PRESETS: Record<string, { label: string; modules: string[]; tabs: string[] }> = {
+  cajero: {
+    label: '🛒 Cajero POS',
+    modules: ['billing', 'compras', 'management'],
+    tabs: [
+      'billing_facturacion', 'billing_historial', 'billing_arqueo', 'billing_creditos', 
+      'compras_interno', 
+      'management_usuarios'
+    ]
+  },
+  bodeguero: {
+    label: '📦 Bodeguero / Logística',
+    modules: ['logistica', 'compras', 'management'],
+    tabs: [
+      'logistica_existencia', 'logistica_maestro', 'logistica_auditoria', 'logistica_config',
+      'compras_interno', 'compras_cargar-codigos', 'compras_historial',
+      'management_usuarios'
+    ]
+  },
+  compras: {
+    label: '🚚 Encargado de Compras',
+    modules: ['compras', 'logistica', 'management'],
+    tabs: [
+      'compras_interno', 'compras_externo', 'compras_cargar-codigos', 'compras_historial',
+      'logistica_existencia', 'logistica_maestro',
+      'management_usuarios'
+    ]
+  },
+  contador: {
+    label: '📊 Contador / Hacienda',
+    modules: ['accounting', 'finanzas', 'billing', 'management'],
+    tabs: [
+      'accounting_diario', 'accounting_balance-comprobacion', 'accounting_libros_iva', 
+      'accounting_mh_forms', 'accounting_tributario', 'accounting_caja-chica', 'accounting_pnl',
+      'finanzas_cuentas', 'finanzas_movimientos',
+      'management_usuarios'
+    ]
+  },
+  administrador: {
+    label: '👑 Administrador Total',
+    modules: MODULE_CATALOG.map(m => m.id),
+    tabs: MODULE_CATALOG.flatMap(m => m.tabs.map(t => `${m.id}_${t.id}`))
+  }
+};
 
 export interface AppUser {
   id: string;
@@ -39,19 +163,10 @@ export interface AppUser {
   pin_code: string;
   status: 'active' | 'suspended';
   allowed_modules: string[];
+  allowed_tabs?: string[];
   last_device?: string;
   last_login?: string;
 }
-
-const AVAILABLE_MODULES = [
-  { id: 'billing', name: 'Facturación y POS' },
-  { id: 'compras', name: 'Compras y Proveedores' },
-  { id: 'finanzas', name: 'Finanzas, Bancos y Créditos' },
-  { id: 'logistica', name: 'Logística e Inventarios' },
-  { id: 'accounting', name: 'Contabilidad y Hacienda' },
-  { id: 'management', name: 'Gerencia y Reportes' },
-  { id: 'crm', name: 'CRM Comercial' }
-];
 
 export default function UserAccessManagementTab() {
   const { toast } = useToast();
@@ -59,7 +174,7 @@ export default function UserAccessManagementTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<AppUser[]>([]);
 
-  // Modal para Nuevo Usuario / Edición
+  // Modal para Nuevo Usuario / Edición de Accesos
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
@@ -68,7 +183,12 @@ export default function UserAccessManagementTab() {
   const [password, setPassword] = useState('');
   const [pinCode, setPinCode] = useState('1234');
   const [role, setRole] = useState('cajero');
+
   const [selectedModules, setSelectedModules] = useState<string[]>(['billing']);
+  const [selectedTabs, setSelectedTabs] = useState<string[]>([
+    'billing_facturacion', 'billing_historial', 'billing_arqueo'
+  ]);
+  const [expandedModule, setExpandedModule] = useState<string | null>('billing');
 
   const loadUsers = async () => {
     setLoading(true);
@@ -78,8 +198,7 @@ export default function UserAccessManagementTab() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        // Fallback a almacenamiento local si la tabla aún se está sincronizando
+      if (error || !data || data.length === 0) {
         const localUsers = localStorage.getItem('nexway_app_users');
         if (localUsers) {
           setUsers(JSON.parse(localUsers));
@@ -93,7 +212,8 @@ export default function UserAccessManagementTab() {
               role: 'administrador',
               pin_code: '9999',
               status: 'active',
-              allowed_modules: ['billing', 'compras', 'finanzas', 'logistica', 'accounting', 'management', 'crm'],
+              allowed_modules: MODULE_CATALOG.map(m => m.id),
+              allowed_tabs: MODULE_CATALOG.flatMap(m => m.tabs.map(t => `${m.id}_${t.id}`)),
               last_device: 'Windows PC (Chrome)',
               last_login: new Date().toISOString()
             },
@@ -105,7 +225,8 @@ export default function UserAccessManagementTab() {
               role: 'cajero',
               pin_code: '1234',
               status: 'active',
-              allowed_modules: ['billing'],
+              allowed_modules: ['billing', 'compras', 'management'],
+              allowed_tabs: ['billing_facturacion', 'billing_historial', 'billing_arqueo', 'billing_creditos'],
               last_device: 'POS Terminal (Chrome)',
               last_login: new Date().toISOString()
             }
@@ -113,7 +234,7 @@ export default function UserAccessManagementTab() {
           setUsers(initialMock);
           localStorage.setItem('nexway_app_users', JSON.stringify(initialMock));
         }
-      } else if (data) {
+      } else {
         setUsers(data);
       }
     } catch {
@@ -127,6 +248,29 @@ export default function UserAccessManagementTab() {
   useEffect(() => {
     loadUsers();
   }, []);
+
+  const handleApplyRolePreset = (presetKey: string) => {
+    const preset = ROLE_PRESETS[presetKey];
+    if (!preset) return;
+    setRole(presetKey);
+    setSelectedModules(preset.modules);
+    setSelectedTabs(preset.tabs);
+    toast({
+      title: `Categoría Aplicada: ${preset.label}`,
+      description: `Se han configurado automáticamente los accesos a módulos y pestañas.`
+    });
+  };
+
+  const handleEditUser = (user: AppUser) => {
+    setEditingUserId(user.id);
+    setFullName(user.full_name);
+    setEmail(user.email);
+    setPinCode(user.pin_code || '1234');
+    setRole(user.role || 'cajero');
+    setSelectedModules(user.allowed_modules || []);
+    setSelectedTabs(user.allowed_tabs || ROLE_PRESETS[user.role]?.tabs || []);
+    setIsModalOpen(true);
+  };
 
   const handleSaveUser = async () => {
     if (!fullName || !email) {
@@ -143,6 +287,7 @@ export default function UserAccessManagementTab() {
       pin_code: pinCode || '1234',
       status: 'active',
       allowed_modules: selectedModules,
+      allowed_tabs: selectedTabs,
       last_device: 'Computadora Registrada',
       last_login: new Date().toISOString()
     };
@@ -162,15 +307,16 @@ export default function UserAccessManagementTab() {
         role: newUser.role,
         pin_code: newUser.pin_code,
         status: newUser.status,
-        allowed_modules: newUser.allowed_modules
+        allowed_modules: newUser.allowed_modules,
+        allowed_tabs: newUser.allowed_tabs
       });
     } catch (e) {
       console.error('Error saving app_user to Supabase:', e);
     }
 
     toast({
-      title: editingUserId ? 'Usuario Actualizado' : 'Nuevo Usuario Creado',
-      description: `El usuario ${newUser.full_name} fue guardado con éxito. PIN: ${newUser.pin_code}`
+      title: editingUserId ? 'Accesos Actualizados' : 'Nuevo Usuario Creado',
+      description: `Se guardó ${newUser.full_name} con ${selectedModules.length} módulos y ${selectedTabs.length} pestañas autorizadas.`
     });
 
     setIsModalOpen(false);
@@ -184,15 +330,38 @@ export default function UserAccessManagementTab() {
     setPassword('');
     setPinCode('1234');
     setRole('cajero');
-    setSelectedModules(['billing']);
+    setSelectedModules(ROLE_PRESETS.cajero.modules);
+    setSelectedTabs(ROLE_PRESETS.cajero.tabs);
   };
 
   const handleToggleModule = (modId: string) => {
-    if (selectedModules.includes(modId)) {
+    const isChecked = selectedModules.includes(modId);
+    const modDef = MODULE_CATALOG.find(m => m.id === modId);
+    const modTabKeys = modDef ? modDef.tabs.map(t => `${modId}_${t.id}`) : [];
+
+    if (isChecked) {
       setSelectedModules(selectedModules.filter(m => m !== modId));
+      setSelectedTabs(selectedTabs.filter(t => !modTabKeys.includes(t)));
     } else {
       setSelectedModules([...selectedModules, modId]);
+      setSelectedTabs(Array.from(new Set([...selectedTabs, ...modTabKeys])));
     }
+  };
+
+  const handleToggleTab = (tabKey: string, modId: string) => {
+    const isTabChecked = selectedTabs.includes(tabKey);
+    let newTabs: string[];
+
+    if (isTabChecked) {
+      newTabs = selectedTabs.filter(t => t !== tabKey);
+    } else {
+      newTabs = [...selectedTabs, tabKey];
+      // Si activa una pestaña, asegurar que el módulo padre esté activo
+      if (!selectedModules.includes(modId)) {
+        setSelectedModules([...selectedModules, modId]);
+      }
+    }
+    setSelectedTabs(newTabs);
   };
 
   const handleToggleStatus = async (userObj: AppUser) => {
@@ -213,15 +382,7 @@ export default function UserAccessManagementTab() {
     });
   };
 
-  const handleTerminateRemoteSession = (userObj: AppUser) => {
-    toast({
-      title: 'Sesión Remota Finalizada',
-      description: `Se revocó el token de sesión en la computadora remota para ${userObj.full_name}.`
-    });
-  };
-
   const handleUnifyUsers = () => {
-    // Filtrar correos duplicados y consolidar en lista única
     const seen = new Set<string>();
     const unified: AppUser[] = [];
     let cleanedCount = 0;
@@ -240,8 +401,8 @@ export default function UserAccessManagementTab() {
     localStorage.setItem('nexway_app_users', JSON.stringify(unified));
 
     toast({
-      title: 'Unificación Completada 🧹',
-      description: `Se eliminaron ${cleanedCount} correo(s) duplicado(s). Se unificó la lista de usuarios.`
+      title: 'Lista Unificada 🧹',
+      description: `Se eliminaron ${cleanedCount} duplicados.`
     });
   };
 
@@ -258,10 +419,10 @@ export default function UserAccessManagementTab() {
         <div>
           <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
             <ShieldCheck className="text-indigo-500" size={22} />
-            Gestor de Accesos y Usuarios Propio del ERP NexWay
+            Gestión de Usuarios y Accesos a Pestañas
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Administración 100% autónoma de credenciales, códigos PIN de caja, permisos de módulo y sesiones en múltiples computadoras.
+            Asigne permisos detallados por módulo y por pestaña o utilice la selección rápida según categoría de empleado.
           </p>
         </div>
 
@@ -271,7 +432,7 @@ export default function UserAccessManagementTab() {
             variant="outline"
             className="font-bold text-xs h-10 rounded-xl flex items-center gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400"
           >
-            <RefreshCw size={15} /> Unificar & Limpiar Duplicados
+            <RefreshCw size={15} /> Limpiar Duplicados
           </Button>
 
           <Button
@@ -283,7 +444,7 @@ export default function UserAccessManagementTab() {
         </div>
       </div>
 
-      {/* Buscador y Filtro */}
+      {/* Buscador y Tabla Principal de Usuarios */}
       <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
         <div className="p-4 border-b flex items-center gap-3">
           <div className="relative flex-1">
@@ -291,7 +452,7 @@ export default function UserAccessManagementTab() {
             <Input
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Buscar usuario por nombre, correo o rol..."
+              placeholder="Buscar por nombre, correo o rol..."
               className="pl-10 text-xs h-9 rounded-xl"
             />
           </div>
@@ -301,17 +462,17 @@ export default function UserAccessManagementTab() {
           <TableHeader className="bg-muted/40">
             <TableRow>
               <TableHead className="text-xs font-bold">Colaborador / Correo</TableHead>
-              <TableHead className="text-xs font-bold">Rol en el ERP</TableHead>
-              <TableHead className="text-xs font-bold text-center">PIN POS (4 dígitos)</TableHead>
-              <TableHead className="text-xs font-bold">Módulos Permitidos</TableHead>
-              <TableHead className="text-xs font-bold">Dispositivo Activo</TableHead>
-              <TableHead className="text-xs font-bold text-center">Estado Acceso</TableHead>
+              <TableHead className="text-xs font-bold">Categoría / Rol</TableHead>
+              <TableHead className="text-xs font-bold text-center">PIN POS</TableHead>
+              <TableHead className="text-xs font-bold">Módulos Autorizados</TableHead>
+              <TableHead className="text-xs font-bold text-center">Pestañas Activas</TableHead>
+              <TableHead className="text-xs font-bold text-center">Estado</TableHead>
               <TableHead className="text-xs font-bold text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredUsers.map(u => (
-              <TableRow key={u.id}>
+              <TableRow key={u.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                 <TableCell>
                   <div className="flex flex-col">
                     <span className="text-xs font-black text-slate-800 dark:text-white">{u.full_name}</span>
@@ -320,26 +481,25 @@ export default function UserAccessManagementTab() {
                 </TableCell>
                 <TableCell>
                   <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-0 uppercase text-[9px] font-black">
-                    {u.role}
+                    {ROLE_PRESETS[u.role]?.label || u.role}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center font-mono font-bold text-xs text-amber-600 dark:text-amber-400">
                   {u.pin_code || '1234'}
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 max-w-[200px]">
                     {(u.allowed_modules || []).map(mId => (
-                      <Badge key={mId} variant="outline" className="text-[8px] font-bold uppercase py-0">
+                      <Badge key={mId} variant="outline" className="text-[8px] font-bold uppercase py-0 bg-white/5">
                         {mId}
                       </Badge>
                     ))}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                    <Laptop size={12} className="text-slate-400" />
-                    <span>{u.last_device || 'Computadora / Celular'}</span>
-                  </div>
+                <TableCell className="text-center">
+                  <Badge variant="secondary" className="font-mono text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200">
+                    {(u.allowed_tabs || ROLE_PRESETS[u.role]?.tabs || []).length} Pestañas
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-center">
                   <Badge className={`border-0 text-[9px] font-black uppercase ${
@@ -353,21 +513,22 @@ export default function UserAccessManagementTab() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleToggleStatus(u)}
-                      className="h-7 px-2 text-[10px] font-bold text-slate-600 hover:text-slate-900"
-                      title={u.status === 'active' ? 'Suspender acceso' : 'Habilitar acceso'}
+                      onClick={() => handleEditUser(u)}
+                      className="h-7 px-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg gap-1"
+                      title="Editar Accesos y Pestañas"
                     >
-                      {u.status === 'active' ? <Lock size={13} className="text-rose-500" /> : <Unlock size={13} className="text-emerald-500" />}
+                      <Sliders size={13} />
+                      Configurar
                     </Button>
 
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleTerminateRemoteSession(u)}
-                      className="h-7 px-2 text-[10px] font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                      title="Cerrar sesión en computadora remota"
+                      onClick={() => handleToggleStatus(u)}
+                      className="h-7 px-2 text-[10px] font-bold text-slate-600 hover:text-slate-900"
+                      title={u.status === 'active' ? 'Suspender acceso' : 'Habilitar acceso'}
                     >
-                      <LogOut size={13} />
+                      {u.status === 'active' ? <Lock size={13} className="text-rose-500" /> : <Unlock size={13} className="text-emerald-500" />}
                     </Button>
                   </div>
                 </TableCell>
@@ -377,21 +538,22 @@ export default function UserAccessManagementTab() {
         </Table>
       </Card>
 
-      {/* Modal para Crear / Editar Usuario */}
+      {/* Modal Configuración de Accesos por Categoría y Pestaña */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="rounded-2xl max-w-lg p-6 bg-card border shadow-2xl">
+        <DialogContent className="rounded-2xl max-w-2xl p-6 bg-card border shadow-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
-              <UserPlus className="text-indigo-500" size={20} />
-              {editingUserId ? 'Editar Usuario ERP' : 'Registrar Nuevo Usuario / Cajero'}
+              <Sliders className="text-indigo-500" size={20} />
+              {editingUserId ? `Configurar Accesos: ${fullName}` : 'Registrar Nuevo Usuario / Cajero'}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Asigna nombre, credencial, código PIN para cajas y matriz de permisos por módulo.
+              Seleccione la categoría del colaborador o ajuste de forma precisa el acceso a cada pestaña.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 my-2">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-5 overflow-y-auto pr-1 my-2 flex-1">
+            {/* Datos Básicos */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs font-bold">Nombre Completo</Label>
                 <Input
@@ -411,22 +573,6 @@ export default function UserAccessManagementTab() {
                   className="text-xs h-9 rounded-xl"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-bold">Rol en Sistema</Label>
-                <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger className="h-9 text-xs rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="administrador">Administrador</SelectItem>
-                    <SelectItem value="gerente">Gerente</SelectItem>
-                    <SelectItem value="cajero">Cajero POS</SelectItem>
-                    <SelectItem value="contador">Contador</SelectItem>
-                    <SelectItem value="vendedor">Vendedor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="space-y-1">
                 <Label className="text-xs font-bold">PIN POS (4 dígitos)</Label>
@@ -438,39 +584,125 @@ export default function UserAccessManagementTab() {
                   className="text-xs h-9 rounded-xl font-mono font-bold text-center"
                 />
               </div>
+            </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-bold">Contraseña</Label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="******"
-                  className="text-xs h-9 rounded-xl"
-                />
+            {/* SELECCIÓN RÁPIDA POR CATEGORÍA */}
+            <div className="p-3.5 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-blue-500/10 rounded-2xl border border-indigo-500/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 uppercase tracking-wide">
+                  <Sparkles size={14} /> Selección Rápida por Categoría
+                </Label>
+                <span className="text-[10px] text-slate-500">1-Clic configura módulos y pestañas</span>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {Object.entries(ROLE_PRESETS).map(([presetKey, preset]) => {
+                  const isSelected = role === presetKey;
+                  return (
+                    <Button
+                      key={presetKey}
+                      type="button"
+                      variant={isSelected ? 'default' : 'outline'}
+                      onClick={() => handleApplyRolePreset(presetKey)}
+                      className={`h-9 text-xs font-bold rounded-xl justify-start px-3 transition-all ${
+                        isSelected 
+                          ? 'bg-indigo-600 text-white shadow-md' 
+                          : 'bg-white/50 dark:bg-black/20 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border-slate-200 dark:border-white/10'
+                      }`}
+                    >
+                      {preset.label}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Matriz de Módulos Permitidos */}
-            <div className="space-y-2 pt-2 border-t">
-              <Label className="text-xs font-bold text-slate-800 dark:text-white flex items-center justify-between">
-                <span>Matriz de Permisos de Módulo</span>
-                <span className="text-[10px] text-indigo-500 font-normal">{selectedModules.length} Seleccionados</span>
-              </Label>
+            {/* MATRIZ DETALLADA DE ACCESO A PESTAÑAS POR MÓDULO */}
+            <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-white/10">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800 dark:text-white">
+                  Permisos Específicos por Pestaña
+                </Label>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                  <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border-indigo-200">
+                    {selectedModules.length} Módulos
+                  </Badge>
+                  <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200">
+                    {selectedTabs.length} Pestañas
+                  </Badge>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto p-2 bg-muted/30 rounded-xl border">
-                {AVAILABLE_MODULES.map(mod => {
-                  const isChecked = selectedModules.includes(mod.id);
+              <div className="space-y-2">
+                {MODULE_CATALOG.map((mod) => {
+                  const isModActive = selectedModules.includes(mod.id);
+                  const isExpanded = expandedModule === mod.id;
+                  const activeTabsCount = mod.tabs.filter(t => selectedTabs.includes(`${mod.id}_${t.id}`)).length;
+
                   return (
-                    <div
-                      key={mod.id}
-                      onClick={() => handleToggleModule(mod.id)}
-                      className={`p-2 rounded-lg border text-xs font-bold flex items-center justify-between cursor-pointer transition-all ${
-                        isChecked ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400' : 'bg-card border-border text-slate-500'
+                    <div 
+                      key={mod.id} 
+                      className={`rounded-xl border transition-all ${
+                        isModActive 
+                          ? 'border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/20 dark:bg-indigo-950/20' 
+                          : 'border-slate-200 dark:border-white/10 bg-white/40 dark:bg-black/20 opacity-75'
                       }`}
                     >
-                      <span>{mod.name}</span>
-                      {isChecked ? <CheckCircle2 size={14} className="text-indigo-500" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300" />}
+                      {/* Encabezado Módulo */}
+                      <div className="p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleToggleModule(mod.id)}>
+                          <div className={`w-4 h-4 rounded-md flex items-center justify-center border ${
+                            isModActive ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600'
+                          }`}>
+                            {isModActive && <CheckCircle2 size={12} />}
+                          </div>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{mod.name}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400">
+                            {activeTabsCount} / {mod.tabs.length} pestañas
+                          </span>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-slate-400 hover:text-slate-700"
+                            onClick={() => setExpandedModule(isExpanded ? null : mod.id)}
+                          >
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Desglose de Pestañas */}
+                      {isExpanded && (
+                        <div className="px-3 pb-3 pt-1 border-t border-slate-100 dark:border-white/5 grid grid-cols-2 gap-2 bg-white/50 dark:bg-black/40 rounded-b-xl">
+                          {mod.tabs.map((tab) => {
+                            const tabKey = `${mod.id}_${tab.id}`;
+                            const isTabActive = selectedTabs.includes(tabKey);
+
+                            return (
+                              <div
+                                key={tabKey}
+                                onClick={() => handleToggleTab(tabKey, mod.id)}
+                                className={`p-2 rounded-lg border text-[11px] font-medium flex items-center justify-between cursor-pointer transition-all ${
+                                  isTabActive 
+                                    ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-700 dark:text-indigo-300 font-bold' 
+                                    : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500'
+                                }`}
+                              >
+                                <span>{tab.name}</span>
+                                {isTabActive ? (
+                                  <CheckCircle2 size={13} className="text-indigo-600 dark:text-indigo-400 shrink-0 ml-1" />
+                                ) : (
+                                  <div className="w-3 h-3 rounded-full border border-slate-300 dark:border-slate-600 shrink-0 ml-1" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -478,10 +710,10 @@ export default function UserAccessManagementTab() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="h-9 text-xs">Cancelar</Button>
-            <Button onClick={handleSaveUser} className="h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">
-              Guardar Usuario y PIN
+          <DialogFooter className="pt-3 border-t">
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="h-9 text-xs font-semibold">Cancelar</Button>
+            <Button onClick={handleSaveUser} className="h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md">
+              Guardar Accesos y Pestañas
             </Button>
           </DialogFooter>
         </DialogContent>
