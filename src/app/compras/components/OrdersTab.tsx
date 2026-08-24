@@ -58,7 +58,9 @@ interface OrderItem {
 export default function OrdersTab() {
   const router = useRouter();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'interno' | 'externo' | 'cargar-codigos'>('interno');
+  const [activeTab, setActiveTab] = useState<'interno' | 'externo' | 'cargar-codigos' | 'historial'>('interno');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'interno' | 'externo'>('all');
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { config } = useModuleConfig();
@@ -67,6 +69,7 @@ export default function OrdersTab() {
     { id: 'interno', key: 'orders_interno' },
     { id: 'externo', key: 'orders_externo' },
     { id: 'cargar-codigos', key: 'orders_cargar-codigos' },
+    { id: 'historial', key: 'orders_historial' },
   ], []);
 
   useEffect(() => {
@@ -214,6 +217,44 @@ export default function OrdersTab() {
   const [extItemQuote, setExtItemQuote] = useState('');
   const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
   const [externalSearchFilter, setExternalSearchFilter] = useState('');
+
+  // Combine and filter internal & external orders for history tab
+  const combinedOrders = useMemo(() => {
+    const internalMapped = (internalOrders || []).map(o => ({
+      ...o,
+      orderType: 'INTERNO' as const,
+      routeOrSupplier: `${o.sourceWarehouse} -> ${o.destinationWarehouse}`,
+      totalValue: 0
+    }));
+
+    const externalMapped = (supplierOrders || []).map(o => ({
+      ...o,
+      orderType: 'EXTERNO' as const,
+      routeOrSupplier: o.supplier,
+      totalValue: parseFloat(o.total) || 0
+    }));
+
+    const all = [...internalMapped, ...externalMapped].sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+
+    return all.filter(order => {
+      const matchesType = 
+        historyTypeFilter === 'all' || 
+        (historyTypeFilter === 'interno' && order.orderType === 'INTERNO') ||
+        (historyTypeFilter === 'externo' && order.orderType === 'EXTERNO');
+
+      const term = historySearchTerm.toLowerCase().trim();
+      const matchesSearch = !term || (
+        (order.code && order.code.toLowerCase().includes(term)) ||
+        (order.requestedBy && order.requestedBy.toLowerCase().includes(term)) ||
+        (order.routeOrSupplier && order.routeOrSupplier.toLowerCase().includes(term)) ||
+        (order.status && order.status.toLowerCase().includes(term))
+      );
+
+      return matchesType && matchesSearch;
+    });
+  }, [internalOrders, supplierOrders, historyTypeFilter, historySearchTerm]);
 
   // Persistir metadatos bloqueados localmente y verificar vista independiente
   useEffect(() => {
@@ -1103,6 +1144,9 @@ export default function OrdersTab() {
                 <FileSpreadsheet size={14} className="mr-2" /> Cargar Códigos (Excel)
               </TabsTrigger>
             )}
+            <TabsTrigger value="historial" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
+              <Clock size={14} className="mr-2" /> Historial de Pedidos
+            </TabsTrigger>
           </TabsList>
 
           {/* ==================== TAB PEDIDOS INTERNOS ==================== */}
@@ -2035,6 +2079,171 @@ export default function OrdersTab() {
               </div>
 
             </div>
+          </TabsContent>
+
+          {/* ==================== TAB HISTORIAL DE PEDIDOS ==================== */}
+          <TabsContent value="historial" className="space-y-6 outline-none">
+            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
+              <CardHeader className="bg-indigo-600 dark:bg-violet-950 text-white p-5">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Clock size={18} className="text-violet-400" /> Historial General de Pedidos y Requisiciones
+                </CardTitle>
+                <CardDescription className="text-violet-200/80 text-xs">Consulte y administre todas las órdenes registradas (internas y externas).</CardDescription>
+              </CardHeader>
+              <CardContent className="p-5 space-y-4">
+                {/* Filtros y Buscador */}
+                <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                  <div className="flex items-center gap-2 bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/10 w-full sm:w-auto">
+                    <Button
+                      size="sm"
+                      variant={historyTypeFilter === 'all' ? 'default' : 'ghost'}
+                      className={`text-xs font-bold rounded-lg h-8 ${historyTypeFilter === 'all' ? 'bg-indigo-600 text-white' : ''}`}
+                      onClick={() => setHistoryTypeFilter('all')}
+                    >
+                      Todos ({combinedOrders.length})
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={historyTypeFilter === 'interno' ? 'default' : 'ghost'}
+                      className={`text-xs font-bold rounded-lg h-8 ${historyTypeFilter === 'interno' ? 'bg-indigo-600 text-white' : ''}`}
+                      onClick={() => setHistoryTypeFilter('interno')}
+                    >
+                      Internos (Tiendas)
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={historyTypeFilter === 'externo' ? 'default' : 'ghost'}
+                      className={`text-xs font-bold rounded-lg h-8 ${historyTypeFilter === 'externo' ? 'bg-indigo-600 text-white' : ''}`}
+                      onClick={() => setHistoryTypeFilter('externo')}
+                    >
+                      Externos (Proveedores)
+                    </Button>
+                  </div>
+
+                  <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Buscar código, solicitante, ruta..."
+                      value={historySearchTerm}
+                      onChange={(e) => setHistorySearchTerm(e.target.value)}
+                      className="pl-9 h-9 text-xs rounded-xl bg-white dark:bg-black/20 border-slate-200 dark:border-white/10"
+                    />
+                  </div>
+                </div>
+
+                {/* Tabla de Historial Combinado */}
+                <div className="rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden bg-white/5">
+                  <ScrollArea className="h-[480px]">
+                    <Table>
+                      <TableHeader className="bg-slate-100 dark:bg-white/5 sticky top-0 z-10 backdrop-blur-md">
+                        <TableRow className="border-b border-slate-200 dark:border-white/10">
+                          <TableHead className="text-xs font-bold uppercase py-3">Tipo</TableHead>
+                          <TableHead className="text-xs font-bold uppercase py-3">Código / Fecha</TableHead>
+                          <TableHead className="text-xs font-bold uppercase py-3">Ruta / Proveedor</TableHead>
+                          <TableHead className="text-xs font-bold uppercase py-3">Solicitante</TableHead>
+                          <TableHead className="text-xs font-bold uppercase py-3 text-center">Ítems</TableHead>
+                          <TableHead className="text-xs font-bold uppercase py-3 text-right">Total ($)</TableHead>
+                          <TableHead className="text-xs font-bold uppercase py-3 text-center">Estado</TableHead>
+                          <TableHead className="text-xs font-bold uppercase py-3 text-right">Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {combinedOrders.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                              <ClipboardList size={32} className="mx-auto mb-2 opacity-50" />
+                              No se encontraron registros en el historial de pedidos.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          combinedOrders.map((order: any) => (
+                            <TableRow key={order.id} className="hover:bg-slate-50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-white/5 transition-colors">
+                              <TableCell className="py-3">
+                                {order.orderType === 'INTERNO' ? (
+                                  <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 text-[10px]">
+                                    Interno
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 text-[10px]">
+                                    Proveedor
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <p className="font-mono font-bold text-xs text-slate-800 dark:text-white">{order.code}</p>
+                                <p className="text-[10px] text-slate-400">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('es-SV') : '-'}</p>
+                              </TableCell>
+                              <TableCell className="py-3 font-semibold text-xs text-slate-700 dark:text-slate-200">
+                                {order.routeOrSupplier}
+                              </TableCell>
+                              <TableCell className="py-3 text-xs text-slate-600 dark:text-slate-300">
+                                {order.requestedBy || '-'}
+                              </TableCell>
+                              <TableCell className="py-3 text-center font-mono font-bold text-xs">
+                                {order.items?.length || 0}
+                              </TableCell>
+                              <TableCell className="py-3 text-right font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                                {order.orderType === 'EXTERNO' ? `$${Number(order.totalValue).toFixed(2)}` : '-'}
+                              </TableCell>
+                              <TableCell className="py-3 text-center">
+                                <Badge variant="outline" className="text-[10px] font-bold">
+                                  {order.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="py-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg"
+                                    onClick={() => {
+                                      setSelectedOrderForPreview(order);
+                                      setPreviewType(order.orderType === 'INTERNO' ? 'interno' : 'externo');
+                                    }}
+                                    title="Ver Orden / Imprimir"
+                                  >
+                                    <Eye size={14} />
+                                  </Button>
+                                  {order.orderType === 'EXTERNO' && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg"
+                                      onClick={() => handleDownloadExcel(order)}
+                                      title="Descargar Excel"
+                                    >
+                                      <FileSpreadsheet size={14} />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg"
+                                    onClick={() => {
+                                      if (order.orderType === 'INTERNO') {
+                                        handleDeleteInternalOrder(order.id);
+                                      } else {
+                                        supabase.from('supplier_orders').delete().eq('id', order.id).then(() => {
+                                          toast({ title: "Pedido Eliminado" });
+                                          loadData();
+                                        });
+                                      }
+                                    }}
+                                    title="Eliminar Pedido"
+                                  >
+                                    <Trash2 size={14} />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

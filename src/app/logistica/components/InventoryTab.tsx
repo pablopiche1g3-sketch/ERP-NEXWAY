@@ -97,7 +97,6 @@ export default function InventoryTab() {
   const tabsList = useMemo(() => [
     { id: 'existencias', key: 'inventory_existencia' },
     { id: 'catalogo', key: 'inventory_maestro' },
-    { id: 'transitos', key: 'inventory_entradas' },
     { id: 'auditoria', key: 'inventory_toma_fisica' },
   ], []);
 
@@ -1454,11 +1453,6 @@ export default function InventoryTab() {
                 <Tag size={14} className="mr-2" /> Catálogo Maestro
               </TabsTrigger>
             )}
-            {config?.['inventory_entradas'] !== false && (
-              <TabsTrigger data-tour-id="tab-transitos" value="transitos" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <Truck size={14} className="mr-2" /> Recepción y Tránsitos
-              </TabsTrigger>
-            )}
             {config?.['inventory_toma_fisica'] !== false && (
               <TabsTrigger data-tour-id="tab-auditoria" value="auditoria" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
                 <ClipboardList size={14} className="mr-2" /> Auditoría de Bodegas
@@ -2624,97 +2618,7 @@ export default function InventoryTab() {
             </Tabs>
           </TabsContent>
 
-          <TabsContent value="transitos" className="space-y-4 outline-none">
-            <TabsContent value="entradas" className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 outline-none">
-                {/* Nueva Columna: Tránsitos Pre-pagados */}
-                <Card className="bg-card border-border shadow-sm border-0 shadow-2xl rounded-3xl overflow-hidden flex flex-col">
-                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 md:p-8">
-                    <div className="flex items-center gap-4 mb-2">
-                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
-                        <Truck size={24} className="text-white drop-shadow-md" />
-                      </div>
-                      <div>
-                        <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Tránsitos Pre-pagados</h2>
-                        <p className="text-blue-100 text-xs md:text-sm font-medium">Recepción de compras en camino</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-6 md:p-8 space-y-4">
-                    {transitPurchases.length === 0 ? (
-                      <p className="text-center text-slate-400 text-sm py-8">No hay compras en tránsito.</p>
-                    ) : (
-                      transitPurchases.map(purchase => (
-                        <div key={purchase.id} className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 flex justify-between items-center">
-                          <div>
-                            <p className="text-white font-bold text-sm">{purchase.supplier_name}</p>
-                            <p className="text-slate-400 text-xs">Total: ${parseFloat(purchase.total).toFixed(2)}</p>
-                            <p className="text-slate-500 text-[10px]">{purchase.purchase_items?.length} items</p>
-                          </div>
-                          <Button 
-                            onClick={() => handleReceiveTransit(purchase.id, purchase.purchase_items)}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs"
-                          >
-                            Recibir
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </Card>
-             <Card className="bg-card border-border shadow-sm rounded-2xl h-fit">
-               <CardHeader className="p-5 md:p-6">
-                 <CardTitle className="text-base md:text-lg font-bold flex items-center gap-2">
-                   <Zap size={18} className="text-amber-500" /> Entrada Rápida de Stock
-                 </CardTitle>
-                 <CardDescription className="text-xs">Ingreso inmediato al inventario maestro. Si seleccionas una bodega arriba, afectará a esa bodega.</CardDescription>
-               </CardHeader>
-               <CardContent className="px-5 md:px-6 pb-6">
-                 <form onSubmit={handleQuickStockEntry} className="space-y-4 md:space-y-6">
-                   <div className="space-y-2">
-                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">SKU del Producto</Label>
-                     <Input 
-                       placeholder="SKU..." 
-                       value={quickEntry.sku}
-                       onChange={e => setQuickEntry({...quickEntry, sku: e.target.value.toUpperCase()})}
-                       className="bg-background border-input h-10 md:h-12 text-base md:text-lg font-bold text-xs"
-                     />
-                   </div>
-                   <div className="space-y-2">
-                     <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400">Cantidad a Agregar</Label>
-                     <Input 
-                       type="number"
-                       placeholder="0"
-                       value={quickEntry.quantity}
-                       onFocus={e => e.target.select()}
-                       onChange={e => setQuickEntry({...quickEntry, quantity: e.target.value})}
-                       className="bg-background border-input h-10 md:h-12 text-lg font-black text-blue-600 dark:text-blue-400"
-                     />
-                   </div>
-                   {selectedWarehouse !== 'Todas' && (
-                     <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 text-xs rounded-xl flex items-center gap-2">
-                       <Warehouse size={14} />
-                       <span>El stock se agregará a la bodega: <strong>{selectedWarehouse}</strong></span>
-                     </div>
-                   )}
-                   <Button className="w-full bg-slate-900 dark:bg-blue-600 h-12 md:h-14 rounded-2xl font-bold shadow-lg text-white text-xs md:text-sm">
-                     CARGAR STOCK
-                   </Button>
-                 </form>
-               </CardContent>
-             </Card>
- 
-             <div className="bg-blue-600 dark:bg-blue-900/30 rounded-2xl p-6 md:p-8 text-white flex flex-col justify-center border border-blue-500/20">
-               <History size={40} className="mb-4 text-blue-200" />
-               <h3 className="text-lg md:text-xl font-bold mb-2">¿Emergencia de Stock?</h3>
-               <p className="text-blue-100 dark:text-blue-300 text-xs md:text-sm leading-relaxed mb-6">
-                 Utiliza la entrada rápida para habilitar productos recién llegados que necesitan ser vendidos de inmediato antes de procesar la factura legal en Compras.
-               </p>
-               <div className="bg-blue-500/30 p-3 md:p-4 rounded-2xl border border-blue-400/30">
-                 <p className="text-[9px] md:text-[11px] italic">"Formaliza este ingreso más tarde registrando la factura oficial en el módulo de Registro de Compra."</p>
-               </div>
-             </div>
-           </TabsContent>
-          </TabsContent>
+
 
           <TabsContent value="auditoria" className="space-y-4 outline-none">
             <Tabs defaultValue="toma-fisica" className="w-full space-y-4">
