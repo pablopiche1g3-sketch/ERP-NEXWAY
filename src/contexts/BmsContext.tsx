@@ -76,6 +76,7 @@ interface BmsContextType {
   stopGuide: () => void;
   // Map Data
   mapData: MapData;
+  setMapData: React.Dispatch<React.SetStateAction<MapData>>;
 }
 
 const defaultStats: BmsStats = {
@@ -119,7 +120,8 @@ const BmsContext = createContext<BmsContextType>({
   guideMessage: null,
   startGuide: () => {},
   stopGuide: () => {},
-  mapData: defaultMapData
+  mapData: defaultMapData,
+  setMapData: () => {}
 });
 
 export const useBms = () => useContext(BmsContext);
@@ -645,7 +647,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       stats, tasks, loading, auditSystem, 
       processChange, triggerArqueoAlert, requestChange, confirmChange,
       isGuideActive, targetElementId, guideMessage, startGuide, stopGuide,
-      mapData
+      mapData, setMapData
     }}>
       {children}
     </BmsContext.Provider>

@@ -69,7 +69,7 @@ const STAGES = [
 export default function CRMPage() {
   const { toast } = useToast();
   const { user } = useUser();
-  const { mapData } = useBms();
+  const { mapData, setMapData } = useBms();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
 
