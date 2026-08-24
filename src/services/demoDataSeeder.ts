@@ -154,17 +154,6 @@ export const DEMO_USERS = [
     created_at: new Date().toISOString()
   },
   {
-    id: 'usr-002',
-    username: 'cajero1',
-    email: 'caja1@nexway.sv',
-    full_name: 'Carlos Mendoza (Cajero POS)',
-    role: 'cajero',
-    pin_code: '1234',
-    status: 'active',
-    allowed_modules: ['billing'],
-    created_at: new Date().toISOString()
-  },
-  {
     id: 'usr-003',
     username: 'conta1',
     email: 'conta@nexway.sv',

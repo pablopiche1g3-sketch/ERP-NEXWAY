@@ -55,9 +55,9 @@ export default function LoginForm() {
 
       if (!matchedUser && (pinCode === '1234' || pinCode === '9999')) {
         matchedUser = {
-          email: pinCode === '9999' ? 'admin@nexway.sv' : 'caja1@nexway.sv',
-          full_name: pinCode === '9999' ? 'Administrador NexWay' : 'Cajero POS',
-          role: pinCode === '9999' ? 'administrador' : 'cajero'
+          email: 'admin@nexway.sv',
+          full_name: 'Pablo Piche (Administrador)',
+          role: 'administrador'
         };
       }
 

@@ -23,12 +23,14 @@ export default function HrPayrollTab() {
         .order('full_name');
 
       if (!appErr && appUsers && appUsers.length > 0) {
-        setUsers(appUsers);
+        const clean = appUsers.filter((u: any) => u.email !== 'caja1@nexway.sv');
+        setUsers(clean);
       } else {
         // Fallback a profiles si app_users no retorna filas
         const { data, error } = await supabase.from('profiles').select('id, email, role');
         if (error) throw error;
-        setUsers(data || []);
+        const clean = (data || []).filter((u: any) => u.email !== 'caja1@nexway.sv');
+        setUsers(clean);
       }
     } catch (e: any) {
       console.error(e);
