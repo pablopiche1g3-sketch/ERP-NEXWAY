@@ -2074,7 +2074,7 @@ export default function BillingPage() {
                 </button>
              </div>
              <div className="lg:col-span-7 space-y-4">
-                <div className="p-5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none space-y-4">
+                <div className="p-5 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 rounded-[13px] shadow-md space-y-4 relative z-40">
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5 relative z-50">
                          <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Buscar Factura / Cliente</Label>
@@ -2233,7 +2233,7 @@ export default function BillingPage() {
                       </Select>
                    </div>
                 </div>
-                <form onSubmit={handleSearchInventory} className="relative flex gap-3">
+                <form onSubmit={handleSearchInventory} className="relative z-10 flex gap-3">
                     <div className="relative flex-1">
                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" size={16} />
                        <Input 
