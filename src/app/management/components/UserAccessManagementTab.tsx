@@ -25,7 +25,8 @@ import {
   Sliders,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 
 export interface ModuleDefinition {
@@ -198,10 +199,15 @@ export default function UserAccessManagementTab() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error || !data || data.length === 0) {
+      if (!error && data && data.length > 0) {
+        const cleanUsers = data.filter(u => u.email !== 'caja1@nexway.sv');
+        setUsers(cleanUsers);
+        localStorage.setItem('nexway_app_users', JSON.stringify(cleanUsers));
+      } else {
         const localUsers = localStorage.getItem('nexway_app_users');
         if (localUsers) {
-          setUsers(JSON.parse(localUsers));
+          const parsed = JSON.parse(localUsers).filter((u: any) => u.email !== 'caja1@nexway.sv');
+          setUsers(parsed);
         } else {
           const initialMock: AppUser[] = [
             {
@@ -216,30 +222,18 @@ export default function UserAccessManagementTab() {
               allowed_tabs: MODULE_CATALOG.flatMap(m => m.tabs.map(t => `${m.id}_${t.id}`)),
               last_device: 'Windows PC (Chrome)',
               last_login: new Date().toISOString()
-            },
-            {
-              id: 'u2',
-              username: 'cajero1',
-              email: 'caja1@nexway.sv',
-              full_name: 'Carlos Mendoza (Cajero POS)',
-              role: 'cajero',
-              pin_code: '1234',
-              status: 'active',
-              allowed_modules: ['billing', 'compras', 'management'],
-              allowed_tabs: ['billing_facturacion', 'billing_historial', 'billing_arqueo', 'billing_creditos'],
-              last_device: 'POS Terminal (Chrome)',
-              last_login: new Date().toISOString()
             }
           ];
           setUsers(initialMock);
           localStorage.setItem('nexway_app_users', JSON.stringify(initialMock));
         }
-      } else {
-        setUsers(data);
       }
     } catch {
       const localUsers = localStorage.getItem('nexway_app_users');
-      if (localUsers) setUsers(JSON.parse(localUsers));
+      if (localUsers) {
+        const parsed = JSON.parse(localUsers).filter((u: any) => u.email !== 'caja1@nexway.sv');
+        setUsers(parsed);
+      }
     } finally {
       setLoading(false);
     }
@@ -379,6 +373,23 @@ export default function UserAccessManagementTab() {
     toast({
       title: newStatus === 'active' ? 'Acceso Habilitado' : 'Acceso Suspendido',
       description: `Se actualizó el estado de ${userObj.full_name}.`
+    });
+  };
+
+  const handleDeleteUser = async (userObj: AppUser) => {
+    const updated = users.filter(u => u.id !== userObj.id && u.email !== userObj.email);
+    setUsers(updated);
+    localStorage.setItem('nexway_app_users', JSON.stringify(updated));
+
+    try {
+      await supabase.from('app_users').delete().eq('email', userObj.email);
+    } catch (e) {
+      console.error('Error deleting user from Supabase:', e);
+    }
+
+    toast({
+      title: 'Usuario Eliminado 🗑️',
+      description: `Se eliminó a ${userObj.full_name} (${userObj.email}).`
     });
   };
 
@@ -528,7 +539,18 @@ export default function UserAccessManagementTab() {
                       className="h-7 px-2 text-[10px] font-bold text-slate-600 hover:text-slate-900"
                       title={u.status === 'active' ? 'Suspender acceso' : 'Habilitar acceso'}
                     >
-                      {u.status === 'active' ? <Lock size={13} className="text-rose-500" /> : <Unlock size={13} className="text-emerald-500" />}
+                      {u.status === 'active' ? <Lock size={13} className="text-amber-500" /> : <Unlock size={13} className="text-emerald-500" />}
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeleteUser(u)}
+                      className="h-7 px-2 text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg gap-1"
+                      title="Eliminar usuario permanentemente"
+                    >
+                      <Trash2 size={13} />
+                      Eliminar
                     </Button>
                   </div>
                 </TableCell>

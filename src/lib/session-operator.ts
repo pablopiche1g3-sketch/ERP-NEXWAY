@@ -16,7 +16,9 @@ export async function fetchSystemAppUsers(): Promise<SystemUserOption[]> {
       .order('full_name', { ascending: true });
 
     if (!error && data && data.length > 0) {
-      return data;
+      // Filtrar cuentas no registradas o de prueba si estuvieran en DB
+      const clean = data.filter(u => u.email !== 'caja1@nexway.sv');
+      if (clean.length > 0) return clean;
     }
   } catch (err) {
     console.error('Error al cargar usuarios de app_users:', err);
@@ -28,12 +30,15 @@ export async function fetchSystemAppUsers(): Promise<SystemUserOption[]> {
     if (localUsers) {
       try {
         const parsed = JSON.parse(localUsers);
-        return parsed.map((u: any) => ({
-          id: u.id,
-          full_name: u.full_name,
-          email: u.email,
-          role: u.role
-        }));
+        const cleanLocal = parsed
+          .filter((u: any) => u.email !== 'caja1@nexway.sv')
+          .map((u: any) => ({
+            id: u.id,
+            full_name: u.full_name,
+            email: u.email,
+            role: u.role
+          }));
+        if (cleanLocal.length > 0) return cleanLocal;
       } catch (e) {
         console.error(e);
       }
@@ -41,7 +46,6 @@ export async function fetchSystemAppUsers(): Promise<SystemUserOption[]> {
   }
 
   return [
-    { id: 'u1', full_name: 'Pablo Piche (Administrador)', email: 'admin@nexway.sv', role: 'administrador' },
-    { id: 'u2', full_name: 'Carlos Mendoza (Cajero POS)', email: 'caja1@nexway.sv', role: 'cajero' }
+    { id: 'u1', full_name: 'Pablo Piche (Administrador)', email: 'admin@nexway.sv', role: 'administrador' }
   ];
 }
