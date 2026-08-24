@@ -2163,6 +2163,10 @@ export default function OrdersTab() {
                                   <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 text-[10px]">
                                     Interno
                                   </Badge>
+                                ) : order.notes?.includes('SOLICITUD INTERTIENDA') ? (
+                                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-[10px]">
+                                    🛒 Faltante Intertienda
+                                  </Badge>
                                 ) : (
                                   <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 text-[10px]">
                                     Proveedor

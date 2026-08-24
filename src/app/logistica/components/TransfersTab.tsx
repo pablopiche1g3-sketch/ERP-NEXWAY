@@ -225,21 +225,94 @@ export default function TransfersTab() {
       return;
     }
 
-    setIsProcessing(true);
+      setIsProcessing(true);
     try {
-      // 1. Guardar el registro de traslado en public.transfers
       const isPeticion = activeTab === 'solicitud';
+      const whOrigen = warehouses.find(w => w.name === sourceWarehouse);
+
+      // Verificación de existencias en Matriz/Origen para Petición Intertienda
+      let hasInsufficientStock = false;
+      const missingItems: any[] = [];
+      let totalMissingCost = 0;
+
+      if (isPeticion && whOrigen) {
+        for (const item of cart) {
+          const { data: stockOrig } = await supabase
+            .from('inventory_stock')
+            .select('*')
+            .eq('sku', item.sku)
+            .eq('warehouse_id', whOrigen.id)
+            .maybeSingle();
+
+          const availQty = stockOrig ? parseFloat(stockOrig.quantity) || 0 : 0;
+          if (item.quantity > availQty) {
+            hasInsufficientStock = true;
+            const missingQty = item.quantity - Math.max(0, availQty);
+            const invItem = inventory.find(i => i.sku === item.sku);
+            const unitPrice = invItem?.price || 10;
+            missingItems.push({
+              sku: item.sku,
+              name: item.name,
+              quantity: missingQty,
+              unit_price: unitPrice,
+              subtotal: missingQty * unitPrice
+            });
+            totalMissingCost += missingQty * unitPrice;
+          }
+        }
+      }
+
+      let generatedOrderNumber = '';
+      if (hasInsufficientStock && missingItems.length > 0) {
+        generatedOrderNumber = `OC-AUTO-${Math.floor(1000 + Math.random() * 9000)}`;
+        const targetDest = transferType === 'INTERNO' ? destinationWarehouse : destinationStore;
+        
+        // Crear Orden de Compra Automática al Proveedor (Pendiente de Autorización)
+        const { data: insertedOrder, error: orderErr } = await supabase
+          .from('orders')
+          .insert({
+            order_number: generatedOrderNumber,
+            vendor_name: 'PROVEEDOR REQUISICION (AUTO)',
+            status: 'PENDIENTE DE AUTORIZACIÓN',
+            total: totalMissingCost,
+            authorized_by: authorizedBy,
+            notes: `SOLICITUD INTERTIENDA: Faltante de ${missingItems.map(i => `${i.quantity}x ${i.name}`).join(', ')} para ${targetDest}.`
+          })
+          .select()
+          .single();
+
+        if (!orderErr && insertedOrder) {
+          const orderItemsToInsert = missingItems.map(i => ({
+            order_id: insertedOrder.id,
+            sku: i.sku,
+            name: i.name,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            subtotal: i.subtotal
+          }));
+          await supabase.from('order_items').insert(orderItemsToInsert);
+        }
+      }
+
+      // 1. Guardar el registro de traslado en public.transfers
       const transferData = {
         type: transferType,
         source: sourceWarehouse,
         destination: transferType === 'INTERNO' ? destinationWarehouse : destinationStore,
         authorized_by: authorizedBy,
         items: cart,
-        status: isPeticion ? 'PETICION' : 'COMPLETADO'
+        status: isPeticion ? (hasInsufficientStock ? 'PENDIENTE POR STOCK' : 'PETICION') : 'COMPLETADO'
       };
 
       const { error: insertErr } = await supabase.from('transfers').insert(transferData);
       if (insertErr) throw insertErr;
+
+      if (hasInsufficientStock) {
+        toast({
+          title: "⚠️ Existencias Insuficientes en Matriz",
+          description: `Se creó la Orden de Compra ${generatedOrderNumber} al proveedor (Pendiente de Autorización). Al autorizarla, se despachará automáticamente.`
+        });
+      }
 
       // 2. Lógica de Inventario Multibodega (Solo si no es petición)
       if (!isPeticion) {
@@ -640,7 +713,11 @@ export default function TransfersTab() {
                       <TableCell className="text-xs font-bold text-foreground">{t.authorizedBy}</TableCell>
                       <TableCell className="text-center px-6">
                         <div className="flex items-center justify-center gap-2">
-                          {t.status === 'PETICION' ? (
+                          {t.status === 'PENDIENTE POR STOCK' ? (
+                            <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase">
+                              ⚠️ FALTANTE EN MATRIZ (OC GENERADA)
+                            </Badge>
+                          ) : t.status === 'PETICION' ? (
                             <>
                               <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[9px] font-black">
                                 PETICIÓN
