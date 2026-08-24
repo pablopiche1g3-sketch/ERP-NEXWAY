@@ -234,6 +234,24 @@ export default function BillingPage() {
   const [invoiceSearchResults, setInvoiceSearchResults] = useState<any[]>([]);
   const [selectedSaleInfo, setSelectedSaleInfo] = useState<any | null>(null);
 
+  // --- ESC KEYBOARD LISTENER SYSTEM-WIDE ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setInvoiceSearchResults([]);
+        setInvoiceSearchTerm('');
+        setInventory([]);
+        setSearchTerm('');
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleSearchInvoices = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setInvoiceSearchTerm(term);
@@ -2165,22 +2183,67 @@ export default function BillingPage() {
                           )}
                       </div>
                       <div className="space-y-1.5">
-                         <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Documento Seleccionado</Label>
-                         <div className="flex flex-col gap-1">
-                            <Input disabled placeholder="FACT-001" value={adjustmentForm.refDoc} className="h-10 bg-slate-50/50 dark:bg-black/40 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-500 dark:text-white/40" />
-                            {adjustmentForm.customerName && (
-                              <div className="flex items-center">
-                                <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
-                                <CustomerHistoryDialog 
-                                  customerId={adjustmentForm.customerId} 
-                                  customerName={adjustmentForm.customerName} 
-                                  onAddToCart={handleAddToCartFromHistory}
-                                  onAddMultipleToCart={handleAddMultipleToCartFromHistory}
-                                />
-                              </div>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Documento Seleccionado</Label>
+                            {adjustmentForm.refDoc && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setAdjustmentForm(prev => ({
+                                    ...prev,
+                                    refDoc: '',
+                                    customerName: '',
+                                    customerId: null,
+                                    items: []
+                                  }));
+                                  setSelectedSaleInfo(null);
+                                  toast({ title: "Factura deseleccionada", description: "Se limpiaron los datos del comprobante." });
+                                }}
+                                className="h-5 px-1.5 text-[9px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded flex items-center gap-1"
+                              >
+                                <Trash2 size={11} /> Borrar Factura
+                              </Button>
                             )}
-                         </div>
-                      </div>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                             <div className="relative flex items-center">
+                               <Input disabled placeholder="FACT-001" value={adjustmentForm.refDoc} className="h-10 bg-slate-50/50 dark:bg-black/40 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-bold text-slate-800 dark:text-white/80 pr-9 w-full" />
+                               {adjustmentForm.refDoc && (
+                                 <button
+                                   type="button"
+                                   title="Borrar Factura Seleccionada"
+                                   onClick={() => {
+                                     setAdjustmentForm(prev => ({
+                                       ...prev,
+                                       refDoc: '',
+                                       customerName: '',
+                                       customerId: null,
+                                       items: []
+                                     }));
+                                     setSelectedSaleInfo(null);
+                                     toast({ title: "Factura deseleccionada", description: "Se limpiaron los datos del comprobante." });
+                                   }}
+                                   className="absolute right-2.5 p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                 >
+                                   <Trash2 size={15} />
+                                 </button>
+                               )}
+                             </div>
+                             {adjustmentForm.customerName && (
+                               <div className="flex items-center">
+                                 <span className="text-[10px] text-slate-500 font-medium px-1">Cliente: {adjustmentForm.customerName}</span>
+                                 <CustomerHistoryDialog 
+                                   customerId={adjustmentForm.customerId} 
+                                   customerName={adjustmentForm.customerName} 
+                                   onAddToCart={handleAddToCartFromHistory}
+                                   onAddMultipleToCart={handleAddMultipleToCartFromHistory}
+                                 />
+                               </div>
+                             )}
+                          </div>
+                       </div>
                    </div>
 
                    {/* Ficha Interactiva de Productos de la Factura de Origen */}
