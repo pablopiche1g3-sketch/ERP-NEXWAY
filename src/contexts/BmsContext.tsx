@@ -44,6 +44,7 @@ export interface MapLocation {
   lng: number;
   type: 'VIP' | 'BRANCH' | 'DELIVERY';
   balance?: number;
+  address?: string;
 }
 
 export interface MapRoute {

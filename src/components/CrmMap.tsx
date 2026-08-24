@@ -1,206 +1,189 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapLocation, MapRoute } from '@/contexts/BmsContext';
 import { Button } from '@/components/ui/button';
-import { Loader2, Navigation } from 'lucide-react';
-
-const mapContainerStyle = {
-  width: '100%',
-  height: '100%',
-  borderRadius: '0.75rem',
-};
-
-const center = {
-  lat: 13.6929,
-  lng: -89.2182
-};
-
-const options = {
-  styles: [
-    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-    {
-      featureType: "administrative.locality",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#d59563" }]
-    },
-    {
-      featureType: "poi",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#d59563" }]
-    },
-    {
-      featureType: "poi.park",
-      elementType: "geometry",
-      stylers: [{ color: "#263c3f" }]
-    },
-    {
-      featureType: "poi.park",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#6b9a76" }]
-    },
-    {
-      featureType: "road",
-      elementType: "geometry",
-      stylers: [{ color: "#38414e" }]
-    },
-    {
-      featureType: "road",
-      elementType: "geometry.stroke",
-      stylers: [{ color: "#212a37" }]
-    },
-    {
-      featureType: "road",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#9ca5b3" }]
-    },
-    {
-      featureType: "road.highway",
-      elementType: "geometry",
-      stylers: [{ color: "#746855" }]
-    },
-    {
-      featureType: "road.highway",
-      elementType: "geometry.stroke",
-      stylers: [{ color: "#1f2835" }]
-    },
-    {
-      featureType: "road.highway",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#f3d19c" }]
-    },
-    {
-      featureType: "transit",
-      elementType: "geometry",
-      stylers: [{ color: "#2f3948" }]
-    },
-    {
-      featureType: "transit.station",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#d59563" }]
-    },
-    {
-      featureType: "water",
-      elementType: "geometry",
-      stylers: [{ color: "#17263c" }]
-    },
-    {
-      featureType: "water",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#515c6d" }]
-    },
-    {
-      featureType: "water",
-      elementType: "labels.text.stroke",
-      stylers: [{ color: "#17263c" }]
-    }
-  ],
-  disableDefaultUI: true,
-  zoomControl: true,
-};
+import { Badge } from '@/components/ui/badge';
+import { MapPin, Navigation, ExternalLink, Car, ShieldCheck, Phone, Mail } from 'lucide-react';
 
 interface CrmMapProps {
   locations: MapLocation[];
   routes: MapRoute[];
+  onSelectLocation?: (location: MapLocation) => void;
 }
 
-export function CrmMap({ locations, routes }: CrmMapProps) {
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-  });
+export function CrmMap({ locations, routes, onSelectLocation }: CrmMapProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
 
-  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
 
-  const onLoad = useCallback(function callback(mapInstance: google.maps.Map) {
-    setMap(mapInstance);
-  }, []);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !mapContainerRef.current) return;
 
-  const onUnmount = useCallback(function callback() {
-    setMap(null);
-  }, []);
+    // Cargar Leaflet CSS y JS de forma dinámica
+    const loadLeaflet = async () => {
+      if (!(window as any).L) {
+        // Cargar CSS
+        if (!document.getElementById('leaflet-css')) {
+          const link = document.createElement('link');
+          link.id = 'leaflet-css';
+          link.rel = 'stylesheet';
+          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(link);
+        }
 
-  const getMarkerIcon = (type: MapLocation['type']) => {
-    switch (type) {
-      case 'BRANCH':
-        return 'http://maps.google.com/mapfiles/ms/icons/green-dot.png';
-      case 'VIP':
-        return 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png';
-      case 'DELIVERY':
-        return 'http://maps.google.com/mapfiles/ms/icons/red-dot.png';
-      default:
-        return 'http://maps.google.com/mapfiles/ms/icons/red-dot.png';
-    }
+        // Cargar JS
+        await new Promise<void>((resolve) => {
+          if (document.getElementById('leaflet-js')) {
+            resolve();
+            return;
+          }
+          const script = document.createElement('script');
+          script.id = 'leaflet-js';
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = () => resolve();
+          document.head.appendChild(script);
+        });
+      }
+
+      const L = (window as any).L;
+      if (!L) return;
+
+      // Inicializar Mapa centrado en San Salvador, El Salvador
+      if (!mapInstanceRef.current && mapContainerRef.current) {
+        const map = L.map(mapContainerRef.current, {
+          center: [13.6929, -89.2182],
+          zoom: 13,
+          zoomControl: true
+        });
+
+        // Layer de Mapa Oscuro Voyager / OpenStreetMap (sin API Key)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap | ERP NexWay El Salvador'
+        }).addTo(map);
+
+        mapInstanceRef.current = map;
+      }
+
+      const map = mapInstanceRef.current;
+      if (!map) return;
+
+      // Limpiar marcadores anteriores
+      markersRef.current.forEach(m => m.remove());
+      markersRef.current = [];
+
+      // Iconos personalizados SVG sin depender de servidores externos
+      const createCustomIcon = (color: string) => {
+        return L.divIcon({
+          className: 'custom-leaflet-marker',
+          html: `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 28]
+        });
+      };
+
+      const greenIcon = createCustomIcon('#10b981');
+      const blueIcon = createCustomIcon('#3b82f6');
+      const redIcon = createCustomIcon('#ef4444');
+
+      // Dibujar marcadores de clientes
+      locations.forEach(loc => {
+        let icon = redIcon;
+        if (loc.type === 'BRANCH') icon = greenIcon;
+        else if (loc.type === 'VIP') icon = blueIcon;
+
+        const marker = L.marker([loc.lat, loc.lng], { icon }).addTo(map);
+
+        marker.on('click', () => {
+          setSelectedLocation(loc);
+          if (onSelectLocation) onSelectLocation(loc);
+        });
+
+        markersRef.current.push(marker);
+      });
+    };
+
+    loadLeaflet();
+  }, [locations, onSelectLocation]);
+
+  const openGoogleMapsRoute = (lat: number, lng: number) => {
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
   };
 
-  if (!isLoaded) return (
-    <div className="w-full h-full flex items-center justify-center bg-slate-900/50 rounded-xl border border-white/5">
-      <Loader2 className="animate-spin text-slate-500" size={32} />
-    </div>
-  );
+  const openWazeRoute = (lat: number, lng: number) => {
+    window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, '_blank');
+  };
 
   return (
-    <div className="w-full h-full relative border border-white/10 rounded-xl overflow-hidden shadow-xl shadow-black/50 bg-slate-950">
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={center}
-        zoom={13}
-        onLoad={onLoad}
-        onUnmount={onUnmount}
-        options={options}
-      >
-        {locations.map((loc) => (
-          <Marker
-            key={loc.id}
-            position={{ lat: loc.lat, lng: loc.lng }}
-            icon={getMarkerIcon(loc.type)}
-            onClick={() => setSelectedLocation(loc)}
-          />
-        ))}
+    <div className="w-full h-full relative border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-xl bg-slate-950 flex flex-col">
+      {/* Contenedor del Mapa Leaflet */}
+      <div ref={mapContainerRef} className="w-full flex-1 z-10 min-h-[350px]" />
 
-        {routes.map((route) => (
-          <Polyline
-            key={route.id}
-            path={route.path}
-            options={{
-              strokeColor: '#3b82f6', // blue-500
-              strokeOpacity: 0.8,
-              strokeWeight: 4,
-            }}
-          />
-        ))}
-
-        {selectedLocation && (
-          <InfoWindow
-            position={{ lat: selectedLocation.lat, lng: selectedLocation.lng }}
-            onCloseClick={() => setSelectedLocation(null)}
-          >
-            <div className="p-3 text-slate-900 max-w-[200px] font-sans">
-              <h3 className="font-bold text-sm mb-1">{selectedLocation.name}</h3>
-              <p className="text-[10px] text-slate-600 mb-3 uppercase tracking-wider font-bold">
-                Capa: {selectedLocation.type}
+      {/* Ficha Flotante del Cliente Seleccionado en el Mapa */}
+      {selectedLocation && (
+        <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-white dark:bg-[#0c0d18] border border-slate-200 dark:border-white/15 p-4 rounded-2xl shadow-2xl z-20 space-y-3 animate-in slide-in-from-bottom-3 duration-200">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-xs font-black text-slate-800 dark:text-white flex items-center gap-1.5">
+                <MapPin size={14} className="text-indigo-500 shrink-0" />
+                {selectedLocation.name}
+              </span>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {selectedLocation.address || 'San Salvador, El Salvador'}
               </p>
-              
+            </div>
+            <button
+              onClick={() => setSelectedLocation(null)}
+              className="text-xs text-slate-400 hover:text-slate-600 font-bold p-1"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between bg-slate-50 dark:bg-white/5 p-2 rounded-xl border border-slate-100 dark:border-white/5 text-xs">
+            <span className="text-[10px] font-bold text-slate-500 uppercase">Categoría / Saldo</span>
+            <div className="flex items-center gap-2">
+              <Badge className={`text-[9px] font-black uppercase ${
+                selectedLocation.type === 'VIP' ? 'bg-blue-500/20 text-blue-600' : 'bg-emerald-500/20 text-emerald-600'
+              }`}>
+                {selectedLocation.type}
+              </Badge>
               {selectedLocation.balance !== undefined && (
-                <div className="bg-slate-100 p-2 rounded mb-3 border border-slate-200">
-                  <p className="text-[9px] text-slate-500 uppercase font-black">Saldo Total</p>
-                  <p className="font-mono font-black text-emerald-600 text-sm">
-                    ${selectedLocation.balance.toLocaleString()}
-                  </p>
-                </div>
+                <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
+                  ${selectedLocation.balance.toFixed(2)}
+                </span>
               )}
-              
-              <Button size="sm" className="w-full h-8 text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 rounded uppercase tracking-wider">
-                <Navigation size={12} /> Planificar
+            </div>
+          </div>
+
+          {/* Botones de Navegación GPS Directa */}
+          <div className="space-y-1.5 pt-1">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Instrucción de Ruta GPS</span>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                onClick={() => openGoogleMapsRoute(selectedLocation.lat, selectedLocation.lng)}
+                className="h-8 text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Navigation size={13} /> Google Maps
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => openWazeRoute(selectedLocation.lat, selectedLocation.lng)}
+                className="h-8 text-[10px] font-bold bg-sky-500 hover:bg-sky-600 text-white rounded-xl flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Car size={13} /> Waze GPS
               </Button>
             </div>
-          </InfoWindow>
-        )}
-      </GoogleMap>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

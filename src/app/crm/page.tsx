@@ -32,7 +32,8 @@ import {
   MapPin,
   ListTodo,
   Navigation,
-  Mails
+  Mails,
+  Car
 } from 'lucide-react';
 import { useUser } from '@/supabase/use-user';
 import { supabase } from '@/supabase/client';
@@ -734,15 +735,41 @@ export default function CRMPage() {
                   <AlertTriangle className="text-amber-500" size={16} /> Prioridades
                 </h3>
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                  {mapData.locations.filter(l => l.type === 'VIP' || l.type === 'DELIVERY').map(loc => (
-                    <div key={loc.id} className="p-3 bg-slate-950/80 border border-white/5 rounded-lg hover:border-indigo-500/50 cursor-pointer transition-colors">
-                      <div className="flex justify-between items-start mb-1">
+                  {mapData.locations.map(loc => (
+                    <div key={loc.id} className="p-3 bg-slate-950/80 border border-white/10 rounded-xl hover:border-indigo-500/50 cursor-pointer transition-all space-y-2">
+                      <div className="flex justify-between items-start">
                         <span className="text-xs font-bold text-white">{loc.name}</span>
-                        <Badge className={`text-[8px] ${loc.type === 'VIP' ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
+                        <Badge className={`text-[8px] font-black ${
+                          loc.type === 'VIP' ? 'bg-blue-500/20 text-blue-400' : loc.type === 'BRANCH' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                        }`}>
                           {loc.type}
                         </Badge>
                       </div>
-                      <p className="text-[10px] text-slate-400">Saldo: <span className="text-emerald-400 font-mono">${loc.balance?.toLocaleString()}</span></p>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>Saldo: <strong className="text-emerald-400 font-mono">${(loc.balance || 0).toLocaleString()}</strong></span>
+                        <span className="text-[9px] text-slate-500">{loc.address || 'San Salvador'}</span>
+                      </div>
+                      {/* Botones de Navegacion GPS */}
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-white/5">
+                        <Button
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                          onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`, '_blank')}
+                          className="h-6 px-2 text-[9px] font-bold text-blue-400 hover:text-white hover:bg-blue-600/30 rounded-lg flex items-center gap-1"
+                        >
+                          <Navigation size={10} /> Google Maps
+                        </Button>
+                        <Button
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                          onClick={() => window.open(`https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`, '_blank')}
+                          className="h-6 px-2 text-[9px] font-bold text-sky-400 hover:text-white hover:bg-sky-600/30 rounded-lg flex items-center gap-1"
+                        >
+                          <Car size={10} /> Waze GPS
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
