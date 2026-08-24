@@ -32,6 +32,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
+import { fetchSystemAppUsers } from '@/lib/session-operator';
+import { useUser } from '@/supabase/use-user';
 
 interface TransferItem {
   id: string;
@@ -64,6 +66,8 @@ export default function TransfersTab() {
   }, []);
 
   // States para el traslado
+  const { user } = useUser();
+  const [appUsersList, setAppUsersList] = useState<any[]>([]);
   const [transferType, setTransferType] = useState<'INTERNO' | 'INTERTIENDA'>('INTERNO');
   const [sourceWarehouse, setSourceWarehouse] = useState('');
   const [destinationWarehouse, setDestinationWarehouse] = useState('');
@@ -72,6 +76,20 @@ export default function TransfersTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<TransferItem[]>([]);
   const [isPreTransfer, setIsPreTransfer] = useState(false);
+
+  useEffect(() => {
+    fetchSystemAppUsers().then(users => {
+      setAppUsersList(users);
+      if (users.length > 0) {
+        const logged = users.find(u => u.email?.toLowerCase() === user?.email?.toLowerCase());
+        if (logged) {
+          setAuthorizedBy(logged.full_name);
+        } else {
+          setAuthorizedBy(users[0].full_name);
+        }
+      }
+    });
+  }, [user]);
 
   // Estados de datos
   const [inventory, setInventory] = useState<any[]>([]);
@@ -458,19 +476,22 @@ export default function TransfersTab() {
                     </Table>
                   </ScrollArea>
                   <div className="p-6 border-t border-white/10 bg-slate-50/20 dark:bg-zinc-950/20 space-y-4">
-                     <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Responsable / Autorizado por</Label>
-                        <div className="relative">
-                           <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                           <Input 
-                              placeholder="Nombre de quien autoriza..." 
-                              value={authorizedBy}
-                              onChange={e => setAuthorizedBy(e.target.value)}
-                              className="h-10 pl-9 bg-card border rounded-xl text-xs font-bold text-foreground"
-                           />
-                        </div>
-                     </div>
-                  </div>
+                      <div className="space-y-1.5">
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Responsable / Autorizado por</Label>
+                         <Select value={authorizedBy} onValueChange={setAuthorizedBy}>
+                           <SelectTrigger className="h-10 bg-card border rounded-xl text-xs font-bold text-foreground">
+                             <SelectValue placeholder="Seleccionar usuario responsable..." />
+                           </SelectTrigger>
+                           <SelectContent className="dark:bg-[#0a0a14] dark:border-white/10">
+                             {appUsersList.map(u => (
+                               <SelectItem key={u.id} value={u.full_name}>
+                                 {u.full_name} ({u.role})
+                               </SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                      </div>
+                   </div>
                 </CardContent>
               </Card>
               <Button 
