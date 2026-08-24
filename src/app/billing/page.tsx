@@ -40,8 +40,10 @@ import {
   Sparkles,
   Eye,
   Lock,
-  KeyRound
+  KeyRound,
+  UserCheck
 } from 'lucide-react';
+import { fetchSystemAppUsers } from '@/lib/session-operator';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -119,6 +121,28 @@ export default function BillingPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [clientPricesMap, setClientPricesMap] = useState<Record<string, number>>({});
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+
+  // Vendedor / Colaborador para Metas y Comisiones
+  const [appUsersList, setAppUsersList] = useState<any[]>([]);
+  const [selectedSellerEmail, setSelectedSellerEmail] = useState<string>('');
+
+  useEffect(() => {
+    fetchSystemAppUsers().then(users => {
+      setAppUsersList(users);
+      if (users.length > 0) {
+        const loggedUser = users.find(u => u.email?.toLowerCase() === user?.email?.toLowerCase());
+        if (loggedUser) {
+          setSelectedSellerEmail(loggedUser.email);
+        } else if (user?.email) {
+          setSelectedSellerEmail(user.email);
+        } else {
+          setSelectedSellerEmail(users[0].email);
+        }
+      } else if (user?.email) {
+        setSelectedSellerEmail(user.email);
+      }
+    });
+  }, [user]);
 
   // --- PERSISTENCIA Y DESCUENTOS ---
   useEffect(() => {
@@ -1263,7 +1287,7 @@ export default function BillingPage() {
           status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA',
           payment_method: paymentMethod,
           customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
-          seller_email: user?.email || null,
+          seller_email: selectedSellerEmail || user?.email || null,
           station_name: activeStation?.name || null,
           branch_id: activeBranchId || null
         })
@@ -1882,7 +1906,25 @@ export default function BillingPage() {
                     />
                   </div>
                 </div>
-                <div className="w-full sm:w-48 space-y-1.5">
+                {/* Vendedor / Colaborador (Para Metas y Comisiones) */}
+                <div className="w-full sm:w-52 space-y-1.5">
+                  <Label className="text-[10px] font-medium uppercase text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-1 font-bold">
+                    <UserCheck size={12} /> Vendedor / Asesor
+                  </Label>
+                  <Select value={selectedSellerEmail} onValueChange={setSelectedSellerEmail}>
+                    <SelectTrigger className="h-10 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 text-xs font-bold text-slate-800 dark:text-white">
+                      <SelectValue placeholder="Seleccionar Vendedor" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl dark:bg-[#0a0a14] dark:border-white/10">
+                      {appUsersList.map(u => (
+                        <SelectItem key={u.id} value={u.email}>
+                          {u.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full sm:w-40 space-y-1.5">
                   <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Tipo de DTE</Label>
                   <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
                     <SelectTrigger className="h-10 rounded-xl bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-xs font-medium text-slate-800 dark:text-white/70">
