@@ -208,6 +208,7 @@ export default function BillingPage() {
   
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
   const [invoiceSearchResults, setInvoiceSearchResults] = useState<any[]>([]);
+  const [selectedSaleInfo, setSelectedSaleInfo] = useState<any | null>(null);
 
   const handleSearchInvoices = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
@@ -275,6 +276,16 @@ export default function BillingPage() {
         quantity: Number(item.quantity) || 1,
         originalQuantity: Number(item.quantity) || 1
       }));
+
+      setSelectedSaleInfo({
+        id: sale.id,
+        correlative: sale.correlative,
+        customerName: sale.customer_name || 'Consumidor Final',
+        docType: sale.doc_type || 'CF',
+        total: Number(sale.total) || 0,
+        createdAt: sale.created_at,
+        items: loadedItems
+      });
 
       setAdjustmentForm({
         refDoc: sale.correlative || sale.id.substring(0, 8),
@@ -2065,7 +2076,7 @@ export default function BillingPage() {
              <div className="lg:col-span-7 space-y-4">
                 <div className="p-5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none space-y-4">
                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5 relative">
+                      <div className="space-y-1.5 relative z-50">
                          <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Buscar Factura / Cliente</Label>
                           <div className="relative">
                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -2076,18 +2087,27 @@ export default function BillingPage() {
                                onChange={handleSearchInvoices}
                                className="pl-9 h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-[10px] text-xs font-medium text-slate-800 dark:text-white/70"
                              />
+                             {invoiceSearchTerm && (
+                               <button
+                                 type="button"
+                                 onClick={() => { setInvoiceSearchTerm(''); setInvoiceSearchResults([]); }}
+                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
+                               >
+                                 ✕
+                               </button>
+                             )}
                           </div>
                           {invoiceSearchResults.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 shadow-2xl z-50 max-h-64 overflow-y-auto rounded-xl p-1">
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0d0f18] border border-slate-200 dark:border-white/10 shadow-2xl z-[9999] max-h-64 overflow-y-auto rounded-xl p-1">
                               {invoiceSearchResults.map((sale) => (
                                 <div 
                                   key={sale.id}
                                   onClick={() => handleSelectInvoice(sale)}
-                                  className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer rounded-lg border-b last:border-none border-slate-100 dark:border-white/5 flex flex-col gap-1 transition-colors"
+                                  className="p-3 hover:bg-indigo-50/50 dark:hover:bg-white/10 cursor-pointer rounded-lg border-b last:border-none border-slate-100 dark:border-white/5 flex flex-col gap-1 transition-colors"
                                 >
                                   <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-800 dark:text-white/80">{sale.customer_name || 'Consumidor Final'}</span>
-                                    <span className="text-[10px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                    <span className="text-xs font-bold text-slate-800 dark:text-white">{sale.customer_name || 'Consumidor Final'}</span>
+                                    <span className="text-[10px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
                                       {sale.correlative || sale.id.substring(0,8)}
                                     </span>
                                   </div>
@@ -2120,6 +2140,71 @@ export default function BillingPage() {
                          </div>
                       </div>
                    </div>
+
+                   {/* Ficha Interactiva de Productos de la Factura de Origen */}
+                   {selectedSaleInfo && selectedSaleInfo.items && selectedSaleInfo.items.length > 0 && (
+                     <div className="p-3.5 bg-indigo-500/5 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40 rounded-xl space-y-2.5 animate-in fade-in">
+                       <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                           <Receipt className="text-indigo-600 dark:text-indigo-400" size={15} />
+                           <span className="text-xs font-bold text-slate-800 dark:text-white">
+                             Productos Vendidos en {selectedSaleInfo.correlative}
+                           </span>
+                         </div>
+                         <Button
+                           size="sm"
+                           type="button"
+                           variant="outline"
+                           onClick={() => {
+                             setAdjustmentForm(prev => ({
+                               ...prev,
+                               items: [...selectedSaleInfo.items]
+                             }));
+                             toast({ title: 'Productos cargados', description: 'Se agregaron todos los productos de la factura.' });
+                           }}
+                           className="h-7 text-[10px] font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg"
+                         >
+                           + Cargar Todos
+                         </Button>
+                       </div>
+
+                       <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                         {selectedSaleInfo.items.map((prod: any, idx: number) => {
+                           const isAdded = adjustmentForm.items.some(i => i.sku === prod.sku || i.id === prod.id);
+                           return (
+                             <div key={idx} className="p-2 bg-white/70 dark:bg-black/40 border border-slate-200/80 dark:border-white/5 rounded-lg flex items-center justify-between text-xs">
+                               <div className="flex flex-col">
+                                 <span className="font-bold text-slate-800 dark:text-white/90">{prod.name}</span>
+                                 <span className="text-[10px] text-slate-500 dark:text-white/40 font-mono">SKU: {prod.sku} • {prod.quantity}x a ${Number(prod.price).toFixed(2)}</span>
+                               </div>
+                               <Button
+                                 size="sm"
+                                 type="button"
+                                 variant={isAdded ? "secondary" : "default"}
+                                 onClick={() => {
+                                   if (isAdded) {
+                                     setAdjustmentForm(prev => ({
+                                       ...prev,
+                                       items: prev.items.filter(i => i.sku !== prod.sku && i.id !== prod.id)
+                                     }));
+                                   } else {
+                                     setAdjustmentForm(prev => ({
+                                       ...prev,
+                                       items: [...prev.items, prod]
+                                     }));
+                                   }
+                                 }}
+                                 className={`h-7 px-2.5 text-[10px] font-bold rounded-lg ${isAdded ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                               >
+                                 {isAdded ? '✓ Agregado' : '+ Devolver'}
+                               </Button>
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   )}
+
                    <div className="space-y-1.5">
                       <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Motivo del Ajuste / Devolución</Label>
                       <Select 
