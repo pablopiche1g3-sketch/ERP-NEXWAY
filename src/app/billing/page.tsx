@@ -188,9 +188,11 @@ export default function BillingPage() {
   }, [selectedCustomer]);
   // --------------------------------
 
-  // --- QUOTATIONS IMPORT ---
+  // --- QUOTATIONS & PENDING DRAFTS ---
   const [showQuotationsDialog, setShowQuotationsDialog] = useState(false);
+  const [showPendingDraftsDialog, setShowPendingDraftsDialog] = useState(false);
   const [quotationsList, setQuotationsList] = useState<any[]>([]);
+  const [pendingDraftsList, setPendingDraftsList] = useState<any[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
 
@@ -211,12 +213,84 @@ export default function BillingPage() {
     }
   };
 
+  const fetchPendingDrafts = async () => {
+    setLoadingQuotes(true);
+    let remoteDrafts: any[] = [];
+    try {
+      const { data, error } = await supabase
+        .from('quotations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        remoteDrafts = data;
+      }
+    } catch (e) {
+      console.error('Error fetching remote quotations:', e);
+    }
+
+    let localDrafts: any[] = [];
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('nexway_draft_sales_list');
+      if (stored) {
+        try {
+          localDrafts = JSON.parse(stored);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+
+    const combined = [...localDrafts, ...remoteDrafts];
+    const seen = new Set<string>();
+    const cleanList = combined.filter(item => {
+      const num = item.quote_number || item.id;
+      if (seen.has(num)) return false;
+      seen.add(num);
+      return true;
+    });
+
+    setPendingDraftsList(cleanList);
+    setLoadingQuotes(false);
+  };
+
   const loadQuotationToCart = (quote: any) => {
     setCart(quote.items || []);
     setCustomerName(quote.customer_name);
     setSelectedQuoteId(quote.id);
     setShowQuotationsDialog(false);
     toast({ title: 'Cotización Cargada', description: `Se cargó el presupuesto ${quote.quote_number}` });
+  };
+
+  const loadDraftToCart = (draft: any) => {
+    setCart(draft.items || []);
+    if (draft.customer_name && draft.customer_name !== 'Borrador Guardado' && draft.customer_name !== 'Cliente Consumidor Final') {
+      setCustomerName(draft.customer_name);
+    }
+    setShowPendingDraftsDialog(false);
+    setShowQuotationsDialog(false);
+    toast({
+      title: 'Factura Restaurada 🛒',
+      description: `Se cargó el borrador ${draft.quote_number} en el carrito.`
+    });
+  };
+
+  const deleteDraft = async (draft: any) => {
+    if (typeof window !== 'undefined') {
+      const existing = localStorage.getItem('nexway_draft_sales_list');
+      if (existing) {
+        const list = JSON.parse(existing).filter((d: any) => d.quote_number !== draft.quote_number && d.id !== draft.id);
+        localStorage.setItem('nexway_draft_sales_list', JSON.stringify(list));
+      }
+    }
+    try {
+      await supabase.from('quotations').delete().or(`quote_number.eq.${draft.quote_number},id.eq.${draft.id}`);
+    } catch (e) {
+      console.error(e);
+    }
+
+    setPendingDraftsList(prev => prev.filter(d => d.quote_number !== draft.quote_number && d.id !== draft.id));
+    toast({ title: 'Borrador Eliminado', description: `Se removió ${draft.quote_number}.` });
   };
   // -------------------------
   // Adjustment States (Notas Crédito/Débito)
@@ -1213,29 +1287,57 @@ export default function BillingPage() {
   const handleSaveDraft = async () => {
     if (cart.length === 0) return;
     setIsProcessing(true);
+    const draftNumber = `BORR-${Math.floor(100000 + Math.random() * 900000)}`;
+    const draftObject = {
+      id: `draft-${Date.now()}`,
+      quote_number: draftNumber,
+      customer_name: customerName || 'Consumidor Final',
+      seller_email: selectedSellerEmail || user?.email || 'admin@nexway.sv',
+      items: cart,
+      total: totalCart,
+      status: 'EN_ESPERA',
+      created_at: new Date().toISOString()
+    };
+
     try {
-      const draftNumber = `BORR-${Math.floor(100000 + Math.random() * 900000)}`;
       const { error } = await supabase
         .from('quotations')
         .insert({
           quote_number: draftNumber,
-          customer_name: customerName || 'Borrador Guardado',
+          customer_name: draftObject.customer_name,
           items: cart,
           total: totalCart,
-          status: 'PENDIENTE'
+          status: 'EN_ESPERA'
         });
-      
-      if (error) throw error;
-      toast({ title: "Borrador Guardado", description: "La factura quedó en espera. Puedes cargarla después desde el botón 'Cotización'." });
-      
-      setCart([]);
-      setCustomerName('');
-      setCustomerEmail('');
+
+      if (error) {
+        console.warn('Supabase quotation insert failed, using localStorage fallback:', error.message);
+      }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error al guardar borrador", description: err.message });
-    } finally {
-      setIsProcessing(false);
+      console.warn('Supabase quotation insert exception, saving to localStorage:', err);
     }
+
+    // Siempre respaldar en localStorage para garantizar disponibilidad 100% libre de fallos
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = localStorage.getItem('nexway_draft_sales_list');
+        const list = existing ? JSON.parse(existing) : [];
+        list.unshift(draftObject);
+        localStorage.setItem('nexway_draft_sales_list', JSON.stringify(list));
+      } catch (e) {
+        console.error('Error writing draft to localStorage:', e);
+      }
+    }
+
+    toast({
+      title: "Factura en Espera Guardada ⏸️",
+      description: `Se guardó el borrador ${draftNumber}. Puedes recuperarlo en cualquier momento desde el botón 'Pendientes'.`
+    });
+
+    setCart([]);
+    setCustomerName('');
+    setCustomerEmail('');
+    setIsProcessing(false);
   };
 
   const handleFinalizeSale = async () => {
@@ -1872,6 +1974,7 @@ export default function BillingPage() {
                    </Button>
                    <Button 
                      variant="outline" 
+                     onClick={() => { fetchPendingDrafts(); setShowPendingDraftsDialog(true); }}
                      className="h-9 text-xs font-bold bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/30 rounded-xl transition-colors"
                    >
                      <Clock size={14} className="mr-2" />
@@ -3650,6 +3753,73 @@ export default function BillingPage() {
                     <div className="mt-3 sm:mt-0 text-right">
                       <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">${Number(q.total).toFixed(2)}</p>
                       <Badge variant="outline" className="text-[9px] uppercase mt-1 bg-amber-500/10 text-amber-600 border-amber-500/20">{q.status}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO: FACTURAS EN ESPERA Y BORRADORES PENDIENTES */}
+      <Dialog open={showPendingDraftsDialog} onOpenChange={setShowPendingDraftsDialog}>
+        <DialogContent className="max-w-xl rounded-2xl bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+              <Clock className="text-amber-500" size={18} />
+              Facturas en Espera y Borradores Pendientes
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Selecciona cualquier factura pausada o borrador guardado para reanudar la venta en el carrito.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="max-h-80 my-2 pr-2">
+            {loadingQuotes ? (
+              <div className="flex flex-col items-center justify-center p-8 text-slate-400 gap-2">
+                <Loader2 className="animate-spin text-amber-500" size={20} />
+                <span className="text-xs font-bold">Cargando borradores...</span>
+              </div>
+            ) : pendingDraftsList.length === 0 ? (
+              <div className="text-center py-12 text-xs text-slate-400 italic border border-dashed rounded-xl border-slate-200 dark:border-zinc-800">
+                No hay facturas en espera guardadas actualmente.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {pendingDraftsList.map((draft) => (
+                  <div key={draft.id || draft.quote_number} className="p-3.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-between gap-3 hover:border-amber-500/50 transition-all">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded border border-amber-500/20">
+                          {draft.quote_number || '#BORR-001'}
+                        </span>
+                        <span className="text-xs font-bold text-slate-800 dark:text-white">
+                          {draft.customer_name || 'Consumidor Final'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        {draft.items?.length || 0} productos • Total: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">${(Number(draft.total) || 0).toFixed(2)}</strong>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => loadDraftToCart(draft)}
+                        className="h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm"
+                      >
+                        <ShoppingCart size={13} /> Cargar en Carrito
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteDraft(draft)}
+                        className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl"
+                        title="Eliminar borrador"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
                     </div>
                   </div>
                 ))}
