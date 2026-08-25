@@ -78,6 +78,7 @@ export default function ManagementPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [cashFloat, setCashFloat] = useState<string>('0');
   const [catchAllEmail, setCatchAllEmail] = useState<string>('');
+  const [activeCashDraftRemote, setActiveCashDraftRemote] = useState<any | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [preAssignEmail, setPreAssignEmail] = useState('');
   const [preAssignPassword, setPreAssignPassword] = useState('');
@@ -598,11 +599,16 @@ export default function ManagementPage() {
         setConfig(modConf.value);
       }
 
-      // Cargar configuración de caja
+      // Cargar configuración de caja y borrador de arqueo activo
       const { data: cashConf, error: cashErr } = await supabase.from('system_config').select('*').eq('key', 'cash_config').maybeSingle();
       if (cashConf && cashConf.value) {
         setCashFloat(cashConf.value.cashFloat?.toString() || '0');
         setCatchAllEmail(cashConf.value.catchAllEmail || '');
+      }
+
+      const { data: draftConf } = await supabase.from('system_config').select('*').eq('key', 'active_cash_draft').maybeSingle();
+      if (draftConf && draftConf.value) {
+        setActiveCashDraftRemote(draftConf.value);
       }
 
       // Cargar perfil de empresa
@@ -1595,6 +1601,64 @@ export default function ManagementPage() {
               </div>
 
               <div className="md:col-span-5 space-y-6">
+                {/* Tarjeta de Monitor Remoto de Caja & Fondo Base */}
+                <Card className="border-2 border-indigo-500/20 shadow-md rounded-2xl bg-card overflow-hidden">
+                  <CardHeader className="bg-slate-900 text-white p-5 dark:bg-slate-950">
+                    <CardTitle className="flex items-center justify-between text-sm font-black uppercase tracking-tight">
+                      <span className="flex items-center gap-2">
+                        <DollarSign className="text-indigo-400" size={18} />
+                        Monitor Remoto de Caja en Vivo
+                      </span>
+                      <Badge className="bg-indigo-500/20 text-indigo-300 border-indigo-500/30 text-[9px] uppercase font-bold">
+                        ☁️ Sincronizado
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-slate-400 text-xs">
+                      Consulta en tiempo real del fondo base y el conteo físico enviado desde cualquier caja.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-5 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-muted/60 rounded-xl border border-border">
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Fondo Base Remoto</p>
+                        <p className="text-base font-black text-blue-600 dark:text-blue-400 mt-1">
+                          ${(parseFloat(cashFloat) || 0).toFixed(2)}
+                        </p>
+                        <span className="text-[8px] text-muted-foreground block mt-0.5">Asignado a la estación</span>
+                      </div>
+
+                      <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
+                        <p className="text-[9px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Dinero Neto en Caja</p>
+                        <p className="text-base font-black text-indigo-600 dark:text-indigo-400 mt-1">
+                          ${(activeCashDraftRemote?.netPhysicalCash || 0).toFixed(2)}
+                        </p>
+                        <span className="text-[8px] text-indigo-500 block mt-0.5">Físico - Fondo Base</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-900/90 text-white rounded-xl space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium">
+                        <span>Cajero / Responsable:</span>
+                        <span className="font-bold text-slate-200">{activeCashDraftRemote?.savedBy || 'Sin sesión activa'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium">
+                        <span>Estación POS:</span>
+                        <span className="font-bold text-slate-200">{activeCashDraftRemote?.stationName || 'Caja Principal'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium">
+                        <span>Último Conteo Físico Total:</span>
+                        <span className="font-black text-emerald-400">${(activeCashDraftRemote?.totalPhysicalCash || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[9px] text-slate-400 pt-1 border-t border-slate-800">
+                        <span>Última Sincronización Nube:</span>
+                        <span className="font-bold text-amber-400">
+                          {activeCashDraftRemote?.savedAt ? new Date(activeCashDraftRemote.savedAt).toLocaleTimeString() : 'No registrado hoy'}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl flex flex-col justify-center gap-3 dark:bg-blue-900/10 dark:border-blue-900/20">
                 <div className="flex items-center gap-2 text-blue-800 font-bold dark:text-blue-300">
                   <AlertCircle size={20} />

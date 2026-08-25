@@ -468,27 +468,49 @@ export default function BillingPage() {
     }
   }, []);
 
-  const handleSaveArqueoDraft = () => {
+  const handleSaveArqueoDraft = async () => {
+    const floatAmount = cashConfig?.cashFloat || 100.00;
+    const arqueoDraft = {
+      cashFloat: floatAmount,
+      totalPhysicalCash,
+      netPhysicalCash,
+      cashDenominations,
+      expenses,
+      physicalCard,
+      physicalTransfer,
+      physicalCredit,
+      physicalCheck,
+      cashierVistoBueno,
+      savedBy: user?.email || selectedSellerEmail || 'Cajero POS',
+      stationName: activeStation?.name || 'Caja Principal',
+      savedAt: new Date().toISOString()
+    };
+
     if (typeof window !== 'undefined') {
       try {
-        const arqueoDraft = {
-          cashDenominations,
-          expenses,
-          physicalCard,
-          physicalTransfer,
-          physicalCredit,
-          physicalCheck,
-          cashierVistoBueno,
-          savedAt: new Date().toISOString()
-        };
         localStorage.setItem('nexway_saved_arqueo_draft', JSON.stringify(arqueoDraft));
-        toast({
-          title: "Conteo de Caja Guardado 💾",
-          description: "Se guardó el progreso de billetes y montos. No se perderá al navegar o salir."
-        });
       } catch (e) {
-        toast({ variant: "destructive", title: "Error al guardar conteo" });
+        console.error('Error saving local arqueo draft:', e);
       }
+    }
+
+    try {
+      await supabase
+        .from('system_config')
+        .upsert({
+          key: 'active_cash_draft',
+          value: arqueoDraft
+        }, { onConflict: 'key' });
+
+      toast({
+        title: "Conteo y Fondo Sincronizados ☁️",
+        description: "El conteo y fondo base de caja se enviaron a Supabase para consulta remota en Gerencia."
+      });
+    } catch (e: any) {
+      toast({
+        title: "Conteo Guardado Localmente 💾",
+        description: "Se guardó el avance en este equipo."
+      });
     }
   };
 
