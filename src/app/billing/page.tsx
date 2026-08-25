@@ -446,6 +446,7 @@ export default function BillingPage() {
   const [physicalTransfer, setPhysicalTransfer] = useState<number>(0);
   const [physicalCredit, setPhysicalCredit] = useState<number>(0);
   const [physicalCheck, setPhysicalCheck] = useState<number>(0);
+  const [reportedSalesAmount, setReportedSalesAmount] = useState<number | ''>('');
 
   // Persistencia de borrador de conteo de arqueo
   useEffect(() => {
@@ -461,6 +462,7 @@ export default function BillingPage() {
           if (parsed.physicalCredit !== undefined) setPhysicalCredit(parsed.physicalCredit);
           if (parsed.physicalCheck !== undefined) setPhysicalCheck(parsed.physicalCheck);
           if (parsed.cashierVistoBueno !== undefined) setCashierVistoBueno(parsed.cashierVistoBueno);
+          if (parsed.reportedSalesAmount !== undefined) setReportedSalesAmount(parsed.reportedSalesAmount);
         }
       } catch (e) {
         console.error('Error reading nexway_saved_arqueo_draft:', e);
@@ -474,6 +476,7 @@ export default function BillingPage() {
       cashFloat: floatAmount,
       totalPhysicalCash,
       netPhysicalCash,
+      reportedSalesAmount,
       cashDenominations,
       expenses,
       physicalCard,
@@ -524,6 +527,7 @@ export default function BillingPage() {
     setPhysicalTransfer(0);
     setPhysicalCredit(0);
     setPhysicalCheck(0);
+    setReportedSalesAmount('');
     setCashierVistoBueno(false);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('nexway_saved_arqueo_draft');
@@ -1854,10 +1858,13 @@ export default function BillingPage() {
 
     setIsProcessing(true);
     try {
+      const closingDateStr = new Date().toISOString().split('T')[0];
+      const salesReportedAmt = Number(reportedSalesAmount) || systemCashSales;
+
       const { error } = await supabase
         .from('daily_closings')
         .upsert({
-          date: new Date().toISOString().split('T')[0],
+          date: closingDateStr,
           cash_float: cashConfig?.cashFloat || 0,
           system_cash_sales: systemCashSales,
           physical_cash_found: totalPhysicalCash,
@@ -1880,15 +1887,53 @@ export default function BillingPage() {
         }, { onConflict: 'date' });
 
       if (error) throw error;
-      
+
+      // 1. Asiento Contable Automático de Cierre de Caja en General Ledger (journal)
+      await supabase.from('journal').insert({
+        description: `CIERRE DIARIO DE CAJA [${closingDateStr}] - Recaudación Efectivo Neta: $${netPhysicalCash.toFixed(2)} | Venta Reportada: $${salesReportedAmt.toFixed(2)} | Cajero: ${user?.email || 'Admin'}`,
+        type: 'Ingreso',
+        amount: salesReportedAmt
+      });
+
+      if (totalExpenses > 0) {
+        await supabase.from('journal').insert({
+          description: `EGRESOS Y GASTOS LIQUIDADOS DE CAJA CHICA [${closingDateStr}]`,
+          type: 'Egreso',
+          amount: totalExpenses
+        });
+      }
+
       logNexbotEvent(
         'billing',
         'AUDITORIA_JORNADA',
-        { difference: cashDifference, closed_by: user?.email },
-        `El cajero ${user?.email || 'Admin'} acaba de realizar un cierre de caja ciego. La diferencia de efectivo detectada fue de $${cashDifference}.`
+        { difference: cashDifference, closed_by: user?.email, reported_sales: salesReportedAmt },
+        `El cajero ${user?.email || 'Admin'} formalizó el cierre de caja. Venta reportada: $${salesReportedAmt}. Diferencia de efectivo: $${cashDifference}.`
       );
-      
-      toast({ title: "Cierre de Día Guardado", description: "El arqueo ha sido formalizado." });
+
+      // 2. Reiniciar todos los conteos y montos a CERO ($0.00) para el nuevo día
+      setCashDenominations({
+        '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
+        '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
+      });
+      setExpenses([]);
+      setPhysicalCard(0);
+      setPhysicalTransfer(0);
+      setPhysicalCredit(0);
+      setPhysicalCheck(0);
+      setReportedSalesAmount('');
+      setCashierVistoBueno(false);
+
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('nexway_saved_arqueo_draft');
+      }
+
+      await supabase.from('system_config').delete().eq('key', 'active_cash_draft');
+      setIsDayClosingConfirmOpen(false);
+
+      toast({ 
+        title: "¡Jornada Cerrada y Cuadrada! 🚀", 
+        description: "Se registró el asiento contable y los conteos de caja fueron reiniciados a cero para la nueva jornada." 
+      });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error al guardar cierre", description: e.message });
     } finally {
@@ -3090,6 +3135,28 @@ export default function BillingPage() {
               {/* Conciliación y Gastos */}
               <div className="lg:col-span-7 space-y-6">
                 
+                {/* Ingreso de Monto Total de Venta Reportado Manualmente */}
+                <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 shadow-md space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <Label className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                        <DollarSign size={14} /> Monto Total de Venta Reportado por Caja ($)
+                      </Label>
+                      <p className="text-[10px] text-slate-300">Ingresa el total bruto de ventas reportado manualmente para el cierre de jornada.</p>
+                    </div>
+                    <div className="relative w-44">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={reportedSalesAmount}
+                        onChange={e => setReportedSalesAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        className="h-10 pl-8 pr-3 text-right font-black text-sm bg-black/60 border-indigo-400/50 text-emerald-400 rounded-xl focus:border-emerald-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Modern KPI summary cards con Conteo Neto */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className="p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
