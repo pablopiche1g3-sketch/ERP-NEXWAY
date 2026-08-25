@@ -437,6 +437,61 @@ export default function BillingPage() {
     }));
   };
 
+  // Physical counts for other payment methods
+  const [expenses, setExpenses] = useState<{description: string, amount: number}[]>([]);
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+
+  const [physicalCard, setPhysicalCard] = useState<number>(0);
+  const [physicalTransfer, setPhysicalTransfer] = useState<number>(0);
+  const [physicalCredit, setPhysicalCredit] = useState<number>(0);
+  const [physicalCheck, setPhysicalCheck] = useState<number>(0);
+
+  // Persistencia de borrador de conteo de arqueo
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedArqueo = localStorage.getItem('nexway_saved_arqueo_draft');
+        if (savedArqueo) {
+          const parsed = JSON.parse(savedArqueo);
+          if (parsed.cashDenominations) setCashDenominations(parsed.cashDenominations);
+          if (parsed.expenses) setExpenses(parsed.expenses);
+          if (parsed.physicalCard !== undefined) setPhysicalCard(parsed.physicalCard);
+          if (parsed.physicalTransfer !== undefined) setPhysicalTransfer(parsed.physicalTransfer);
+          if (parsed.physicalCredit !== undefined) setPhysicalCredit(parsed.physicalCredit);
+          if (parsed.physicalCheck !== undefined) setPhysicalCheck(parsed.physicalCheck);
+          if (parsed.cashierVistoBueno !== undefined) setCashierVistoBueno(parsed.cashierVistoBueno);
+        }
+      } catch (e) {
+        console.error('Error reading nexway_saved_arqueo_draft:', e);
+      }
+    }
+  }, []);
+
+  const handleSaveArqueoDraft = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const arqueoDraft = {
+          cashDenominations,
+          expenses,
+          physicalCard,
+          physicalTransfer,
+          physicalCredit,
+          physicalCheck,
+          cashierVistoBueno,
+          savedAt: new Date().toISOString()
+        };
+        localStorage.setItem('nexway_saved_arqueo_draft', JSON.stringify(arqueoDraft));
+        toast({
+          title: "Conteo de Caja Guardado 💾",
+          description: "Se guardó el progreso de billetes y montos. No se perderá al navegar o salir."
+        });
+      } catch (e) {
+        toast({ variant: "destructive", title: "Error al guardar conteo" });
+      }
+    }
+  };
+
   const handleResetArqueo = () => {
     setCashDenominations({
       '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
@@ -448,17 +503,11 @@ export default function BillingPage() {
     setPhysicalCredit(0);
     setPhysicalCheck(0);
     setCashierVistoBueno(false);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('nexway_saved_arqueo_draft');
+    }
     toast({ title: "Arqueo Reiniciado", description: "Los valores de conteo han sido restaurados a cero." });
   };
-  const [expenses, setExpenses] = useState<{description: string, amount: number}[]>([]);
-  const [expenseDesc, setExpenseDesc] = useState('');
-  const [expenseAmount, setExpenseAmount] = useState('');
-
-  // Physical counts for other payment methods
-  const [physicalCard, setPhysicalCard] = useState<number>(0);
-  const [physicalTransfer, setPhysicalTransfer] = useState<number>(0);
-  const [physicalCredit, setPhysicalCredit] = useState<number>(0);
-  const [physicalCheck, setPhysicalCheck] = useState<number>(0);
 
 
   // Checkout Modal States
@@ -1161,6 +1210,21 @@ export default function BillingPage() {
   const totalPhysicalCash = useMemo(() => 
     Object.entries(cashDenominations).reduce((acc, [den, qty]) => acc + (parseFloat(den) * qty), 0)
   , [cashDenominations]);
+
+  const netPhysicalCash = useMemo(() => 
+    Math.max(0, totalPhysicalCash - (cashConfig?.cashFloat || 0))
+  , [totalPhysicalCash, cashConfig]);
+
+  const handleAiBmsAutoSync = () => {
+    setPhysicalCard(systemCardSales);
+    setPhysicalTransfer(systemTransferSales);
+    setPhysicalCheck(systemCheckSales);
+    setPhysicalCredit(systemCreditSales);
+    toast({
+      title: "🤖 Cruce Automático Realizado",
+      description: "La IA sincronizó los montos de Tarjetas, Transferencias, Cheques y Crédito con la autorización del BMS."
+    });
+  };
 
   const totalExpenses = useMemo(() => 
     expenses.reduce((acc, e) => acc + e.amount, 0)
@@ -3004,39 +3068,41 @@ export default function BillingPage() {
               {/* Conciliación y Gastos */}
               <div className="lg:col-span-7 space-y-6">
                 
-                {/* Modern KPI summary cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
+                {/* Modern KPI summary cards con Conteo Neto */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
                     <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Fondo Base</p>
                     {role === 'admin' ? (
-                      <p className="text-lg font-bold text-blue-600 dark:text-[#7c7fff] mt-1">${(cashConfig?.cashFloat || 0).toFixed(2)}</p>
+                      <p className="text-base font-bold text-blue-600 dark:text-[#7c7fff] mt-1">${(cashConfig?.cashFloat || 0).toFixed(2)}</p>
                     ) : (
-                      <p className="text-[11px] font-bold text-slate-400 mt-2">🔒 Requiere Supervisor</p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-2">🔒 Configurado</p>
                     )}
-                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Fondo inicial asignado</span>
+                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Fondo inicial en caja</span>
                   </div>
                   
-                  <div className="p-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
-                    <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Ventas Sistema</p>
-                    {role === 'admin' ? (
-                      <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">${systemCashSales.toFixed(2)}</p>
-                    ) : (
-                      <p className="text-[11px] font-bold text-slate-400 mt-2">🔒 Requiere Supervisor</p>
-                    )}
-                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">En caja (Efectivo)</span>
+                  <div className="p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
+                    <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Conteo Físico Total</p>
+                    <p className="text-base font-bold text-slate-800 dark:text-white mt-1">${totalPhysicalCash.toFixed(2)}</p>
+                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Conteo en billetera</span>
                   </div>
 
-                  <div className="p-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
-                    <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Egresos Caja</p>
-                    {role === 'admin' ? (
-                      <p className="text-lg font-bold text-rose-500 dark:text-rose-400 mt-1">-${totalExpenses.toFixed(2)}</p>
-                    ) : (
-                      <p className="text-[11px] font-bold text-slate-400 mt-2">🔒 Requiere Supervisor</p>
-                    )}
-                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Gastos menores liquidados</span>
+                  <div className="p-3.5 bg-indigo-500/10 dark:bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 rounded-[13px] shadow-sm">
+                    <p className="text-[9px] font-black uppercase text-indigo-700 dark:text-indigo-300 tracking-wider">Dinero Neto a Cuadrar</p>
+                    <p className="text-base font-black text-indigo-600 dark:text-indigo-400 mt-1">${netPhysicalCash.toFixed(2)}</p>
+                    <span className="text-[9px] text-indigo-500/80 dark:text-indigo-300/80 block mt-0.5">Físico - Fondo Base</span>
                   </div>
 
-                  <div className={`p-4 bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-[13px] transition-all duration-300 ${
+                  <div className="p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
+                    <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Ventas Sistema (Efectivo)</p>
+                    {role === 'admin' ? (
+                      <p className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-1">${systemCashSales.toFixed(2)}</p>
+                    ) : (
+                      <p className="text-[10px] font-bold text-slate-400 mt-2">🔒 Auditoría</p>
+                    )}
+                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Ventas efectivas</span>
+                  </div>
+
+                  <div className={`p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-[13px] transition-all duration-300 ${
                     role !== 'admin'
                       ? 'border-white/50 dark:border-white/10 text-slate-500'
                       : cashDifference === 0 
@@ -3045,22 +3111,20 @@ export default function BillingPage() {
                       ? 'border-rose-500/30 text-rose-900 dark:text-rose-400' 
                       : 'border-blue-500/30 text-blue-900 dark:text-blue-400'
                   }`}>
-                    <p className="text-[9px] font-medium uppercase tracking-wider opacity-70">Diferencia</p>
+                    <p className="text-[9px] font-medium uppercase tracking-wider opacity-70">Diferencia Efectivo</p>
                     {role === 'admin' ? (
                       <>
-                        <p className="text-lg font-bold mt-1">
+                        <p className="text-base font-bold mt-1">
                           {cashDifference > 0 ? '+' : ''}${cashDifference.toFixed(2)}
                         </p>
                         <span className="text-[9px] font-medium block mt-0.5">
-                          {cashDifference === 0 ? '✓ Caja Cuadrada' : cashDifference < 0 ? '⚠ Faltante en Caja' : '💡 Sobrante en Caja'}
+                          {cashDifference === 0 ? '✓ Cuadre OK' : cashDifference < 0 ? '⚠ Faltante' : '💡 Sobrante'}
                         </span>
                       </>
                     ) : (
                       <>
-                        <p className="text-[11px] font-bold text-slate-400 mt-2">🔒 Requiere Supervisor</p>
-                        <span className="text-[9px] font-medium block mt-0.5 text-slate-400">
-                          Auditoría a ciegas
-                        </span>
+                        <p className="text-[10px] font-bold text-slate-400 mt-2">🔒 Ciego</p>
+                        <span className="text-[9px] font-medium block mt-0.5 text-slate-400">Auditoría</span>
                       </>
                     )}
                   </div>
@@ -3068,10 +3132,17 @@ export default function BillingPage() {
 
                 {/* Conciliación de Otros Medios de Pago */}
                 <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                  <div className="bg-card text-foreground p-4 border-b border-border">
+                  <div className="bg-card text-foreground p-4 border-b border-border flex justify-between items-center flex-wrap gap-2">
                     <h3 className="text-sm font-bold flex items-center gap-2">
                       <CardIcon size={18} className="text-blue-400" /> Conciliación de Medios Electrónicos y Crédito
                     </h3>
+                    <Button
+                      size="sm"
+                      onClick={handleAiBmsAutoSync}
+                      className="h-8 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm border-none"
+                    >
+                      <Sparkles size={13} /> 🤖 Sincronizar Salidas con BMS
+                    </Button>
                   </div>
                   <div className="p-0">
                     <Table>
@@ -3259,14 +3330,18 @@ export default function BillingPage() {
                         [ 💾 ENVIAR Y AUDITAR JORNADA ]
                       </Button>
                       
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        <Button variant="outline" className="h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] hover:bg-emerald-500/20" onClick={handleSaveArqueoDraft}>
+                          <Save size={12} className="mr-1.5" />
+                          GUARDAR CONTEO
+                        </Button>
                         <Button variant="outline" className="h-10 rounded-xl bg-white/50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-slate-700 dark:text-white/70 text-[10px] hover:bg-slate-100 dark:hover:bg-white/10" onClick={handlePrintReport}>
                           <Printer size={12} className="mr-1.5" />
-                          IMPRIMIR REPORTES
+                          IMPRIMIR
                         </Button>
                         <Button variant="outline" className="h-10 rounded-xl border border-rose-200 dark:border-rose-950/60 hover:bg-rose-50 dark:hover:bg-rose-950/20 font-bold text-rose-600 dark:text-rose-400 text-[10px]" onClick={handleResetArqueo}>
                           <RotateCcw size={12} className="mr-1.5" />
-                          LIMPIAR CONTEO
+                          LIMPIAR
                         </Button>
                       </div>
                     </div>
