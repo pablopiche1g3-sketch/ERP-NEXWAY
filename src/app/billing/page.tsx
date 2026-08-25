@@ -1300,15 +1300,29 @@ export default function BillingPage() {
   const creditDifference = useMemo(() => physicalCredit - systemCreditSales, [physicalCredit, systemCreditSales]);
   const checkDifference = useMemo(() => physicalCheck - systemCheckSales, [physicalCheck, systemCheckSales]);
 
+  const activeShiftDateObj = useMemo(() => {
+    const today = new Date();
+    if (!lastClosingTimestamp) return today;
+
+    const lastClosing = new Date(lastClosingTimestamp);
+    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const lastClosingDateOnly = new Date(lastClosing.getFullYear(), lastClosing.getMonth(), lastClosing.getDate()).getTime();
+
+    // Si el último cierre registrado fue hoy (o después), la jornada activa en curso avanza al siguiente día
+    if (lastClosingDateOnly >= todayDateOnly) {
+      return new Date(todayDateOnly + 86400000);
+    }
+    return today;
+  }, [lastClosingTimestamp]);
+
   const formattedTodayDate = useMemo(() => {
-    const d = new Date();
-    return d.toLocaleDateString('es-SV', {
+    return activeShiftDateObj.toLocaleDateString('es-SV', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
-  }, []);
+  }, [activeShiftDateObj]);
 
   // --- BMS & AI AUTOMATED CASH RECONCILIATION ---
   const bmsReconciliationStatus = useMemo(() => {
@@ -1977,6 +1991,7 @@ export default function BillingPage() {
       }
 
       await supabase.from('system_config').delete().eq('key', 'active_cash_draft');
+      setLastClosingTimestamp(new Date().toISOString());
       setIsDayClosingConfirmOpen(false);
 
       toast({ 
