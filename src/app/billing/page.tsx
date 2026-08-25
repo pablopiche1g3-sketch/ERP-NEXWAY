@@ -43,7 +43,8 @@ import {
   KeyRound,
   UserCheck,
   BookOpen,
-  X
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
@@ -457,6 +458,10 @@ export default function BillingPage() {
   const [pastDailyClosings, setPastDailyClosings] = useState<any[]>([]);
   const [selectedPastClosure, setSelectedPastClosure] = useState<any | null>(null);
 
+  // Relevo de Cajeros (Entrega y Recepción de Turno)
+  const [outgoingCashierEmail, setOutgoingCashierEmail] = useState<string>('');
+  const [incomingCashierEmail, setIncomingCashierEmail] = useState<string>('SIN_RELEVO');
+
   // Persistencia de borrador de conteo de arqueo
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -602,6 +607,17 @@ export default function BillingPage() {
   const [isCloseShiftOpen, setIsCloseShiftOpen] = useState(false);
   const [reportedCash, setReportedCash] = useState('');
   const [isDayClosingConfirmOpen, setIsDayClosingConfirmOpen] = useState(false);
+
+  // Inicializar cajero saliente al abrir diálogo de cierre
+  useEffect(() => {
+    if (isDayClosingConfirmOpen) {
+      if (user?.email) {
+        setOutgoingCashierEmail(user.email);
+      } else if (appUsersList.length > 0) {
+        setOutgoingCashierEmail(appUsersList[0].email);
+      }
+    }
+  }, [isDayClosingConfirmOpen, user, appUsersList]);
 
   const handleOpenShift = async () => {
     setShiftError('');
@@ -1950,6 +1966,9 @@ export default function BillingPage() {
       const closingDateStr = new Date().toISOString().split('T')[0];
       const salesReportedAmt = Number(reportedSalesAmount) || systemCashSales;
 
+      const outgoingUser = outgoingCashierEmail || user?.email || 'Admin';
+      const incomingUser = !incomingCashierEmail || incomingCashierEmail === 'SIN_RELEVO' ? 'Sin Relevo (Cierre de Día)' : incomingCashierEmail;
+
       const { error } = await supabase
         .from('daily_closings')
         .upsert({
@@ -1972,14 +1991,15 @@ export default function BillingPage() {
           system_credit_sales: systemCreditSales,
           physical_credit_found: physicalCredit,
           credit_difference: creditDifference,
-          closed_by: user?.email || 'Admin'
+          closed_by: outgoingUser,
+          incoming_cashier: incomingUser
         }, { onConflict: 'date' });
 
       if (error) throw error;
 
       // 1. Asiento Contable Automático de Cierre de Caja en General Ledger (journal)
       await supabase.from('journal').insert({
-        description: `CIERRE DIARIO DE CAJA [${closingDateStr}] - Recaudación Efectivo Neta: $${netPhysicalCash.toFixed(2)} | Venta Reportada: $${salesReportedAmt.toFixed(2)} | Cajero: ${user?.email || 'Admin'}`,
+        description: `CIERRE DIARIO DE CAJA [${closingDateStr}] - Recaudación Efectivo Neta: $${netPhysicalCash.toFixed(2)} | Relevo: Saliente (${outgoingUser}) ➡️ Entrante (${incomingUser})`,
         type: 'Ingreso',
         amount: salesReportedAmt
       });
@@ -1995,8 +2015,8 @@ export default function BillingPage() {
       logNexbotEvent(
         'billing',
         'AUDITORIA_JORNADA',
-        { difference: cashDifference, closed_by: user?.email, reported_sales: salesReportedAmt },
-        `El cajero ${user?.email || 'Admin'} formalizó el cierre de caja. Venta reportada: $${salesReportedAmt}. Diferencia de efectivo: $${cashDifference}.`
+        { difference: cashDifference, closed_by: outgoingUser, incoming_cashier: incomingUser, reported_sales: salesReportedAmt },
+        `El cajero ${outgoingUser} formalizó el cierre de caja entregando el turno a ${incomingUser}. Venta reportada: $${salesReportedAmt}. Diferencia: $${cashDifference}.`
       );
 
       // 2. Reiniciar todos los conteos y montos a CERO ($0.00) para el nuevo día
@@ -3647,57 +3667,87 @@ export default function BillingPage() {
               </div>
             </div>
 
-                        <Dialog open={isDayClosingConfirmOpen} onOpenChange={setIsDayClosingConfirmOpen}>
-              <DialogContent className="max-w-md rounded-2xl border shadow-xl">
+            <Dialog open={isDayClosingConfirmOpen} onOpenChange={setIsDayClosingConfirmOpen}>
+              <DialogContent className="max-w-lg rounded-3xl border shadow-2xl p-6 bg-card overflow-hidden">
                 <DialogHeader>
-                  <DialogTitle className="text-lg font-black tracking-tight text-foreground text-rose-600">
-                    Aviso de Cierre del Día
+                  <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                    <ShieldCheck size={22} /> Cierre Único de Día & Relevo de Turno
                   </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground mt-2">
-                    Estás a punto de formalizar el cierre de caja. Esto enviará la auditoría a la gerencia y <strong className="text-rose-500">reiniciará todas las ventas y conteos físicos del sistema a cero</strong> para empezar un nuevo turno/día limpio.
-                    <br /><br />
-                    ¿Estás seguro de que deseas proceder con el cierre de la jornada?
+                  <DialogDescription className="text-xs text-muted-foreground mt-1">
+                    Esta acción formalizará el cierre de caja, registrará el asiento contable y reiniciará los valores a $0.00 para la nueva jornada.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="flex gap-3 justify-end mt-4">
-                  <Button variant="outline" onClick={() => setIsDayClosingConfirmOpen(false)}>Cancelar</Button>
-                  <Button className="bg-rose-600 hover:bg-rose-700 text-white font-bold" onClick={handleDayClosing} disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
-                    Confirmar Cierre de Día
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
 
-            <Dialog open={isCloseShiftOpen} onOpenChange={setIsCloseShiftOpen}>
-              <DialogContent className="max-w-md rounded-2xl border shadow-xl">
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-black tracking-tight text-foreground">
-                    Cierre de Turno y Conteo Físico
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground">
-                    Ingresa el monto de dinero físico que hay actualmente en caja. Esta acción registrará el turno y comparará el valor con el esperado por el sistema.
-                  </DialogDescription>
-                </DialogHeader>
                 <div className="py-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Efectivo Físico Reportado</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">$</span>
-                      <Input 
-                        type="number" 
-                        step="0.01"
-                        placeholder="0.00"
-                        value={reportedCash}
-                        onChange={(e) => setReportedCash(e.target.value)}
-                        className="pl-8 h-12 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl font-mono text-lg"
-                      />
+                  {/* Sección Relevo de Personal / Cajeros */}
+                  <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 space-y-3 shadow-md">
+                    <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-2">
+                      <Users size={16} /> Relevo de Personal (Cajeros)
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-300 uppercase">Cajero que Entrega (Sale)</Label>
+                        <Select value={outgoingCashierEmail} onValueChange={setOutgoingCashierEmail}>
+                          <SelectTrigger className="h-9 text-xs font-bold bg-black/60 border-indigo-400/40 text-white rounded-xl">
+                            <SelectValue placeholder="Seleccionar Cajero Saliente" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {appUsersList.map(u => (
+                              <SelectItem key={u.id || u.email} value={u.email} className="text-xs">
+                                {u.name || u.email} ({u.role || 'Cajero'})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-300 uppercase">Cajero que Recibe (Entra)</Label>
+                        <Select value={incomingCashierEmail} onValueChange={setIncomingCashierEmail}>
+                          <SelectTrigger className="h-9 text-xs font-bold bg-black/60 border-indigo-400/40 text-emerald-300 rounded-xl">
+                            <SelectValue placeholder="Seleccionar Cajero Entrante" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="SIN_RELEVO" className="text-xs font-bold text-amber-400">
+                              🌙 Cierre de Jornada (Sin Relevo Inmediato)
+                            </SelectItem>
+                            {appUsersList.map(u => (
+                              <SelectItem key={`inc-${u.id || u.email}`} value={u.email} className="text-xs">
+                                {u.name || u.email} ({u.role || 'Cajero'})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Resumen Contable */}
+                  <div className="p-3 bg-muted/30 rounded-2xl border space-y-2 text-xs">
+                    <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
+                      <span>Fondo Base en Caja:</span>
+                      <span>${(cashConfig?.cashFloat || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-emerald-600 dark:text-emerald-400">
+                      <span>Recaudación Efectivo Neta:</span>
+                      <span>${netPhysicalCash.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-slate-600 dark:text-slate-400">
+                      <span>Venta Reportada por Caja:</span>
+                      <span>${(Number(reportedSalesAmount) || systemCashSales).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
-                <DialogFooter className="border-t border-slate-100 dark:border-white/10 pt-4 flex gap-2">
-                  <Button variant="outline" className="rounded-xl flex-1" onClick={() => setIsCloseShiftOpen(false)}>Cancelar</Button>
-                  <Button className="rounded-xl flex-1 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-white/90 text-white dark:text-black font-bold" onClick={handleCloseShift}>Finalizar Turno</Button>
+
+                <DialogFooter className="flex gap-2">
+                  <Button variant="outline" className="rounded-xl flex-1" onClick={() => setIsDayClosingConfirmOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button className="rounded-xl flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs" onClick={handleDayClosing} disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
+                    Confirmar Cierre y Relevo
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
