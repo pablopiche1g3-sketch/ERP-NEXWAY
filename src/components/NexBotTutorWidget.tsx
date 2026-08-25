@@ -20,7 +20,13 @@ import {
   ShieldCheck, 
   Lightbulb, 
   ArrowRight,
-  MessageSquareText
+  MessageSquareText,
+  Minimize2,
+  Maximize2,
+  Eye,
+  EyeOff,
+  Move,
+  X
 } from 'lucide-react';
 
 export interface AiProposal {
@@ -93,6 +99,59 @@ export function NexBotTutorWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'guide' | 'proposals'>('guide');
 
+  // Estados de Control de Posición, Ocultar y Minimizar
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
+  const [position, setPosition] = useState<'bottom-right' | 'bottom-left' | 'top-left'>('bottom-right');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMin = localStorage.getItem('nexway_tutor_minimized');
+      if (savedMin === 'true') setIsMinimized(true);
+
+      const savedHide = localStorage.getItem('nexway_tutor_hidden');
+      if (savedHide === 'true') setIsHidden(true);
+
+      const savedPos = localStorage.getItem('nexway_tutor_position') as any;
+      if (savedPos) setPosition(savedPos);
+    }
+  }, []);
+
+  const toggleMinimized = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const next = !isMinimized;
+    setIsMinimized(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexway_tutor_minimized', String(next));
+    }
+  };
+
+  const toggleHidden = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const next = !isHidden;
+    setIsHidden(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexway_tutor_hidden', String(next));
+    }
+  };
+
+  const cyclePosition = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    let nextPos: 'bottom-right' | 'bottom-left' | 'top-left' = 'bottom-right';
+    if (position === 'bottom-right') nextPos = 'bottom-left';
+    else if (position === 'bottom-left') nextPos = 'top-left';
+    else nextPos = 'bottom-right';
+
+    setPosition(nextPos);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexway_tutor_position', nextPos);
+    }
+    toast({
+      title: "Posición Cambiada 📍",
+      description: `El asistente se movió a la posición: ${nextPos === 'bottom-right' ? 'Abajo Derecha' : nextPos === 'bottom-left' ? 'Abajo Izquierda' : 'Arriba Izquierda'}`
+    });
+  };
+
   // Propuestas de Sugerencias Proactivas con Aprobación BMS
   const [proposals, setProposals] = useState<AiProposal[]>([
     {
@@ -149,21 +208,121 @@ export function NexBotTutorWidget() {
 
   const pendingCount = proposals.filter(p => p.status === 'pending').length;
 
-  return (
-    <div className="fixed bottom-5 right-5 z-50 animate-in fade-in duration-300">
-      {!isOpen ? (
+  const posClasses = 
+    position === 'bottom-left' ? 'bottom-5 left-5' :
+    position === 'top-left' ? 'top-20 left-5' :
+    'bottom-5 right-5';
+
+  if (isHidden) {
+    return (
+      <div className={`fixed ${posClasses} z-50 animate-in fade-in duration-300`}>
         <Button
-          onClick={() => setIsOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-12 px-4 rounded-full shadow-2xl flex items-center gap-2 border border-indigo-400/30 transition-all transform hover:scale-105"
+          size="sm"
+          onClick={() => toggleHidden()}
+          title="Mostrar Tutoría & Asesoría IA"
+          className="bg-slate-900/90 hover:bg-slate-900 text-indigo-300 font-bold text-[10px] h-8 px-2.5 rounded-full shadow-lg border border-indigo-500/40 flex items-center gap-1.5 backdrop-blur-md"
         >
-          <BrainCircuit size={18} className="animate-pulse text-amber-300" />
-          <span>Tutoría & Asesoría IA</span>
-          {pendingCount > 0 && (
-            <Badge className="bg-amber-500 text-slate-900 border-0 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1">
-              {pendingCount}
-            </Badge>
-          )}
+          <BrainCircuit size={14} className="text-amber-300 animate-pulse" />
+          <span>Tutoría IA</span>
+          <Eye size={12} className="ml-0.5 text-indigo-400" />
         </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`fixed ${posClasses} z-50 animate-in fade-in duration-300`}>
+      {!isOpen ? (
+        isMinimized ? (
+          <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-full border border-indigo-500/40 shadow-2xl backdrop-blur-md">
+            <Button
+              onClick={() => setIsOpen(true)}
+              title="Abrir Tutoría & Asesoría IA"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black h-10 w-10 p-0 rounded-full shadow-lg flex items-center justify-center relative border-none"
+            >
+              <BrainCircuit size={18} className="animate-pulse text-amber-300" />
+              {pendingCount > 0 && (
+                <Badge className="bg-amber-500 text-slate-900 border-0 text-[9px] font-black px-1 py-0 rounded-full absolute -top-1 -right-1">
+                  {pendingCount}
+                </Badge>
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={toggleMinimized}
+              title="Expandir nombre"
+              className="h-7 w-7 text-slate-400 hover:text-white rounded-full p-0"
+            >
+              <Maximize2 size={12} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={cyclePosition}
+              title="Mover de esquina"
+              className="h-7 w-7 text-slate-400 hover:text-white rounded-full p-0"
+            >
+              <Move size={12} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={toggleHidden}
+              title="Ocultar"
+              className="h-7 w-7 text-slate-400 hover:text-rose-400 rounded-full p-0"
+            >
+              <EyeOff size={12} />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white p-1 pl-4 rounded-full shadow-2xl border border-indigo-400/40 transition-all transform hover:scale-[1.02]">
+            <div 
+              onClick={() => setIsOpen(true)}
+              className="flex items-center gap-2 cursor-pointer py-1"
+            >
+              <BrainCircuit size={18} className="animate-pulse text-amber-300" />
+              <span className="font-black text-xs">Tutoría & Asesoría IA</span>
+              {pendingCount > 0 && (
+                <Badge className="bg-amber-500 text-slate-900 border-0 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1">
+                  {pendingCount}
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-center border-l border-indigo-400/40 pl-1.5 gap-0.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={toggleMinimized}
+                title="Minimizar a icono redondo"
+                className="h-7 w-7 text-indigo-100 hover:text-white hover:bg-indigo-500/50 rounded-full p-0"
+              >
+                <Minimize2 size={13} />
+              </Button>
+
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={cyclePosition}
+                title="Cambiar posición de esquina"
+                className="h-7 w-7 text-indigo-100 hover:text-white hover:bg-indigo-500/50 rounded-full p-0"
+              >
+                <Move size={13} />
+              </Button>
+
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={toggleHidden}
+                title="Ocultar asistente"
+                className="h-7 w-7 text-indigo-100 hover:text-rose-300 hover:bg-indigo-500/50 rounded-full p-0"
+              >
+                <EyeOff size={13} />
+              </Button>
+            </div>
+          </div>
+        )
       ) : (
         <Card className="w-80 sm:w-96 border shadow-2xl rounded-3xl bg-card overflow-hidden transition-all animate-in slide-in-from-bottom-5">
           {/* Header */}
@@ -180,9 +339,35 @@ export function NexBotTutorWidget() {
                 <p className="text-[10px] text-slate-400">Asistente Co-Piloto & Tutor en Tiempo Real</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-7 w-7 text-slate-400 hover:text-white rounded-full">
-              <ChevronDown size={18} />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={cyclePosition} 
+                title="Cambiar esquina"
+                className="h-7 w-7 text-slate-400 hover:text-white rounded-full"
+              >
+                <Move size={14} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={toggleMinimized} 
+                title="Minimizar a icono"
+                className="h-7 w-7 text-slate-400 hover:text-white rounded-full"
+              >
+                <Minimize2 size={14} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsOpen(false)} 
+                title="Cerrar panel"
+                className="h-7 w-7 text-slate-400 hover:text-white rounded-full"
+              >
+                <ChevronDown size={18} />
+              </Button>
+            </div>
           </div>
 
           {/* Subtabs */}
