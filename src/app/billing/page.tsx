@@ -41,7 +41,9 @@ import {
   Eye,
   Lock,
   KeyRound,
-  UserCheck
+  UserCheck,
+  BookOpen,
+  X
 } from 'lucide-react';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
@@ -449,6 +451,12 @@ export default function BillingPage() {
   const [reportedSalesAmount, setReportedSalesAmount] = useState<number | ''>('');
   const [lastClosingTimestamp, setLastClosingTimestamp] = useState<string | null>(null);
 
+  // Filtros de Historial y Consulta de Arqueos Pasados
+  const [historialFilter, setHistorialFilter] = useState<'active_shift' | 'all' | 'custom'>('active_shift');
+  const [historialCustomDate, setHistorialCustomDate] = useState<string>('');
+  const [pastDailyClosings, setPastDailyClosings] = useState<any[]>([]);
+  const [selectedPastClosure, setSelectedPastClosure] = useState<any | null>(null);
+
   // Persistencia de borrador de conteo de arqueo
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -798,16 +806,16 @@ export default function BillingPage() {
         customer: s.customer_name || 'Consumidor Final'
       })));
 
-      // Cargar último cierre formalizado de jornada
-      const { data: lastClosingData } = await supabase
+      // Cargar cierres formalizados de jornada pasados
+      const { data: closingsData } = await supabase
         .from('daily_closings')
-        .select('created_at, date')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      setPastDailyClosings(closingsData || []);
 
-      if (lastClosingData) {
-        setLastClosingTimestamp(lastClosingData.created_at || lastClosingData.date);
+      if (closingsData && closingsData.length > 0) {
+        setLastClosingTimestamp(closingsData[0].created_at || closingsData[0].date);
       } else {
         setLastClosingTimestamp(null);
       }
@@ -1323,6 +1331,24 @@ export default function BillingPage() {
       day: 'numeric'
     });
   }, [activeShiftDateObj]);
+
+  const displayedSalesHistory = useMemo(() => {
+    if (!salesAll) return [];
+
+    if (historialFilter === 'active_shift') {
+      return activeShiftSales;
+    }
+
+    if (historialFilter === 'custom' && historialCustomDate) {
+      return salesAll.filter(s => {
+        if (!s.timestamp) return false;
+        const sDate = new Date(s.timestamp).toISOString().split('T')[0];
+        return sDate === historialCustomDate;
+      });
+    }
+
+    return salesAll;
+  }, [salesAll, activeShiftSales, historialFilter, historialCustomDate]);
 
   // --- BMS & AI AUTOMATED CASH RECONCILIATION ---
   const bmsReconciliationStatus = useMemo(() => {
@@ -2758,10 +2784,59 @@ export default function BillingPage() {
            {/* TAB HISTORIAL */}
           <TabsContent value="historial" className="outline-none">
             <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-              <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-black/20">
-                <p className="text-[10px] font-bold text-slate-500 dark:text-white/30 uppercase tracking-wider mb-1">Consejo de uso</p>
-                <p className="text-[11px] text-slate-600 dark:text-white/50">Haz <strong>doble clic</strong> sobre cualquier venta en la lista para ver el detalle de los productos facturados e imprimir el comprobante en PDF.</p>
+              
+              {/* Barra de Filtros de Historial */}
+              <div className="p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-black/20 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-white/30 uppercase tracking-wider mb-0.5">Historial de Ventas por Jornada</p>
+                  <p className="text-[11px] text-slate-600 dark:text-white/60">
+                    {historialFilter === 'active_shift' 
+                      ? '⚡ Mostrando únicamente ventas de la jornada activa en curso (Limpia a $0.00 tras cierre)' 
+                      : historialFilter === 'all' 
+                      ? '📚 Mostrando el historial completo de ventas registradas' 
+                      : `📅 Mostrando ventas registradas el fecha: ${historialCustomDate}`}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant={historialFilter === 'active_shift' ? 'default' : 'outline'}
+                    onClick={() => setHistorialFilter('active_shift')}
+                    className="h-8 text-xs font-bold gap-1 rounded-xl"
+                  >
+                    <Clock size={13} /> Jornada Activa ({activeShiftSales.length})
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant={historialFilter === 'all' ? 'default' : 'outline'}
+                    onClick={() => setHistorialFilter('all')}
+                    className="h-8 text-xs font-bold gap-1 rounded-xl"
+                  >
+                    <BookOpen size={13} /> Histórico Completo ({salesAll?.length || 0})
+                  </Button>
+
+                  <div className="flex items-center gap-1.5 border border-slate-200 dark:border-white/10 px-2 py-1 rounded-xl bg-background shadow-sm">
+                    <span className="text-[10px] font-bold text-slate-400">Filtrar Día:</span>
+                    <Input
+                      type="date"
+                      value={historialCustomDate}
+                      onChange={e => {
+                        setHistorialCustomDate(e.target.value);
+                        if (e.target.value) setHistorialFilter('custom');
+                      }}
+                      className="h-6 text-xs w-36 border-none focus-visible:ring-0 p-0"
+                    />
+                    {historialFilter === 'custom' && (
+                      <Button size="icon" variant="ghost" className="h-5 w-5 text-slate-400 hover:text-white" onClick={() => { setHistorialFilter('active_shift'); setHistorialCustomDate(''); }}>
+                        <X size={12} />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
+
               <Table>
                 <TableHeader className="bg-slate-100/50 dark:bg-transparent">
                   <TableRow className="border-b border-slate-200 dark:border-white/5 hover:bg-transparent">
@@ -2775,7 +2850,14 @@ export default function BillingPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {salesAll?.map((sale: any) => (
+                  {displayedSalesHistory?.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-xs font-bold">
+                        No hay ventas registradas para el filtro seleccionado.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    displayedSalesHistory?.map((sale: any) => (
                     <TableRow 
                       key={sale.id} 
                       className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-white/5 select-none transition-colors border-b border-slate-100 dark:border-white/5"
@@ -2831,7 +2913,7 @@ export default function BillingPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )))}
                 </TableBody>
               </Table>
             </div>
@@ -3199,21 +3281,67 @@ export default function BillingPage() {
               {/* Conciliación y Gastos */}
               <div className="lg:col-span-7 space-y-6">
                 
-                {/* Banner de Fecha del Día Actual y Estado de Cierre */}
-                <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 flex justify-between items-center flex-wrap gap-2 shadow-md">
+                {/* Banner de Fecha del Día Actual, Selector de Cierres Anteriores y Estado */}
+                <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 flex justify-between items-center flex-wrap gap-3 shadow-md">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400">
                       <Clock size={18} />
                     </div>
                     <div>
-                      <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider">Jornada Activa de Caja</h4>
-                      <p className="text-[11px] font-bold text-slate-200 capitalize">{formattedTodayDate}</p>
+                      <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider">
+                        {selectedPastClosure ? `Cierre del ${selectedPastClosure.date}` : 'Jornada Activa de Caja'}
+                      </h4>
+                      <p className="text-[11px] font-bold text-slate-200 capitalize">
+                        {selectedPastClosure ? `Fecha de Cierre: ${selectedPastClosure.date} | Por: ${selectedPastClosure.closed_by || 'Cajero'}` : formattedTodayDate}
+                      </p>
                     </div>
                   </div>
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-3 py-1">
-                    {systemCashSales + systemCardSales + systemTransferSales === 0 ? '✓ Cierre Limpio (Sin Ventas / Solo Fondo Base)' : '⚡ Jornada con Ventas Activas'}
-                  </Badge>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {pastDailyClosings.length > 0 && (
+                      <Select
+                        value={selectedPastClosure ? selectedPastClosure.id : 'active'}
+                        onValueChange={(val) => {
+                          if (val === 'active') {
+                            setSelectedPastClosure(null);
+                          } else {
+                            const found = pastDailyClosings.find(c => c.id === val);
+                            setSelectedPastClosure(found || null);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-52 h-8 text-xs font-bold bg-black/60 border-indigo-500/40 text-amber-300 rounded-xl">
+                          <SelectValue placeholder="Ver Arqueo Anterior" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active" className="text-xs font-bold text-emerald-400">
+                            ⚡ Jornada Activa (En Curso)
+                          </SelectItem>
+                          {pastDailyClosings.map(c => (
+                            <SelectItem key={c.id} value={c.id} className="text-xs">
+                              📜 Cierre {c.date} (${((c.physical_cash_found || 0) - (c.cash_float || 0)).toFixed(2)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+
+                    <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-3 py-1">
+                      {selectedPastClosure 
+                        ? `📜 Cierre Guardado` 
+                        : (systemCashSales + systemCardSales + systemTransferSales === 0 ? '✓ Cierre Limpio (Sin Ventas / Solo Fondo Base)' : '⚡ Jornada con Ventas Activas')}
+                    </Badge>
+                  </div>
                 </div>
+
+                {selectedPastClosure && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex justify-between items-center text-amber-300 text-xs font-bold shadow-sm">
+                    <span>📜 VISTA DE AUDITORÍA HISTÓRICA: Cierre del {selectedPastClosure.date} (Recaudación Física: ${((selectedPastClosure.physical_cash_found || 0) - (selectedPastClosure.cash_float || 0)).toFixed(2)})</span>
+                    <Button size="sm" variant="outline" onClick={() => setSelectedPastClosure(null)} className="h-7 text-[10px] border-amber-500/40 text-amber-300 hover:bg-amber-500/20 rounded-xl">
+                      <X size={12} className="mr-1" /> Volver a Jornada Activa
+                    </Button>
+                  </div>
+                )}
 
                 {/* Ingreso de Monto Total de Venta Reportado Manualmente */}
                 <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 shadow-md space-y-2">
