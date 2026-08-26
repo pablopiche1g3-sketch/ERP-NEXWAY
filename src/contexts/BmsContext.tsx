@@ -47,10 +47,28 @@ export interface MapLocation {
   address?: string;
 }
 
+export interface MapWaypoint {
+  order: number;
+  lat: number;
+  lng: number;
+  name: string;
+  invoiceCorrelative?: string;
+  amount?: number;
+  paymentMethod?: string;
+  timestamp?: string;
+  customerName?: string;
+}
+
 export interface MapRoute {
   id: string;
+  driverName?: string;
+  driverEmail?: string;
+  date?: string;
   path: { lat: number; lng: number }[];
-  status: 'ACTIVE' | 'PENDING';
+  waypoints?: MapWaypoint[];
+  totalDistanceKm?: number;
+  totalBilled?: number;
+  status: 'ACTIVE' | 'PENDING' | 'COMPLETED';
 }
 
 export interface MapData {
