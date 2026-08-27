@@ -55,7 +55,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CrmMap } from '@/components/CrmMap';
-import { useBms, MapWaypoint } from '@/contexts/BmsContext';
+import { useBms } from '@/contexts/BmsContext';
 
 const STAGES = [
   { id: 'PROSPECTO', label: 'Prospecto (Lead)', color: 'border-t-slate-500 bg-slate-500/5 text-slate-400' },
@@ -81,110 +81,7 @@ export default function CRMPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [stagnantProducts, setStagnantProducts] = useState<any[]>([]);
 
-  // Datos para Trazo de Rutas de Motocicleta por Factura 🏍️
-  const [salesData, setSalesData] = useState<any[]>([]);
-  const [selectedDriverFilter, setSelectedDriverFilter] = useState<string>('all');
 
-  const getCustomerCoordinates = (customerId: string, index: number) => {
-    const baseLat = 13.6929;
-    const baseLng = -89.2182;
-    const offsets = [
-      { lat: 0.012, lng: 0.015 },
-      { lat: -0.018, lng: 0.022 },
-      { lat: 0.025, lng: -0.014 },
-      { lat: -0.009, lng: -0.031 },
-      { lat: 0.032, lng: 0.008 },
-      { lat: -0.022, lng: -0.019 },
-      { lat: 0.019, lng: 0.035 },
-      { lat: -0.030, lng: 0.012 }
-    ];
-    const offset = offsets[index % offsets.length];
-    return { lat: baseLat + offset.lat, lng: baseLng + offset.lng };
-  };
-
-  const calculateHaversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const generatedRoutes = useMemo(() => {
-    const origin = { lat: 13.6929, lng: -89.2182 };
-
-    if (!salesData || salesData.length === 0) {
-      const demoWaypoints: MapWaypoint[] = [
-        { order: 0, lat: origin.lat, lng: origin.lng, name: 'Sucursal Central (Bodega Origen)' },
-        { order: 1, lat: 13.7049, lng: -89.2032, name: 'Comercial La Paz', customerName: 'Comercial La Paz', invoiceCorrelative: 'CF-2026-0001', amount: 145.50, paymentMethod: 'Efectivo', timestamp: new Date().toISOString() },
-        { order: 2, lat: 13.6749, lng: -89.1960, name: 'Farmacia San Antonio', customerName: 'Farmacia San Antonio', invoiceCorrelative: 'CF-2026-0002', amount: 89.00, paymentMethod: 'Tarjeta', timestamp: new Date().toISOString() },
-        { order: 3, lat: 13.7179, lng: -89.2322, name: 'Distribuidora Cuscatlán', customerName: 'Distribuidora Cuscatlán', invoiceCorrelative: 'CCF-2026-0003', amount: 320.00, paymentMethod: 'Transferencia', timestamp: new Date().toISOString() }
-      ];
-
-      let dist = 0;
-      for (let i = 0; i < demoWaypoints.length - 1; i++) {
-        dist += calculateHaversine(demoWaypoints[i].lat, demoWaypoints[i].lng, demoWaypoints[i+1].lat, demoWaypoints[i+1].lng);
-      }
-
-      return [{
-        id: 'route-demo',
-        driverName: 'Repartidor Principal (Moto #1)',
-        path: demoWaypoints.map(w => ({ lat: w.lat, lng: w.lng })),
-        waypoints: demoWaypoints,
-        totalDistanceKm: dist,
-        totalBilled: 554.50,
-        status: 'COMPLETED' as const
-      }];
-    }
-
-    let filteredSales = salesData;
-    if (selectedDriverFilter !== 'all') {
-      filteredSales = salesData.filter(s => (s.seller_email || s.cashier) === selectedDriverFilter);
-    }
-
-    const waypoints: MapWaypoint[] = [
-      { order: 0, lat: origin.lat, lng: origin.lng, name: 'Sucursal Central NexWay (Origen)' }
-    ];
-
-    let totalBilled = 0;
-    let distKm = 0;
-
-    filteredSales.forEach((sale, idx) => {
-      const coords = getCustomerCoordinates(sale.customer_id || sale.customer_name || `cust-${idx}`, idx);
-      const invoiceAmt = Number(sale.total) || 0;
-      totalBilled += invoiceAmt;
-
-      waypoints.push({
-        order: idx + 1,
-        lat: coords.lat,
-        lng: coords.lng,
-        name: sale.customer_name || `Cliente #${idx + 1}`,
-        customerName: sale.customer_name || `Cliente #${idx + 1}`,
-        invoiceCorrelative: sale.correlative || `CF-${sale.id?.slice(0, 6)}`,
-        amount: invoiceAmt,
-        paymentMethod: sale.payment_method || 'Efectivo',
-        timestamp: sale.created_at
-      });
-    });
-
-    for (let i = 0; i < waypoints.length - 1; i++) {
-      distKm += calculateHaversine(waypoints[i].lat, waypoints[i].lng, waypoints[i+1].lat, waypoints[i+1].lng);
-    }
-
-    return [{
-      id: `route-${selectedDriverFilter}`,
-      driverName: selectedDriverFilter === 'all' ? 'Todos los Motociclistas' : selectedDriverFilter,
-      path: waypoints.map(w => ({ lat: w.lat, lng: w.lng })),
-      waypoints,
-      totalDistanceKm: distKm,
-      totalBilled,
-      status: 'COMPLETED' as const
-    }];
-  }, [salesData, selectedDriverFilter]);
 
   // Modales y estados de formularios
   const [isOppModalOpen, setIsOppModalOpen] = useState(false);
@@ -282,16 +179,6 @@ export default function CRMPage() {
         .map(p => ({ ...p, stock: stockMap[p.sku] }));
       
       setStagnantProducts(stagnant);
-
-      // 5. Cargar facturas/ventas para el trazado de rutas de entrega de motocicletas
-      const { data: salesList } = await supabase
-        .from('sales')
-        .select('*')
-        .neq('status', 'CANCELADA')
-        .order('created_at', { ascending: true })
-        .limit(30);
-
-      setSalesData(salesList || []);
 
     } catch (error) {
       console.error('Error al cargar CRM:', error);
@@ -915,7 +802,7 @@ export default function CRMPage() {
               <div className="w-full lg:w-2/3 h-[400px] lg:h-full">
                 <CrmMap 
                   locations={mapData.locations} 
-                  routes={generatedRoutes} 
+                  routes={mapData.routes} 
                   onAddLocation={(newLoc) => {
                     setMapData(prev => ({
                       ...prev,
