@@ -995,6 +995,7 @@ export default function ManagementPage() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [newStationName, setNewStationName] = useState('');
   const [newStationWarehouse, setNewStationWarehouse] = useState('');
+  const [newStationRole, setNewStationRole] = useState<'EMISORA_PRINCIPAL' | 'PREFACTURACION_ONLY'>('EMISORA_PRINCIPAL');
   const [isSavingStation, setIsSavingStation] = useState(false);
 
   // ─── Estados Análisis ───────────────────────────────────────────
@@ -1046,7 +1047,8 @@ export default function ManagementPage() {
         id: crypto.randomUUID(),
         name: newStationName.trim(),
         warehouse_id: newStationWarehouse,
-        warehouse_name: wh?.name || 'Sin nombre'
+        warehouse_name: wh?.name || 'Sin nombre',
+        station_role: newStationRole
       };
       const updated = [...posStations, newStation];
       const { error } = await supabase.from('system_config').upsert({ key: 'pos_stations', value: updated });
@@ -1054,12 +1056,20 @@ export default function ManagementPage() {
       setPosStations(updated);
       setNewStationName('');
       setNewStationWarehouse('');
-      toast({ title: 'Caja Creada', description: `"${newStation.name}" vinculada a "${newStation.warehouse_name}".` });
+      setNewStationRole('EMISORA_PRINCIPAL');
+      toast({ title: 'Caja Creada', description: `"${newStation.name}" vinculada a "${newStation.warehouse_name}" como ${newStationRole === 'PREFACTURACION_ONLY' ? 'Estación de Pre-Facturación' : 'Caja Emisora Principal'}.` });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
     } finally {
       setIsSavingStation(false);
     }
+  };
+
+  const handleToggleStationRole = async (id: string, newRole: 'EMISORA_PRINCIPAL' | 'PREFACTURACION_ONLY') => {
+    const updated = posStations.map(s => s.id === id ? { ...s, station_role: newRole } : s);
+    await supabase.from('system_config').upsert({ key: 'pos_stations', value: updated });
+    setPosStations(updated);
+    toast({ title: 'Rol de Caja Actualizado', description: `Nuevo rol: ${newRole === 'PREFACTURACION_ONLY' ? 'Estación de Pre-Facturación' : 'Caja Emisora Principal'}.` });
   };
 
   const handleDeleteStation = async (id: string) => {
@@ -1772,21 +1782,48 @@ export default function ManagementPage() {
                             <Store size={16} className="text-indigo-500" />
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-foreground">{st.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-foreground">{st.name}</p>
+                              {st.station_role === 'PREFACTURACION_ONLY' ? (
+                                <Badge className="text-[9px] font-black uppercase bg-amber-500/15 text-amber-500 border-amber-500/30">
+                                  📋 Pre-Facturación (Vales)
+                                </Badge>
+                              ) : (
+                                <Badge className="text-[9px] font-black uppercase bg-indigo-500/15 text-indigo-500 border-indigo-500/30">
+                                  👑 Caja Emisora Principal (DTE)
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                               <Warehouse size={10} /> {st.warehouse_name}
                             </p>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteStation(st.id)}
-                          className="text-rose-500 hover:bg-rose-500/10 rounded-xl h-9 w-9"
-                          title="Eliminar caja"
-                        >
-                          <Trash2 size={15} />
-                        </Button>
+
+                        <div className="flex items-center gap-2">
+                          <Select 
+                            value={st.station_role || 'EMISORA_PRINCIPAL'} 
+                            onValueChange={(val: any) => handleToggleStationRole(st.id, val)}
+                          >
+                            <SelectTrigger className="h-8 text-[11px] font-bold bg-muted/60 border-none rounded-lg w-44">
+                              <SelectValue placeholder="Rol de Caja" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="EMISORA_PRINCIPAL" className="text-xs font-bold text-indigo-500">👑 Caja Emisora DTE</SelectItem>
+                              <SelectItem value="PREFACTURACION_ONLY" className="text-xs font-bold text-amber-500">📋 Pre-Facturación Solo</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteStation(st.id)}
+                            className="text-rose-500 hover:bg-rose-500/10 rounded-xl h-9 w-9"
+                            title="Eliminar caja"
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1799,8 +1836,8 @@ export default function ManagementPage() {
 
                 {/* Formulario nueva caja */}
                 <div className="border-t border-white/10 pt-5 space-y-4">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">+ Agregar Nueva Caja</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">+ Agregar Nueva Caja (Configuración de Gerencia)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs font-bold text-muted-foreground">Nombre de la Caja</Label>
                       <Input
@@ -1823,6 +1860,18 @@ export default function ManagementPage() {
                           {warehouses.length === 0 && (
                             <SelectItem value="__none" disabled>No hay bodegas registradas</SelectItem>
                           )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-muted-foreground">Rol Operativo de Estación</Label>
+                      <Select value={newStationRole} onValueChange={(v: any) => setNewStationRole(v)}>
+                        <SelectTrigger className="h-11 bg-muted rounded-xl border-none font-semibold text-sm">
+                          <SelectValue placeholder="Rol de Estación..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EMISORA_PRINCIPAL" className="text-xs font-bold text-indigo-500">👑 Caja Emisora Principal (DTE)</SelectItem>
+                          <SelectItem value="PREFACTURACION_ONLY" className="text-xs font-bold text-amber-500">📋 Estación Pre-Facturación (Solo Vales)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

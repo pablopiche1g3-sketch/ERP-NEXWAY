@@ -1666,7 +1666,12 @@ export default function BillingPage() {
         }
       }
 
-      const correlative = `${docType}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const isPreFacturaOnly = activeStation?.station_role === 'PREFACTURACION_ONLY';
+
+      const correlative = isPreFacturaOnly 
+        ? `PRE-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`
+        : `${docType}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+
       const selectedCust = customers.find(c => c.name === customerName);
 
       // 1. Insert into public.sales
@@ -1674,10 +1679,10 @@ export default function BillingPage() {
         .from('sales')
         .insert({
           correlative,
-          doc_type: docType,
+          doc_type: isPreFacturaOnly ? 'PRE_FACTURA' : docType,
           customer_id: selectedCust ? selectedCust.id : null,
           total: totalCart,
-          status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA',
+          status: isPreFacturaOnly ? 'PENDIENTE_COBRO' : (paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA'),
           payment_method: paymentMethod,
           customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
           seller_email: selectedSellerEmail || user?.email || null,
@@ -1704,6 +1709,22 @@ export default function BillingPage() {
         .insert(itemsToInsert);
 
       if (itemsErr) throw itemsErr;
+
+      if (isPreFacturaOnly) {
+        toast({
+          title: "Pre-Factura Creada 📋",
+          description: `El vale ${correlative} fue guardado en la cola para ser cobrado en la Caja Principal.`
+        });
+        setCart([]);
+        setCustomerName('');
+        setCustomerEmail('');
+        setSelectedCustomer(null);
+        setCashReceived('');
+        setIsCheckoutOpen(false);
+        await loadBillingData();
+        setIsProcessing(false);
+        return;
+      }
 
       // 3. Update Inventory Stock and Kardex Atomically
       if (deductWh) {
@@ -2067,13 +2088,22 @@ export default function BillingPage() {
             <h1 className="text-sm md:text-base font-bold font-headline">Terminal de Ventas NexWay</h1>
             <p className="text-[11px] text-slate-500 dark:text-white/40 mt-0.5">Gestión de caja y facturación con DTE</p>
             {activeStation ? (
-              <div className="flex items-center gap-1.5 mt-1">
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 dark:bg-[#5b5ef4]/20 text-blue-700 dark:text-[#7c7fff] border border-blue-200 dark:border-[#5b5ef4]/30">
                   <Store size={10} /> {activeStation.name}
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/25">
                   <Warehouse size={10} /> {activeStation.warehouse_name}
                 </span>
+                {activeStation.station_role === 'PREFACTURACION_ONLY' ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse">
+                    📋 ESTACIÓN DE PRE-FACTURACIÓN (SOLO VALES)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                    👑 CAJA EMISORA PRINCIPAL (DTE)
+                  </span>
+                )}
               </div>
             ) : (
               <span className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
@@ -4134,9 +4164,19 @@ export default function BillingPage() {
             )}
           </div>
           <DialogFooter>
-            <Button className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl" onClick={handleFinalizeSale} disabled={isProcessing}>
+            <Button 
+              className={`w-full h-14 rounded-2xl font-black text-base sm:text-lg shadow-xl ${
+                activeStation?.station_role === 'PREFACTURACION_ONLY'
+                  ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/20'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20'
+              }`} 
+              onClick={handleFinalizeSale} 
+              disabled={isProcessing}
+            >
               {isProcessing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-              COMPLETAR OPERACIÓN
+              {activeStation?.station_role === 'PREFACTURACION_ONLY' 
+                ? '📝 GENERAR PRE-FACTURA / VALE DE CAJA' 
+                : 'COMPLETAR OPERACIÓN Y EMITIR DTE'}
             </Button>
           </DialogFooter>
         </DialogContent>
