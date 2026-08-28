@@ -44,7 +44,6 @@ import { DashboardComercialKPI } from '@/components/DashboardComercialKPI';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import DocumentsTab from './components/DocumentsTab';
-import HrPayrollTab from './components/HrPayrollTab';
 import PrintDesignerTab from './components/PrintDesignerTab';
 import PerformanceThemesTab from './components/PerformanceThemesTab';
 import UserAccessManagementTab from './components/UserAccessManagementTab';
@@ -1462,7 +1461,6 @@ export default function ManagementPage() {
                 <>
                   <TabsTrigger value="permissions" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Usuarios y Accesos</TabsTrigger>
                   <TabsTrigger value="roles" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Gestión de Roles</TabsTrigger>
-                  <TabsTrigger value="hr" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Nómina y RH</TabsTrigger>
                 </>
               )}
             </TabsList>
@@ -1892,58 +1890,6 @@ export default function ManagementPage() {
           {/* pestaña 2: PERMISOS DE MÓDULOS & GESTOR DE USUARIOS PROPIO */}
           <TabsContent value="permissions" className="space-y-6 outline-none">
             <UserAccessManagementTab />
-            <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
-              <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
-                <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
-                  <ShieldCheck className="text-blue-400" size={20} />
-                  Estado de Módulos Operativos
-                </CardTitle>
-                <CardDescription className="text-slate-400 text-xs">Active o desactive funciones para toda la empresa.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {modules.map((m) => (
-                    <div key={m.id} className="p-6 hover:bg-muted/10 transition-colors space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label className="text-sm font-bold text-foreground">{m.label}</Label>
-                          <p className="text-xs text-muted-foreground">{m.desc}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          {config?.[m.id] === false ? <Lock className="text-rose-500" size={16} /> : <Unlock className="text-emerald-500" size={16} />}
-                          <Switch 
-                            checked={config?.[m.id] !== false} 
-                            onCheckedChange={(val) => handleToggleModule(m.id, val)}
-                            disabled={isSaving}
-                          />
-                        </div>
-                      </div>
-
-                      {config?.[m.id] !== false && m.tabs && (
-                        <div className="ml-6 pl-4 border-l-2 border-slate-200 dark:border-slate-800 space-y-3 pt-2">
-                          <p className="text-[10px] font-black text-slate-400/80 uppercase tracking-widest mb-2">Habilitar Pestañas del Módulo</p>
-                          {m.tabs.map((tab) => (
-                            <div key={tab.id} className="flex items-center justify-between py-1">
-                              <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">{tab.label}</Label>
-                              <Switch 
-                                checked={config?.[`${m.id}_${tab.id}`] !== false} 
-                                onCheckedChange={(val) => handleToggleModule(`${m.id}_${tab.id}`, val)}
-                                disabled={isSaving}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* pestaña: NÓMINA Y RH */}
-          <TabsContent value="hr" className="outline-none">
-            <HrPayrollTab />
           </TabsContent>
 
           {/* pestaña 3: ROLES DE USUARIO */}
