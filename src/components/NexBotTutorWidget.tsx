@@ -453,19 +453,23 @@ export function NexBotTutorWidget() {
                 </div>
 
                 {/* Filtros de Categoría */}
-                <div className="flex gap-1 overflow-x-auto pb-1">
+                <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
                   {[
                     { id: 'all', label: 'Todas' },
                     { id: 'limpieza', label: '🧹 Limpieza' },
                     { id: 'contabilidad', label: '⚖️ Contable' },
                     { id: 'facturacion', label: '🧾 Ventas' },
-                    { id: 'inventario', label: '📦 Stock' }
+                    { id: 'inventario', label: '📦 Stock' },
+                    { id: 'compras', label: '🛒 Compras' },
+                    { id: 'finanzas', label: '📈 Finanzas' },
+                    { id: 'logistica', label: '🚚 Logística' },
+                    { id: 'gerencia', label: '👑 Gerencia' }
                   ].map(f => (
                     <button
                       key={f.id}
                       onClick={() => setAuditorFilter(f.id as any)}
                       className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap ${
-                        auditorFilter === f.id ? 'bg-indigo-600 text-white' : 'bg-muted text-slate-500 hover:text-slate-800'
+                        auditorFilter === f.id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-muted text-slate-500 hover:text-slate-800'
                       }`}
                     >
                       {f.label}

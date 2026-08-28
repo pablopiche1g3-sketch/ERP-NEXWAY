@@ -4,9 +4,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+export type AuditCategory = 
+  | 'limpieza' 
+  | 'contabilidad' 
+  | 'facturacion' 
+  | 'inventario' 
+  | 'compras' 
+  | 'finanzas' 
+  | 'crm' 
+  | 'logistica' 
+  | 'gerencia';
+
 export interface AuditIssue {
   id: string;
-  category: 'limpieza' | 'contabilidad' | 'facturacion' | 'inventario';
+  category: AuditCategory;
   severity: 'critico' | 'advertencia' | 'optimizacion';
   title: string;
   description: string;
@@ -49,7 +60,7 @@ export function useNexbotAuditor() {
         }
       }
 
-      // ─── 2. AUDITORÍA DE PRE-FACTURAS Y VENTAS ───────────────────
+      // ─── 2. AUDITORÍA DE FACTURACIÓN & PRE-FACTURAS (/billing) ────
       const { data: stalePreFacturas } = await supabase
         .from('sales')
         .select('*')
@@ -74,7 +85,7 @@ export function useNexbotAuditor() {
         }
       }
 
-      // ─── 3. AUDITORÍA CONTABLE (JOURNAL / PARTIDA DOBLE) ─────────
+      // ─── 3. AUDITORÍA CONTABLE (/accounting) ──────────────────────
       const { data: journalEntries } = await supabase
         .from('journal')
         .select('*')
@@ -106,7 +117,7 @@ export function useNexbotAuditor() {
         }
       }
 
-      // ─── 4. AUDITORÍA DE INVENTARIO & KARDEX ───────────────────────
+      // ─── 4. AUDITORÍA DE INVENTARIO & KARDEX (/inventory) ─────────
       const { data: negativeStocks } = await supabase
         .from('inventory_stock')
         .select('*')
@@ -125,6 +136,94 @@ export function useNexbotAuditor() {
         });
       }
 
+      // ─── 5. AUDITORÍA DE COMPRAS & PROVEEDORES (/compras) ─────────
+      const { data: pendingPurchases } = await supabase
+        .from('purchase_orders')
+        .select('*')
+        .eq('status', 'PENDIENTE')
+        .limit(10);
+
+      if (pendingPurchases && pendingPurchases.length > 0) {
+        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+        const oldPurchases = pendingPurchases.filter(p => p.created_at < threeDaysAgo);
+
+        if (oldPurchases.length > 0) {
+          discoveredIssues.push({
+            id: 'stale-purchase-orders',
+            category: 'compras',
+            severity: 'advertencia',
+            title: `${oldPurchases.length} Órdenes de compra pendientes (+3 días)`,
+            description: `Existen órdenes de compra sin recepción confirmada en bodega: ${oldPurchases.map(p => p.correlative || p.id?.slice(0, 6)).join(', ')}.`,
+            recommendation: 'Confirmar la recepción de mercadería o cancelar las órdenes no despachadas por el proveedor.',
+            canAutoFix: false
+          });
+        }
+      }
+
+      // ─── 6. AUDITORÍA DE FINANZAS & CRÉDITOS (/finanzas) ──────────
+      const { data: creditSales } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('payment_method', 'Credito')
+        .eq('status', 'PENDIENTE')
+        .limit(20);
+
+      if (creditSales && creditSales.length > 0) {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const overdueCredits = creditSales.filter(c => c.created_at < thirtyDaysAgo);
+
+        if (overdueCredits.length > 0) {
+          discoveredIssues.push({
+            id: 'overdue-credit-sales',
+            category: 'finanzas',
+            severity: 'advertencia',
+            title: `${overdueCredits.length} Facturas al crédito con saldo vencido (+30 días)`,
+            description: `Se registran cuentas por cobrar vencidas de clientes: ${overdueCredits.map(c => c.customer_name).slice(0, 3).join(', ')}.`,
+            recommendation: 'Gestionar la cobranza o registrar los abonos pendientes en el módulo de Cuentas por Cobrar.',
+            canAutoFix: false
+          });
+        }
+      }
+
+      // ─── 7. AUDITORÍA DE TRASLADOS Y LOGÍSTICA (/logistica) ───────
+      const { data: pendingTransfers } = await supabase
+        .from('transfers')
+        .select('*')
+        .eq('status', 'PENDIENTE')
+        .limit(10);
+
+      if (pendingTransfers && pendingTransfers.length > 0) {
+        discoveredIssues.push({
+          id: 'pending-stock-transfers',
+          category: 'logistica',
+          severity: 'optimizacion',
+          title: `${pendingTransfers.length} Traslados entre bodegas en tránsito`,
+          description: `Hay traslados pendientes de confirmación de recepción en la bodega destino.`,
+          recommendation: 'Verificar la recepción física de la mercadería para actualizar el stock de destino.',
+          canAutoFix: false
+        });
+      }
+
+      // ─── 8. AUDITORÍA DE CONFIGURACIÓN FISCAL (/management) ───────
+      const { data: companyConfig } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'company_profile')
+        .maybeSingle();
+
+      const profile = companyConfig?.value || {};
+      if (!profile.nit || !profile.nrc || !profile.razonSocial) {
+        discoveredIssues.push({
+          id: 'missing-tax-profile',
+          category: 'gerencia',
+          severity: 'advertencia',
+          title: 'Perfil fiscal de empresa incompleto',
+          description: 'Faltan datos obligatorios para facturación electrónica DTE (NIT, NRC o Razón Social).',
+          recommendation: 'Completar los datos en Gerencia > Perfil de Empresa para evitar rechazos en el Ministerio de Hacienda.',
+          canAutoFix: false
+        });
+      }
+
     } catch (err) {
       console.error('Error durante auditoría Nexbot:', err);
     } finally {
@@ -136,7 +235,6 @@ export function useNexbotAuditor() {
 
   useEffect(() => {
     runAudit();
-    // Re-escanear periódicamente cada 45 segundos
     const interval = setInterval(runAudit, 45000);
     return () => clearInterval(interval);
   }, [runAudit]);
@@ -178,8 +276,8 @@ export function useNexbotAuditor() {
   };
 
   const healthScore = Math.max(0, 100 - issues.reduce((acc, curr) => {
-    if (curr.severity === 'critico') return acc + 30;
-    if (curr.severity === 'advertencia') return acc + 15;
+    if (curr.severity === 'critico') return acc + 25;
+    if (curr.severity === 'advertencia') return acc + 10;
     return acc + 5;
   }, 0));
 
