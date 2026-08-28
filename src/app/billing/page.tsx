@@ -198,6 +198,7 @@ export default function BillingPage() {
   const [pendingDraftsList, setPendingDraftsList] = useState<any[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [selectedPendingSaleId, setSelectedPendingSaleId] = useState<string | null>(null);
 
   const fetchQuotations = async () => {
     setLoadingQuotes(true);
@@ -220,16 +221,48 @@ export default function BillingPage() {
     setLoadingQuotes(true);
     let remoteDrafts: any[] = [];
     try {
-      const { data, error } = await supabase
-        .from('quotations')
+      // 1. Cargar Pre-Facturas pendientes desde public.sales
+      const { data: preFacturas, error: preErr } = await supabase
+        .from('sales')
         .select('*')
+        .eq('status', 'PENDIENTE_COBRO')
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        remoteDrafts = data;
+      if (!preErr && preFacturas) {
+        const saleIds = preFacturas.map(s => s.id);
+        let itemsBySale: Record<string, any[]> = {};
+        if (saleIds.length > 0) {
+          const { data: dbItems } = await supabase
+            .from('sales_items')
+            .select('*')
+            .in('sale_id', saleIds);
+          
+          (dbItems || []).forEach(it => {
+            if (!itemsBySale[it.sale_id]) itemsBySale[it.sale_id] = [];
+            itemsBySale[it.sale_id].push({
+              id: it.id,
+              sku: it.sku,
+              name: it.sku,
+              price: Number(it.price) || 0,
+              quantity: Number(it.quantity) || 0
+            });
+          });
+        }
+
+        remoteDrafts = preFacturas.map(pf => ({
+          id: pf.id,
+          quote_number: pf.correlative,
+          customer_name: pf.customer_name || 'Consumidor Final',
+          total: Number(pf.total) || 0,
+          created_at: pf.created_at,
+          seller_email: pf.seller_email,
+          station_name: pf.station_name,
+          items: itemsBySale[pf.id] || [],
+          isPreFactura: true
+        }));
       }
     } catch (e) {
-      console.error('Error fetching remote quotations:', e);
+      console.error('Error fetching remote prefacturas:', e);
     }
 
     let localDrafts: any[] = [];
@@ -244,7 +277,7 @@ export default function BillingPage() {
       }
     }
 
-    const combined = [...localDrafts, ...remoteDrafts];
+    const combined = [...remoteDrafts, ...localDrafts];
     const seen = new Set<string>();
     const cleanList = combined.filter(item => {
       const num = item.quote_number || item.id;
@@ -261,6 +294,7 @@ export default function BillingPage() {
     setCart(quote.items || []);
     setCustomerName(quote.customer_name);
     setSelectedQuoteId(quote.id);
+    setSelectedPendingSaleId(null);
     setShowQuotationsDialog(false);
     toast({ title: 'Cotización Cargada', description: `Se cargó el presupuesto ${quote.quote_number}` });
   };
@@ -270,11 +304,16 @@ export default function BillingPage() {
     if (draft.customer_name && draft.customer_name !== 'Borrador Guardado' && draft.customer_name !== 'Cliente Consumidor Final') {
       setCustomerName(draft.customer_name);
     }
+    if (draft.isPreFactura) {
+      setSelectedPendingSaleId(draft.id);
+    } else {
+      setSelectedPendingSaleId(null);
+    }
     setShowPendingDraftsDialog(false);
     setShowQuotationsDialog(false);
     toast({
-      title: 'Factura Restaurada 🛒',
-      description: `Se cargó el borrador ${draft.quote_number} en el carrito.`
+      title: draft.isPreFactura ? 'Pre-Factura Cargada 📋' : 'Factura Restaurada 🛒',
+      description: `Se cargó el vale ${draft.quote_number} en el carrito para su cobro.`
     });
   };
 
@@ -287,7 +326,11 @@ export default function BillingPage() {
       }
     }
     try {
-      await supabase.from('quotations').delete().or(`quote_number.eq.${draft.quote_number},id.eq.${draft.id}`);
+      if (draft.isPreFactura) {
+        await supabase.from('sales').update({ status: 'CANCELADA' }).eq('id', draft.id);
+      } else {
+        await supabase.from('quotations').delete().or(`quote_number.eq.${draft.quote_number},id.eq.${draft.id}`);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -1674,25 +1717,55 @@ export default function BillingPage() {
 
       const selectedCust = customers.find(c => c.name === customerName);
 
-      // 1. Insert into public.sales
-      const { data: insertedSale, error: saleErr } = await supabase
-        .from('sales')
-        .insert({
-          correlative,
-          doc_type: isPreFacturaOnly ? 'PRE_FACTURA' : docType,
-          customer_id: selectedCust ? selectedCust.id : null,
-          total: totalCart,
-          status: isPreFacturaOnly ? 'PENDIENTE_COBRO' : (paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA'),
-          payment_method: paymentMethod,
-          customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
-          seller_email: selectedSellerEmail || user?.email || null,
-          station_name: activeStation?.name || null,
-          branch_id: activeBranchId || null
-        })
-        .select()
-        .single();
+      let insertedSale: any = null;
 
-      if (saleErr) throw saleErr;
+      if (selectedPendingSaleId && !isPreFacturaOnly) {
+        // Actualizar la Pre-Factura existente a Factura DTE formal
+        const { data: updatedSale, error: updateErr } = await supabase
+          .from('sales')
+          .update({
+            correlative,
+            doc_type: docType,
+            customer_id: selectedCust ? selectedCust.id : null,
+            total: totalCart,
+            status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA',
+            payment_method: paymentMethod,
+            customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+            seller_email: selectedSellerEmail || user?.email || null,
+            station_name: activeStation?.name || null,
+            branch_id: activeBranchId || null
+          })
+          .eq('id', selectedPendingSaleId)
+          .select()
+          .single();
+
+        if (updateErr) throw updateErr;
+        insertedSale = updatedSale;
+
+        // Limpiar ítems anteriores y reinsertar los confirmados
+        await supabase.from('sales_items').delete().eq('sale_id', selectedPendingSaleId);
+      } else {
+        // 1. Insert into public.sales
+        const { data: newSale, error: saleErr } = await supabase
+          .from('sales')
+          .insert({
+            correlative,
+            doc_type: isPreFacturaOnly ? 'PRE_FACTURA' : docType,
+            customer_id: selectedCust ? selectedCust.id : null,
+            total: totalCart,
+            status: isPreFacturaOnly ? 'PENDIENTE_COBRO' : (paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA'),
+            payment_method: paymentMethod,
+            customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+            seller_email: selectedSellerEmail || user?.email || null,
+            station_name: activeStation?.name || null,
+            branch_id: activeBranchId || null
+          })
+          .select()
+          .single();
+
+        if (saleErr) throw saleErr;
+        insertedSale = newSale;
+      }
 
       // 2. Insert items into public.sales_items
       const itemsToInsert = cart.map(item => ({
@@ -1820,6 +1893,7 @@ export default function BillingPage() {
       setCustomerName('');
       setCustomerEmail('');
       setSelectedCustomer(null);
+      setSelectedPendingSaleId(null);
       setCashReceived('');
       setIsCheckoutOpen(false);
       await loadBillingData();

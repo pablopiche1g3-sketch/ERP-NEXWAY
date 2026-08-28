@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { usePathname } from 'next/navigation';
 import { useBms, logNexbotEvent } from '@/contexts/BmsContext';
 import { useToast } from '@/hooks/use-toast';
+import { useNexbotAuditor, AuditIssue } from '@/hooks/useNexbotAuditor';
 import { 
   Sparkles, 
   BrainCircuit, 
@@ -18,6 +19,7 @@ import {
   ChevronDown, 
   ChevronUp, 
   ShieldCheck, 
+  ShieldAlert,
   Lightbulb, 
   ArrowRight,
   MessageSquareText,
@@ -26,7 +28,9 @@ import {
   Eye,
   EyeOff,
   Move,
-  X
+  X,
+  Wrench,
+  RefreshCw
 } from 'lucide-react';
 
 export interface AiProposal {
@@ -97,7 +101,18 @@ export function NexBotTutorWidget() {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'guide' | 'proposals'>('guide');
+  const [activeSubTab, setActiveSubTab] = useState<'guide' | 'proposals' | 'auditor'>('guide');
+  const [auditorFilter, setAuditorFilter] = useState<'all' | 'limpieza' | 'contabilidad' | 'facturacion' | 'inventario'>('all');
+
+  // Integración con el Agente Auditor Autónomo
+  const { 
+    issues: auditIssues, 
+    healthScore, 
+    isScanning: isAuditing, 
+    lastScanTime, 
+    runAudit, 
+    executeAutoFix 
+  } = useNexbotAuditor();
 
   // Estados de Control de Posición, Ocultar y Minimizar
   const [isMinimized, setIsMinimized] = useState(false);
@@ -207,6 +222,12 @@ export function NexBotTutorWidget() {
   };
 
   const pendingCount = proposals.filter(p => p.status === 'pending').length;
+  const totalAlertsCount = pendingCount + auditIssues.length;
+
+  const filteredIssues = auditIssues.filter(i => {
+    if (auditorFilter === 'all') return true;
+    return i.category === auditorFilter;
+  });
 
   const posClasses = 
     position === 'bottom-left' ? 'bottom-5 left-5' :
@@ -219,11 +240,11 @@ export function NexBotTutorWidget() {
         <Button
           size="sm"
           onClick={() => toggleHidden()}
-          title="Mostrar Tutoría & Asesoría IA"
+          title="Mostrar Tutoría & Auditoría IA"
           className="bg-slate-900/90 hover:bg-slate-900 text-indigo-300 font-bold text-[10px] h-8 px-2.5 rounded-full shadow-lg border border-indigo-500/40 flex items-center gap-1.5 backdrop-blur-md"
         >
           <BrainCircuit size={14} className="text-amber-300 animate-pulse" />
-          <span>Tutoría IA</span>
+          <span>Auditor & Tutor IA</span>
           <Eye size={12} className="ml-0.5 text-indigo-400" />
         </Button>
       </div>
@@ -237,13 +258,13 @@ export function NexBotTutorWidget() {
           <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-full border border-indigo-500/40 shadow-2xl backdrop-blur-md">
             <Button
               onClick={() => setIsOpen(true)}
-              title="Abrir Tutoría & Asesoría IA"
+              title="Abrir Auditoría & Tutoría IA"
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-black h-10 w-10 p-0 rounded-full shadow-lg flex items-center justify-center relative border-none"
             >
               <BrainCircuit size={18} className="animate-pulse text-amber-300" />
-              {pendingCount > 0 && (
-                <Badge className="bg-amber-500 text-slate-900 border-0 text-[9px] font-black px-1 py-0 rounded-full absolute -top-1 -right-1">
-                  {pendingCount}
+              {totalAlertsCount > 0 && (
+                <Badge className={`${auditIssues.some(i => i.severity === 'critico') ? 'bg-rose-500' : 'bg-amber-500'} text-slate-950 border-0 text-[9px] font-black px-1 py-0 rounded-full absolute -top-1 -right-1`}>
+                  {totalAlertsCount}
                 </Badge>
               )}
             </Button>
@@ -282,10 +303,14 @@ export function NexBotTutorWidget() {
               className="flex items-center gap-2 cursor-pointer py-1"
             >
               <BrainCircuit size={18} className="animate-pulse text-amber-300" />
-              <span className="font-black text-xs">Tutoría & Asesoría IA</span>
-              {pendingCount > 0 && (
-                <Badge className="bg-amber-500 text-slate-900 border-0 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1">
-                  {pendingCount}
+              <span className="font-black text-xs">Auditor & Asesoría IA</span>
+              {totalAlertsCount > 0 ? (
+                <Badge className={`${auditIssues.some(i => i.severity === 'critico') ? 'bg-rose-500' : 'bg-amber-500'} text-slate-950 border-0 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1`}>
+                  {totalAlertsCount}
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-500 text-slate-950 border-0 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1 flex items-center gap-1">
+                  <ShieldCheck size={10} /> OK
                 </Badge>
               )}
             </div>
@@ -324,7 +349,7 @@ export function NexBotTutorWidget() {
           </div>
         )
       ) : (
-        <Card className="w-80 sm:w-96 border shadow-2xl rounded-3xl bg-card overflow-hidden transition-all animate-in slide-in-from-bottom-5">
+        <Card className="w-80 sm:w-[420px] border shadow-2xl rounded-3xl bg-card overflow-hidden transition-all animate-in slide-in-from-bottom-5">
           {/* Header */}
           <div className="bg-slate-900 dark:bg-slate-950 p-4 text-white flex justify-between items-center border-b border-white/10">
             <div className="flex items-center gap-2">
@@ -333,10 +358,10 @@ export function NexBotTutorWidget() {
               </div>
               <div>
                 <h4 className="text-xs font-black tracking-wide flex items-center gap-1.5">
-                  NexBot AI Tutor
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-0 text-[8px] font-bold">Aprobación BMS Guard</Badge>
+                  NexBot AI Auditor & Tutor
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-0 text-[8px] font-bold">Salud {healthScore}%</Badge>
                 </h4>
-                <p className="text-[10px] text-slate-400">Asistente Co-Piloto & Tutor en Tiempo Real</p>
+                <p className="text-[10px] text-slate-400">Diagnóstico Autónomo & Guía en Tiempo Real</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -371,14 +396,22 @@ export function NexBotTutorWidget() {
           </div>
 
           {/* Subtabs */}
-          <div className="flex border-b bg-muted/40 p-1">
+          <div className="flex border-b bg-muted/40 p-1 gap-1">
+            <button
+              onClick={() => setActiveSubTab('auditor')}
+              className={`flex-1 py-1.5 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-1 ${
+                activeSubTab === 'auditor' ? 'bg-background text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ShieldAlert size={13} /> Auditoría ({auditIssues.length})
+            </button>
             <button
               onClick={() => setActiveSubTab('guide')}
               className={`flex-1 py-1.5 text-[11px] font-bold rounded-xl transition-all ${
                 activeSubTab === 'guide' ? 'bg-background text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              📖 Guía del Módulo
+              📖 Guía
             </button>
             <button
               onClick={() => setActiveSubTab('proposals')}
@@ -386,13 +419,104 @@ export function NexBotTutorWidget() {
                 activeSubTab === 'proposals' ? 'bg-background text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              💡 Propuestas ({pendingCount})
+              💡 Sugerencias ({pendingCount})
             </button>
           </div>
 
           {/* Content */}
-          <CardContent className="p-4 space-y-4 max-h-96 overflow-y-auto">
-            {activeSubTab === 'guide' ? (
+          <CardContent className="p-4 space-y-4 max-h-[420px] overflow-y-auto">
+            {activeSubTab === 'auditor' ? (
+              <div className="space-y-3">
+                {/* Resumen de Salud del Sistema */}
+                <div className="p-3 bg-slate-900 dark:bg-slate-950 border border-white/10 rounded-2xl flex items-center justify-between text-white">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-xl ${healthScore === 100 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                      {healthScore === 100 ? <ShieldCheck size={18} /> : <ShieldAlert size={18} />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-black">Salud del Sistema: {healthScore}%</p>
+                      <p className="text-[10px] text-slate-400">
+                        {auditIssues.length === 0 ? 'Sin inconsistencias ni funciones residuales' : `${auditIssues.length} observaciones detectadas`}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={runAudit}
+                    disabled={isAuditing}
+                    className="h-8 text-[10px] font-bold text-slate-300 hover:text-white flex items-center gap-1 p-1 px-2"
+                  >
+                    <RefreshCw size={12} className={isAuditing ? 'animate-spin' : ''} />
+                    Escanear
+                  </Button>
+                </div>
+
+                {/* Filtros de Categoría */}
+                <div className="flex gap-1 overflow-x-auto pb-1">
+                  {[
+                    { id: 'all', label: 'Todas' },
+                    { id: 'limpieza', label: '🧹 Limpieza' },
+                    { id: 'contabilidad', label: '⚖️ Contable' },
+                    { id: 'facturacion', label: '🧾 Ventas' },
+                    { id: 'inventario', label: '📦 Stock' }
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => setAuditorFilter(f.id as any)}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap ${
+                        auditorFilter === f.id ? 'bg-indigo-600 text-white' : 'bg-muted text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Lista de Hallazgos */}
+                {filteredIssues.length === 0 ? (
+                  <div className="p-6 text-center border border-dashed rounded-2xl space-y-2">
+                    <CheckCircle2 size={28} className="mx-auto text-emerald-500" />
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">¡Todo 100% Cuadrado y Limpio!</p>
+                    <p className="text-[10px] text-slate-500">No se detectaron asientos descuadrados, pre-facturas rezagadas ni claves residuales.</p>
+                  </div>
+                ) : (
+                  filteredIssues.map(issue => (
+                    <Card key={issue.id} className="border shadow-sm p-3 rounded-2xl bg-card space-y-2.5">
+                      <div className="flex justify-between items-start">
+                        <Badge className={`text-[8px] font-black uppercase border-0 ${
+                          issue.severity === 'critico' ? 'bg-rose-500/20 text-rose-500' :
+                          issue.severity === 'advertencia' ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-500'
+                        }`}>
+                          {issue.severity === 'critico' ? '🚨 Descuadre Crítico' : issue.severity === 'advertencia' ? '⚠️ Advertencia' : '💡 Optimización'}
+                        </Badge>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{issue.category}</span>
+                      </div>
+
+                      <div>
+                        <h6 className="text-xs font-bold text-foreground">{issue.title}</h6>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{issue.description}</p>
+                      </div>
+
+                      <div className="p-2 bg-muted/40 rounded-xl text-[10px] text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
+                        <Wrench size={13} className="text-indigo-500 shrink-0 mt-0.5" />
+                        <span><strong>Recomendación:</strong> {issue.recommendation}</span>
+                      </div>
+
+                      {issue.canAutoFix && (
+                        <Button
+                          size="sm"
+                          onClick={() => executeAutoFix(issue)}
+                          className="w-full h-7 text-[10px] font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center gap-1 shadow-sm"
+                        >
+                          <Sparkles size={12} /> Auto-Corregir / Optimizar con 1 Clic
+                        </Button>
+                      )}
+                    </Card>
+                  ))
+                )}
+              </div>
+            ) : activeSubTab === 'guide' ? (
               <div className="space-y-3">
                 <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
                   <h5 className="text-xs font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 mb-1">
