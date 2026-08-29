@@ -44,7 +44,9 @@ import {
   UserCheck,
   BookOpen,
   X,
-  ShieldCheck
+  ShieldCheck,
+  Layers,
+  Split
 } from 'lucide-react';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
@@ -121,6 +123,19 @@ export default function BillingPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
+  const [splitAmounts, setSplitAmounts] = useState<{
+    cash: string;
+    card: string;
+    transfer: string;
+    credit: string;
+    cheque: string;
+  }>({
+    cash: '',
+    card: '',
+    transfer: '',
+    credit: '',
+    cheque: ''
+  });
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [clientPricesMap, setClientPricesMap] = useState<Record<string, number>>({});
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
@@ -862,6 +877,7 @@ export default function BillingPage() {
         status: s.status,
         timestamp: s.created_at,
         paymentMethod: s.payment_method || 'Efectivo',
+        paymentDetails: s.payment_details || null,
         customer: s.customer_name || 'Consumidor Final'
       })));
 
@@ -1239,12 +1255,25 @@ export default function BillingPage() {
   }, [salesAll, lastClosingTimestamp]);
 
   const systemCashSales = useMemo(() => 
-    activeShiftSales?.filter(s => s.paymentMethod === 'Efectivo' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
-      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+    activeShiftSales?.filter(s => s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
+      .reduce((acc, s) => {
+        if (s.paymentMethod === 'Efectivo') return acc + (s.total || 0);
+        if (s.paymentMethod === 'Mixto' && s.paymentDetails?.cash) return acc + (Number(s.paymentDetails.cash) || 0);
+        return acc;
+      }, 0) || 0
   , [activeShiftSales]);
 
   // Cart Functions
   const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * (Number(item.quantity) || 0)), 0), [cart]);
+
+  // Split Payment Calculations
+  const splitCashVal = parseFloat(splitAmounts.cash) || 0;
+  const splitCardVal = parseFloat(splitAmounts.card) || 0;
+  const splitTransferVal = parseFloat(splitAmounts.transfer) || 0;
+  const splitCreditVal = parseFloat(splitAmounts.credit) || 0;
+  const splitChequeVal = parseFloat(splitAmounts.cheque) || 0;
+  const splitTotal = splitCashVal + splitCardVal + splitTransferVal + splitCreditVal + splitChequeVal;
+  const splitRemaining = Math.max(0, totalCart - splitTotal);
 
   // Cálculos de Deuda Financiera y Límites de Crédito
   const { pendingCreditInvoices, outstandingDebt } = useMemo(() => {
@@ -1316,23 +1345,39 @@ export default function BillingPage() {
   }, [creditValidation.disabled, paymentMethod, toast]);
 
   const systemCardSales = useMemo(() => 
-    activeShiftSales?.filter(s => s.paymentMethod === 'Tarjeta' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
-      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+    activeShiftSales?.filter(s => s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
+      .reduce((acc, s) => {
+        if (s.paymentMethod === 'Tarjeta') return acc + (s.total || 0);
+        if (s.paymentMethod === 'Mixto' && s.paymentDetails?.card) return acc + (Number(s.paymentDetails.card) || 0);
+        return acc;
+      }, 0) || 0
   , [activeShiftSales]);
 
   const systemTransferSales = useMemo(() => 
-    activeShiftSales?.filter(s => s.paymentMethod === 'Transferencia' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
-      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+    activeShiftSales?.filter(s => s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
+      .reduce((acc, s) => {
+        if (s.paymentMethod === 'Transferencia') return acc + (s.total || 0);
+        if (s.paymentMethod === 'Mixto' && s.paymentDetails?.transfer) return acc + (Number(s.paymentDetails.transfer) || 0);
+        return acc;
+      }, 0) || 0
   , [activeShiftSales]);
 
   const systemCreditSales = useMemo(() => 
-    activeShiftSales?.filter(s => s.paymentMethod === 'Credito' && s.status !== 'CANCELADA')
-      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+    activeShiftSales?.filter(s => s.status !== 'CANCELADA')
+      .reduce((acc, s) => {
+        if (s.paymentMethod === 'Credito') return acc + (s.total || 0);
+        if (s.paymentMethod === 'Mixto' && s.paymentDetails?.credit) return acc + (Number(s.paymentDetails.credit) || 0);
+        return acc;
+      }, 0) || 0
   , [activeShiftSales]);
 
   const systemCheckSales = useMemo(() => 
-    activeShiftSales?.filter(s => s.paymentMethod === 'Cheque' && s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
-      .reduce((acc, s) => acc + (s.total || 0), 0) || 0
+    activeShiftSales?.filter(s => s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
+      .reduce((acc, s) => {
+        if (s.paymentMethod === 'Cheque') return acc + (s.total || 0);
+        if (s.paymentMethod === 'Mixto' && s.paymentDetails?.cheque) return acc + (Number(s.paymentDetails.cheque) || 0);
+        return acc;
+      }, 0) || 0
   , [activeShiftSales]);
 
   const totalPhysicalCash = useMemo(() => 
@@ -1658,8 +1703,35 @@ export default function BillingPage() {
 
   const handleFinalizeSale = async () => {
     if (paymentMethod === 'Efectivo' && (parseFloat(cashReceived) || 0) < totalCart) {
-      toast({ variant: "destructive", title: "Monto Insuficiente" });
+      toast({ variant: "destructive", title: "Monto Insuficiente", description: "El efectivo recibido es menor al total a cobrar." });
       return;
+    }
+
+    if (paymentMethod === 'Mixto') {
+      const sCash = parseFloat(splitAmounts.cash) || 0;
+      const sCard = parseFloat(splitAmounts.card) || 0;
+      const sTransfer = parseFloat(splitAmounts.transfer) || 0;
+      const sCredit = parseFloat(splitAmounts.credit) || 0;
+      const sCheque = parseFloat(splitAmounts.cheque) || 0;
+      const sTotal = sCash + sCard + sTransfer + sCredit + sCheque;
+
+      if (Math.abs(sTotal - totalCart) > 0.01) {
+        toast({
+          variant: "destructive",
+          title: "Pago Mixto Descuadrado",
+          description: `El total asignado ($${sTotal.toFixed(2)}) debe ser igual al total de la venta ($${totalCart.toFixed(2)}).`
+        });
+        return;
+      }
+
+      if (sCredit > 0 && creditValidation.disabled) {
+        toast({
+          variant: "destructive",
+          title: "Crédito No Permitido",
+          description: creditValidation.reason
+        });
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -1717,6 +1789,14 @@ export default function BillingPage() {
 
       const selectedCust = customers.find(c => c.name === customerName);
 
+      const paymentDetails = paymentMethod === 'Mixto' ? {
+        cash: parseFloat(splitAmounts.cash) || 0,
+        card: parseFloat(splitAmounts.card) || 0,
+        transfer: parseFloat(splitAmounts.transfer) || 0,
+        credit: parseFloat(splitAmounts.credit) || 0,
+        cheque: parseFloat(splitAmounts.cheque) || 0,
+      } : null;
+
       let insertedSale: any = null;
 
       if (selectedPendingSaleId && !isPreFacturaOnly) {
@@ -1730,6 +1810,7 @@ export default function BillingPage() {
             total: totalCart,
             status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA',
             payment_method: paymentMethod,
+            payment_details: paymentDetails,
             customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
             seller_email: selectedSellerEmail || user?.email || null,
             station_name: activeStation?.name || null,
@@ -1755,6 +1836,7 @@ export default function BillingPage() {
             total: totalCart,
             status: isPreFacturaOnly ? 'PENDIENTE_COBRO' : (paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA'),
             payment_method: paymentMethod,
+            payment_details: paymentDetails,
             customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
             seller_email: selectedSellerEmail || user?.email || null,
             station_name: activeStation?.name || null,
@@ -1877,6 +1959,48 @@ export default function BillingPage() {
         processChange(totalCart, cashVal);
       }
 
+      // 4. Registro Contable Automático en Journal (Partida Doble Balanceada)
+      const gravada = totalCart / 1.13;
+      const ivaDebito = totalCart - gravada;
+
+      const journalLines: any[] = [];
+      if (paymentMethod === 'Efectivo') {
+        journalLines.push({ account_code: '1101', account_name: 'Efectivo y Equivalentes de Efectivo', debit: totalCart, credit: 0 });
+      } else if (paymentMethod === 'Tarjeta' || paymentMethod === 'Transferencia') {
+        journalLines.push({ account_code: '1102', account_name: 'Bancos e Instituciones Financieras', debit: totalCart, credit: 0 });
+      } else if (paymentMethod === 'Credito') {
+        journalLines.push({ account_code: '1103', account_name: 'Cuentas por Cobrar Clientes', debit: totalCart, credit: 0 });
+      } else if (paymentMethod === 'Cheque') {
+        journalLines.push({ account_code: '1101', account_name: 'Efectivo y Equivalentes (Cheques)', debit: totalCart, credit: 0 });
+      } else if (paymentMethod === 'Mixto') {
+        const sCash = parseFloat(splitAmounts.cash) || 0;
+        const sCard = parseFloat(splitAmounts.card) || 0;
+        const sTransfer = parseFloat(splitAmounts.transfer) || 0;
+        const sCredit = parseFloat(splitAmounts.credit) || 0;
+        const sCheque = parseFloat(splitAmounts.cheque) || 0;
+
+        if (sCash > 0) journalLines.push({ account_code: '1101', account_name: 'Efectivo y Equivalentes (Caja)', debit: sCash, credit: 0 });
+        if (sCard + sTransfer > 0) journalLines.push({ account_code: '1102', account_name: 'Bancos (POS / Transferencia)', debit: sCard + sTransfer, credit: 0 });
+        if (sCredit > 0) journalLines.push({ account_code: '1103', account_name: 'Cuentas por Cobrar Clientes', debit: sCredit, credit: 0 });
+        if (sCheque > 0) journalLines.push({ account_code: '1101', account_name: 'Efectivo y Equivalentes (Cheques)', debit: sCheque, credit: 0 });
+      }
+
+      // Créditos Fiscales
+      journalLines.push({ account_code: '2102', account_name: 'IVA Débito Fiscal (13%)', debit: 0, credit: ivaDebito });
+      journalLines.push({ account_code: '4101', account_name: 'Ventas de Mercadería Gravadas', debit: 0, credit: gravada });
+
+      try {
+        await supabase.from('journal').insert({
+          concept: `Venta POS [${correlative}] - ${customerName || 'Consumidor Final'} (${paymentMethod})`,
+          document_ref: correlative,
+          amount: totalCart,
+          lines: journalLines,
+          branch_id: activeBranchId || null
+        });
+      } catch (jErr) {
+        console.warn('Error al registrar partida contable en journal:', jErr);
+      }
+
       // Desplegar Modal de Venta Completada
       setCompletedSaleData({
         correlative,
@@ -1895,6 +2019,13 @@ export default function BillingPage() {
       setSelectedCustomer(null);
       setSelectedPendingSaleId(null);
       setCashReceived('');
+      setSplitAmounts({
+        cash: '',
+        card: '',
+        transfer: '',
+        credit: '',
+        cheque: ''
+      });
       setIsCheckoutOpen(false);
       await loadBillingData();
 
@@ -2328,7 +2459,7 @@ export default function BillingPage() {
                 <div>
                   <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider mb-2.5 block">Método de pago</Label>
                   <div className="flex gap-1.5 flex-wrap">
-                    {['Efectivo', 'Tarjeta', 'Cheque', 'Transferencia'].map(method => (
+                    {['Efectivo', 'Tarjeta', 'Transferencia', 'Cheque', 'Mixto'].map(method => (
                       <button 
                         key={method}
                         onClick={() => setPaymentMethod(method as PaymentMethod)}
@@ -2342,6 +2473,7 @@ export default function BillingPage() {
                         {method === 'Tarjeta' && <CardIcon size={13} />}
                         {method === 'Cheque' && <FileText size={13} />}
                         {method === 'Transferencia' && <Landmark size={13} />}
+                        {method === 'Mixto' && <Layers size={13} />}
                         {method}
                       </button>
                     ))}
@@ -4227,6 +4359,151 @@ export default function BillingPage() {
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground">Cambio</Label>
                     <div className="h-12 flex items-center px-4 bg-emerald-500/10 text-emerald-600 rounded-xl font-black text-lg">${changeDue.toFixed(2)}</div>
+                  </div>
+                </div>
+              </div>
+            ) : paymentMethod === 'Mixto' ? (
+              <div className="space-y-3">
+                <div className="p-3 bg-muted/50 dark:bg-muted/20 rounded-2xl border flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase font-black text-muted-foreground">Total Asignado</p>
+                    <p className="text-lg font-black text-foreground font-mono">${splitTotal.toFixed(2)} <span className="text-xs text-muted-foreground font-normal">/ ${totalCart.toFixed(2)}</span></p>
+                  </div>
+                  {Math.abs(splitTotal - totalCart) < 0.01 ? (
+                    <Badge className="bg-emerald-500/20 text-emerald-500 border-0 text-[10px] font-black py-1 px-2.5 rounded-full">
+                      <CheckCircle2 size={12} className="mr-1 inline" /> Cuadre Exacto
+                    </Badge>
+                  ) : splitTotal < totalCart ? (
+                    <Badge className="bg-amber-500/20 text-amber-500 border-0 text-[10px] font-black py-1 px-2.5 rounded-full">
+                      Faltan ${(totalCart - splitTotal).toFixed(2)}
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-rose-500/20 text-rose-500 border-0 text-[10px] font-black py-1 px-2.5 rounded-full">
+                      Excede ${(splitTotal - totalCart).toFixed(2)}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                        <Wallet size={11} className="text-emerald-500" /> Efectivo ($)
+                      </Label>
+                      {splitRemaining > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSplitAmounts(prev => ({ ...prev, cash: (splitCashVal + splitRemaining).toFixed(2) }))}
+                          className="text-[9px] font-bold text-indigo-500 hover:underline cursor-pointer"
+                        >
+                          Restante
+                        </button>
+                      )}
+                    </div>
+                    <Input 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={splitAmounts.cash} 
+                      onChange={e => setSplitAmounts(prev => ({ ...prev, cash: e.target.value }))}
+                      className="h-10 text-sm font-bold rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                        <CardIcon size={11} className="text-blue-500" /> Tarjeta ($)
+                      </Label>
+                      {splitRemaining > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSplitAmounts(prev => ({ ...prev, card: (splitCardVal + splitRemaining).toFixed(2) }))}
+                          className="text-[9px] font-bold text-indigo-500 hover:underline cursor-pointer"
+                        >
+                          Restante
+                        </button>
+                      )}
+                    </div>
+                    <Input 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={splitAmounts.card} 
+                      onChange={e => setSplitAmounts(prev => ({ ...prev, card: e.target.value }))}
+                      className="h-10 text-sm font-bold rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                        <Landmark size={11} className="text-indigo-500" /> Transferencia ($)
+                      </Label>
+                      {splitRemaining > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSplitAmounts(prev => ({ ...prev, transfer: (splitTransferVal + splitRemaining).toFixed(2) }))}
+                          className="text-[9px] font-bold text-indigo-500 hover:underline cursor-pointer"
+                        >
+                          Restante
+                        </button>
+                      )}
+                    </div>
+                    <Input 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={splitAmounts.transfer} 
+                      onChange={e => setSplitAmounts(prev => ({ ...prev, transfer: e.target.value }))}
+                      className="h-10 text-sm font-bold rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                        <Receipt size={11} className="text-purple-500" /> Crédito ($)
+                      </Label>
+                      {splitRemaining > 0 && !creditValidation.disabled && (
+                        <button
+                          type="button"
+                          onClick={() => setSplitAmounts(prev => ({ ...prev, credit: (splitCreditVal + splitRemaining).toFixed(2) }))}
+                          className="text-[9px] font-bold text-indigo-500 hover:underline cursor-pointer"
+                        >
+                          Restante
+                        </button>
+                      )}
+                    </div>
+                    <Input 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={splitAmounts.credit} 
+                      disabled={creditValidation.disabled}
+                      onChange={e => setSplitAmounts(prev => ({ ...prev, credit: e.target.value }))}
+                      className="h-10 text-sm font-bold rounded-xl disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="col-span-2 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-[10px] font-black uppercase flex items-center gap-1">
+                        <FileText size={11} className="text-amber-500" /> Cheque ($)
+                      </Label>
+                      {splitRemaining > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSplitAmounts(prev => ({ ...prev, cheque: (splitChequeVal + splitRemaining).toFixed(2) }))}
+                          className="text-[9px] font-bold text-indigo-500 hover:underline cursor-pointer"
+                        >
+                          Restante
+                        </button>
+                      )}
+                    </div>
+                    <Input 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={splitAmounts.cheque} 
+                      onChange={e => setSplitAmounts(prev => ({ ...prev, cheque: e.target.value }))}
+                      className="h-10 text-sm font-bold rounded-xl"
+                    />
                   </div>
                 </div>
               </div>

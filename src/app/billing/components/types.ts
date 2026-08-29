@@ -6,7 +6,15 @@ export interface CartItem {
   quantity: number;
 }
 
-export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito' | 'Cheque';
+export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Credito' | 'Cheque' | 'Mixto';
+
+export interface SplitPaymentDetails {
+  cash: number;
+  card: number;
+  transfer: number;
+  credit: number;
+  cheque: number;
+}
 
 export interface PosStation {
   id: string;
