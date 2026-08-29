@@ -90,9 +90,25 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     let mounted = true;
 
-    // Obtener sesión inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Safety timeout: si Supabase Auth tarda más de 5 segundos en responder, desbloquear loading
+    const timeoutId = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("Supabase Auth tardó en responder. Desbloqueando estado de carga...");
+        setLoading(false);
+      }
+    }, 5000);
+
+    // Obtener sesión inicial con protección contra cuelgues
+    Promise.race([
+      supabase.auth.getSession(),
+      new Promise<{ data: { session: null } }>((resolve) => setTimeout(() => resolve({ data: { session: null } }), 4500))
+    ]).then(({ data: { session } }) => {
+      clearTimeout(timeoutId);
       if (mounted) handleSession(session);
+    }).catch(err => {
+      console.error("Error al obtener sesión de Supabase:", err);
+      clearTimeout(timeoutId);
+      if (mounted) setLoading(false);
     });
 
     // Escuchar cambios de autenticación

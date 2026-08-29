@@ -76,10 +76,19 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="flex flex-col items-center gap-4">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
           <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={48} />
-          <p className="text-muted-foreground text-sm font-medium animate-pulse">Cargando perfil...</p>
+          <div>
+            <p className="text-muted-foreground text-sm font-medium animate-pulse">Cargando perfil...</p>
+            <p className="text-[11px] text-slate-400 mt-1">Conectando con la base de datos de Supabase...</p>
+          </div>
+          <button 
+            onClick={() => router.push('/login')}
+            className="text-xs text-indigo-500 underline font-bold mt-2 hover:text-indigo-400"
+          >
+            Ir a inicio de sesión
+          </button>
         </div>
       </div>
     );
