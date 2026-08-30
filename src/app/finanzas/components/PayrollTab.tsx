@@ -101,9 +101,9 @@ export default function PayrollTab() {
       renta = 288.57 + (taxableRenta - 2038.10) * 0.30; // Tramo IV (30% sobre exceso de $2038.10 + $288.57)
     } else if (taxableRenta > 895.24) {
       renta = 60.00 + (taxableRenta - 895.24) * 0.20; // Tramo III (20% sobre exceso de $895.24 + $60.00)
-    } else if (taxableRenta > 472.00) {
-      renta = 17.67 + (taxableRenta - 472.00) * 0.10; // Tramo II (10% sobre exceso de $472.00 + $17.67)
-    } // Tramo I (hasta $472.00) es Exento (0%)
+    } else if (taxableRenta > 550.00) {
+      renta = 17.67 + (taxableRenta - 550.00) * 0.10; // Tramo II (10% sobre exceso de $550.00 + $17.67)
+    } // Tramo I (hasta $550.00) es Exento (0%)
 
     // Buscar préstamo activo del empleado
     const empLoan = loans.find(l => l.profile_id === empId && l.status === 'ACTIVO' && l.balance > 0);
