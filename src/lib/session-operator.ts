@@ -8,20 +8,49 @@ export interface SystemUserOption {
 }
 
 export async function fetchSystemAppUsers(): Promise<SystemUserOption[]> {
+  const userMap = new Map<string, SystemUserOption>();
+
   try {
-    const { data, error } = await supabase
+    // 1. Cargar desde profiles (Supabase Auth users)
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role');
+
+    if (profs && profs.length > 0) {
+      profs.forEach(p => {
+        if (!p.email) return;
+        const emailLower = p.email.toLowerCase().trim();
+        if (emailLower === 'caja1@nexway.sv') return;
+        userMap.set(emailLower, {
+          id: p.id,
+          full_name: p.full_name || p.email,
+          email: p.email,
+          role: p.role || 'cajero'
+        });
+      });
+    }
+
+    // 2. Cargar desde app_users (Usuarios de Gerencia)
+    const { data: appUsers } = await supabase
       .from('app_users')
       .select('id, full_name, email, role')
-      .eq('status', 'active')
-      .order('full_name', { ascending: true });
+      .eq('status', 'active');
 
-    if (!error && data && data.length > 0) {
-      // Filtrar cuentas no registradas o de prueba si estuvieran en DB
-      const clean = data.filter(u => u.email !== 'caja1@nexway.sv');
-      if (clean.length > 0) return clean;
+    if (appUsers && appUsers.length > 0) {
+      appUsers.forEach(u => {
+        if (!u.email) return;
+        const emailLower = u.email.toLowerCase().trim();
+        if (emailLower === 'caja1@nexway.sv') return;
+        userMap.set(emailLower, {
+          id: u.id,
+          full_name: u.full_name || u.email,
+          email: u.email,
+          role: u.role || 'cajero'
+        });
+      });
     }
   } catch (err) {
-    console.error('Error al cargar usuarios de app_users:', err);
+    console.error('Error al cargar usuarios:', err);
   }
 
   // Fallback a localStorage
@@ -30,20 +59,27 @@ export async function fetchSystemAppUsers(): Promise<SystemUserOption[]> {
     if (localUsers) {
       try {
         const parsed = JSON.parse(localUsers);
-        const cleanLocal = parsed
-          .filter((u: any) => u.email !== 'caja1@nexway.sv')
-          .map((u: any) => ({
-            id: u.id,
-            full_name: u.full_name,
-            email: u.email,
-            role: u.role
-          }));
-        if (cleanLocal.length > 0) return cleanLocal;
+        parsed.forEach((u: any) => {
+          if (!u.email) return;
+          const emailLower = u.email.toLowerCase().trim();
+          if (emailLower === 'caja1@nexway.sv') return;
+          if (!userMap.has(emailLower)) {
+            userMap.set(emailLower, {
+              id: u.id,
+              full_name: u.full_name || u.email,
+              email: u.email,
+              role: u.role || 'cajero'
+            });
+          }
+        });
       } catch (e) {
         console.error(e);
       }
     }
   }
+
+  const result = Array.from(userMap.values());
+  if (result.length > 0) return result;
 
   return [
     { id: 'u1', full_name: 'Pablo Piche (Administrador)', email: 'admin@nexway.sv', role: 'administrador' }
