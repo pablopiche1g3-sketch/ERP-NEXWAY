@@ -1801,24 +1801,33 @@ export default function BillingPage() {
 
       if (selectedPendingSaleId && !isPreFacturaOnly) {
         // Actualizar la Pre-Factura existente a Factura DTE formal
-        const { data: updatedSale, error: updateErr } = await supabase
+        const updatePayload: any = {
+          correlative,
+          doc_type: docType,
+          customer_id: selectedCust ? selectedCust.id : null,
+          total: totalCart,
+          status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA',
+          payment_method: paymentMethod,
+          payment_details: paymentDetails,
+          customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+          seller_email: selectedSellerEmail || user?.email || null,
+          station_name: activeStation?.name || null,
+          branch_id: activeBranchId || null
+        };
+
+        let { data: updatedSale, error: updateErr } = await supabase
           .from('sales')
-          .update({
-            correlative,
-            doc_type: docType,
-            customer_id: selectedCust ? selectedCust.id : null,
-            total: totalCart,
-            status: paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA',
-            payment_method: paymentMethod,
-            payment_details: paymentDetails,
-            customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
-            seller_email: selectedSellerEmail || user?.email || null,
-            station_name: activeStation?.name || null,
-            branch_id: activeBranchId || null
-          })
+          .update(updatePayload)
           .eq('id', selectedPendingSaleId)
           .select()
           .single();
+
+        if (updateErr && (updateErr.message?.includes('payment_details') || updateErr.code === 'PGRST204')) {
+          delete updatePayload.payment_details;
+          const retry = await supabase.from('sales').update(updatePayload).eq('id', selectedPendingSaleId).select().single();
+          updatedSale = retry.data;
+          updateErr = retry.error;
+        }
 
         if (updateErr) throw updateErr;
         insertedSale = updatedSale;
@@ -1827,23 +1836,32 @@ export default function BillingPage() {
         await supabase.from('sales_items').delete().eq('sale_id', selectedPendingSaleId);
       } else {
         // 1. Insert into public.sales
-        const { data: newSale, error: saleErr } = await supabase
+        const insertPayload: any = {
+          correlative,
+          doc_type: isPreFacturaOnly ? 'PRE_FACTURA' : docType,
+          customer_id: selectedCust ? selectedCust.id : null,
+          total: totalCart,
+          status: isPreFacturaOnly ? 'PENDIENTE_COBRO' : (paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA'),
+          payment_method: paymentMethod,
+          payment_details: paymentDetails,
+          customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+          seller_email: selectedSellerEmail || user?.email || null,
+          station_name: activeStation?.name || null,
+          branch_id: activeBranchId || null
+        };
+
+        let { data: newSale, error: saleErr } = await supabase
           .from('sales')
-          .insert({
-            correlative,
-            doc_type: isPreFacturaOnly ? 'PRE_FACTURA' : docType,
-            customer_id: selectedCust ? selectedCust.id : null,
-            total: totalCart,
-            status: isPreFacturaOnly ? 'PENDIENTE_COBRO' : (paymentMethod === 'Credito' ? 'PENDIENTE' : 'ACTIVA'),
-            payment_method: paymentMethod,
-            payment_details: paymentDetails,
-            customer_name: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
-            seller_email: selectedSellerEmail || user?.email || null,
-            station_name: activeStation?.name || null,
-            branch_id: activeBranchId || null
-          })
+          .insert(insertPayload)
           .select()
           .single();
+
+        if (saleErr && (saleErr.message?.includes('payment_details') || saleErr.code === 'PGRST204')) {
+          delete insertPayload.payment_details;
+          const retry = await supabase.from('sales').insert(insertPayload).select().single();
+          newSale = retry.data;
+          saleErr = retry.error;
+        }
 
         if (saleErr) throw saleErr;
         insertedSale = newSale;

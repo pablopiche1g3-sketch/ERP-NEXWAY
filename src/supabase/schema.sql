@@ -512,6 +512,10 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_column THEN null; END $$;
 
 DO $$ BEGIN
+  ALTER TABLE public.sales ADD COLUMN payment_details jsonb;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
   ALTER TABLE public.institutional_sales ADD COLUMN seller_id text references public.profiles(id);
 EXCEPTION WHEN duplicate_column THEN null; END $$;
 
