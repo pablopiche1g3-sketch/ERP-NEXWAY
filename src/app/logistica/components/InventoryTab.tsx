@@ -971,16 +971,25 @@ export default function InventoryTab() {
         return;
       }
 
-      const { error } = await supabase
+      const productPayload: any = {
+        sku: productForm.sku.toUpperCase(),
+        name: productForm.name,
+        category: productForm.category,
+        cost: parseFloat((productForm as any).cost) || 0,
+        margin: parseFloat((productForm as any).margin) || 0,
+        price: parseFloat((productForm as any).price) || 0
+      };
+
+      let { error } = await supabase
         .from('inventory')
-        .insert({
-          sku: productForm.sku.toUpperCase(),
-          name: productForm.name,
-          category: productForm.category,
-          cost: parseFloat((productForm as any).cost) || 0,
-          margin: parseFloat((productForm as any).margin) || 0,
-          price: parseFloat((productForm as any).price) || 0
-        });
+        .insert(productPayload);
+
+      if (error && (error.message?.includes('margin') || error.message?.includes('cost') || error.code === 'PGRST204')) {
+        delete productPayload.margin;
+        delete productPayload.cost;
+        const retry = await supabase.from('inventory').insert(productPayload);
+        error = retry.error;
+      }
 
       if (error) throw error;
 

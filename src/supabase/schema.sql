@@ -516,6 +516,11 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_column THEN null; END $$;
 
 DO $$ BEGIN
+  ALTER TABLE public.inventory ADD COLUMN cost numeric(10,2) DEFAULT 0.00;
+  ALTER TABLE public.inventory ADD COLUMN margin numeric(10,2) DEFAULT 0.00;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
   ALTER TABLE public.institutional_sales ADD COLUMN seller_id text references public.profiles(id);
 EXCEPTION WHEN duplicate_column THEN null; END $$;
 
