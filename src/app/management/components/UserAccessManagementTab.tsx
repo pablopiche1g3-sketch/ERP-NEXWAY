@@ -40,72 +40,80 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     id: 'billing',
     name: 'Facturación y POS',
     tabs: [
-      { id: 'facturacion', name: 'Facturación Rápida' },
-      { id: 'historial', name: 'Historial / Ventas' },
-      { id: 'nota_credito', name: 'Nota de Crédito' },
-      { id: 'nota_debito', name: 'Nota de Débito' },
+      { id: 'facturacion', name: 'Facturación Rápida / POS' },
+      { id: 'historial', name: 'Historial / Ventas DTE' },
+      { id: 'pendientes', name: 'Pre-Facturas / En Espera' },
+      { id: 'cotizaciones', name: 'Cotizaciones y Presupuestos' },
+      { id: 'nota_credito', name: 'Notas de Crédito / Débito' },
       { id: 'arqueo', name: 'Arqueo / Cierre de Caja' },
-      { id: 'creditos', name: 'Créditos / Abonos' },
+      { id: 'creditos', name: 'Abonos y Cobros de Crédito' },
     ]
   },
   {
     id: 'compras',
     name: 'Compras y Proveedores',
     tabs: [
-      { id: 'interno', name: 'Pedidos Internos (Tiendas)' },
-      { id: 'externo', name: 'Pedidos Externos (Proveedores)' },
-      { id: 'cargar-codigos', name: 'Cargar Códigos (Excel)' },
-      { id: 'historial', name: 'Historial de Pedidos' },
+      { id: 'compras', name: 'Registro de Compras DTE' },
+      { id: 'ordenes', name: 'Órdenes de Compra' },
+      { id: 'credito', name: 'Notas de Crédito Proveedores (DTE-05)' },
+      { id: 'mappings', name: 'Mapeo de Códigos (Excel/JSON)' },
+      { id: 'historial', name: 'Historial de Compras y Pedidos' },
     ]
   },
   {
     id: 'logistica',
-    name: 'Logística e Inventarios',
+    name: 'Logística, Producción e Inventarios',
     tabs: [
-      { id: 'existencia', name: 'Existencias y Kárdex' },
-      { id: 'maestro', name: 'Catálogo Maestro' },
-      { id: 'auditoria', name: 'Auditoría de Bodegas' },
-      { id: 'config', name: 'Mapeo / Configuración' },
+      { id: 'inventario', name: 'Inventario General' },
+      { id: 'produccion', name: 'Producción & Fórmulas (BOM)' },
+      { id: 'fraccionamiento', name: 'Fraccionamiento & Salidas Especiales' },
+      { id: 'kardex-valued', name: 'Kardex Valorizado FIFO' },
+      { id: 'traslados', name: 'Traslados entre Bodegas' },
     ]
   },
   {
     id: 'accounting',
     name: 'Contabilidad y Hacienda',
     tabs: [
-      { id: 'diario', name: 'Libro Diario' },
+      { id: 'diario', name: 'Libro Diario & Partidas' },
+      { id: 'mayor', name: 'Libro Mayor' },
       { id: 'balance-comprobacion', name: 'Balance de Comprobación' },
-      { id: 'libros_iva', name: 'Libros IVA' },
-      { id: 'mh_forms', name: 'Formularios MH' },
+      { id: 'libros_iva', name: 'Libros IVA (Compras, CF, CCF)' },
+      { id: 'mh_forms', name: 'Formularios MH (F07, F14, F987)' },
       { id: 'tributario', name: 'Resumen Tributario' },
       { id: 'caja-chica', name: 'Caja Chica' },
-      { id: 'pnl', name: 'Estado PnL' },
+      { id: 'pnl', name: 'Estado PnL & Balance' },
     ]
   },
   {
     id: 'finanzas',
     name: 'Finanzas, Bancos y Créditos',
     tabs: [
-      { id: 'cuentas', name: 'Cuentas Bancarias' },
-      { id: 'movimientos', name: 'Movimientos' },
-      { id: 'creditos', name: 'Créditos y Préstamos' },
+      { id: 'cuentas', name: 'Cuentas Bancarias & Conciliación' },
+      { id: 'quedan', name: 'Gestión de Quedan (Cuentas por Pagar)' },
+      { id: 'creditos', name: 'Cuentas por Cobrar & Créditos' },
+      { id: 'movimientos', name: 'Flujo de Caja & Movimientos' },
     ]
   },
   {
     id: 'crm',
-    name: 'CRM Comercial',
+    name: 'CRM & Directorio Comercial',
     tabs: [
-      { id: 'clientes', name: 'Clientes y Oportunidades' },
-      { id: 'cotizaciones', name: 'Cotizaciones' },
-      { id: 'seguimiento', name: 'Seguimiento' },
+      { id: 'clientes', name: 'Clientes y Contribuyentes' },
+      { id: 'proveedores', name: 'Directorio de Proveedores' },
+      { id: 'cotizaciones', name: 'Cotizaciones & Oportunidades' },
+      { id: 'seguimiento', name: 'Embudo Comercial & Pipeline' },
     ]
   },
   {
     id: 'management',
-    name: 'Gerencia y Reportes',
+    name: 'Gerencia y Configuración',
     tabs: [
-      { id: 'usuarios', name: 'Control de Usuarios' },
-      { id: 'bi', name: 'Centro Analítico (BI)' },
-      { id: 'payroll', name: 'Nómina y RH' },
+      { id: 'usuarios', name: 'Control de Usuarios y Roles' },
+      { id: 'perfil_fiscal', name: 'Perfil Fiscal & DTE Hacienda' },
+      { id: 'bi', name: 'Centro Analítico (BI) & KPIs' },
+      { id: 'auditoria', name: 'Auditoría BMS & NexBot' },
+      { id: 'payroll', name: 'Nómina y Planilla RH' },
     ]
   }
 ];
@@ -115,8 +123,8 @@ export const ROLE_PRESETS: Record<string, { label: string; modules: string[]; ta
     label: '🛒 Cajero POS',
     modules: ['billing', 'compras', 'management'],
     tabs: [
-      'billing_facturacion', 'billing_historial', 'billing_arqueo', 'billing_creditos', 
-      'compras_interno', 
+      'billing_facturacion', 'billing_historial', 'billing_pendientes', 'billing_arqueo', 'billing_creditos', 
+      'compras_compras', 
       'management_usuarios'
     ]
   },
@@ -124,8 +132,8 @@ export const ROLE_PRESETS: Record<string, { label: string; modules: string[]; ta
     label: '📦 Bodeguero / Logística',
     modules: ['logistica', 'compras', 'management'],
     tabs: [
-      'logistica_existencia', 'logistica_maestro', 'logistica_auditoria', 'logistica_config',
-      'compras_interno', 'compras_cargar-codigos', 'compras_historial',
+      'logistica_inventario', 'logistica_produccion', 'logistica_fraccionamiento', 'logistica_traslados', 'logistica_kardex-valued',
+      'compras_compras', 'compras_mappings', 'compras_historial',
       'management_usuarios'
     ]
   },
@@ -133,19 +141,20 @@ export const ROLE_PRESETS: Record<string, { label: string; modules: string[]; ta
     label: '🚚 Encargado de Compras',
     modules: ['compras', 'logistica', 'management'],
     tabs: [
-      'compras_interno', 'compras_externo', 'compras_cargar-codigos', 'compras_historial',
-      'logistica_existencia', 'logistica_maestro',
+      'compras_compras', 'compras_ordenes', 'compras_credito', 'compras_mappings', 'compras_historial',
+      'logistica_inventario', 'logistica_produccion', 'logistica_fraccionamiento',
       'management_usuarios'
     ]
   },
   contador: {
     label: '📊 Contador / Hacienda',
-    modules: ['accounting', 'finanzas', 'billing', 'management'],
+    modules: ['accounting', 'finanzas', 'billing', 'compras', 'management'],
     tabs: [
-      'accounting_diario', 'accounting_balance-comprobacion', 'accounting_libros_iva', 
+      'accounting_diario', 'accounting_mayor', 'accounting_balance-comprobacion', 'accounting_libros_iva', 
       'accounting_mh_forms', 'accounting_tributario', 'accounting_caja-chica', 'accounting_pnl',
-      'finanzas_cuentas', 'finanzas_movimientos',
-      'management_usuarios'
+      'finanzas_cuentas', 'finanzas_quedan', 'finanzas_creditos', 'finanzas_movimientos',
+      'billing_nota_credito', 'compras_credito',
+      'management_usuarios', 'management_auditoria'
     ]
   },
   administrador: {
