@@ -23,7 +23,8 @@ import {
   Building2,
   DollarSign,
   Info,
-  Link2
+  Link2,
+  Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -527,47 +528,73 @@ export default function PurchasesTab() {
     loadCreditNotes();
   }, [activeBranchId]);
 
+  const processCreditNoteJsonText = (jsonText: string) => {
+    try {
+      const json = JSON.parse(jsonText);
+      const id = json.identificacion || {};
+      const emi = json.emisor || {};
+      const res = json.resumen || {};
+      const docRel = json.documentoRelacionado || {};
+      const rawItems = json.cuerpoDocumento || [];
+
+      // Match supplier
+      const matchedSup = suppliers.find(s => 
+        (s.nit && s.nit.replace(/-/g, '') === (emi.nit || '').replace(/-/g, '')) ||
+        (s.name && s.name.toLowerCase() === (emi.nombre || '').toLowerCase())
+      );
+
+      // Match related purchase
+      const relDocNum = docRel.numeroDocumento || docRel.codigoGeneracion || '';
+      const matchedPurchase = purchasesHistory.find(p => 
+        (p.doc_number && relDocNum && p.doc_number.toLowerCase().includes(relDocNum.toLowerCase())) ||
+        (p.order_number && relDocNum && p.order_number.toLowerCase().includes(relDocNum.toLowerCase())) ||
+        (matchedSup && p.supplier_id === matchedSup.id)
+      );
+
+      const items = rawItems.map((item: any) => ({
+        sku: item.codigo || 'S/N',
+        name: item.descripcion || 'Sin Descripción',
+        quantity: parseFloat(item.cantidad) || 0,
+        price: parseFloat(item.precioUni) || 0,
+        total: parseFloat(item.ventaGravada || item.compraGravada) || (parseFloat(item.cantidad) * parseFloat(item.precioUni)) || 0,
+        selected: true,
+        returnQty: parseFloat(item.cantidad) || 0
+      }));
+
+      const totalAmount = parseFloat(res.totalPagar || res.montoTotalOperacion || res.subTotal || 0);
+
+      setParsedCreditNote({
+        documentNumber: id.numeroControl || id.codigoGeneracion || `CN-${Date.now()}`,
+        codigoGeneracion: id.codigoGeneracion || '',
+        supplierId: matchedSup ? matchedSup.id : null,
+        supplierName: matchedSup ? matchedSup.name : (emi.nombre || 'Proveedor Desconocido'),
+        supplierNit: emi.nit || '',
+        relatedDocNumber: relDocNum,
+        matchedPurchaseId: matchedPurchase ? matchedPurchase.id : '',
+        matchedPurchaseDoc: matchedPurchase ? (matchedPurchase.doc_number || matchedPurchase.order_number) : relDocNum,
+        applicationMode: 'AUTOMATICO_FINANCIERO', // 'AUTOMATICO_FINANCIERO' | 'PRODUCTO_ESPECIFICO'
+        targetWarehouseId: warehouses.length > 0 ? warehouses[0].id : '',
+        total: totalAmount,
+        items: items
+      });
+
+      toast({ 
+        title: "Nota de Crédito DTE-05 Cargada ✨", 
+        description: `DTE ${id.numeroControl || id.codigoGeneracion || ''} de ${emi.nombre || 'Proveedor'}. Verifique la aplicación antes de confirmar.` 
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al procesar JSON", description: err.message || "Formato de DTE nota de crédito inválido." });
+    }
+  };
+
   const handleCreditNoteJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        const id = json.identificacion || {};
-        const emi = json.emisor || {};
-        const res = json.resumen || {};
-        const rawItems = json.cuerpoDocumento || [];
-
-        // Match supplier
-        const matchedSup = suppliers.find(s => 
-          (s.nit && s.nit.replace(/-/g, '') === (emi.nit || '').replace(/-/g, '')) ||
-          (s.name && s.name.toLowerCase() === (emi.nombre || '').toLowerCase())
-        );
-
-        const items = rawItems.map((item: any) => ({
-          sku: item.codigo || 'S/N',
-          name: item.descripcion || 'Sin Descripción',
-          quantity: parseFloat(item.cantidad) || 0,
-          price: parseFloat(item.precioUni) || 0,
-          total: parseFloat(item.ventaGravada || item.compraGravada) || (parseFloat(item.cantidad) * parseFloat(item.precioUni)) || 0
-        }));
-
-        setParsedCreditNote({
-          documentNumber: id.numeroControl || id.codigoGeneracion || `CN-${Date.now()}`,
-          supplierId: matchedSup ? matchedSup.id : null,
-          supplierName: matchedSup ? matchedSup.name : (emi.nombre || 'Proveedor Desconocido'),
-          supplierNit: emi.nit || '',
-          total: parseFloat(res.totalPagar || res.montoTotalOperacion || res.subTotal || 0),
-          items: items
-        });
-
-        toast({ title: "JSON Cargado", description: "La Nota de Crédito se importó correctamente. Por favor revise el desglose antes de guardar." });
-      } catch (err: any) {
-        console.error(err);
-        toast({ variant: "destructive", title: "Error al leer JSON", description: err.message || "Formato de DTE nota de crédito inválido." });
-      }
+      processCreditNoteJsonText(event.target?.result as string);
     };
     reader.readAsText(file);
   };
@@ -588,25 +615,96 @@ export default function PurchasesTab() {
         }
       }
 
+      const totalNc = parsedCreditNote.total || 0;
+      const gravada = totalNc / 1.13;
+      const iva13 = totalNc - gravada;
+      const selectedWh = warehouses.find(w => w.id === parsedCreditNote.targetWarehouseId) || (warehouses.length > 0 ? warehouses[0] : null);
+
+      // 1. Si es Devolución de Productos Físicos, ajustar inventario y Kardex
+      if (parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' && selectedWh) {
+        for (const item of parsedCreditNote.items) {
+          if (item.selected && item.returnQty > 0) {
+            // Buscar stock actual
+            const { data: stockRow } = await supabase
+              .from('inventory_stock')
+              .select('quantity')
+              .eq('warehouse_id', selectedWh.id)
+              .eq('sku', item.sku)
+              .maybeSingle();
+
+            const currentStock = parseFloat(stockRow?.quantity) || 0;
+            const newStock = currentStock - item.returnQty;
+
+            await supabase.from('inventory_stock').upsert({
+              sku: item.sku,
+              warehouse_id: selectedWh.id,
+              quantity: newStock
+            }, { onConflict: 'sku,warehouse_id' });
+
+            await supabase.from('kardex').insert({
+              sku: item.sku,
+              movement_type: 'DEVOLUCION_COMPRA',
+              location: selectedWh.name,
+              document_ref: `NC-${parsedCreditNote.documentNumber}`,
+              qty_in: 0,
+              qty_out: item.returnQty,
+              balance: newStock,
+              unit_cost: item.price
+            });
+          }
+        }
+      }
+
+      // 2. Registrar Partida Contable Automática en Journal (Partida Doble)
+      const journalLines = [
+        { account_code: '2101', account_name: 'Cuentas por Pagar Proveedores Locales', debit: totalNc, credit: 0 },
+        { account_code: '1106', account_name: 'IVA Crédito Fiscal (Reversión 13%)', debit: 0, credit: iva13 },
+        { 
+          account_code: parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' ? '1105' : '4102', 
+          account_name: parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' ? 'Inventario de Mercaderías' : 'Compras Gravadas (Descuentos y Rebajas)', 
+          debit: 0, 
+          credit: gravada 
+        }
+      ];
+
+      try {
+        await supabase.from('journal').insert({
+          concept: `Nota de Crédito Proveedor [${parsedCreditNote.documentNumber}] - ${parsedCreditNote.supplierName} (Ref: ${parsedCreditNote.matchedPurchaseDoc || 'Compra'})`,
+          document_ref: parsedCreditNote.documentNumber,
+          amount: totalNc,
+          lines: journalLines,
+          branch_id: activeBranchId || null
+        });
+      } catch (jErr) {
+        console.warn('Error al registrar partida de NC en journal:', jErr);
+      }
+
+      // 3. Insertar registro en public.supplier_credit_notes
       const { error } = await supabase
         .from('supplier_credit_notes')
         .insert({
           supplier_id: sId,
           document_number: parsedCreditNote.documentNumber,
-          type: selectedCreditNoteType,
-          total: parsedCreditNote.total,
+          type: parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' ? 'DEVOLUCION' : 'AJUSTE_PRECIO',
+          total: totalNc,
           items: parsedCreditNote.items,
           branch_id: activeBranchId || null
         });
 
       if (error) throw error;
-      toast({ title: "Nota de Crédito Registrada", description: "Se aplicó con éxito la nota de crédito." });
+
+      toast({ 
+        title: "¡Nota de Crédito Aplicada con Éxito! 🧾", 
+        description: `Se aplicó la NC ${parsedCreditNote.documentNumber} y se generó el asiento contable y ajuste en Kardex.` 
+      });
+
       setParsedCreditNote(null);
       if (creditNoteFileInputRef.current) creditNoteFileInputRef.current.value = '';
       await loadCreditNotes();
+      await loadPurchasesData();
     } catch (err: any) {
       console.error(err);
-      toast({ variant: "destructive", title: "Error al guardar", description: err.message });
+      toast({ variant: "destructive", title: "Error al guardar Nota de Crédito", description: err.message });
     } finally {
       setLoading(false);
     }
@@ -1782,24 +1880,42 @@ export default function PurchasesTab() {
     <TabsContent value="credito" className="space-y-6 outline-none animate-in fade-in duration-300">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* COLUMNA IZQUIERDA: IMPORTADOR DTE JSON */}
-        <div className="lg:col-span-4 space-y-6">
-          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+        {/* COLUMNA IZQUIERDA: IMPORTADOR DTE JSON INTELIGENTE */}
+        <div className="lg:col-span-5 space-y-6">
+          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-xl">
             <CardHeader className="p-0 pb-4 border-b border-white/10 mb-4">
-              <CardTitle className="text-sm font-bold flex items-center gap-2 text-white">
-                <FileJson className="text-indigo-400" size={16} /> Importador Nota de Crédito
+              <CardTitle className="text-sm font-black flex items-center gap-2 text-white">
+                <FileJson className="text-indigo-400" size={18} /> Importador DTE-05 (Nota de Crédito)
               </CardTitle>
-              <CardDescription className="text-[11px] text-white/50">Cargue el DTE en formato JSON para procesar la nota de crédito rápidamente.</CardDescription>
+              <CardDescription className="text-[11px] text-white/60">
+                Arrastra el archivo JSON del Ministerio de Hacienda para vincularlo a la factura de compra original y generar el asiento contable.
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0 space-y-4 text-white">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-white/40 tracking-wider">Cargar archivo JSON</Label>
+              {/* ZONA DE ARRASTRE DRAG & DROP */}
+              <div 
+                className="space-y-2"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file && file.name.endsWith('.json')) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => processCreditNoteJsonText(ev.target?.result as string);
+                    reader.readAsText(file);
+                  } else {
+                    toast({ variant: 'destructive', title: 'Archivo no válido', description: 'Por favor arrastre un archivo .json de Nota de Crédito DTE.' });
+                  }
+                }}
+              >
+                <Label className="text-[10px] font-black uppercase text-white/40 tracking-wider">Cargar archivo JSON (DTE-05)</Label>
                 <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer bg-[#000000]/15 dark:bg-black/35 border-white/10 hover:border-indigo-400 transition-colors">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <FileJson className="w-8 h-8 mb-2 text-indigo-400" />
-                      <p className="text-xs text-white/70 font-semibold">Haga clic o arrastre su JSON aquí</p>
-                      <p className="text-[10px] text-white/40">Soporta DTE Nota de Crédito (.json)</p>
+                  <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-2xl cursor-pointer bg-black/25 hover:bg-black/40 border-white/15 hover:border-indigo-400 transition-all group">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
+                      <FileJson className="w-10 h-10 mb-2 text-indigo-400 group-hover:scale-110 transition-transform" />
+                      <p className="text-xs text-white/80 font-black">Arrastre su JSON aquí o haga clic</p>
+                      <p className="text-[10px] text-white/40 mt-0.5">DTE-05 Nota de Crédito de Proveedor (.json)</p>
                     </div>
                     <input 
                       type="file" 
@@ -1812,57 +1928,166 @@ export default function PurchasesTab() {
                 </div>
               </div>
 
+              {/* VISTA PREVIA Y APLICACIÓN DE LA NOTA DE CRÉDITO (LÓGICA FOXPRO) */}
               {parsedCreditNote && (
-                <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-3">
-                  <h3 className="text-xs font-black text-indigo-300 uppercase tracking-widest border-b border-indigo-500/20 pb-1.5">Vista Previa Nota de Crédito</h3>
+                <div className="p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-3">
+                  <div className="flex justify-between items-center border-b border-indigo-500/20 pb-2">
+                    <h3 className="text-xs font-black text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-indigo-400" /> Aplicación de Nota de Crédito
+                    </h3>
+                    <Badge className="bg-indigo-500/20 text-indigo-300 font-mono text-[10px] font-black border-0">
+                      ${parsedCreditNote.total.toFixed(2)}
+                    </Badge>
+                  </div>
                   
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-black uppercase text-white/30 block">N. Comprobante DTE</span>
-                    <span className="text-xs font-bold text-white font-mono">{parsedCreditNote.documentNumber}</span>
+                  {/* Info Proveedor y DTE */}
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-black/30 rounded-xl border border-white/5 text-xs">
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-white/40 block">Proveedor</span>
+                      <strong className="text-white truncate block">{parsedCreditNote.supplierName}</strong>
+                      <span className="text-[9px] text-white/50 font-mono">NIT: {parsedCreditNote.supplierNit}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-white/40 block">N. Comprobante NC</span>
+                      <strong className="text-indigo-300 font-mono truncate block">{parsedCreditNote.documentNumber}</strong>
+                      <span className="text-[9px] text-white/50 block">DTE-05 Hacienda</span>
+                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-black uppercase text-white/30 block">Proveedor</span>
-                    <span className="text-xs font-bold text-white">{parsedCreditNote.supplierName}</span>
-                    <span className="text-[9px] text-white/50 block font-mono">NIT: {parsedCreditNote.supplierNit}</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-white/30 tracking-wider">Motivo de Nota de Crédito</Label>
+                  {/* Factura / CCF de Compra Afectada */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-white/50">Factura de Compra Relacionada (CCF)</Label>
                     <Select 
-                      value={selectedCreditNoteType}
-                      onValueChange={(val: any) => setSelectedCreditNoteType(val)}
+                      value={parsedCreditNote.matchedPurchaseId || 'manual'} 
+                      onValueChange={(val) => {
+                        const purch = purchasesHistory.find(p => p.id === val);
+                        setParsedCreditNote((prev: any) => ({
+                          ...prev,
+                          matchedPurchaseId: val,
+                          matchedPurchaseDoc: purch ? (purch.doc_number || purch.order_number) : prev.relatedDocNumber
+                        }));
+                      }}
                     >
-                      <SelectTrigger className="h-10 bg-slate-900/50 border-white/10 text-xs font-bold rounded-xl text-white">
-                        <SelectValue />
+                      <SelectTrigger className="h-10 bg-slate-900/60 border-white/10 text-xs font-bold rounded-xl text-white">
+                        <SelectValue placeholder="Seleccione factura a afectar..." />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DEVOLUCION" className="text-xs">Devolución de Producto</SelectItem>
-                        <SelectItem value="AJUSTE_PRECIO" className="text-xs">Ajuste de Precio</SelectItem>
+                      <SelectContent className="max-h-56">
+                        {purchasesHistory
+                          .filter(p => !parsedCreditNote.supplierId || p.supplier_id === parsedCreditNote.supplierId)
+                          .map(p => (
+                            <SelectItem key={p.id} value={p.id} className="text-xs font-bold">
+                              CCF: {p.doc_number || p.order_number} • Total: ${parseFloat(p.total).toFixed(2)} ({new Date(p.created_at).toLocaleDateString()})
+                            </SelectItem>
+                          ))}
+                        <SelectItem value="manual" className="text-xs font-bold italic text-indigo-300">
+                          {parsedCreditNote.relatedDocNumber ? `Ref. DTE: ${parsedCreditNote.relatedDocNumber}` : 'Aplicar a Saldo General de Proveedor'}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="space-y-1.5 border-t border-indigo-500/20 pt-3">
-                    <div className="flex justify-between items-center text-xs font-black text-white">
-                      <span>Total Neto:</span>
-                      <span className="text-indigo-400 font-mono text-sm">${parsedCreditNote.total.toFixed(2)}</span>
+                  {/* Selector de Modalidad (Lógica Visual FoxPro) */}
+                  <div className="space-y-2 p-3 bg-black/30 rounded-xl border border-white/5">
+                    <Label className="text-[10px] font-black uppercase text-white/40 block">Modalidad de Aplicación</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setParsedCreditNote((prev: any) => ({ ...prev, applicationMode: 'AUTOMATICO_FINANCIERO' }))}
+                        className={`p-2.5 rounded-xl text-left border text-xs font-bold transition-all ${
+                          parsedCreditNote.applicationMode === 'AUTOMATICO_FINANCIERO'
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white font-black'
+                            : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                        }`}
+                      >
+                        <p className="text-[11px]">⚡ Abono a Saldo</p>
+                        <span className="text-[9px] text-white/40 font-normal">Rebaja cuenta por pagar</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setParsedCreditNote((prev: any) => ({ ...prev, applicationMode: 'PRODUCTO_ESPECIFICO' }))}
+                        className={`p-2.5 rounded-xl text-left border text-xs font-bold transition-all ${
+                          parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO'
+                            ? 'bg-indigo-600/30 border-indigo-500 text-white font-black'
+                            : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                        }`}
+                      >
+                        <p className="text-[11px]">📦 Devolución Física</p>
+                        <span className="text-[9px] text-white/40 font-normal">Descarga en Kardex</span>
+                      </button>
                     </div>
                   </div>
 
+                  {/* Si es Devolución Física: Selector de Bodega e Ítems */}
+                  {parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' && (
+                    <div className="space-y-3 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/20 text-xs">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase text-indigo-300">Bodega de Salida (Kardex)</Label>
+                        <Select 
+                          value={parsedCreditNote.targetWarehouseId} 
+                          onValueChange={(val) => setParsedCreditNote((prev: any) => ({ ...prev, targetWarehouseId: val }))}
+                        >
+                          <SelectTrigger className="h-9 bg-slate-900/60 border-white/10 text-xs font-bold rounded-xl text-white">
+                            <SelectValue placeholder="Seleccione bodega..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {warehouses.map(w => (
+                              <SelectItem key={w.id} value={w.id} className="text-xs font-bold">{w.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-black uppercase text-indigo-300">Productos del DTE a Devolver</Label>
+                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                          {parsedCreditNote.items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center bg-black/40 p-2 rounded-lg border border-white/5 text-[11px]">
+                              <div className="truncate pr-2">
+                                <strong className="text-white block truncate">{item.name}</strong>
+                                <span className="text-[9px] text-white/40 font-mono">{item.sku}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-indigo-300 font-black">{item.quantity} und</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Previsualización de Partida Contable */}
+                  <div className="p-3 bg-black/40 rounded-xl border border-white/5 text-[11px] space-y-1.5 font-mono">
+                    <p className="text-[9px] font-black uppercase text-white/40 tracking-wider">Asiento Contable Automático (Journal)</p>
+                    <div className="flex justify-between text-emerald-400">
+                      <span>[2101] Cuentas por Pagar Proveedores</span>
+                      <span>+${parsedCreditNote.total.toFixed(2)} (D)</span>
+                    </div>
+                    <div className="flex justify-between text-amber-400">
+                      <span>[1106] IVA Crédito Fiscal (Reversión 13%)</span>
+                      <span>-${(parsedCreditNote.total - parsedCreditNote.total / 1.13).toFixed(2)} (H)</span>
+                    </div>
+                    <div className="flex justify-between text-indigo-400">
+                      <span>{parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' ? '[1105] Inventario' : '[4102] Compras/Descuentos'}</span>
+                      <span>-${(parsedCreditNote.total / 1.13).toFixed(2)} (H)</span>
+                    </div>
+                  </div>
+
+                  {/* Botones de Acción */}
                   <div className="flex gap-2 pt-2">
                     <Button 
                       onClick={handleSaveCreditNote}
                       disabled={loading}
-                      className="flex-1 h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs"
+                      className="flex-1 h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl text-xs shadow-lg shadow-indigo-600/25"
                     >
-                      {loading ? <Loader2 className="animate-spin mr-1" /> : null}
-                      APLICAR NOTA
+                      {loading ? <Loader2 className="animate-spin mr-1.5" size={14} /> : <CheckCircle2 className="mr-1.5" size={14} />}
+                      ⚡ APLICAR NOTA DE CRÉDITO
                     </Button>
                     <Button 
                       variant="ghost" 
                       onClick={() => setParsedCreditNote(null)}
-                      className="flex-1 h-10 border border-white/10 text-white hover:bg-white/5 rounded-xl text-xs"
+                      className="h-11 px-4 border border-white/10 text-white hover:bg-white/5 rounded-xl text-xs font-bold"
                     >
                       CANCELAR
                     </Button>
