@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Representación Gráfica DTE - {{ identificacion.codigoGeneracion }}</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 12mm;
+            @bottom-center {
+                content: "Documento Tributario Electrónico emitido de conformidad con la normativa del Ministerio de Hacienda de El Salvador.";
+                font-size: 7pt;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                color: #64748b;
+            }
+            @bottom-right {
+                content: "Pág. " counter(page) " de " counter(pages);
+                font-size: 7pt;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                color: #64748b;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 8.5pt;
+            color: #1e293b;
+            line-height: 1.35;
+            background-color: #ffffff;
+        }
+
+        .header-container {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .header-left {
+            width: 58%;
+            vertical-align: top;
+            padding-right: 15px;
+        }
+
+        .header-right {
+            width: 42%;
+            vertical-align: top;
+        }
+
+        .company-logo {
+            max-height: 48px;
+            max-width: 180px;
+            margin-bottom: 5px;
+        }
+
+        .company-name {
+            font-size: 10.5pt;
+            font-weight: bold;
+            color: #0f172a;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .company-info {
+            font-size: 7.5pt;
+            color: #334155;
+            line-height: 1.3;
+        }
+
+        .company-info span {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .dte-box {
+            border: 1.5px solid #1e3a8a;
+            border-radius: 6px;
+            overflow: hidden;
+            background-color: #f8fafc;
+        }
+
+        .dte-box-header {
+            background-color: #1e3a8a;
+            color: #ffffff;
+            text-align: center;
+            padding: 5px 8px;
+            font-size: 9.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .dte-box-content {
+            padding: 6px 8px;
+            font-size: 7.5pt;
+        }
+
+        .dte-row {
+            margin-bottom: 3px;
+        }
+
+        .dte-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .dte-label {
+            font-weight: bold;
+            color: #1e293b;
+            display: inline-block;
+            width: 95px;
+        }
+
+        .dte-val {
+            color: #0f172a;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 7.5pt;
+            font-weight: bold;
+        }
+
+        .badge-ambiente {
+            display: inline-block;
+            padding: 1px 4px;
+            font-size: 6.5pt;
+            font-weight: bold;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .ambiente-pruebas {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        .ambiente-prod {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #22c55e;
+        }
+
+        /* Bloque Receptor */
+        .section-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .section-title {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-size: 7.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-bottom: 1px solid #cbd5e1;
+            letter-spacing: 0.3px;
+        }
+
+        .section-content {
+            padding: 6px 8px;
+        }
+
+        .grid-2col {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .grid-2col td {
+            vertical-align: top;
+            padding: 1.5px 4px;
+            font-size: 7.5pt;
+        }
+
+        .label-client {
+            font-weight: 600;
+            color: #475569;
+            width: 80px;
+        }
+
+        .val-client {
+            color: #0f172a;
+            font-weight: 500;
+        }
+
+        /* Tabla de Productos */
+        .table-items {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        .table-items th {
+            background-color: #1e3a8a;
+            color: #ffffff;
+            font-size: 7.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 5px 6px;
+            border: 1px solid #1e3a8a;
+            letter-spacing: 0.2px;
+        }
+
+        .table-items td {
+            padding: 4px 6px;
+            font-size: 7.5pt;
+            border: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+
+        .table-items tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+
+        /* Bloque Final: QR y Totales */
+        .footer-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            page-break-inside: avoid;
+        }
+
+        .footer-left {
+            width: 58%;
+            vertical-align: top;
+            padding-right: 15px;
+        }
+
+        .footer-right {
+            width: 42%;
+            vertical-align: top;
+        }
+
+        .qr-container {
+            display: table;
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 6px;
+            background-color: #f8fafc;
+            margin-bottom: 6px;
+        }
+
+        .qr-image-cell {
+            display: table-cell;
+            width: 85px;
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .qr-image {
+            width: 78px;
+            height: 78px;
+        }
+
+        .qr-text-cell {
+            display: table-cell;
+            vertical-align: middle;
+            padding-left: 8px;
+            font-size: 6.8pt;
+            color: #475569;
+            line-height: 1.25;
+        }
+
+        .qr-text-cell strong {
+            color: #0f172a;
+        }
+
+        .total-letras-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            padding: 5px 8px;
+            background-color: #ffffff;
+            font-size: 7.2pt;
+        }
+
+        .total-letras-label {
+            font-weight: bold;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 6.5pt;
+            margin-bottom: 2px;
+        }
+
+        .total-letras-val {
+            font-weight: bold;
+            color: #0f172a;
+            font-style: italic;
+        }
+
+        /* Tabla de Totales */
+        .table-totals {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .table-totals td {
+            padding: 3.5px 8px;
+            font-size: 7.5pt;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .table-totals tr:last-child td {
+            border-bottom: none;
+        }
+
+        .total-label {
+            font-weight: 600;
+            color: #334155;
+            width: 60%;
+        }
+
+        .total-amount {
+            font-weight: bold;
+            color: #0f172a;
+            text-align: right;
+            font-family: 'Courier New', Courier, monospace;
+            width: 40%;
+        }
+
+        .row-total-destacado {
+            background-color: #1e3a8a !important;
+        }
+
+        .row-total-destacado td {
+            color: #ffffff !important;
+            font-size: 9pt !important;
+            font-weight: bold;
+            padding: 6px 8px !important;
+        }
+
+        .row-total-destacado .total-amount {
+            color: #ffffff !important;
+            font-size: 9.5pt !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ENCABEZADO Y DATOS DE CONTROL DTE -->
+    <div class="header-container">
+        <table class="header-table">
+            <tr>
+                <td class="header-left">
+                    {% if emisor.logoBase64 %}
+                    <img src="data:image/png;base64,{{ emisor.logoBase64 }}" class="company-logo" alt="Logo">
+                    {% endif %}
+                    <div class="company-name">{{ emisor.nombre }}</div>
+                    <div class="company-info">
+                        <div><span>NIT:</span> {{ emisor.nit }} &nbsp;|&nbsp; <span>NRC:</span> {{ emisor.nrc }}</div>
+                        <div><span>Giro / Actividad:</span> {{ emisor.codActividad }} - {{ emisor.descActividad }}</div>
+                        <div><span>Dirección:</span> {{ emisor.direccion }}</div>
+                        {% if emisor.telefono %}
+                        <div><span>Teléfono:</span> {{ emisor.telefono }}</div>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="header-right">
+                    <div class="dte-box">
+                        <div class="dte-box-header">
+                            {% if identificacion.tipoDte == "01" %}
+                            FACTURA ELECTRÓNICA
+                            {% elif identificacion.tipoDte == "03" %}
+                            COMPROBANTE DE CRÉDITO FISCAL
+                            {% elif identificacion.tipoDte == "05" %}
+                            NOTA DE CRÉDITO
+                            {% else %}
+                            DOCUMENTO TRIBUTARIO ELECTRÓNICO
+                            {% endif %}
+                        </div>
+                        <div class="dte-box-content">
+                            <div class="dte-row">
+                                <span class="dte-label">CÓD. GENERACIÓN:</span>
+                                <span class="dte-val">{{ identificacion.codigoGeneracion }}</span>
+                            </div>
+                            <div class="dte-row">
+                                <span class="dte-label">NUM. CONTROL:</span>
+                                <span class="dte-val">{{ identificacion.numeroControl }}</span>
+                            </div>
+                            <div class="dte-row">
+                                <span class="dte-label">SELLO RECEPCIÓN:</span>
+                                <span class="dte-val" style="font-size: 6.8pt;">{{ selloRecepcion or 'PENDIENTE DE RECEPCIÓN' }}</span>
+                            </div>
+                            <div class="dte-row">
+                                <span class="dte-label">FECHA / HORA:</span>
+                                <span class="dte-val">{{ identificacion.fecEmi }} {{ identificacion.horEmi }}</span>
+                            </div>
+                            <div class="dte-row" style="margin-top: 4px;">
+                                <span class="dte-label">AMBIENTE:</span>
+                                {% if identificacion.ambiente == "00" %}
+                                <span class="badge-ambiente ambiente-pruebas">PRUEBAS (SANDBOX)</span>
+                                {% else %}
+                                <span class="badge-ambiente ambiente-prod">PRODUCCIÓN</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- DATOS DEL RECEPTOR / CLIENTE -->
+    <div class="section-box">
+        <div class="section-title">Datos del Receptor / Cliente</div>
+        <div class="section-content">
+            <table class="grid-2col">
+                <tr>
+                    <td style="width: 55%;">
+                        <span class="label-client">Nombre / Razón Social:</span> 
+                        <span class="val-client"><strong>{{ receptor.nombre }}</strong></span>
+                    </td>
+                    <td style="width: 45%;">
+                        <span class="label-client">
+                            {% if receptor.tipoDocumento == "36" %}NIT:{% elif receptor.tipoDocumento == "13" %}DUI:{% else %}Doc. Identidad:{% endif %}
+                        </span> 
+                        <span class="val-client">{{ receptor.numDocumento or 'N/A' }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <span class="label-client">Dirección:</span> 
+                        <span class="val-client">{{ receptor.direccion or 'San Salvador, El Salvador' }}</span>
+                    </td>
+                    <td>
+                        <span class="label-client">NRC:</span> 
+                        <span class="val-client">{{ receptor.nrc or 'N/A' }}</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- TABLA DE PRODUCTOS / SERVICIOS -->
+    <table class="table-items">
+        <thead>
+            <tr>
+                <th style="width: 6%;" class="text-center">#</th>
+                <th style="width: 10%;" class="text-center">Cant.</th>
+                <th style="width: 48%;" class="text-left">Descripción</th>
+                <th style="width: 12%;" class="text-right">Precio Unit.</th>
+                <th style="width: 10%;" class="text-right">Descto.</th>
+                <th style="width: 14%;" class="text-right">Ventas Gravadas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in cuerpoDocumento %}
+            <tr>
+                <td class="text-center">{{ item.numItem }}</td>
+                <td class="text-center font-bold">{{ "%.2f"|format(item.cantidad) }}</td>
+                <td class="text-left">{{ item.descripcion }}</td>
+                <td class="text-right font-mono">${{ "%.2f"|format(item.precioUni) }}</td>
+                <td class="text-right font-mono">${{ "%.2f"|format(item.montoDescu or 0.0) }}</td>
+                <td class="text-right font-mono font-bold">${{ "%.2f"|format(item.ventaGravada) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- BLOQUE FINAL: QR, TOTALES Y MONTOS -->
+    <table class="footer-summary-table">
+        <tr>
+            <!-- IZQUIERDA: QR Y LETRAS -->
+            <td class="footer-left">
+                <div class="qr-container">
+                    <div class="qr-image-cell">
+                        <img src="data:image/png;base64,{{ qrCodeBase64 }}" class="qr-image" alt="Código QR Consulta MH">
+                    </div>
+                    <div class="qr-text-cell">
+                        <strong>CONSULTA PÚBLICA DTE:</strong><br>
+                        Escanee el código QR o consulte con el Código de Generación en el portal oficial del Ministerio de Hacienda:<br>
+                        <em>https://factura.mh.gob.sv/consultaPublica</em>
+                    </div>
+                </div>
+
+                <div class="total-letras-box">
+                    <div class="total-letras-label">Valor en Letras:</div>
+                    <div class="total-letras-val">{{ resumen.totalLetras }}</div>
+                </div>
+            </td>
+
+            <!-- DERECHA: DESGLOSE FINANCIERO -->
+            <td class="footer-right">
+                <table class="table-totals">
+                    <tr>
+                        <td class="total-label">Sumas / Total Gravado:</td>
+                        <td class="total-amount">${{ "%.2f"|format(resumen.totalGravada) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="total-label">Subtotal:</td>
+                        <td class="total-amount">${{ "%.2f"|format(resumen.subTotal) }}</td>
+                    </tr>
+                    {% if identificacion.tipoDte == "03" or resumen.totalIva > 0 %}
+                    <tr>
+                        <td class="total-label">IVA (13%):</td>
+                        <td class="total-amount">${{ "%.2f"|format(resumen.totalIva) }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if resumen.ivaRete1 and resumen.ivaRete1 > 0 %}
+                    <tr>
+                        <td class="total-label">IVA Retenido (1%):</td>
+                        <td class="total-amount">-${{ "%.2f"|format(resumen.ivaRete1) }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr class="row-total-destacado">
+                        <td class="total-label">TOTAL A PAGAR:</td>
+                        <td class="total-amount">${{ "%.2f"|format(resumen.totalPagar) }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
