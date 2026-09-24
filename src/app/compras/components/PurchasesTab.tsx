@@ -24,7 +24,11 @@ import {
   DollarSign,
   Info,
   Link2,
-  Sparkles
+  Sparkles,
+  Users,
+  Check,
+  Hash,
+  ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
+import { fetchSystemAppUsers, SystemUserOption } from '@/lib/session-operator';
 
 interface PurchaseItem {
   id: string;
@@ -62,11 +67,15 @@ export default function PurchasesTab() {
   const [activeTab, setActiveTab] = useState('registro');
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [pedidoId, setPedidoId] = useState('');
+  const [docNumber, setDocNumber] = useState('');
   const [generationCode, setGenerationCode] = useState('');
   const [docType, setDocType] = useState<'FACTURA' | 'CCF'>('FACTURA');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [creditDays, setCreditDays] = useState<string | number>('');
   const [enteredBy, setEnteredBy] = useState('');
+  const [systemUsers, setSystemUsers] = useState<SystemUserOption[]>([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [isUserPopoverOpen, setIsUserPopoverOpen] = useState(false);
   const [warehouse, setWarehouse] = useState('');
   
   // Proveedor seleccionado
@@ -91,6 +100,7 @@ export default function PurchasesTab() {
   const [isUncreatedDialogOpen, setIsUncreatedDialogOpen] = useState(false);
   const [selectedUncreatedCategory, setSelectedUncreatedCategory] = useState<Record<string, string>>({});
   const [selectedUncreatedPrice, setSelectedUncreatedPrice] = useState<Record<string, string>>({});
+  const [processingAllUncreated, setProcessingAllUncreated] = useState(false);
 
   // Estados para vinculación de códigos de proveedor
   const [savedMappings, setSavedMappings] = useState<any[]>([]);
@@ -217,6 +227,18 @@ export default function PurchasesTab() {
         .order('created_at', { ascending: false });
       setPendingDtes(dteData || []);
 
+      // Cargar usuarios del sistema para selector de encargado
+      const appUsers = await fetchSystemAppUsers();
+      setSystemUsers(appUsers || []);
+      if (!enteredBy && appUsers && appUsers.length > 0) {
+        const localOp = typeof window !== 'undefined' ? localStorage.getItem('nexway_session_operator') : null;
+        if (localOp) {
+          setEnteredBy(localOp);
+        } else {
+          setEnteredBy(appUsers[0].full_name || appUsers[0].email);
+        }
+      }
+
     } catch (e: any) {
       console.error('Error al cargar datos en compras:', e);
     } finally {
@@ -248,34 +270,61 @@ export default function PurchasesTab() {
     const dte = pendingDtes.find(d => d.id === id);
     if (!dte) return;
 
-    const payload = dte.payload_json;
+    const payload = dte.payload_json || {};
     const sup = suppliers.find(s => s.nit && s.nit.replace(/-/g, '') === (payload.emisor?.nit || '').replace(/-/g, ''));
     if (sup) setSupplierName(sup.name);
-    else setSupplierName(payload.emisor?.nombre || '');
+    else setSupplierName(payload.emisor?.nombre || dte.proveedor_nombre || '');
 
-    setGenerationCode(payload.identificacion?.numeroControl || '');
+    const ctrl = payload.identificacion?.numeroControl || dte.documento_numero || '';
+    const gen = payload.identificacion?.codigoGeneracion || '';
+    setDocNumber(ctrl);
+    setGenerationCode(gen);
+    setDocType(payload.identificacion?.tipoDte === '03' ? 'CCF' : 'FACTURA');
     
     const rawItems = payload.cuerpoDocumento || [];
-    const mappedItems = rawItems.map((item: any) => {
-       const mapping = savedMappings.find(m => m.supplierCode === item.codigo);
-       let prod = null;
-       if (mapping) {
-         prod = inventory.find(i => i.sku === mapping.internalSku);
-       } else {
-         prod = inventory.find(i => i.sku === item.codigo);
-       }
+    const mappedItems: any[] = [];
+    const uncreated: any[] = [];
 
-       return {
-         id: prod ? prod.id : item.codigo,
-         sku: prod ? prod.sku : item.codigo,
-         name: prod ? prod.name : item.descripcion,
-         quantity: parseFloat(item.cantidad) || 0,
-         cost: parseFloat(item.precioUni) || 0
-       };
+    rawItems.forEach((item: any) => {
+      const rawCode = (item.codigo || '').trim().toUpperCase();
+      const mapping = savedMappings.find(m => m.supplierCode.trim().toUpperCase() === rawCode);
+      const resolvedSku = mapping ? mapping.internalSku.trim().toUpperCase() : rawCode;
+
+      const prod = inventory.find(i => 
+        i.sku.trim().toUpperCase() === resolvedSku || 
+        i.name.trim().toLowerCase() === (item.descripcion || '').trim().toLowerCase()
+      );
+
+      if (prod) {
+        mappedItems.push({
+          id: prod.id,
+          sku: prod.sku,
+          name: prod.name,
+          quantity: parseFloat(item.cantidad) || 0,
+          cost: parseFloat(item.precioUni) || 0
+        });
+      } else {
+        uncreated.push({
+          sku: resolvedSku || `TEMP-${Date.now().toString().slice(-4)}`,
+          originalProviderCode: rawCode,
+          name: item.descripcion || 'Producto sin nombre',
+          quantity: parseFloat(item.cantidad) || 0,
+          cost: parseFloat(item.precioUni) || 0
+        });
+      }
     });
 
     setPurchaseItems(mappedItems);
-    toast({ title: "Catálogo DTE Aplicado", description: "El formulario se ha rellenado con los datos del DTE. Por favor revise antes de guardar." });
+    if (uncreated.length > 0) {
+      setUncreatedDteProducts(uncreated);
+      setIsUncreatedDialogOpen(true);
+      toast({ 
+        title: "DTE Aplicado con Productos Pendientes", 
+        description: `Se cargaron ${mappedItems.length} ítems y se detectaron ${uncreated.length} productos sin registrar.` 
+      });
+    } else {
+      toast({ title: "Catálogo DTE Aplicado", description: "El formulario se ha rellenado con los datos del DTE. Por favor revise antes de guardar." });
+    }
   };
 
   const handleSaveManualMapping = async () => {
@@ -506,6 +555,122 @@ export default function PurchasesTab() {
     }
   };
 
+  const handleCreateAllUncreatedProducts = async () => {
+    if (uncreatedDteProducts.length === 0) return;
+    setProcessingAllUncreated(true);
+    try {
+      const itemsToAdd: any[] = [];
+      const mappingsToAdd: { supplier_code: string; internal_sku: string }[] = [];
+      const newInventoryItems: any[] = [];
+
+      for (const p of uncreatedDteProducts) {
+        const cleanedSku = p.sku.trim().toUpperCase();
+        const category = selectedUncreatedCategory[p.sku] || 'Inventario de Mercadería';
+        const priceVal = parseFloat(selectedUncreatedPrice[p.sku] || '0') || (p.cost * 1.3);
+
+        const { data: dbProduct } = await supabase
+          .from('inventory')
+          .select('*')
+          .eq('sku', cleanedSku)
+          .maybeSingle();
+
+        const existingProduct = dbProduct || inventory.find(inv => inv.sku.trim().toUpperCase() === cleanedSku);
+
+        if (existingProduct) {
+          if (p.originalProviderCode) {
+            const cleanProv = p.originalProviderCode.trim().toUpperCase();
+            mappingsToAdd.push({ supplier_code: cleanProv, internal_sku: existingProduct.sku });
+          }
+          itemsToAdd.push({
+            id: existingProduct.sku,
+            sku: existingProduct.sku,
+            name: existingProduct.name,
+            quantity: p.quantity,
+            cost: p.cost
+          });
+        } else {
+          const { error: insErr } = await supabase
+            .from('inventory')
+            .insert({
+              sku: cleanedSku,
+              name: p.name,
+              category: category,
+              price: priceVal
+            });
+          if (insErr) throw insErr;
+
+          if (p.originalProviderCode) {
+            const cleanProv = p.originalProviderCode.trim().toUpperCase();
+            mappingsToAdd.push({ supplier_code: cleanProv, internal_sku: cleanedSku });
+          }
+
+          newInventoryItems.push({
+            id: cleanedSku,
+            sku: cleanedSku,
+            name: p.name,
+            category: category,
+            price: priceVal,
+            quantity: 0,
+            bodegas: {}
+          });
+
+          itemsToAdd.push({
+            id: cleanedSku,
+            sku: cleanedSku,
+            name: p.name,
+            quantity: p.quantity,
+            cost: p.cost
+          });
+        }
+      }
+
+      // Upsert all mappings
+      if (mappingsToAdd.length > 0) {
+        await supabase.from('supplier_mappings').upsert(mappingsToAdd);
+        setSavedMappings(prev => {
+          const next = [...prev];
+          mappingsToAdd.forEach(m => {
+            const exIdx = next.findIndex(item => item.supplierCode === m.supplier_code);
+            if (exIdx > -1) next[exIdx].internalSku = m.internal_sku;
+            else next.push({ supplierCode: m.supplier_code, internalSku: m.internal_sku });
+          });
+          return next;
+        });
+      }
+
+      // Update local inventory
+      if (newInventoryItems.length > 0) {
+        setInventory(prev => [...prev, ...newInventoryItems]);
+      }
+
+      // Merge into cart
+      setPurchaseItems(prev => {
+        const next = [...prev];
+        itemsToAdd.forEach(newItem => {
+          const exIdx = next.findIndex(i => i.sku === newItem.sku);
+          if (exIdx > -1) {
+            next[exIdx] = { ...next[exIdx], quantity: next[exIdx].quantity + newItem.quantity, cost: newItem.cost };
+          } else {
+            next.push(newItem);
+          }
+        });
+        return next;
+      });
+
+      setUncreatedDteProducts([]);
+      setIsUncreatedDialogOpen(false);
+      toast({
+        title: "¡Productos Procesados con Éxito! ✨",
+        description: `Se crearon y vincularon ${itemsToAdd.length} productos y se añadieron a la lista de compra.`
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Error al procesar lote", description: err.message || "Error al registrar productos." });
+    } finally {
+      setProcessingAllUncreated(false);
+    }
+  };
+
   // Cargar datos en el montaje
   useEffect(() => {
     // Carga inicial manejada por activeBranchId useEffect
@@ -718,6 +883,17 @@ export default function PurchasesTab() {
     );
   }, [supplierSearch, suppliers]);
 
+  const filteredUsers = useMemo(() => {
+    if (!systemUsers) return [];
+    if (!userSearch.trim()) return systemUsers;
+    const q = userSearch.toLowerCase();
+    return systemUsers.filter(u => 
+      (u.full_name && u.full_name.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.role && u.role.toLowerCase().includes(q))
+    );
+  }, [systemUsers, userSearch]);
+
   useEffect(() => {
     const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randPart = Math.floor(1000 + Math.random() * 9000);
@@ -797,7 +973,19 @@ export default function PurchasesTab() {
       setPaymentMethod(p.payment_method || 'Efectivo');
       setCreditDays(p.credit_days || '');
       setDocType(p.document_type || 'FACTURA');
-      setGenerationCode(p.document_number || '');
+      
+      const rawDoc = p.document_number || '';
+      if (rawDoc.includes('|')) {
+        const parts = rawDoc.split('|').map((s: string) => s.trim());
+        setDocNumber(parts[0] || '');
+        setGenerationCode(parts[1] || '');
+      } else if (rawDoc.startsWith('DTE-') || rawDoc.startsWith('FAC-') || rawDoc.startsWith('CCF-') || rawDoc.length < 30) {
+        setDocNumber(rawDoc);
+        setGenerationCode('');
+      } else {
+        setDocNumber('');
+        setGenerationCode(rawDoc);
+      }
       
       const mappedItems = (p.purchase_items || []).map((item: any) => {
         const prod = inventory.find(i => i.sku === item.sku);
@@ -826,7 +1014,7 @@ export default function PurchasesTab() {
       return;
     }
     if (!enteredBy) {
-      toast({ variant: "destructive", title: "Encargado Requerido", description: "Por favor ingrese su nombre." });
+      toast({ variant: "destructive", title: "Encargado Requerido", description: "Por favor seleccione o ingrese el encargado de ingreso." });
       return;
     }
     if (!warehouse) {
@@ -849,6 +1037,7 @@ export default function PurchasesTab() {
         return;
       }
 
+      const fullDocumentNumber = [docNumber.trim(), generationCode.trim()].filter(Boolean).join(' | ');
       let purchaseIdToUse = editingPurchaseId;
 
       if (editingPurchaseId) {
@@ -865,7 +1054,7 @@ export default function PurchasesTab() {
             credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
             payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO'),
             document_type: docType,
-            document_number: generationCode,
+            document_number: fullDocumentNumber,
             branch_id: activeBranchId || null
           })
           .eq('id', editingPurchaseId)
@@ -892,7 +1081,7 @@ export default function PurchasesTab() {
             credit_days: paymentMethod === 'Credito' ? (parseInt(creditDays.toString()) || 0) : null,
             payment_status: paymentMethod === 'Credito' && status === 'CERRADA' ? 'PENDIENTE' : (paymentMethod === 'Credito' ? null : 'PAGADO'),
             document_type: docType,
-            document_number: generationCode,
+            document_number: fullDocumentNumber,
             branch_id: activeBranchId || null
           })
           .select()
@@ -951,6 +1140,7 @@ export default function PurchasesTab() {
       }
 
       setPurchaseItems([]);
+      setDocNumber('');
       setGenerationCode('');
       setEnteredBy('');
       setSupplierName('');
@@ -983,7 +1173,7 @@ export default function PurchasesTab() {
     setLoading(true);
     try {
       if (purchase.status === 'CERRADA') {
-        // 1. Obtener los productos de esta compra
+        // 1. Obtener los items de la compra
         const { data: items, error: itemsErr } = await supabase
           .from('purchase_items')
           .select('*')
@@ -1115,7 +1305,8 @@ export default function PurchasesTab() {
           setSupplierName(json.emisor.nombre || '');
           const dteGen = json.identificacion.codigoGeneracion || '';
           const dteCtrl = json.identificacion.numeroControl || '';
-          setGenerationCode(dteCtrl ? `${dteCtrl} | ${dteGen}` : dteGen);
+          setDocNumber(dteCtrl);
+          setGenerationCode(dteGen);
           setDocType(json.identificacion.tipoDte === '03' ? 'CCF' : 'FACTURA');
           
           json.cuerpoDocumento?.forEach((item: any) => {
@@ -1261,23 +1452,23 @@ export default function PurchasesTab() {
                   <div className="flex items-center gap-2 text-[13px] font-semibold text-[#a5a8ff]">
                     <ClipboardList size={15} /> Control de Pedido
                   </div>
-                  <span className="text-[10px] text-white/35 font-mono tracking-[0.5px]">{pedidoId}</span>
+                  <span className="text-[10px] text-white/40 font-mono tracking-[0.5px] bg-white/5 px-2 py-0.5 rounded border border-white/10">{pedidoId}</span>
                 </div>
                 
                 <div className="rounded-b-[11px] p-4 flex flex-col gap-3.5 bg-white/5 backdrop-blur-md border border-white/10 mt-[-10px]">
                   {pendingDtes.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.7px] text-indigo-400/80 mb-1.5">
-                        <span>Importar desde Catálogo DTE</span>
-                        <Badge variant="outline" className="text-[8px] h-4 bg-indigo-500/10 border-indigo-500/30 text-indigo-300">
+                    <div className="mb-1 p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/25">
+                      <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.7px] text-indigo-400 mb-1.5">
+                        <span className="flex items-center gap-1.5"><FileJson size={12} /> Importar Catálogo DTE</span>
+                        <Badge variant="outline" className="text-[8px] h-4 bg-indigo-500/20 border-indigo-500/40 text-indigo-300 font-mono">
                           {pendingDtes.length} pendientes
                         </Badge>
                       </div>
                       <Select value={selectedDteId} onValueChange={handleSelectDte}>
-                        <SelectTrigger className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-[9px_12px] h-[40px] text-[12.5px] text-indigo-200 shadow-none">
+                        <SelectTrigger className="flex items-center justify-between bg-black/40 border border-indigo-500/30 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-indigo-200 shadow-none">
                           <SelectValue placeholder="Seleccione un DTE para autocompletar..." />
                         </SelectTrigger>
-                        <SelectContent className="border-white/10 bg-[#0a0a14] text-white">
+                        <SelectContent className="border-white/10 bg-[#0a0a14] text-white max-h-60">
                           <SelectItem value="none" className="text-white/40 italic">Ninguno (Ingreso Manual)</SelectItem>
                           {pendingDtes.map((dte) => (
                             <SelectItem key={dte.id} value={dte.id}>
@@ -1289,34 +1480,52 @@ export default function PurchasesTab() {
                     </div>
                   )}
 
+                  {/* PROVEEDOR */}
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Proveedor</div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5 flex items-center justify-between">
+                      <span>Proveedor</span>
+                      {supplierName && <span className="text-[9px] text-emerald-400 font-mono">✓ Seleccionado</span>}
+                    </div>
                     <div className="flex gap-2">
-                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] flex-1 relative">
-                        <Building2 size={14} className="text-white/20" />
+                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] flex-1 relative focus-within:border-indigo-500/50">
+                        <Building2 size={14} className="text-white/30 shrink-0" />
                         <Input 
-                          placeholder="Seleccione proveedor..." 
+                          placeholder="Seleccione o busque proveedor..." 
                           value={supplierName}
                           onChange={e => setSupplierName(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12.5px] text-white/70 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
+                          className="h-full bg-transparent border-none text-[12.5px] text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20 font-medium"
                         />
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-[40px] w-[40px] rounded-lg bg-white/5 border border-white/10 text-white/20 hover:bg-white/10 hover:text-white/40">
+                          <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-white/5 border border-white/10 text-white/30 hover:bg-white/10 hover:text-white/70">
                             <Search size={14} />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0 border-white/10 bg-[#0a0a14]" align="end">
-                          <div className="p-3 border-b border-white/10"><Input placeholder="Buscar proveedor..." value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)} className="h-8 text-xs bg-white/5 border-none text-white placeholder:text-white/30" /></div>
+                        <PopoverContent className="w-80 p-0 border-white/10 bg-[#0a0a14] shadow-2xl" align="end">
+                          <div className="p-3 border-b border-white/10">
+                            <Input 
+                              placeholder="Buscar proveedor por nombre o NIT..." 
+                              value={supplierSearch} 
+                              onChange={e => setSupplierSearch(e.target.value)} 
+                              className="h-8 text-xs bg-white/5 border border-white/10 text-white placeholder:text-white/30" 
+                            />
+                          </div>
                           <ScrollArea className="h-60">
-                            <div className="p-1">
+                            <div className="p-1.5 space-y-1">
                               {filteredSuppliers.length === 0 ? (
-                                <div className="p-4 text-center text-white/30 text-[10px] italic">No se encontraron proveedores</div>
+                                <div className="p-4 text-center text-white/30 text-[11px] italic">No se encontraron proveedores</div>
                               ) : filteredSuppliers.map((s: any) => (
-                                <div key={s.id} onClick={() => selectSupplier(s)} className="p-3 hover:bg-white/5 cursor-pointer rounded-lg transition-colors group">
-                                  <span className="text-[11px] font-bold text-white group-hover:text-indigo-400 block">{s.name}</span>
-                                  <span className="text-[9px] text-white/30 font-mono">NIT: {s.nit}</span>
+                                <div 
+                                  key={s.id} 
+                                  onClick={() => selectSupplier(s)} 
+                                  className="p-2.5 hover:bg-white/10 cursor-pointer rounded-lg transition-colors group flex items-center justify-between"
+                                >
+                                  <div>
+                                    <span className="text-[11.5px] font-bold text-white group-hover:text-indigo-400 block">{s.name}</span>
+                                    <span className="text-[9.5px] text-white/40 font-mono">{s.nit ? `NIT: ${s.nit}` : 'Sin NIT'}</span>
+                                  </div>
+                                  {supplierName === s.name && <Check size={14} className="text-emerald-400" />}
                                 </div>
                               ))}
                             </div>
@@ -1326,36 +1535,87 @@ export default function PurchasesTab() {
                     </div>
                   </div>
 
+                  {/* ENCARGADO DE INGRESO (USUARIO DEL SISTEMA) */}
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Encargado de ingreso</div>
-                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px]">
-                      <User size={14} className="text-white/20" />
-                      <Input 
-                        placeholder="Nombre completo..." 
-                        value={enteredBy}
-                        onChange={e => setEnteredBy(e.target.value)}
-                        className="h-full bg-transparent border-none text-[12.5px] text-white/70 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
-                      />
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5 flex items-center justify-between">
+                      <span>Encargado de ingreso</span>
+                      <span className="text-[9px] text-indigo-400 font-mono">Usuario Sistema</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] flex-1 relative focus-within:border-indigo-500/50">
+                        <User size={14} className="text-white/30 shrink-0" />
+                        <Input 
+                          placeholder="Nombre del encargado..." 
+                          value={enteredBy}
+                          onChange={e => setEnteredBy(e.target.value)}
+                          className="h-full bg-transparent border-none text-[12.5px] text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20 font-medium"
+                        />
+                      </div>
+                      <Popover open={isUserPopoverOpen} onOpenChange={setIsUserPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-white/5 border border-white/10 text-white/30 hover:bg-white/10 hover:text-white/70" title="Seleccionar usuario del sistema">
+                            <Users size={14} />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0 border-white/10 bg-[#0a0a14] shadow-2xl" align="end">
+                          <div className="p-3 border-b border-white/10">
+                            <Input 
+                              placeholder="Buscar usuario por nombre o correo..." 
+                              value={userSearch} 
+                              onChange={e => setUserSearch(e.target.value)} 
+                              className="h-8 text-xs bg-white/5 border border-white/10 text-white placeholder:text-white/30" 
+                            />
+                          </div>
+                          <ScrollArea className="h-60">
+                            <div className="p-1.5 space-y-1">
+                              {filteredUsers.length === 0 ? (
+                                <div className="p-4 text-center text-white/30 text-[11px] italic">No se encontraron usuarios</div>
+                              ) : filteredUsers.map((u) => (
+                                <div 
+                                  key={u.id || u.email} 
+                                  onClick={() => {
+                                    setEnteredBy(u.full_name || u.email);
+                                    setIsUserPopoverOpen(false);
+                                  }} 
+                                  className="p-2.5 hover:bg-white/10 cursor-pointer rounded-lg transition-colors group flex items-center justify-between"
+                                >
+                                  <div className="flex-1 mr-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[11.5px] font-bold text-white group-hover:text-indigo-400">{u.full_name || u.email}</span>
+                                      <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 uppercase border-white/15 text-white/50">
+                                        {u.role || 'usuario'}
+                                      </Badge>
+                                    </div>
+                                    <span className="text-[9.5px] text-white/40 font-mono block truncate">{u.email}</span>
+                                  </div>
+                                  {enteredBy === (u.full_name || u.email) && <Check size={14} className="text-emerald-400 shrink-0" />}
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
 
+                  {/* TIPO DE DOCUMENTO Y BODEGA */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Tipo documento</div>
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5">Tipo documento</div>
                       <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                        <SelectTrigger className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-[9px_12px] h-[40px] text-[12.5px] text-white/60 shadow-none">
+                        <SelectTrigger className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-white/80 shadow-none font-medium">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="border-white/10 bg-[#0a0a14] text-white">
-                          <SelectItem value="FACTURA">FACTURA</SelectItem>
-                          <SelectItem value="CCF">CCF</SelectItem>
+                          <SelectItem value="FACTURA">FACTURA (01)</SelectItem>
+                          <SelectItem value="CCF">CCF (03)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Bodega destino</div>
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5">Bodega destino</div>
                       <Select value={warehouse} onValueChange={setWarehouse}>
-                        <SelectTrigger className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-[9px_12px] h-[40px] text-[12.5px] text-white/60 shadow-none">
+                        <SelectTrigger className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-white/80 shadow-none font-medium">
                           <SelectValue placeholder="Seleccione..." />
                         </SelectTrigger>
                         <SelectContent className="border-white/10 bg-[#0a0a14] text-white">
@@ -1367,39 +1627,62 @@ export default function PurchasesTab() {
                     </div>
                   </div>
 
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">DTE / Cód. Generación</div>
-                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px]">
-                      <FileCode size={14} className="text-white/20" />
-                      <Input 
-                        placeholder="GEN-123456..." 
-                        value={generationCode}
-                        onChange={e => setGenerationCode(e.target.value)}
-                        className="h-full bg-transparent border-none text-[12.5px] font-mono text-white/70 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
-                      />
+                  {/* CAMPOS SEPARADOS: N° DTE Y CODIGO DE GENERACION */}
+                  <div className="grid grid-cols-1 gap-2.5 pt-1 border-t border-white/5">
+                    <div>
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5 flex items-center justify-between">
+                        <span>N° Factura / Control DTE</span>
+                        <span className="text-[8.5px] text-indigo-400/80 font-mono">DTE Control</span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] focus-within:border-indigo-500/50">
+                        <FileText size={14} className="text-white/30 shrink-0" />
+                        <Input 
+                          placeholder="DTE-03-M001P001-000000000000123" 
+                          value={docNumber}
+                          onChange={e => setDocNumber(e.target.value)}
+                          className="h-full bg-transparent border-none text-[12px] font-mono text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5 flex items-center justify-between">
+                        <span>Código de Generación</span>
+                        <span className="text-[8.5px] text-white/30 font-mono">UUID v4</span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] focus-within:border-indigo-500/50">
+                        <FileCode size={14} className="text-white/30 shrink-0" />
+                        <Input 
+                          placeholder="36C4A2D8-724B-4D3C-856E-85F0E9C7BA9A" 
+                          value={generationCode}
+                          onChange={e => setGenerationCode(e.target.value)}
+                          className="h-full bg-transparent border-none text-[12px] font-mono text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
+                        />
+                      </div>
                     </div>
                   </div>
 
                   <div className="h-[1px] bg-white/5" />
 
+                  {/* FORMA DE PAGO */}
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-1.5">Forma de pago</div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5">Forma de pago</div>
                     <div className="flex gap-1.5">
-                      <button onClick={() => setPaymentMethod('Efectivo')} className={`flex items-center gap-1.5 p-[7px_12px] rounded-lg text-[11.5px] font-medium transition-all ${paymentMethod === 'Efectivo' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#7c7fff]' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10'}`}>
-                        <Wallet size={13} /> Efectivo
+                      <button onClick={() => setPaymentMethod('Efectivo')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Efectivo' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#a5a8ff] shadow-sm' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10 hover:text-white/70'}`}>
+                        <Wallet size={12} /> Efectivo
                       </button>
-                      <button onClick={() => setPaymentMethod('Transferencia')} className={`flex items-center gap-1.5 p-[7px_12px] rounded-lg text-[11.5px] font-medium transition-all ${paymentMethod === 'Transferencia' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#7c7fff]' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10'}`}>
-                        <Landmark size={13} /> Transf.
+                      <button onClick={() => setPaymentMethod('Transferencia')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Transferencia' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#a5a8ff] shadow-sm' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10 hover:text-white/70'}`}>
+                        <Landmark size={12} /> Transf.
                       </button>
-                      <button onClick={() => setPaymentMethod('Credito')} className={`flex items-center gap-1.5 p-[7px_12px] rounded-lg text-[11.5px] font-medium transition-all ${paymentMethod === 'Credito' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#7c7fff]' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10'}`}>
-                        <CreditCard size={13} /> Crédito
+                      <button onClick={() => setPaymentMethod('Credito')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Credito' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#a5a8ff] shadow-sm' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10 hover:text-white/70'}`}>
+                        <CreditCard size={12} /> Crédito
                       </button>
                     </div>
                     {paymentMethod === 'Credito' && (
-                       <div className="mt-3 flex items-center gap-2 animate-in fade-in">
-                         <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-indigo-400">Plazo:</div>
-                         <Input type="number" value={creditDays} onFocus={e => e.target.select()} onChange={e => setCreditDays(e.target.value)} className="h-[30px] w-20 bg-white/5 border-white/10 text-[11.5px] text-white placeholder:text-white/30" placeholder="0" />
-                         <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">Días</div>
+                       <div className="mt-2.5 p-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-2 animate-in fade-in">
+                         <div className="text-[10px] font-semibold uppercase tracking-[0.7px] text-indigo-400">Plazo Crédito:</div>
+                         <Input type="number" value={creditDays} onFocus={e => e.target.select()} onChange={e => setCreditDays(e.target.value)} className="h-[28px] w-20 bg-black/40 border-white/10 text-[11.5px] text-white text-center font-bold" placeholder="30" />
+                         <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40">Días</div>
                        </div>
                     )}
                   </div>
@@ -2176,117 +2459,139 @@ export default function PurchasesTab() {
   </Tabs>
 
       <Dialog open={isUncreatedDialogOpen} onOpenChange={setIsUncreatedDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-4 overflow-hidden rounded-2xl border shadow-xl">
-          <DialogHeader className="px-1 pt-1">
-            <DialogTitle className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
-              <AlertTriangle className="text-amber-500" size={20} />
-              Productos DTE No Registrados
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-4 overflow-hidden rounded-2xl border shadow-2xl bg-background">
+          <DialogHeader className="px-1 pt-1 shrink-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
+                <AlertTriangle className="text-amber-500" size={20} />
+                Productos DTE No Registrados
+              </DialogTitle>
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30 text-xs font-mono">
+                {uncreatedDteProducts.length} pendientes
+              </Badge>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
               Hemos detectado códigos en el archivo de compra DTE que no existen en el inventario. Define su vinculación contable y precio de venta pública (PVP) para poder agregarlos.
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 pr-2">
-            <div className="space-y-4 py-2">
-              {uncreatedDteProducts.map((p, index) => {
-                const category = selectedUncreatedCategory[p.sku] || 'Inventario de Mercadería';
-                const priceVal = selectedUncreatedPrice[p.sku] || '';
-                const suggestedPrice = (p.cost * 1.3).toFixed(2);
-                const existingProduct = inventory?.find(inv => inv.sku.trim().toUpperCase() === p.sku.trim().toUpperCase());
-                const targetSkuExists = !!existingProduct;
-                return (
-                  <div key={p.sku} className="p-4 border rounded-2xl bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Cód. Prov: {p.originalProviderCode || p.sku}</span>
-                        <span className="text-xs font-bold text-muted-foreground">
-                          Costo: ${p.cost.toFixed(2)}
-                        </span>
-                        <span className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded-md">
-                          Cant: {p.quantity}
-                        </span>
+          {uncreatedDteProducts.length > 1 && (
+            <div className="p-3 bg-indigo-500/10 border border-indigo-500/25 rounded-xl flex items-center justify-between gap-3 shrink-0">
+              <div className="text-xs text-indigo-300">
+                <span className="font-bold">¿Deseas procesar todos a la vez?</span> Se registrarán con PVP sugerido (Costo + 30%).
+              </div>
+              <Button
+                size="sm"
+                onClick={handleCreateAllUncreatedProducts}
+                disabled={processingAllUncreated}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-8 px-3 rounded-lg flex items-center gap-1.5 shrink-0"
+              >
+                {processingAllUncreated ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                Vincular y Añadir Todos ({uncreatedDteProducts.length})
+              </Button>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 overflow-y-auto max-h-[55vh] pr-2 space-y-3 py-1">
+            {uncreatedDteProducts.map((p, index) => {
+              const category = selectedUncreatedCategory[p.sku] || 'Inventario de Mercadería';
+              const priceVal = selectedUncreatedPrice[p.sku] || '';
+              const suggestedPrice = (p.cost * 1.3).toFixed(2);
+              const existingProduct = inventory?.find(inv => inv.sku.trim().toUpperCase() === p.sku.trim().toUpperCase());
+              const targetSkuExists = !!existingProduct;
+              return (
+                <div key={`${p.originalProviderCode || 'prod'}-${index}`} className="p-4 border rounded-2xl bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded">
+                        Cód. Prov: {p.originalProviderCode || p.sku}
+                      </span>
+                      <span className="text-xs font-bold text-muted-foreground">
+                        Costo: ${p.cost.toFixed(2)}
+                      </span>
+                      <span className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded-md">
+                        Cant: {p.quantity}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-foreground leading-snug">{p.name}</h4>
+                    
+                    <div className="space-y-1 max-w-[220px]">
+                      <Label className="text-[9px] font-bold uppercase text-muted-foreground">SKU Nexway Destino</Label>
+                      <Input 
+                        placeholder="SKU Destino"
+                        value={p.sku} 
+                        onChange={(e) => {
+                          const newSku = e.target.value.toUpperCase();
+                          setUncreatedDteProducts(prev => prev.map((item, idx) => 
+                            idx === index ? { ...item, sku: newSku } : item
+                          ));
+                        }}
+                        className="h-8 text-xs font-bold bg-card rounded-xl border uppercase font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {targetSkuExists ? (
+                    <div className="flex flex-col justify-center gap-1 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-2xl min-w-[280px] md:min-w-[320px]">
+                      <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">✓ SKU Existente Detectado</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{existingProduct.name}</span>
+                      <span className="text-[9px] text-muted-foreground">Se vinculará el código del proveedor a este SKU existente.</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[280px] md:min-w-[320px]">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Vínculo Contable</Label>
+                        <Select 
+                          value={category} 
+                          onValueChange={(val) => setSelectedUncreatedCategory(prev => ({ ...prev, [p.sku]: val }))}
+                        >
+                          <SelectTrigger className="h-9 text-xs rounded-xl bg-card border">
+                            <SelectValue placeholder="Seleccione Categoría" />
+                          </SelectTrigger>
+                          <SelectContent position="popper" className="rounded-xl border shadow-xl z-50">
+                            <SelectItem value="Inventario de Mercadería">Inventario de Mercadería</SelectItem>
+                            <SelectItem value="Gastos de Administración">Gastos de Administración</SelectItem>
+                            <SelectItem value="Gastos de Venta">Gastos de Venta</SelectItem>
+                            <SelectItem value="Propiedad, Planta y Equipo">Propiedad, Planta y Equipo</SelectItem>
+                            <SelectItem value="General">General</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <h4 className="text-sm font-bold text-foreground leading-snug">{p.name}</h4>
-                      
-                      <div className="space-y-1 max-w-[200px]">
-                        <Label className="text-[9px] font-bold uppercase text-muted-foreground">SKU Nexway Destino</Label>
+
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground flex justify-between">
+                          <span>Precio Venta (PVP)</span>
+                          <span className="text-[9px] text-muted-foreground lowercase">sug. ${suggestedPrice}</span>
+                        </Label>
                         <Input 
-                          placeholder="SKU Destino"
-                          value={p.sku} 
-                          onChange={(e) => {
-                            const newSku = e.target.value.toUpperCase();
-                            setUncreatedDteProducts(prev => prev.map((item, idx) => 
-                              idx === index ? { ...item, sku: newSku } : item
-                            ));
-                          }}
-                          className="h-8 text-xs font-bold bg-card rounded-xl border uppercase"
+                          type="number" 
+                          placeholder={suggestedPrice}
+                          value={priceVal} 
+                          onChange={(e) => setSelectedUncreatedPrice(prev => ({ ...prev, [p.sku]: e.target.value }))}
+                          className="h-9 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-card rounded-xl border"
                         />
                       </div>
                     </div>
+                  )}
 
-                    {targetSkuExists ? (
-                      <div className="flex flex-col justify-center gap-1 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-2xl min-w-[280px] md:min-w-[340px]">
-                        <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">✓ SKU Existente</span>
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{existingProduct.name}</span>
-                        <span className="text-[9px] text-muted-foreground">Se vinculará el código del proveedor a este producto existente.</span>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[280px] md:min-w-[340px]">
-                        <div className="space-y-1">
-                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Vínculo Contable</Label>
-                          <Select 
-                            value={category} 
-                            onValueChange={(val) => setSelectedUncreatedCategory(prev => ({ ...prev, [p.sku]: val }))}
-                          >
-                            <SelectTrigger className="h-9 text-xs rounded-xl bg-card border">
-                              <SelectValue placeholder="Seleccione Categoría" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="Inventario de Mercadería">Inventario de Mercadería</SelectItem>
-                              <SelectItem value="Gastos de Administración">Gastos de Administración</SelectItem>
-                              <SelectItem value="Gastos de Venta">Gastos de Venta</SelectItem>
-                              <SelectItem value="Propiedad, Planta y Equipo">Propiedad, Planta y Equipo</SelectItem>
-                              <SelectItem value="General">General</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label className="text-[10px] font-bold uppercase text-muted-foreground flex justify-between">
-                            <span>Precio Venta (PVP)</span>
-                            <span className="text-[9px] text-muted-foreground lowercase">sug. ${suggestedPrice}</span>
-                          </Label>
-                          <Input 
-                            type="number" 
-                            placeholder={suggestedPrice}
-                            value={priceVal} 
-                            onChange={(e) => setSelectedUncreatedPrice(prev => ({ ...prev, [p.sku]: e.target.value }))}
-                            className="h-9 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-card rounded-xl border"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-end pt-2 md:pt-0">
-                      <Button 
-                        onClick={() => handleCreateUncreatedProduct(index)}
-                        className={`w-full md:w-auto h-9 font-bold text-xs rounded-xl px-4 ${
-                          targetSkuExists 
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10' 
-                            : 'bg-primary text-primary-foreground'
-                        }`}
-                      >
-                        {targetSkuExists ? 'Vincular y Añadir' : 'Crear y Añadir'}
-                      </Button>
-                    </div>
+                  <div className="flex items-end pt-2 md:pt-0 shrink-0">
+                    <Button 
+                      onClick={() => handleCreateUncreatedProduct(index)}
+                      className={`w-full md:w-auto h-9 font-bold text-xs rounded-xl px-4 ${
+                        targetSkuExists 
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10' 
+                          : 'bg-primary text-primary-foreground'
+                      }`}
+                    >
+                      {targetSkuExists ? 'Vincular y Añadir' : 'Crear y Añadir'}
+                    </Button>
                   </div>
-                );
-              })}
-            </div>
-          </ScrollArea>
+                </div>
+              );
+            })}
+          </div>
 
-          <DialogFooter className="border-t border-white/10 pt-3 flex items-center justify-between sm:justify-between">
+          <DialogFooter className="border-t border-white/10 pt-3 flex items-center justify-between sm:justify-between shrink-0">
             <span className="text-[10px] text-muted-foreground font-medium">
               * El precio de venta por defecto si se deja en blanco es Costo + 30% de margen.
             </span>
@@ -2312,46 +2617,60 @@ export default function PurchasesTab() {
             </DialogDescription>
           </DialogHeader>
 
-          {selectedPurchase && (
-            <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-muted/20 rounded-2xl border text-xs">
-                <div>
-                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Proveedor</span>
-                  <span className="font-black text-foreground text-sm">{selectedPurchase.suppliers?.name || selectedPurchase.supplier_name || 'Sin Proveedor'}</span>
+          {selectedPurchase && (() => {
+            const rawDoc = selectedPurchase.document_number || '';
+            let dtePart = rawDoc;
+            let genPart = '';
+            if (rawDoc.includes('|')) {
+              const parts = rawDoc.split('|').map((s: string) => s.trim());
+              dtePart = parts[0] || 'N/A';
+              genPart = parts[1] || '';
+            }
+
+            return (
+              <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-muted/20 rounded-2xl border text-xs">
+                  <div>
+                    <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Proveedor</span>
+                    <span className="font-black text-foreground text-sm">{selectedPurchase.suppliers?.name || selectedPurchase.supplier_name || 'Sin Proveedor'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Encargado</span>
+                    <span className="font-bold text-foreground">{selectedPurchase.entered_by || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Bodega Destino</span>
+                    <span className="font-bold text-foreground">
+                      {warehouses.find(w => w.id === selectedPurchase.warehouse_id)?.name || 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Fecha</span>
+                    <span className="font-bold text-foreground">
+                      {new Date(selectedPurchase.created_at).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Tipo Documento</span>
+                    <span className="font-bold text-foreground">{selectedPurchase.document_type || 'FACTURA'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">N° DTE / Control</span>
+                    <span className="font-mono text-foreground font-bold">{dtePart || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Cód. Generación</span>
+                    <span className="font-mono text-foreground text-[10px] break-all">{genPart || (rawDoc.length > 20 && !rawDoc.includes('DTE') ? rawDoc : 'N/A')}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Método de Pago</span>
+                    <span className="font-bold text-foreground">{selectedPurchase.payment_method} {selectedPurchase.credit_days ? `(${selectedPurchase.credit_days} d)` : ''}</span>
+                  </div>
+                  <div className="sm:col-span-4 flex justify-between items-center pt-2 border-t border-white/5">
+                    <span className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Total de la Compra (Con IVA)</span>
+                    <span className="font-black text-emerald-600 dark:text-emerald-400 text-base">${parseFloat(selectedPurchase.total).toFixed(2)}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Encargado</span>
-                  <span className="font-bold text-foreground">{selectedPurchase.entered_by || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Bodega Destino</span>
-                  <span className="font-bold text-foreground">
-                    {warehouses.find(w => w.id === selectedPurchase.warehouse_id)?.name || 'N/A'}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Fecha</span>
-                  <span className="font-bold text-foreground">
-                    {new Date(selectedPurchase.created_at).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Tipo Documento</span>
-                  <span className="font-bold text-foreground">{selectedPurchase.document_type || 'FACTURA'}</span>
-                </div>
-                <div>
-                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">DTE / Cód. Gen.</span>
-                  <span className="font-mono text-foreground">{selectedPurchase.document_number || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Método de Pago</span>
-                  <span className="font-bold text-foreground">{selectedPurchase.payment_method} {selectedPurchase.credit_days ? `(${selectedPurchase.credit_days} d)` : ''}</span>
-                </div>
-                <div>
-                  <span className="font-bold text-muted-foreground block uppercase text-[9px] tracking-wider">Total (Con IVA)</span>
-                  <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">${parseFloat(selectedPurchase.total).toFixed(2)}</span>
-                </div>
-              </div>
 
               <div className="flex-1 overflow-hidden flex flex-col min-h-[150px]">
                 <span className="font-bold text-xs text-foreground uppercase tracking-widest block mb-2">Artículos Ingresados</span>
@@ -2381,7 +2700,8 @@ export default function PurchasesTab() {
                 </ScrollArea>
               </div>
             </div>
-          )}
+          );
+        })()}
 
           <DialogFooter className="border-t border-white/10 pt-3 flex items-center justify-between">
             <div>
