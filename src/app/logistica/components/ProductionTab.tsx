@@ -469,7 +469,6 @@ export default function ProductionTab() {
           </div>
           <div>
             <h3 className="text-base font-black tracking-tight">Centro de Producción & Fórmulas (BOM)</h3>
-            <p className="text-xs text-slate-400">Ensambles, recetas industriales y transformación de materias primas.</p>
           </div>
         </div>
 
