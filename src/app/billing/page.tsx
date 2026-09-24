@@ -46,7 +46,9 @@ import {
   X,
   ShieldCheck,
   Layers,
-  Split
+  Split,
+  Copy,
+  RefreshCw
 } from 'lucide-react';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
@@ -837,6 +839,81 @@ export default function BillingPage() {
         description: err.message || "No se pudo obtener el detalle de los productos vendidos." 
       });
       setIsDetailsDialogOpen(false);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleDuplicateSale = async (sale: any) => {
+    try {
+      setLoadingDetails(true);
+      const { data: itemsData, error } = await supabase
+        .from('sales_items')
+        .select('*')
+        .eq('sale_id', sale.id);
+
+      if (error) throw error;
+      if (!itemsData || itemsData.length === 0) {
+        toast({ variant: 'destructive', title: 'Sin ítems', description: 'Esta venta no contiene productos detallados.' });
+        return;
+      }
+
+      const newCart = itemsData.map((it: any, idx: number) => ({
+        id: it.id || it.sku || `dup-${Date.now()}-${idx}`,
+        sku: it.sku || 'S/N',
+        name: it.name || 'Producto',
+        price: parseFloat(it.price) || 0,
+        quantity: parseFloat(it.quantity) || 1,
+        taxType: it.taxType || 'gravado'
+      }));
+
+      setCart(newCart);
+      setActiveTab('facturacion');
+      toast({
+        title: "Venta Duplicada en Carrito 📋",
+        description: `Se cargaron ${newCart.length} productos listos para una nueva emisión.`
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Error al duplicar venta', description: err.message });
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleCorrectAndReissueSale = async (sale: any) => {
+    try {
+      setLoadingDetails(true);
+      const { data: itemsData, error } = await supabase
+        .from('sales_items')
+        .select('*')
+        .eq('sale_id', sale.id);
+
+      if (error) throw error;
+      if (!itemsData || itemsData.length === 0) {
+        toast({ variant: 'destructive', title: 'Sin ítems', description: 'Esta venta no contiene productos detallados.' });
+        return;
+      }
+
+      const newCart = itemsData.map((it: any, idx: number) => ({
+        id: it.id || it.sku || `reissue-${Date.now()}-${idx}`,
+        sku: it.sku || 'S/N',
+        name: it.name || 'Producto',
+        price: parseFloat(it.price) || 0,
+        quantity: parseFloat(it.quantity) || 1,
+        taxType: it.taxType || 'gravado'
+      }));
+
+      setCart(newCart);
+      if (sale.docType) setDocType(sale.docType);
+      setActiveTab('facturacion');
+      toast({
+        title: "Modo Corrección / Re-emisión ⚡",
+        description: `Productos del DTE ${sale.docNumber || (sale.id && sale.id.slice(0, 8))} cargados. Ajuste los datos y emita el nuevo comprobante.`
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Error al re-emitir venta', description: err.message });
     } finally {
       setLoadingDetails(false);
     }
@@ -3148,6 +3225,31 @@ export default function BillingPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
+                            title="Corregir y Re-emitir DTE"
+                            className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCorrectAndReissueSale(sale);
+                            }}
+                          >
+                            <RefreshCw size={13} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Duplicar Venta en Carrito"
+                            className="h-8 w-8 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicateSale(sale);
+                            }}
+                          >
+                            <Copy size={13} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Ver Detalles"
                             className="h-8 w-8 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -3159,6 +3261,7 @@ export default function BillingPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
+                            title="Invalidar / Anular DTE"
                             disabled={sale.status === 'CANCELADA'}
                             className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-50"
                             onClick={(e) => {
@@ -3172,6 +3275,7 @@ export default function BillingPage() {
                             <Button 
                               variant="ghost" 
                               size="icon" 
+                              title="Corregir Método de Pago"
                               disabled={sale.status === 'CANCELADA'}
                               className="h-8 w-8 text-amber-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950 disabled:opacity-50"
                               onClick={(e) => {

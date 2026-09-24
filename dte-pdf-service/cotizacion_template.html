@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cotización - {{ numeroCotizacion }}</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 12mm;
+            @bottom-center {
+                content: "Presupuesto comercial informativo emitido por ERP-NEXWAY. No válido como comprobante fiscal.";
+                font-size: 7pt;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                color: #64748b;
+            }
+            @bottom-right {
+                content: "Pág. " counter(page) " de " counter(pages);
+                font-size: 7pt;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                color: #64748b;
+            }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 8.5pt;
+            color: #1e293b;
+            line-height: 1.35;
+            background-color: #ffffff;
+        }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .header-left { width: 60%; vertical-align: top; padding-right: 15px; }
+        .header-right { width: 40%; vertical-align: top; }
+        .company-name { font-size: 11pt; font-weight: bold; color: #0f172a; text-transform: uppercase; margin-bottom: 3px; }
+        .company-info { font-size: 7.5pt; color: #334155; line-height: 1.3; }
+        .doc-box { border: 1.5px solid #ea580c; border-radius: 6px; overflow: hidden; background-color: #fff7ed; }
+        .doc-box-header { background-color: #ea580c; color: #ffffff; text-align: center; padding: 5px 8px; font-size: 9.5pt; font-weight: bold; text-transform: uppercase; }
+        .doc-box-content { padding: 6px 8px; font-size: 7.5pt; }
+        .doc-row { margin-bottom: 3px; }
+        .doc-label { font-weight: bold; color: #1e293b; display: inline-block; width: 95px; }
+        .doc-val { color: #0f172a; font-family: 'Courier New', Courier, monospace; font-size: 8pt; font-weight: bold; }
+        
+        .section-box { border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 12px; overflow: hidden; }
+        .section-title { background-color: #f1f5f9; color: #0f172a; font-size: 7.5pt; font-weight: bold; text-transform: uppercase; padding: 3px 8px; border-bottom: 1px solid #cbd5e1; }
+        .section-content { padding: 6px 8px; }
+        .grid-2col { width: 100%; border-collapse: collapse; }
+        .grid-2col td { vertical-align: top; padding: 2px 4px; font-size: 7.5pt; }
+
+        .table-items { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .table-items th { background-color: #ea580c; color: #ffffff; font-size: 7.5pt; font-weight: bold; text-transform: uppercase; padding: 5px 6px; border: 1px solid #ea580c; }
+        .table-items td { padding: 4.5px 6px; font-size: 7.5pt; border: 1px solid #e2e8f0; vertical-align: middle; }
+        .table-items tr:nth-child(even) { background-color: #f8fafc; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+
+        .footer-summary-table { width: 100%; border-collapse: collapse; page-break-inside: avoid; }
+        .footer-left { width: 58%; vertical-align: top; padding-right: 15px; }
+        .footer-right { width: 42%; vertical-align: top; }
+        .notes-box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; background-color: #f8fafc; font-size: 7.2pt; line-height: 1.35; }
+        .notes-title { font-weight: bold; color: #0f172a; text-transform: uppercase; font-size: 6.8pt; margin-bottom: 3px; }
+        
+        .table-totals { width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; }
+        .table-totals td { padding: 4px 8px; font-size: 7.5pt; border-bottom: 1px solid #e2e8f0; }
+        .total-amount { font-weight: bold; text-align: right; font-family: 'Courier New', Courier, monospace; width: 40%; }
+        .row-total-destacado { background-color: #ea580c !important; }
+        .row-total-destacado td { color: #ffffff !important; font-size: 9.5pt !important; font-weight: bold; padding: 6px 8px !important; }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td class="header-left">
+                {% if emisor.logoBase64 %}
+                <img src="data:image/png;base64,{{ emisor.logoBase64 }}" style="max-height: 48px; max-width: 180px; margin-bottom: 5px;" alt="Logo">
+                {% endif %}
+                <div class="company-name">{{ emisor.nombre }}</div>
+                <div class="company-info">
+                    <div><span>NIT:</span> {{ emisor.nit }} &nbsp;|&nbsp; <span>NRC:</span> {{ emisor.nrc }}</div>
+                    <div><span>Giro:</span> {{ emisor.descActividad }}</div>
+                    <div><span>Dirección:</span> {{ emisor.direccion }}</div>
+                    {% if emisor.telefono %}<div><span>Teléfono:</span> {{ emisor.telefono }}</div>{% endif %}
+                </div>
+            </td>
+            <td class="header-right">
+                <div class="doc-box">
+                    <div class="doc-box-header">COTIZACIÓN COMERCIAL</div>
+                    <div class="doc-box-content">
+                        <div class="doc-row"><span class="doc-label">COTIZACIÓN N°:</span><span class="doc-val">{{ numeroCotizacion }}</span></div>
+                        <div class="doc-row"><span class="doc-label">FECHA EMISIÓN:</span><span class="doc-val">{{ fechaEmision }}</span></div>
+                        <div class="doc-row"><span class="doc-label">VALIDEZ:</span><span class="doc-val">{{ validezDias or 15 }} DÍAS</span></div>
+                        <div class="doc-row"><span class="doc-label">FORMA DE PAGO:</span><span class="doc-val">{{ formaPago or 'CONTADO' }}</span></div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-box">
+        <div class="section-title">Datos del Cliente / Solicitante</div>
+        <div class="section-content">
+            <table class="grid-2col">
+                <tr>
+                    <td style="width: 55%;"><strong>Cliente:</strong> {{ cliente.nombre }}</td>
+                    <td style="width: 45%;"><strong>Doc. Identidad / NIT:</strong> {{ cliente.documento or 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Dirección:</strong> {{ cliente.direccion or 'San Salvador, El Salvador' }}</td>
+                    <td><strong>NRC:</strong> {{ cliente.nrc or 'N/A' }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <table class="table-items">
+        <thead>
+            <tr>
+                <th style="width: 6%;" class="text-center">#</th>
+                <th style="width: 14%;" class="text-center">Código</th>
+                <th style="width: 46%;" class="text-left">Descripción del Producto / Servicio</th>
+                <th style="width: 10%;" class="text-center">Cant.</th>
+                <th style="width: 12%;" class="text-right">P. Unitario</th>
+                <th style="width: 12%;" class="text-right">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td class="text-center">{{ loop.index }}</td>
+                <td class="text-center font-mono" style="font-size: 7pt;">{{ item.sku }}</td>
+                <td class="text-left font-bold">{{ item.descripcion or item.name }}</td>
+                <td class="text-center font-bold">{{ "%.2f"|format(item.cantidad or item.quantity) }}</td>
+                <td class="text-right font-mono">${{ "%.2f"|format(item.precio or item.price) }}</td>
+                <td class="text-right font-mono font-bold">${{ "%.2f"|format((item.precio or item.price) * (item.cantidad or item.quantity)) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <table class="footer-summary-table">
+        <tr>
+            <td class="footer-left">
+                <div class="notes-box">
+                    <div class="notes-title">Términos y Observaciones Especiales:</div>
+                    <div>{{ observaciones or '1. Precios en USD sujetos a existencias.
+2. Tiempo de entrega coordinado con el asesor de cuenta.
+3. Esta cotización puede modificarse o convertirse a Factura/CCF en cualquier momento.' }}</div>
+                </div>
+            </td>
+            <td class="footer-right">
+                <table class="table-totals">
+                    <tr><td>Subtotal Neto:</td><td class="total-amount">${{ "%.2f"|format(subtotal) }}</td></tr>
+                    {% if iva and iva > 0 %}
+                    <tr><td>IVA (13%):</td><td class="total-amount">${{ "%.2f"|format(iva) }}</td></tr>
+                    {% endif %}
+                    <tr class="row-total-destacado"><td>TOTAL PRESUPUESTO:</td><td class="total-amount">${{ "%.2f"|format(total) }}</td></tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

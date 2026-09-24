@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprobante de Quedan - {{ numeroQuedan }}</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 14mm;
+            @bottom-center {
+                content: "Comprobante oficial de Cuentas por Pagar (Quedan) emitido por ERP-NEXWAY.";
+                font-size: 7pt;
+                color: #64748b;
+            }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 8.5pt; color: #1e293b; line-height: 1.4; }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .header-left { width: 60%; vertical-align: top; }
+        .header-right { width: 40%; vertical-align: top; }
+        .company-name { font-size: 11pt; font-weight: bold; color: #0f172a; text-transform: uppercase; }
+        .doc-box { border: 1.5px solid #0284c7; border-radius: 6px; overflow: hidden; background-color: #f0f9ff; }
+        .doc-box-header { background-color: #0284c7; color: #ffffff; text-align: center; padding: 5px 8px; font-size: 9.5pt; font-weight: bold; }
+        .doc-box-content { padding: 6px 8px; font-size: 7.5pt; }
+        .table-items { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .table-items th { background-color: #0284c7; color: #ffffff; font-size: 7.5pt; font-weight: bold; padding: 6px; border: 1px solid #0284c7; }
+        .table-items td { padding: 5px 6px; font-size: 7.5pt; border: 1px solid #e2e8f0; }
+        .table-totals { width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .table-totals td { padding: 5px 8px; font-size: 8pt; border-bottom: 1px solid #e2e8f0; }
+        .row-total-destacado { background-color: #0284c7 !important; color: #ffffff !important; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td class="header-left">
+                <div class="company-name">{{ emisor.nombre }}</div>
+                <div style="font-size: 7.5pt; color: #475569; margin-top: 3px;">
+                    NIT: {{ emisor.nit }} &nbsp;|&nbsp; NRC: {{ emisor.nrc }}<br>
+                    Dirección: {{ emisor.direccion }}
+                </div>
+            </td>
+            <td class="header-right">
+                <div class="doc-box">
+                    <div class="doc-box-header">COMPROBANTE DE QUEDAN</div>
+                    <div class="doc-box-content">
+                        <div><strong>QUEDAN N°:</strong> {{ numeroQuedan }}</div>
+                        <div><strong>FECHA RECEPCIÓN:</strong> {{ fechaRecepcion }}</div>
+                        <div><strong>FECHA ESTIMADA DE PAGO:</strong> {{ fechaPago }}</div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; margin-bottom: 15px; background-color: #f8fafc;">
+        <div><strong>PROVEEDOR / BENEFICIARIO:</strong> {{ proveedor.nombre }}</div>
+        <div><strong>NIT:</strong> {{ proveedor.nit or 'N/A' }} &nbsp;|&nbsp; <strong>NRC:</strong> {{ proveedor.nrc or 'N/A' }}</div>
+    </div>
+
+    <table class="table-items">
+        <thead>
+            <tr>
+                <th style="width: 10%;">#</th>
+                <th style="width: 30%;">N° Factura / CCF</th>
+                <th style="width: 25%;">Fecha Factura</th>
+                <th style="width: 35%; text-align: right;">Monto Facturado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for doc in facturas %}
+            <tr>
+                <td style="text-align: center;">{{ loop.index }}</td>
+                <td style="font-family: monospace; font-weight: bold;">{{ doc.numero }}</td>
+                <td style="text-align: center;">{{ doc.fecha }}</td>
+                <td style="text-align: right; font-family: monospace; font-weight: bold;">${{ "%.2f"|format(doc.monto) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="width: 55%; vertical-align: top; padding-right: 20px;">
+                <div style="border: 1px dashed #cbd5e1; border-radius: 6px; padding: 10px; font-size: 7.5pt; color: #475569;">
+                    <strong>Observaciones:</strong><br>
+                    {{ observaciones or 'Presentar este comprobante original para tramitar el cheque o transferencia bancaria en la fecha indicada.' }}
+                </div>
+            </td>
+            <td style="width: 45%; vertical-align: top;">
+                <table class="table-totals">
+                    <tr><td>Total Facturado:</td><td style="text-align: right; font-weight: bold;">${{ "%.2f"|format(totalFacturas) }}</td></tr>
+                    {% if retencion1 and retencion1 > 0 %}
+                    <tr><td>Retención IVA 1%:</td><td style="text-align: right; color: #e11d48;">-${{ "%.2f"|format(retencion1) }}</td></tr>
+                    {% endif %}
+                    <tr class="row-total-destacado"><td>TOTAL A PAGAR:</td><td style="text-align: right; font-weight: bold; font-size: 9.5pt;">${{ "%.2f"|format(totalPagar) }}</td></tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
