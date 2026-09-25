@@ -109,6 +109,8 @@ class QuedanPayload(BaseModel):
 class CustomTemplatePayload(BaseModel):
     template_name: Optional[str] = "Ticket Térmico POS"
     paper_size: Optional[str] = "80mm"  # "80mm", "58mm", "A4"
+    font_family: Optional[str] = "sans"  # "sans", "mono", "serif", "thermal"
+    density: Optional[str] = "normal"   # "compact", "normal", "spacious"
     blocks: List[Dict[str, Any]] = []
     emisor: Optional[Dict[str, Any]] = None
     receptor: Optional[Dict[str, Any]] = None
@@ -149,6 +151,8 @@ async def generate_custom_template_pdf(payload: CustomTemplatePayload):
         html_rendered = template.render(
             template_name=payload.template_name,
             paper_size=payload.paper_size,
+            font_family=payload.font_family,
+            density=payload.density,
             blocks=payload.blocks,
             emisor=payload.emisor or {
                 "nombre": "NEXWAY ERP S.A. DE C.V.",

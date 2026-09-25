@@ -7,13 +7,13 @@
     @page {
       {% if paper_size == '58mm' %}
       size: 58mm auto;
-      margin: 2mm 3mm 4mm 3mm;
+      margin: 1.5mm 2.5mm 3mm 2.5mm;
       {% elif paper_size == 'A4' or paper_size == 'Letter' %}
       size: letter;
-      margin: 12mm 15mm;
+      margin: 10mm 12mm;
       {% else %}
       size: 80mm auto;
-      margin: 3mm 4mm 5mm 4mm;
+      margin: 2mm 3.5mm 4mm 3.5mm;
       {% endif %}
     }
 
@@ -24,21 +24,29 @@
     }
 
     body {
+      {% if font_family == 'mono' or font_family == 'thermal' %}
+      font-family: 'Courier New', Courier, monospace;
+      {% elif font_family == 'serif' %}
+      font-family: 'Times New Roman', Times, serif;
+      {% else %}
       font-family: 'Helvetica Neue', Arial, 'DejaVu Sans', sans-serif;
+      {% endif %}
+
       color: #0f172a;
       background: #ffffff;
+
       {% if paper_size == '58mm' %}
-      font-size: 8pt;
-      line-height: 1.15;
-      width: 52mm;
+      font-size: 7.5pt;
+      line-height: {{ '1.05' if density == 'compact' else '1.2' }};
+      width: 53mm;
       {% elif paper_size == 'A4' or paper_size == 'Letter' %}
-      font-size: 10pt;
-      line-height: 1.35;
+      font-size: 9.5pt;
+      line-height: {{ '1.15' if density == 'compact' else '1.3' }};
       width: 100%;
       {% else %}
-      font-size: 9pt;
-      line-height: 1.25;
-      width: 72mm;
+      font-size: 8.5pt;
+      line-height: {{ '1.1' if density == 'compact' else '1.25' }};
+      width: 73mm;
       {% endif %}
     }
 
@@ -53,54 +61,60 @@
     .font-bold { font-weight: bold; }
     .uppercase { text-transform: uppercase; }
 
-    .block-section {
-      margin-bottom: 6px;
-    }
-
-    .divider-dotted {
-      border-top: 1px dashed #475569;
-      margin: 5px 0;
-    }
-
-    .divider-solid {
-      border-top: 1.5px solid #0f172a;
-      margin: 6px 0;
-    }
+    /* DIVIDERS */
+    .divider-dotted { border-top: 1px dotted #334155; margin: 4px 0; }
+    .divider-dashed { border-top: 1px dashed #334155; margin: 4px 0; }
+    .divider-solid { border-top: 1.5px solid #0f172a; margin: 5px 0; }
+    .divider-double { border-top: 3px double #0f172a; margin: 5px 0; }
 
     /* HEADER */
     .header-block {
-      text-align: center;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
     .header-logo {
-      max-width: 45mm;
-      max-height: 18mm;
       margin-bottom: 3px;
       object-fit: contain;
     }
+    .header-logo.small { max-width: 30mm; max-height: 12mm; }
+    .header-logo.medium { max-width: 45mm; max-height: 18mm; }
+    .header-logo.large { max-width: 60mm; max-height: 24mm; }
+
     .header-title {
-      font-size: 11pt;
       font-weight: 800;
       letter-spacing: -0.2px;
+      text-transform: uppercase;
     }
+    .header-title.small { font-size: 9pt; }
+    .header-title.normal { font-size: 11pt; }
+    .header-title.large { font-size: 13pt; }
+    .header-title.xlarge { font-size: 15pt; }
+
     .header-subtitle {
-      font-size: 8pt;
+      font-size: 7.5pt;
       color: #334155;
       margin-top: 1px;
     }
 
     /* CUSTOMER */
     .customer-block {
-      font-size: 8.5pt;
-      background: #f8fafc;
+      font-size: 8pt;
+      margin-bottom: 4px;
+    }
+    .customer-block.bordered {
+      border: 1px solid #cbd5e1;
       padding: 4px;
       border-radius: 3px;
-      border: 0.5px solid #cbd5e1;
+    }
+    .customer-block.shaded {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 4px;
+      border-radius: 3px;
     }
     .customer-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 2px;
+      margin-bottom: 1.5px;
     }
 
     /* TABLE */
@@ -110,23 +124,33 @@
       margin: 4px 0;
     }
     table.items-table th {
-      border-bottom: 1px solid #0f172a;
-      border-top: 1px solid #0f172a;
-      padding: 3px 0;
-      font-size: 8pt;
+      padding: 2.5px 1px;
+      font-size: 7.5pt;
       font-weight: 700;
       text-transform: uppercase;
     }
+    table.items-table th.th-dark {
+      background: #0f172a;
+      color: #ffffff;
+    }
+    table.items-table th.th-gray {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    table.items-table th.th-simple {
+      border-bottom: 1.5px solid #0f172a;
+      border-top: 1.5px solid #0f172a;
+    }
     table.items-table td {
-      padding: 3px 0;
+      padding: 2.5px 1px;
       vertical-align: top;
-      font-size: 8pt;
+      font-size: 7.5pt;
     }
     .item-desc {
       font-weight: 600;
     }
     .item-subtext {
-      font-size: 7pt;
+      font-size: 6.5pt;
       color: #64748b;
     }
 
@@ -139,28 +163,31 @@
     .totals-row {
       display: flex;
       justify-content: space-between;
-      padding: 1.5px 0;
-      font-size: 8.5pt;
+      padding: 1px 0;
+      font-size: 8pt;
     }
     .totals-row.grand-total {
-      font-size: 11pt;
+      font-size: 10.5pt;
       font-weight: 900;
-      border-top: 1px solid #0f172a;
-      border-bottom: 1px solid #0f172a;
-      padding: 3px 0;
-      margin-top: 3px;
+      border-top: 1.5px solid #0f172a;
+      border-bottom: 1.5px solid #0f172a;
+      padding: 2.5px 0;
+      margin-top: 2px;
+    }
+    .totals-row.grand-total.highlighted {
+      background: #f8fafc;
+      padding: 3px 2px;
     }
 
     /* QR CODE */
     .qr-block {
       text-align: center;
-      margin: 6px 0;
+      margin: 5px 0;
     }
-    .qr-img {
-      width: 28mm;
-      height: 28mm;
-      margin: 0 auto;
-    }
+    .qr-img.small { width: 20mm; height: 20mm; }
+    .qr-img.medium { width: 28mm; height: 28mm; }
+    .qr-img.large { width: 36mm; height: 36mm; }
+    
     .sello-box {
       font-size: 6.5pt;
       color: #334155;
@@ -174,19 +201,19 @@
       text-align: center;
       font-size: 7.5pt;
       color: #475569;
-      margin-top: 6px;
+      margin-top: 5px;
     }
     .signatures-block {
       display: flex;
       justify-content: space-around;
-      margin-top: 15px;
-      padding-top: 8px;
+      margin-top: 18px;
+      padding-top: 4px;
     }
     .sig-line {
-      width: 40%;
+      width: 42%;
       border-top: 1px solid #0f172a;
       text-align: center;
-      font-size: 7.5pt;
+      font-size: 7pt;
       padding-top: 2px;
     }
   </style>
@@ -198,62 +225,109 @@
     
     {# 1. HEADER #}
     {% if block.type == 'header' %}
-      <div class="header-block">
+      <div class="header-block" style="text-align: {{ block.align | default('center') }};">
         {% if block.showLogo and emisor.logoBase64 %}
-          <img src="data:image/png;base64,{{ emisor.logoBase64 }}" class="header-logo" alt="Logo" />
+          <img src="data:image/png;base64,{{ emisor.logoBase64 }}" class="header-logo {{ block.logoSize | default('medium') }}" alt="Logo" />
         {% endif %}
-        <div class="header-title">{{ block.title | default(emisor.nombre | default("NEXWAY ERP")) }}</div>
-        {% if block.showAddress and emisor.direccion %}
-          <div class="header-subtitle">{{ emisor.direccion }}</div>
-        {% endif %}
-        {% if block.showPhone and emisor.telefono %}
-          <div class="header-subtitle">Tel: {{ emisor.telefono }}</div>
-        {% endif %}
-        {% if emisor.nrc or emisor.nit %}
-          <div class="header-subtitle">NIT: {{ emisor.nit }} | NRC: {{ emisor.nrc }}</div>
-        {% endif %}
-        <div class="header-subtitle font-bold" style="margin-top: 2px;">
-          {{ identificacion.tipoDteNombre | default("TICKET DE VENTA") }}
+        
+        <div class="header-title {{ block.fontSize | default('normal') }}">
+          {{ block.title | default(emisor.nombre | default("NEXWAY ERP S.A. DE C.V.")) }}
         </div>
-        <div class="header-subtitle">
-          Fecha: {{ identificacion.fecEmi }} {{ identificacion.horEmi }}
-        </div>
+        
+        {% if block.subtitle %}
+          <div class="header-subtitle font-bold">{{ block.subtitle }}</div>
+        {% endif %}
+
+        {% if block.showGiro and (block.giroText or emisor.giro) %}
+          <div class="header-subtitle">Giro: {{ block.giroText | default(emisor.giro) }}</div>
+        {% endif %}
+
+        {% if block.showAddress and (block.addressText or emisor.direccion) %}
+          <div class="header-subtitle">{{ block.addressText | default(emisor.direccion) }}</div>
+        {% endif %}
+
+        {% if block.showPhone and (block.phoneText or emisor.telefono) %}
+          <div class="header-subtitle">
+            Tel: {{ block.phoneText | default(emisor.telefono) }}
+            {% if block.showEmail and (block.emailText or emisor.email) %}
+              | Email: {{ block.emailText | default(emisor.email) }}
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if block.showNitNrc and (emisor.nit or emisor.nrc) %}
+          <div class="header-subtitle font-bold">
+            NIT: {{ block.nitText | default(emisor.nit) }} | NRC: {{ block.nrcText | default(emisor.nrc) }}
+          </div>
+        {% endif %}
+
+        {% if block.showDocType != false %}
+          <div class="header-subtitle font-bold uppercase" style="margin-top: 3px; font-size: 8.5pt;">
+            {{ block.headerType | default(identificacion.tipoDteNombre | default("FACTURA DE CONSUMIDOR FINAL")) }}
+          </div>
+        {% endif %}
+
+        {% if block.showDateTime != false %}
+          <div class="header-subtitle" style="color: #64748b;">
+            Fecha: {{ identificacion.fecEmi }} {{ identificacion.horEmi }}
+          </div>
+        {% endif %}
       </div>
       <div class="divider-dotted"></div>
 
-    {# 2. CUSTOMER / DTE INFO #}
+    {# 2. CUSTOMER #}
     {% elif block.type == 'customer' %}
-      <div class="block-section customer-block">
-        <div class="customer-row">
-          <span class="font-bold">Cliente:</span>
-          <span>{{ receptor.nombre | default("CLIENTE GENERAL / CONSUMIDOR FINAL") }}</span>
-        </div>
-        {% if block.showNit and receptor.numDocumento %}
-          <div class="customer-row">
-            <span class="font-bold">Doc/NIT:</span>
-            <span>{{ receptor.numDocumento }}</span>
+      <div class="customer-block {{ 'bordered' if block.customerBoxStyle == 'bordered' else 'shaded' if block.customerBoxStyle == 'shaded' else '' }}">
+        {% if block.customerSectionTitle %}
+          <div style="font-weight: bold; font-size: 7.5pt; text-transform: uppercase; color: #475569; margin-bottom: 2px;">
+            {{ block.customerSectionTitle }}
           </div>
         {% endif %}
+        
+        {% if block.showCustomerName != false %}
+          <div class="customer-row">
+            <span class="font-bold">Cliente:</span>
+            <span>{{ receptor.nombre | default("CONSUMIDOR FINAL") }}</span>
+          </div>
+        {% endif %}
+
+        {% if block.showNit and (receptor.numDocumento or receptor.nit) %}
+          <div class="customer-row">
+            <span class="font-bold">Doc / NIT:</span>
+            <span>{{ receptor.numDocumento | default(receptor.nit) }}</span>
+          </div>
+        {% endif %}
+
         {% if block.showNrc and receptor.nrc %}
           <div class="customer-row">
             <span class="font-bold">NRC:</span>
             <span>{{ receptor.nrc }}</span>
           </div>
         {% endif %}
-        {% if receptor.direccion %}
+
+        {% if block.showCustomerGiro and receptor.giro %}
+          <div class="customer-row">
+            <span class="font-bold">Giro:</span>
+            <span>{{ receptor.giro }}</span>
+          </div>
+        {% endif %}
+
+        {% if block.showCustomerAddress and receptor.direccion %}
           <div class="customer-row">
             <span class="font-bold">Dirección:</span>
             <span>{{ receptor.direccion }}</span>
           </div>
         {% endif %}
-        {% if identificacion.codigoGeneracion %}
-          <div class="customer-row" style="font-family: monospace; font-size: 7.5pt; margin-top: 2px;">
+
+        {% if block.showCodGen != false and identificacion.codigoGeneracion %}
+          <div class="customer-row" style="font-family: monospace; font-size: 7pt; margin-top: 1px;">
             <span class="font-bold">Cod. Gen:</span>
             <span>{{ identificacion.codigoGeneracion }}</span>
           </div>
         {% endif %}
-        {% if identificacion.numeroControl %}
-          <div class="customer-row" style="font-family: monospace; font-size: 7.5pt;">
+
+        {% if block.showControlNum and identificacion.numeroControl %}
+          <div class="customer-row" style="font-family: monospace; font-size: 7pt;">
             <span class="font-bold">No. Control:</span>
             <span>{{ identificacion.numeroControl }}</span>
           </div>
@@ -263,27 +337,44 @@
 
     {# 3. ITEMS TABLE #}
     {% elif block.type == 'items_table' %}
-      <table class="items-table">
+      <table class="items-table" style="font-size: {{ '7pt' if block.tableFontSize == 'xs' else '8pt' if block.tableFontSize == 'normal' else '7.5pt' }};">
         <thead>
           <tr>
-            <th class="text-left" style="width: 15%;">Cant</th>
-            <th class="text-left" style="width: 50%;">Descripción</th>
-            <th class="text-right" style="width: 15%;">P.U.</th>
-            <th class="text-right" style="width: 20%;">Total</th>
+            {% if block.showQty != false %}
+              <th class="text-left {{ 'th-dark' if block.tableHeaderStyle == 'dark' else 'th-gray' if block.tableHeaderStyle == 'gray' else 'th-simple' }}" style="width: 16%;">Cant</th>
+            {% endif %}
+            <th class="text-left {{ 'th-dark' if block.tableHeaderStyle == 'dark' else 'th-gray' if block.tableHeaderStyle == 'gray' else 'th-simple' }}" style="width: 50%;">Descripción</th>
+            {% if block.showPriceUni != false %}
+              <th class="text-right {{ 'th-dark' if block.tableHeaderStyle == 'dark' else 'th-gray' if block.tableHeaderStyle == 'gray' else 'th-simple' }}" style="width: 16%;">P.U.</th>
+            {% endif %}
+            {% if block.showItemTotal != false %}
+              <th class="text-right {{ 'th-dark' if block.tableHeaderStyle == 'dark' else 'th-gray' if block.tableHeaderStyle == 'gray' else 'th-simple' }}" style="width: 18%;">Total</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
           {% for item in items %}
-          <tr>
-            <td class="text-left font-bold">{{ item.cantidad }}x</td>
+          <tr style="{{ 'border-bottom: 1px dotted #cbd5e1;' if block.tableRowDivider == 'dotted' else 'border-bottom: 1px solid #e2e8f0;' if block.tableRowDivider == 'solid' else '' }}">
+            {% if block.showQty != false %}
+              <td class="text-left font-bold">
+                {{ item.cantidad }}x
+                {% if block.showUnit and item.unidad %}
+                  <span style="font-size: 6pt; color: #64748b;">{{ item.unidad }}</span>
+                {% endif %}
+              </td>
+            {% endif %}
             <td class="text-left">
               <div class="item-desc">{{ item.descripcion }}</div>
               {% if block.showSku and item.sku %}
                 <div class="item-subtext">SKU: {{ item.sku }}</div>
               {% endif %}
             </td>
-            <td class="text-right">${{ "%.2f" | format(item.precioUni) }}</td>
-            <td class="text-right font-bold">${{ "%.2f" | format(item.ventaGravada | default(item.cantidad * item.precioUni)) }}</td>
+            {% if block.showPriceUni != false %}
+              <td class="text-right">${{ "%.2f" | format(item.precioUni) }}</td>
+            {% endif %}
+            {% if block.showItemTotal != false %}
+              <td class="text-right font-bold">${{ "%.2f" | format(item.ventaGravada | default(item.cantidad * item.precioUni)) }}</td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
@@ -292,80 +383,112 @@
     {# 4. TOTALS #}
     {% elif block.type == 'totals' %}
       <div class="totals-block">
-        <div class="totals-row">
-          <span>Subtotal Gravado:</span>
-          <span class="font-bold">${{ "%.2f" | format(resumen.subTotal | default(resumen.totalGravada)) }}</span>
-        </div>
-        {% if resumen.totalDescu and resumen.totalDescu > 0 %}
-        <div class="totals-row">
-          <span>Descuento:</span>
-          <span>-${{ "%.2f" | format(resumen.totalDescu) }}</span>
-        </div>
+        {% if block.showSubtotal != false %}
+          <div class="totals-row">
+            <span>Subtotal Gravado:</span>
+            <span class="font-bold">${{ "%.2f" | format(resumen.subTotal | default(resumen.totalGravada)) }}</span>
+          </div>
         {% endif %}
-        {% if block.showIva and resumen.totalIva and resumen.totalIva > 0 %}
-        <div class="totals-row">
-          <span>IVA (13%):</span>
-          <span>${{ "%.2f" | format(resumen.totalIva) }}</span>
-        </div>
+
+        {% if block.showDiscounts and resumen.totalDescu and resumen.totalDescu > 0 %}
+          <div class="totals-row">
+            <span>Descuentos:</span>
+            <span>-${{ "%.2f" | format(resumen.totalDescu) }}</span>
+          </div>
         {% endif %}
-        {% if resumen.ivaRete1 and resumen.ivaRete1 > 0 %}
-        <div class="totals-row">
-          <span>Retención IVA (-1%):</span>
-          <span>-${{ "%.2f" | format(resumen.ivaRete1) }}</span>
-        </div>
+
+        {% if block.showIva != false and resumen.totalIva and resumen.totalIva > 0 %}
+          <div class="totals-row">
+            <span>IVA (13%):</span>
+            <span>${{ "%.2f" | format(resumen.totalIva) }}</span>
+          </div>
         {% endif %}
-        <div class="totals-row grand-total">
+
+        {% if block.showRetencion and resumen.ivaRete1 and resumen.ivaRete1 > 0 %}
+          <div class="totals-row">
+            <span>Retención IVA (-1%):</span>
+            <span>-${{ "%.2f" | format(resumen.ivaRete1) }}</span>
+          </div>
+        {% endif %}
+
+        <div class="totals-row grand-total {{ 'highlighted' if block.totalBoxHighlight != false else '' }}">
           <span>TOTAL A PAGAR:</span>
           <span>${{ "%.2f" | format(resumen.totalPagar) }}</span>
         </div>
-        {% if resumen.totalLetras %}
-        <div style="font-size: 7pt; color: #475569; text-align: center; margin-top: 3px; font-style: italic;">
-          Son: {{ resumen.totalLetras }}
-        </div>
+
+        {% if block.showTotalInLetters != false and resumen.totalLetras %}
+          <div style="font-size: 6.5pt; color: #475569; text-align: center; margin-top: 2px; font-style: italic;">
+            Son: {{ resumen.totalLetras }}
+          </div>
+        {% endif %}
+
+        {% if block.showPaymentMethod and resumen.formaPago %}
+          <div class="totals-row" style="font-size: 7pt; color: #64748b; margin-top: 2px; border-top: 1px dotted #cbd5e1; padding-top: 2px;">
+            <span>Forma de Pago: {{ resumen.formaPago }}</span>
+            {% if block.showCashChange and resumen.montoRecibido %}
+              <span>Recibido: ${{ "%.2f" | format(resumen.montoRecibido) }} | Cambio: ${{ "%.2f" | format(resumen.cambio | default(0)) }}</span>
+            {% endif %}
+          </div>
         {% endif %}
       </div>
 
-    {# 5. QR HACIENDA & SELLO MH #}
+    {# 5. QR HACIENDA #}
     {% elif block.type == 'qr_hacienda' %}
       <div class="divider-dotted"></div>
       <div class="qr-block">
         {% if qrCodeBase64 %}
-          <img src="data:image/png;base64,{{ qrCodeBase64 }}" class="qr-img" alt="QR Hacienda" />
+          <img src="data:image/png;base64,{{ qrCodeBase64 }}" class="qr-img {{ block.qrSize | default('medium') }}" alt="QR Hacienda" />
         {% endif %}
-        {% if block.showSello and selloRecepcion %}
+        
+        {% if block.showSello != false and selloRecepcion %}
           <div class="sello-box">
             <strong>Sello de Recepción MH:</strong><br/>
             {{ selloRecepcion }}
           </div>
         {% endif %}
-        <div style="font-size: 6.5pt; color: #64748b; margin-top: 2px;">
-          Consulta pública en factura.mh.gob.sv
-        </div>
-      </div>
 
-    {# 6. FOOTER / CUSTOM MESSAGE #}
-    {% elif block.type == 'footer' %}
-      <div class="divider-dotted"></div>
-      <div class="footer-block">
-        <p class="font-bold">{{ block.customMessage | default("¡Gracias por su preferencia!") }}</p>
-        <p style="margin-top: 2px;">Documento Tributario Electrónico emitido con NEXWAY ERP.</p>
-        {% if block.showSignatures %}
-          <div class="signatures-block">
-            <div class="sig-line">Entregado Por</div>
-            <div class="sig-line">Recibido Conforme</div>
+        {% if block.showPublicUrl != false %}
+          <div style="font-size: 6.5pt; color: #64748b; margin-top: 2px;">
+            {{ block.qrInstructionText | default("Consulta pública en factura.mh.gob.sv") }}
           </div>
         {% endif %}
       </div>
 
-    {# 7. CUSTOM TEXT / NOTAS #}
+    {# 6. FOOTER #}
+    {% elif block.type == 'footer' %}
+      <div class="divider-dotted"></div>
+      <div class="footer-block">
+        <p class="font-bold">{{ block.customMessage | default("¡Gracias por su compra!") }}</p>
+        
+        {% if block.policiesText %}
+          <p style="font-size: 6.5pt; color: #64748b; margin-top: 2px;">{{ block.policiesText }}</p>
+        {% endif %}
+
+        {% if block.socialMediaText %}
+          <p style="font-size: 6.5pt; color: #2563eb; margin-top: 1px;">{{ block.socialMediaText }}</p>
+        {% endif %}
+
+        {% if block.showResolutionText and block.resolutionText %}
+          <p style="font-size: 6pt; color: #94a3b8; margin-top: 2px;">{{ block.resolutionText }}</p>
+        {% endif %}
+
+        {% if block.showSignatures %}
+          <div class="signatures-block">
+            <div class="sig-line">{{ block.signatureLeftLabel | default("Entregado Por") }}</div>
+            <div class="sig-line">{{ block.signatureRightLabel | default("Recibido Conforme") }}</div>
+          </div>
+        {% endif %}
+      </div>
+
+    {# 7. CUSTOM TEXT #}
     {% elif block.type == 'custom_text' %}
-      <div class="block-section" style="font-size: 8pt; color: #334155; margin: 4px 0;">
+      <div style="font-size: {{ '7pt' if block.fontSize == 'small' else '8pt' }}; text-align: {{ block.align | default('left') }}; font-weight: {{ 'bold' if block.isBold else 'normal' }}; font-style: {{ 'italic' if block.isItalic else 'normal' }}; {{ 'border: 1px solid #cbd5e1; padding: 4px; background: #f8fafc; border-radius: 3px;' if block.isBoxed else '' }} margin: 3px 0;">
         <p>{{ block.content | default(block.text) }}</p>
       </div>
 
     {# 8. DIVIDER #}
     {% elif block.type == 'divider' %}
-      <div class="divider-solid"></div>
+      <div class="{{ 'divider-dotted' if block.dividerStyle == 'dotted' else 'divider-dashed' if block.dividerStyle == 'dashed' else 'divider-double' if block.dividerStyle == 'double' else 'divider-solid' }}" style="margin: {{ '2px 0' if block.dividerSpacing == 'compact' else '8px 0' if block.dividerSpacing == 'wide' else '4px 0' }};"></div>
 
     {% endif %}
 
