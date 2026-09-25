@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ClientAuthGate } from '@/components/ClientAuthGate';
 import { NexBotTutorWidget } from '@/components/NexBotTutorWidget';
 import { FeedbackCaptureWidget } from '@/components/FeedbackCaptureWidget';
+import { GlobalCommandPalette } from '@/components/GlobalCommandPalette';
 
 export const metadata: Metadata = {
   title: 'NexWay ERP - Sistema de Planificación de Recursos Empresariales',
@@ -41,6 +42,7 @@ export default function RootLayout({
             <ClientAuthGate>
               {children}
             </ClientAuthGate>
+            <GlobalCommandPalette />
             <NexBotTutorWidget />
             <FeedbackCaptureWidget />
             <Toaster />

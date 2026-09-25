@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ template_name | default("Ticket de Venta") }}</title>
+  <style>
+    @page {
+      {% if paper_size == '58mm' %}
+      size: 58mm auto;
+      margin: 2mm 3mm 4mm 3mm;
+      {% elif paper_size == 'A4' or paper_size == 'Letter' %}
+      size: letter;
+      margin: 12mm 15mm;
+      {% else %}
+      size: 80mm auto;
+      margin: 3mm 4mm 5mm 4mm;
+      {% endif %}
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, 'DejaVu Sans', sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      {% if paper_size == '58mm' %}
+      font-size: 8pt;
+      line-height: 1.15;
+      width: 52mm;
+      {% elif paper_size == 'A4' or paper_size == 'Letter' %}
+      font-size: 10pt;
+      line-height: 1.35;
+      width: 100%;
+      {% else %}
+      font-size: 9pt;
+      line-height: 1.25;
+      width: 72mm;
+      {% endif %}
+    }
+
+    .ticket-container {
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .text-center { text-align: center; }
+    .text-left { text-align: left; }
+    .text-right { text-align: right; }
+    .font-bold { font-weight: bold; }
+    .uppercase { text-transform: uppercase; }
+
+    .block-section {
+      margin-bottom: 6px;
+    }
+
+    .divider-dotted {
+      border-top: 1px dashed #475569;
+      margin: 5px 0;
+    }
+
+    .divider-solid {
+      border-top: 1.5px solid #0f172a;
+      margin: 6px 0;
+    }
+
+    /* HEADER */
+    .header-block {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .header-logo {
+      max-width: 45mm;
+      max-height: 18mm;
+      margin-bottom: 3px;
+      object-fit: contain;
+    }
+    .header-title {
+      font-size: 11pt;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+    }
+    .header-subtitle {
+      font-size: 8pt;
+      color: #334155;
+      margin-top: 1px;
+    }
+
+    /* CUSTOMER */
+    .customer-block {
+      font-size: 8.5pt;
+      background: #f8fafc;
+      padding: 4px;
+      border-radius: 3px;
+      border: 0.5px solid #cbd5e1;
+    }
+    .customer-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+
+    /* TABLE */
+    table.items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 4px 0;
+    }
+    table.items-table th {
+      border-bottom: 1px solid #0f172a;
+      border-top: 1px solid #0f172a;
+      padding: 3px 0;
+      font-size: 8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    table.items-table td {
+      padding: 3px 0;
+      vertical-align: top;
+      font-size: 8pt;
+    }
+    .item-desc {
+      font-weight: 600;
+    }
+    .item-subtext {
+      font-size: 7pt;
+      color: #64748b;
+    }
+
+    /* TOTALS */
+    .totals-block {
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px dashed #334155;
+    }
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 1.5px 0;
+      font-size: 8.5pt;
+    }
+    .totals-row.grand-total {
+      font-size: 11pt;
+      font-weight: 900;
+      border-top: 1px solid #0f172a;
+      border-bottom: 1px solid #0f172a;
+      padding: 3px 0;
+      margin-top: 3px;
+    }
+
+    /* QR CODE */
+    .qr-block {
+      text-align: center;
+      margin: 6px 0;
+    }
+    .qr-img {
+      width: 28mm;
+      height: 28mm;
+      margin: 0 auto;
+    }
+    .sello-box {
+      font-size: 6.5pt;
+      color: #334155;
+      word-break: break-all;
+      margin-top: 2px;
+      font-family: monospace;
+    }
+
+    /* FOOTER */
+    .footer-block {
+      text-align: center;
+      font-size: 7.5pt;
+      color: #475569;
+      margin-top: 6px;
+    }
+    .signatures-block {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 15px;
+      padding-top: 8px;
+    }
+    .sig-line {
+      width: 40%;
+      border-top: 1px solid #0f172a;
+      text-align: center;
+      font-size: 7.5pt;
+      padding-top: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="ticket-container">
+  {% for block in blocks %}
+    
+    {# 1. HEADER #}
+    {% if block.type == 'header' %}
+      <div class="header-block">
+        {% if block.showLogo and emisor.logoBase64 %}
+          <img src="data:image/png;base64,{{ emisor.logoBase64 }}" class="header-logo" alt="Logo" />
+        {% endif %}
+        <div class="header-title">{{ block.title | default(emisor.nombre | default("NEXWAY ERP")) }}</div>
+        {% if block.showAddress and emisor.direccion %}
+          <div class="header-subtitle">{{ emisor.direccion }}</div>
+        {% endif %}
+        {% if block.showPhone and emisor.telefono %}
+          <div class="header-subtitle">Tel: {{ emisor.telefono }}</div>
+        {% endif %}
+        {% if emisor.nrc or emisor.nit %}
+          <div class="header-subtitle">NIT: {{ emisor.nit }} | NRC: {{ emisor.nrc }}</div>
+        {% endif %}
+        <div class="header-subtitle font-bold" style="margin-top: 2px;">
+          {{ identificacion.tipoDteNombre | default("TICKET DE VENTA") }}
+        </div>
+        <div class="header-subtitle">
+          Fecha: {{ identificacion.fecEmi }} {{ identificacion.horEmi }}
+        </div>
+      </div>
+      <div class="divider-dotted"></div>
+
+    {# 2. CUSTOMER / DTE INFO #}
+    {% elif block.type == 'customer' %}
+      <div class="block-section customer-block">
+        <div class="customer-row">
+          <span class="font-bold">Cliente:</span>
+          <span>{{ receptor.nombre | default("CLIENTE GENERAL / CONSUMIDOR FINAL") }}</span>
+        </div>
+        {% if block.showNit and receptor.numDocumento %}
+          <div class="customer-row">
+            <span class="font-bold">Doc/NIT:</span>
+            <span>{{ receptor.numDocumento }}</span>
+          </div>
+        {% endif %}
+        {% if block.showNrc and receptor.nrc %}
+          <div class="customer-row">
+            <span class="font-bold">NRC:</span>
+            <span>{{ receptor.nrc }}</span>
+          </div>
+        {% endif %}
+        {% if receptor.direccion %}
+          <div class="customer-row">
+            <span class="font-bold">Dirección:</span>
+            <span>{{ receptor.direccion }}</span>
+          </div>
+        {% endif %}
+        {% if identificacion.codigoGeneracion %}
+          <div class="customer-row" style="font-family: monospace; font-size: 7.5pt; margin-top: 2px;">
+            <span class="font-bold">Cod. Gen:</span>
+            <span>{{ identificacion.codigoGeneracion }}</span>
+          </div>
+        {% endif %}
+        {% if identificacion.numeroControl %}
+          <div class="customer-row" style="font-family: monospace; font-size: 7.5pt;">
+            <span class="font-bold">No. Control:</span>
+            <span>{{ identificacion.numeroControl }}</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="divider-dotted"></div>
+
+    {# 3. ITEMS TABLE #}
+    {% elif block.type == 'items_table' %}
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th class="text-left" style="width: 15%;">Cant</th>
+            <th class="text-left" style="width: 50%;">Descripción</th>
+            <th class="text-right" style="width: 15%;">P.U.</th>
+            <th class="text-right" style="width: 20%;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td class="text-left font-bold">{{ item.cantidad }}x</td>
+            <td class="text-left">
+              <div class="item-desc">{{ item.descripcion }}</div>
+              {% if block.showSku and item.sku %}
+                <div class="item-subtext">SKU: {{ item.sku }}</div>
+              {% endif %}
+            </td>
+            <td class="text-right">${{ "%.2f" | format(item.precioUni) }}</td>
+            <td class="text-right font-bold">${{ "%.2f" | format(item.ventaGravada | default(item.cantidad * item.precioUni)) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    {# 4. TOTALS #}
+    {% elif block.type == 'totals' %}
+      <div class="totals-block">
+        <div class="totals-row">
+          <span>Subtotal Gravado:</span>
+          <span class="font-bold">${{ "%.2f" | format(resumen.subTotal | default(resumen.totalGravada)) }}</span>
+        </div>
+        {% if resumen.totalDescu and resumen.totalDescu > 0 %}
+        <div class="totals-row">
+          <span>Descuento:</span>
+          <span>-${{ "%.2f" | format(resumen.totalDescu) }}</span>
+        </div>
+        {% endif %}
+        {% if block.showIva and resumen.totalIva and resumen.totalIva > 0 %}
+        <div class="totals-row">
+          <span>IVA (13%):</span>
+          <span>${{ "%.2f" | format(resumen.totalIva) }}</span>
+        </div>
+        {% endif %}
+        {% if resumen.ivaRete1 and resumen.ivaRete1 > 0 %}
+        <div class="totals-row">
+          <span>Retención IVA (-1%):</span>
+          <span>-${{ "%.2f" | format(resumen.ivaRete1) }}</span>
+        </div>
+        {% endif %}
+        <div class="totals-row grand-total">
+          <span>TOTAL A PAGAR:</span>
+          <span>${{ "%.2f" | format(resumen.totalPagar) }}</span>
+        </div>
+        {% if resumen.totalLetras %}
+        <div style="font-size: 7pt; color: #475569; text-align: center; margin-top: 3px; font-style: italic;">
+          Son: {{ resumen.totalLetras }}
+        </div>
+        {% endif %}
+      </div>
+
+    {# 5. QR HACIENDA & SELLO MH #}
+    {% elif block.type == 'qr_hacienda' %}
+      <div class="divider-dotted"></div>
+      <div class="qr-block">
+        {% if qrCodeBase64 %}
+          <img src="data:image/png;base64,{{ qrCodeBase64 }}" class="qr-img" alt="QR Hacienda" />
+        {% endif %}
+        {% if block.showSello and selloRecepcion %}
+          <div class="sello-box">
+            <strong>Sello de Recepción MH:</strong><br/>
+            {{ selloRecepcion }}
+          </div>
+        {% endif %}
+        <div style="font-size: 6.5pt; color: #64748b; margin-top: 2px;">
+          Consulta pública en factura.mh.gob.sv
+        </div>
+      </div>
+
+    {# 6. FOOTER / CUSTOM MESSAGE #}
+    {% elif block.type == 'footer' %}
+      <div class="divider-dotted"></div>
+      <div class="footer-block">
+        <p class="font-bold">{{ block.customMessage | default("¡Gracias por su preferencia!") }}</p>
+        <p style="margin-top: 2px;">Documento Tributario Electrónico emitido con NEXWAY ERP.</p>
+        {% if block.showSignatures %}
+          <div class="signatures-block">
+            <div class="sig-line">Entregado Por</div>
+            <div class="sig-line">Recibido Conforme</div>
+          </div>
+        {% endif %}
+      </div>
+
+    {# 7. CUSTOM TEXT / NOTAS #}
+    {% elif block.type == 'custom_text' %}
+      <div class="block-section" style="font-size: 8pt; color: #334155; margin: 4px 0;">
+        <p>{{ block.content | default(block.text) }}</p>
+      </div>
+
+    {# 8. DIVIDER #}
+    {% elif block.type == 'divider' %}
+      <div class="divider-solid"></div>
+
+    {% endif %}
+
+  {% endfor %}
+</div>
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 export interface PrintBlock {
   id: string;
-  type: 'header' | 'customer' | 'items_table' | 'totals' | 'qr_hacienda' | 'footer';
+  type: 'header' | 'customer' | 'items_table' | 'totals' | 'qr_hacienda' | 'footer' | 'custom_text' | 'divider';
   title?: string;
   showLogo?: boolean;
   showAddress?: boolean;
@@ -14,13 +14,90 @@ export interface PrintBlock {
   showSello?: boolean;
   customMessage?: string;
   showSignatures?: boolean;
+  content?: string;
+  text?: string;
+  align?: 'left' | 'center' | 'right';
 }
 
 export interface PrintTemplateScheme {
   id?: string;
   nombre?: string;
-  paper_size: '80mm' | '58mm' | 'A4'; // 'A4' representa la Hoja Carta / Letter Oficial DTE (8.5" x 11")
+  paper_size: '80mm' | '58mm' | 'A4';
   blocks: PrintBlock[];
+}
+
+export const PYTHON_PDF_SERVICE_URL = process.env.NEXT_PUBLIC_PDF_SERVICE_URL || 'http://localhost:8000';
+
+export async function checkPythonPdfServiceHealth(): Promise<{ online: boolean; message: string; version?: string }> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch(`${PYTHON_PDF_SERVICE_URL}/api/v1/health`, {
+      method: 'GET',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      return { online: true, message: 'Microservicio Python Conectado', version: data.version };
+    }
+    return { online: false, message: 'Microservicio no responde' };
+  } catch (err: any) {
+    return { online: false, message: 'Modo Local / Microservicio Offline' };
+  }
+}
+
+export async function compileTemplateWithPython(scheme: PrintTemplateScheme, sampleData?: any): Promise<Blob> {
+  const payload = {
+    template_name: scheme.nombre || 'Ticket Térmico POS',
+    paper_size: scheme.paper_size || '80mm',
+    blocks: scheme.blocks || [],
+    emisor: sampleData?.emisor || {
+      nombre: 'NEXWAY ERP S.A. DE C.V.',
+      nit: '0614-150890-102-1',
+      nrc: '283940-1',
+      direccion: 'San Salvador, El Salvador',
+      telefono: '+503 2200-0000'
+    },
+    receptor: sampleData?.receptor || sampleData?.cliente || {
+      nombre: sampleData?.cliente?.razon_social || 'CLIENTE GENERAL / CONSUMIDOR FINAL',
+      numDocumento: sampleData?.cliente?.nit || '0614-010190-001-0',
+      nrc: sampleData?.cliente?.nrc || 'N/A',
+      direccion: sampleData?.cliente?.direccion || 'San Salvador'
+    },
+    identificacion: sampleData?.identificacion || {
+      fecEmi: new Date().toISOString().slice(0, 10),
+      horEmi: new Date().toLocaleTimeString('es-SV'),
+      tipoDteNombre: scheme.paper_size === 'A4' ? 'COMPROBANTE DE CRÉDITO FISCAL (DTE-03)' : 'FACTURA DE CONSUMIDOR FINAL (DTE-01)',
+      codigoGeneracion: sampleData?.dte?.codigo_generacion || 'DTE-01-C001-0000001892',
+      numeroControl: sampleData?.dte?.numero_control || 'DTE-01-00000000-000000000001892',
+      ambiente: '00'
+    },
+    items: sampleData?.items || [
+      { cantidad: 2, descripcion: 'Cemento Portland 42.5kg Max', precioUni: 10.50, ventaGravada: 21.00, sku: 'CEM-01' },
+      { cantidad: 1, descripcion: 'Pintura Acrílica Blanco 1 Gal', precioUni: 18.00, ventaGravada: 18.00, sku: 'PIN-02' }
+    ],
+    resumen: sampleData?.resumen || {
+      subTotal: 34.51,
+      totalIva: 4.49,
+      totalPagar: 39.00,
+      totalLetras: 'TREINTA Y NUEVE 00/100 USD'
+    },
+    selloRecepcion: sampleData?.dte?.sello_recepcion || '2026-SELLO-MH-904128914-OFFICIAL'
+  };
+
+  const response = await fetch(`${PYTHON_PDF_SERVICE_URL}/api/v1/reports/custom-template-pdf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error en microservicio Python (${response.status}): ${errorText}`);
+  }
+
+  return await response.blob();
 }
 
 export function renderTemplateToPrint(scheme: PrintTemplateScheme, data?: any): string {
@@ -62,7 +139,6 @@ export function renderTemplateToPrint(scheme: PrintTemplateScheme, data?: any): 
         const dteTipoCodigo = dte.tipo_doc_codigo || '01';
 
         if (isA4) {
-          // Encabezado Corporativo Formal de 2 Columnas para Tamaño Carta DTE El Salvador
           blocksHtml += `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px;">
               <div style="width: 58%;">
@@ -89,7 +165,6 @@ export function renderTemplateToPrint(scheme: PrintTemplateScheme, data?: any): 
             </div>
           `;
         } else {
-          // Encabezado Térmico POS 80mm
           blocksHtml += `
             <div style="text-align: center; border-bottom: 1px dashed #333; padding-bottom: 8px; margin-bottom: 8px;">
               ${block.showLogo ? `<div style="font-weight:900; font-size:16px; margin-bottom:4px;">NEXWAY ERP</div>` : ''}
@@ -103,48 +178,60 @@ export function renderTemplateToPrint(scheme: PrintTemplateScheme, data?: any): 
         break;
 
       case 'customer':
-        blocksHtml += `
-          <div style="margin-bottom: 12px; font-size: ${block.fontSize === 'small' ? '10px' : block.fontSize === 'large' ? '13px' : '11px'}; background: ${isA4 ? '#f1f5f9' : 'transparent'}; padding: ${isA4 ? '10px 12px' : '0'}; border-radius: 6px; border: ${isA4 ? '1px solid #cbd5e1' : 'none'};">
-            <div style="display: grid; grid-template-columns: ${isA4 ? '1fr 1fr' : '1fr'}; gap: 6px;">
-              <div>
-                <p style="margin: 2px 0;"><strong>RAZÓN SOCIAL CLIENTE:</strong> ${cliente.razon_social}</p>
-                ${block.showNit ? `<p style="margin: 2px 0;"><strong>NIT / DUI:</strong> ${cliente.nit}</p>` : ''}
-                ${block.showNrc ? `<p style="margin: 2px 0;"><strong>NRC:</strong> ${cliente.nrc}</p>` : ''}
-              </div>
-              <div>
-                <p style="margin: 2px 0;"><strong>GIRO COMERCIAL:</strong> ${cliente.giro}</p>
-                <p style="margin: 2px 0;"><strong>DIRECCIÓN:</strong> ${cliente.direccion}</p>
-                <p style="margin: 2px 0;"><strong>CONDICIÓN DE PAGO:</strong> Contado / Crédito 30 días</p>
-              </div>
+        if (isA4) {
+          blocksHtml += `
+            <div style="border: 1px solid #000; border-radius: 4px; padding: 8px; margin-bottom: 12px; font-size: 11px; background: #fff;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="width: 50%; padding: 2px 0;"><strong>Receptor / Cliente:</strong> ${cliente.razon_social}</td>
+                  <td style="width: 50%; padding: 2px 0;"><strong>NIT / Doc:</strong> ${block.showNit !== false ? cliente.nit : 'Consumidor Final'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 2px 0;"><strong>Giro / Actividad:</strong> ${cliente.giro}</td>
+                  <td style="padding: 2px 0;"><strong>NRC:</strong> ${block.showNrc !== false ? cliente.nrc : 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding: 2px 0;"><strong>Dirección:</strong> ${cliente.direccion}</td>
+                </tr>
+              </table>
             </div>
-          </div>
-        `;
+          `;
+        } else {
+          blocksHtml += `
+            <div style="font-size: ${block.fontSize === 'small' ? '9px' : block.fontSize === 'large' ? '12px' : '10px'}; border-bottom: 1px dashed #333; padding-bottom: 6px; margin-bottom: 6px;">
+              <p style="margin: 2px 0;"><strong>Cliente:</strong> ${cliente.razon_social}</p>
+              ${block.showNit ? `<p style="margin: 2px 0;"><strong>NIT/DUI:</strong> ${cliente.nit}</p>` : ''}
+              ${block.showNrc ? `<p style="margin: 2px 0;"><strong>NRC:</strong> ${cliente.nrc}</p>` : ''}
+              <p style="margin: 2px 0; font-family: monospace;"><strong>DTE:</strong> ${dte.codigo_generacion.slice(0, 18)}...</p>
+            </div>
+          `;
+        }
         break;
 
       case 'items_table':
-        const fontSizePx = block.fontSize === 'small' ? '10px' : block.fontSize === 'large' ? '13px' : '11px';
         let tableRows = '';
-        items.forEach((it: any) => {
+        items.forEach((item: any) => {
           tableRows += `
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-              ${isA4 ? `<td style="padding:6px; font-family:monospace; font-size:10px;">${it.sku || 'N/A'}</td>` : ''}
-              <td style="padding:6px; text-align:center;">${it.cantidad}</td>
-              <td style="padding:6px; font-weight:500;">${it.descripcion}</td>
-              <td style="padding:6px; text-align:right;">$${parseFloat(it.precio).toFixed(2)}</td>
-              <td style="padding:6px; text-align:right; font-weight:bold;">$${parseFloat(it.total).toFixed(2)}</td>
+            <tr>
+              <td style="text-align: left; padding: 4px 0;">${item.cantidad}x</td>
+              <td style="text-align: left; padding: 4px 0;">
+                <div>${item.descripcion}</div>
+                ${block.showSku ? `<div style="font-size:8px; color:#64748b;">SKU: ${item.sku}</div>` : ''}
+              </td>
+              <td style="text-align: right; padding: 4px 0;">$${parseFloat(item.precio).toFixed(2)}</td>
+              <td style="text-align: right; padding: 4px 0; font-weight: bold;">$${parseFloat(item.total).toFixed(2)}</td>
             </tr>
           `;
         });
 
         blocksHtml += `
-          <table style="width:100%; border-collapse:collapse; margin:10px 0; font-size:${fontSizePx};">
+          <table style="width: 100%; border-collapse: collapse; font-size: ${isA4 ? '11px' : block.fontSize === 'small' ? '9px' : '10px'}; margin-bottom: 8px;">
             <thead>
-              <tr style="background:#e2e8f0; border-bottom:1.5px solid #000; text-align:left;">
-                ${isA4 ? `<th style="padding:6px;">SKU</th>` : ''}
-                <th style="padding:6px; text-align:center;">Cant.</th>
-                <th style="padding:6px;">Descripción de Producto / Servicio</th>
-                <th style="padding:6px; text-align:right;">P. Unit ($)</th>
-                <th style="padding:6px; text-align:right;">Venta Total ($)</th>
+              <tr style="border-bottom: 1.5px solid #000; text-transform: uppercase;">
+                <th style="text-align: left; padding-bottom: 4px; width: 12%;">Cant</th>
+                <th style="text-align: left; padding-bottom: 4px; width: 55%;">Descripción</th>
+                <th style="text-align: right; padding-bottom: 4px; width: 15%;">P.U.</th>
+                <th style="text-align: right; padding-bottom: 4px; width: 18%;">Total</th>
               </tr>
             </thead>
             <tbody>${tableRows}</tbody>
@@ -205,6 +292,18 @@ export function renderTemplateToPrint(scheme: PrintTemplateScheme, data?: any): 
             ` : ''}
           </div>
         `;
+        break;
+
+      case 'custom_text':
+        blocksHtml += `
+          <div style="margin: 6px 0; font-size: 10px; text-align: ${block.align || 'left'}; color: #334155;">
+            <p>${block.content || block.text || ''}</p>
+          </div>
+        `;
+        break;
+
+      case 'divider':
+        blocksHtml += `<div style="border-top: 1.5px solid #000; margin: 8px 0;"></div>`;
         break;
     }
   });
