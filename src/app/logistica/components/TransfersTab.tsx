@@ -43,6 +43,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/supabase/use-user';
@@ -117,6 +118,7 @@ export default function TransfersTab() {
   const [productSearch, setProductSearch] = useState<string>('');
   const [cart, setCart] = useState<TransferCircuitItem[]>([]);
   const [notes, setNotes] = useState<string>('');
+  const [isExpressMode, setIsExpressMode] = useState<boolean>(false);
 
   // Modal de Picking / Despacho Guiado
   const [selectedTransferForDispatch, setSelectedTransferForDispatch] = useState<TransferCircuitRecord | null>(null);
@@ -295,7 +297,7 @@ export default function TransfersTab() {
     setCart(cart.map(i => i.sku === sku ? { ...i, quantity: newQty } : i));
   };
 
-  // Crear Solicitud de Traslado
+  // Crear Solicitud de Traslado o Ejecutar Traslado Exprés
   const handleCreateTransferRequest = async () => {
     if (cart.length === 0) {
       toast({ variant: 'destructive', title: 'Carrito Vacío', description: 'Agrega al menos un producto a transferir.' });
@@ -307,7 +309,7 @@ export default function TransfersTab() {
     }
 
     setIsProcessing(true);
-    const correlativo = `TRA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const correlativo = `${isExpressMode ? 'EXP' : 'TRA'}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
     const sourceWh = warehouses.find(w => w.id === sourceWarehouseId);
     const destWh = warehouses.find(w => w.id === destinationWarehouseId);
 
@@ -319,14 +321,70 @@ export default function TransfersTab() {
       destino_id: destinationWarehouseId,
       destino_nombre: destWh?.name || 'Bodega Destino',
       tipo: transferType,
-      estado: 'SOLICITADO',
+      estado: isExpressMode ? 'RECIBIDO' : 'SOLICITADO',
       solicitado_por: operatorName || user?.email || 'Operador',
-      observaciones: notes,
+      despachado_por: isExpressMode ? (operatorName || user?.email || 'Operador Express') : undefined,
+      recibido_por: isExpressMode ? (operatorName || user?.email || 'Operador Express') : undefined,
+      transportista: isExpressMode ? 'Entrega Directa / Mostrador' : undefined,
+      observaciones: notes ? `${notes} ${isExpressMode ? '[MODO EXPRÉS 1 CLIC]' : ''}` : (isExpressMode ? '[MODO EXPRÉS 1 CLIC]' : ''),
       items: cart,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      despachado_at: isExpressMode ? new Date().toISOString() : undefined,
+      recibido_at: isExpressMode ? new Date().toISOString() : undefined
     };
 
     try {
+      if (isExpressMode) {
+        // Ejecución Inmediata de Stock y Kardex (1 Clic)
+        for (const it of cart) {
+          const currentSrcStock = getStockInWarehouse(it.sku, sourceWarehouseId);
+          const newSrcStock = Math.max(0, currentSrcStock - it.quantity);
+
+          const currentDestStock = getStockInWarehouse(it.sku, destinationWarehouseId);
+          const newDestStock = currentDestStock + it.quantity;
+
+          try {
+            // Descuento en Origen
+            await supabase.from('inventory_stock').upsert({
+              sku: it.sku,
+              warehouse_id: sourceWarehouseId,
+              quantity: newSrcStock
+            }, { onConflict: 'sku,warehouse_id' });
+
+            await supabase.from('kardex').insert({
+              sku: it.sku,
+              movement_type: 'TRASLADO_EXPRES_SALIDA',
+              location: sourceWh?.name || 'Origen',
+              document_ref: correlativo,
+              qty_in: 0,
+              qty_out: it.quantity,
+              balance: newSrcStock,
+              unit_cost: it.cost || 0
+            });
+
+            // Acreditación en Destino
+            await supabase.from('inventory_stock').upsert({
+              sku: it.sku,
+              warehouse_id: destinationWarehouseId,
+              quantity: newDestStock
+            }, { onConflict: 'sku,warehouse_id' });
+
+            await supabase.from('kardex').insert({
+              sku: it.sku,
+              movement_type: 'TRASLADO_EXPRES_ENTRADA',
+              location: destWh?.name || 'Destino',
+              document_ref: correlativo,
+              qty_in: it.quantity,
+              qty_out: 0,
+              balance: newDestStock,
+              unit_cost: it.cost || 0
+            });
+          } catch (e) {
+            console.warn('Error sincronizando stock/kardex exprés:', e);
+          }
+        }
+      }
+
       // Guardar en Supabase
       try {
         await supabase.from('traslados_circuito').insert({
@@ -337,12 +395,17 @@ export default function TransfersTab() {
           destino_id: newTransfer.destino_id,
           destino_nombre: newTransfer.destino_nombre,
           tipo: newTransfer.tipo,
-          estado: 'SOLICITADO',
+          estado: newTransfer.estado,
           solicitado_por: newTransfer.solicitado_por,
+          despachado_por: newTransfer.despachado_por,
+          recibido_por: newTransfer.recibido_por,
+          transportista: newTransfer.transportista,
           observaciones: newTransfer.observaciones,
           total_items: cart.reduce((sum, i) => sum + i.quantity, 0),
           items: newTransfer.items,
-          created_at: newTransfer.created_at
+          created_at: newTransfer.created_at,
+          despachado_at: newTransfer.despachado_at,
+          recibido_at: newTransfer.recibido_at
         });
       } catch (dbErr) {
         console.warn('Fallback local para traslados:', dbErr);
@@ -355,16 +418,27 @@ export default function TransfersTab() {
         localStorage.setItem('nexway_circuit_transfers', JSON.stringify(updated));
       }
 
-      toast({
-        title: 'Solicitud Creada con Éxito',
-        description: `Se generó la solicitud [${correlativo}] pendiente de picking en bodega.`
-      });
-
-      setCart([]);
-      setNotes('');
-      setActiveTab('despacho'); // Pasar a mesa de despacho
+      if (isExpressMode) {
+        toast({
+          title: '⚡ Traslado Exprés Ejecutado en 1 Clic',
+          description: `Se transfirieron ${cart.reduce((s, i) => s + i.quantity, 0)} unidad(es) de ${sourceWh?.name} hacia ${destWh?.name} con Kardex actualizado.`
+        });
+        setCart([]);
+        setNotes('');
+        setIsExpressMode(false);
+        await loadData();
+        setActiveTab('historial');
+      } else {
+        toast({
+          title: 'Solicitud Creada con Éxito',
+          description: `Se generó la solicitud [${correlativo}] pendiente de picking en bodega.`
+        });
+        setCart([]);
+        setNotes('');
+        setActiveTab('despacho'); // Pasar a mesa de despacho
+      }
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error al solicitar', description: err.message });
+      toast({ variant: 'destructive', title: 'Error al procesar traslado', description: err.message });
     } finally {
       setIsProcessing(false);
     }
@@ -852,13 +926,54 @@ export default function TransfersTab() {
                   />
                 </div>
 
+                {/* Switch de Modo Traslado Exprés / Directo (1 Clic) */}
+                <div className={`p-3 rounded-lg border transition-all ${
+                  isExpressMode 
+                    ? 'bg-amber-500/10 border-amber-500/50 shadow-sm' 
+                    : 'bg-muted/30 border-border/60 hover:border-border'
+                }`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <Zap className={`h-3.5 w-3.5 ${isExpressMode ? 'text-amber-500 fill-amber-500 animate-pulse' : 'text-muted-foreground'}`} />
+                        Modo Traslado Exprés (1 Clic)
+                        {isExpressMode && (
+                          <Badge className="bg-amber-500 hover:bg-amber-600 text-[9px] px-1.5 py-0 h-4 text-white">
+                            Directo
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        Para 1 unidad o traspasos inmediatos: descuenta y carga stock en 1 solo paso sin mesa de picking.
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={isExpressMode} 
+                      onCheckedChange={setIsExpressMode}
+                    />
+                  </div>
+                </div>
+
                 <Button
                   onClick={handleCreateTransferRequest}
                   disabled={cart.length === 0 || isProcessing}
-                  className="w-full h-9 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md gap-1.5"
+                  className={`w-full h-9 text-xs font-semibold text-white shadow-md gap-1.5 transition-all ${
+                    isExpressMode 
+                      ? 'bg-amber-600 hover:bg-amber-700' 
+                      : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
                 >
-                  {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  Enviar Solicitud a Mesa de Despacho
+                  {isProcessing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : isExpressMode ? (
+                    <Zap className="h-3.5 w-3.5 fill-current" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
+                  {isExpressMode 
+                    ? '⚡ Ejecutar Traslado Exprés Inmediato' 
+                    : 'Enviar Solicitud a Mesa de Despacho'
+                  }
                 </Button>
 
               </CardContent>

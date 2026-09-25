@@ -86,14 +86,14 @@ const MODULE_GUIDES: Record<string, { title: string; steps: string[]; taxTip: st
     taxTip: '💡 Tip Legal El Salvador: Las retenciones de renta e ISSS/AFP deben declararse antes del día 10 de cada mes.'
   },
   '/logistica': {
-    title: 'Tutoría de Logística, Inventarios y Traslados',
+    title: 'Tutoría de Circuito de Traslados, Despacho y Reabastecimiento',
     steps: [
-      '1. Revisa el existencias físicas por bodega.',
-      '2. Realiza traslados entre bodegas con confirmación de recepción.',
-      '3. Consulta el historial de movimientos de Kardex por SKU.',
-      '4. Monitorea los avisos de stock mínimo para evitar roturas de inventario.'
+      '1. Solicitudes y Modo Exprés (1 Clic): Crea traslados con circuito guiado o activa Modo Exprés para mover 1 unidad al instante.',
+      '2. Mesa de Despacho & Picking: El bodeguero valida ítem por ítem con checklist físico e ingresa motorista/placa de transporte.',
+      '3. Recepción en Destino: La sucursal destino confirma la llegada física, acreditando el stock en Kardex automáticamente.',
+      '4. Reabastecimiento ROP: NexBot y BMS vigilan el punto de reorden y consolidan compras a proveedores al detectar quiebres.'
     ],
-    taxTip: '💡 Tip Logístico: Realiza conteos cíclicos semanales en los productos de clasificación A (mayor valor).'
+    taxTip: '💡 Tip Logístico & Legal: Toda mercadería en tránsito debe contar con su correlativo o Guía de Remisión física para respaldo ante auditorías de transporte.'
   }
 };
 
@@ -179,6 +179,14 @@ export function NexBotTutorWidget() {
     },
     {
       id: 'prop_2',
+      module: 'logistica',
+      title: 'Traslado Exprés Sugerido (1 Clic)',
+      description: 'Sucursal Escalón llegó al punto de reorden en producto de alta rotación. Hay 25 uds en Bodega Central.',
+      impact: 'Traspaso Directo Exprés de 5 Unidades',
+      status: 'pending'
+    },
+    {
+      id: 'prop_3',
       module: 'billing',
       title: 'Sugerencia de Reabastecimiento POS',
       description: 'El SKU CEMENTO-01 tiene 4 unidades en bodega principal y se proyectan 15 ventas hoy.',

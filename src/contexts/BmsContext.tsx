@@ -35,6 +35,8 @@ interface BmsStats {
   hasClosingToday: boolean;
   crmTasksCount: number;
   pendingOrdersCount: number;
+  pendingTransfersCount: number;
+  inTransitTransfersCount: number;
 }
 
 export interface MapLocation {
@@ -106,7 +108,9 @@ const defaultStats: BmsStats = {
   hasSalesToday: false,
   hasClosingToday: false,
   crmTasksCount: 0,
-  pendingOrdersCount: 0
+  pendingOrdersCount: 0,
+  pendingTransfersCount: 0,
+  inTransitTransfersCount: 0
 };
 
 const defaultMapData: MapData = {
@@ -426,6 +430,35 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      // 6.5 Auditar traslados de circuito (solicitados y en tránsito)
+      let pendingTransfers = 0;
+      let inTransitTransfers = 0;
+      try {
+        const { data: trData } = await supabase
+          .from('traslados_circuito')
+          .select('estado');
+        if (trData && trData.length > 0) {
+          pendingTransfers = trData.filter(t => t.estado === 'SOLICITADO' || t.estado === 'EN_PICKING').length;
+          inTransitTransfers = trData.filter(t => t.estado === 'DESPACHADO').length;
+        } else if (typeof window !== 'undefined') {
+          const localTr = localStorage.getItem('nexway_circuit_transfers');
+          if (localTr) {
+            const parsed = JSON.parse(localTr);
+            pendingTransfers = (parsed || []).filter((t: any) => t.estado === 'SOLICITADO' || t.estado === 'EN_PICKING').length;
+            inTransitTransfers = (parsed || []).filter((t: any) => t.estado === 'DESPACHADO').length;
+          }
+        }
+      } catch (trErr) {
+        if (typeof window !== 'undefined') {
+          const localTr = localStorage.getItem('nexway_circuit_transfers');
+          if (localTr) {
+            const parsed = JSON.parse(localTr);
+            pendingTransfers = (parsed || []).filter((t: any) => t.estado === 'SOLICITADO' || t.estado === 'EN_PICKING').length;
+            inTransitTransfers = (parsed || []).filter((t: any) => t.estado === 'DESPACHADO').length;
+          }
+        }
+      }
+
       setStats({
         branchesCount: branchesCount || 0,
         productsCount: productsCount || 0,
@@ -435,7 +468,9 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         hasSalesToday: (salesToday || []).length > 0,
         hasClosingToday: (closingToday || []).length > 0,
         crmTasksCount: pendingCrmTasks,
-        pendingOrdersCount: pendingOrdersCount
+        pendingOrdersCount: pendingOrdersCount,
+        pendingTransfersCount: pendingTransfers,
+        inTransitTransfersCount: inTransitTransfers
       });
 
       // 7. Mapear clientes y sucursales reales en el Mapa Logístico
@@ -564,6 +599,30 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         status: 'pending',
         actionLabel: 'Ver Pedidos',
         actionPath: '/inventory'
+      });
+    }
+
+    if (stats.pendingTransfersCount > 0) {
+      list.push({
+        id: 'ops_pending_transfers',
+        title: `📦 Despachos de Traslado Pendientes (${stats.pendingTransfersCount})`,
+        description: 'Hay solicitudes de traslado entre sucursales en espera de picking y autorización de despacho en bodega.',
+        category: 'operations',
+        status: 'pending',
+        actionLabel: 'Mesa de Despacho',
+        actionPath: '/logistica'
+      });
+    }
+
+    if (stats.inTransitTransfersCount > 0) {
+      list.push({
+        id: 'ops_intransit_transfers',
+        title: `🚚 Mercadería en Tránsito (${stats.inTransitTransfersCount})`,
+        description: 'Hay traslados despachados en camino hacia sucursales esperando confirmación de recepción física.',
+        category: 'operations',
+        status: 'pending',
+        actionLabel: 'Recepción',
+        actionPath: '/logistica'
       });
     }
 
