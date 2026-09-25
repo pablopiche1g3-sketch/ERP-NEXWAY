@@ -24,7 +24,8 @@ import {
   Tag,
   Factory,
   ShieldCheck,
-  Info
+  Info,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,18 @@ interface ProductionRecipe {
   yieldQuantity: number;
 }
 
+interface ProductItem {
+  id?: string;
+  sku: string;
+  name: string;
+  cost: number;
+  price: number;
+  unit?: string;
+  quantity: number;
+  stock?: number;
+  bodegas?: Record<string, number>;
+}
+
 const COMMON_UNITS = [
   'Barril',
   'Tambor',
@@ -111,8 +124,9 @@ export default function FractionAndDischargesTab() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Datos del Sistema
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<ProductItem[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [stockMap, setStockMap] = useState<Record<string, number>>({}); // sku:warehouse_id -> qty
   const [history, setHistory] = useState<SpecialDischargeRecord[]>([]);
   const [recipes, setRecipes] = useState<ProductionRecipe[]>([]);
   const [operatorName, setOperatorName] = useState<string>('');
@@ -184,54 +198,145 @@ export default function FractionAndDischargesTab() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Cargar productos
-      const { data: prods, error: pErr } = await supabase
-        .from('products')
-        .select('*')
-        .order('name');
-      if (pErr) throw pErr;
-      setProducts(prods || []);
-
-      // 2. Cargar bodegas
-      const { data: whs, error: wErr } = await supabase
-        .from('warehouses')
-        .select('*')
-        .order('name');
-      if (wErr) throw wErr;
-      setWarehouses(whs || []);
-      if (whs && whs.length > 0 && !selectedWarehouseId) {
-        setSelectedWarehouseId(whs[0].id);
+      // 1. Cargar Bodegas (con fallback seguro)
+      let whList: any[] = [];
+      try {
+        const { data: whs } = await supabase
+          .from('warehouses')
+          .select('*')
+          .order('name');
+        if (whs && whs.length > 0) {
+          whList = whs;
+        }
+      } catch (errWh) {
+        console.warn('Fallback bodegas:', errWh);
       }
 
-      // 3. Cargar recetas de producción
-      const { data: recipeConf } = await supabase
-        .from('system_config')
-        .select('value')
-        .eq('key', 'production_recipes')
-        .maybeSingle();
-      if (recipeConf?.value && Array.isArray(recipeConf.value)) {
-        setRecipes(recipeConf.value);
+      if (whList.length === 0) {
+        whList = [
+          { id: 'wh-central', name: 'Bodega Principal' },
+          { id: 'wh-tienda', name: 'Sala de Ventas' }
+        ];
+      }
+      setWarehouses(whList);
+      if (!selectedWarehouseId && whList.length > 0) {
+        setSelectedWarehouseId(whList[0].id);
       }
 
-      // 4. Cargar historial
-      const { data: histConf } = await supabase
-        .from('system_config')
-        .select('value')
-        .eq('key', 'special_discharges_history')
-        .maybeSingle();
-      if (histConf?.value && Array.isArray(histConf.value)) {
-        setHistory(histConf.value);
+      // 2. Cargar Catálogo de Inventario (tabla `inventory`)
+      let invList: any[] = [];
+      try {
+        const { data: invData, error: invErr } = await supabase
+          .from('inventory')
+          .select('*')
+          .order('name');
+        
+        if (!invErr && invData && invData.length > 0) {
+          invList = invData;
+        }
+      } catch (errInv) {
+        console.warn('Error leyendo tabla inventory en Supabase:', errInv);
       }
-    } catch (err: any) {
-      console.error('Error cargando datos de logística:', err);
-      toast({
-        title: 'Error de Conexión',
-        description: 'No se pudieron cargar los inventarios ni bodegas.',
-        variant: 'destructive',
+
+      // Fallback a localStorage si la base está vacía o offline
+      if (invList.length === 0 && typeof window !== 'undefined') {
+        const local = localStorage.getItem('nexway_inventory');
+        if (local) {
+          try {
+            invList = JSON.parse(local);
+          } catch (e) {}
+        }
+      }
+
+      // 3. Cargar existencias por bodega (tabla `inventory_stock`)
+      const stockByWhMap: Record<string, number> = {};
+      try {
+        const { data: stockData } = await supabase
+          .from('inventory_stock')
+          .select('sku, warehouse_id, quantity');
+
+        if (stockData && stockData.length > 0) {
+          stockData.forEach(s => {
+            const key = `${s.sku}::${s.warehouse_id}`;
+            stockByWhMap[key] = parseFloat(s.quantity) || 0;
+          });
+          setStockMap(stockByWhMap);
+        }
+      } catch (errStock) {
+        console.warn('Error leyendo inventory_stock:', errStock);
+      }
+
+      // Mapear productos con stock normalizado
+      const mappedProducts: ProductItem[] = invList.map(item => {
+        const costVal = Number(item.cost ?? (item.price ? item.price * 0.7 : 0));
+        const priceVal = Number(item.price ?? item.sale_price ?? 0);
+        const qtyVal = Number(item.quantity ?? item.stock ?? 0);
+
+        return {
+          id: item.id || item.sku,
+          sku: item.sku,
+          name: item.name || item.description || item.sku,
+          cost: costVal,
+          price: priceVal,
+          unit: item.unit || detectUnitFromName(item.name || ''),
+          quantity: qtyVal,
+          stock: qtyVal
+        };
       });
+
+      setProducts(mappedProducts);
+
+      // 4. Cargar Recetas de Producción
+      try {
+        const { data: recipeConf } = await supabase
+          .from('system_config')
+          .select('value')
+          .eq('key', 'production_recipes')
+          .maybeSingle();
+
+        if (recipeConf?.value && Array.isArray(recipeConf.value)) {
+          setRecipes(recipeConf.value);
+        }
+      } catch (errR) {
+        console.warn('Error cargando recetas:', errR);
+      }
+
+      // 5. Cargar Historial de Descargos Especiales y Fraccionamiento
+      try {
+        const { data: histConf } = await supabase
+          .from('system_config')
+          .select('value')
+          .eq('key', 'special_discharges_history')
+          .maybeSingle();
+
+        if (histConf?.value && Array.isArray(histConf.value)) {
+          setHistory(histConf.value);
+        } else if (typeof window !== 'undefined') {
+          const localHist = localStorage.getItem('special_discharges_history');
+          if (localHist) {
+            setHistory(JSON.parse(localHist));
+          }
+        }
+      } catch (errH) {
+        console.warn('Error cargando historial descargos:', errH);
+      }
+
+    } catch (err: any) {
+      console.error('Error general cargando datos de logística:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Función para obtener stock de un producto en la bodega activa
+  const getProductStockInWarehouse = (sku: string, whId: string): number => {
+    if (!sku) return 0;
+    const key = `${sku}::${whId}`;
+    if (stockMap[key] !== undefined) {
+      return stockMap[key];
+    }
+    const prod = products.find(p => p.sku === sku);
+    return prod ? Number(prod.quantity ?? prod.stock ?? 0) : 0;
   };
 
   // Autodetectar unidades al cambiar producto origen
@@ -239,7 +344,7 @@ export default function FractionAndDischargesTab() {
     setSourceSku(sku);
     const prod = products.find(p => p.sku === sku);
     if (prod) {
-      const detected = detectUnitFromName(prod.name);
+      const detected = prod.unit || detectUnitFromName(prod.name);
       setSourceUnit(detected);
     }
   };
@@ -249,7 +354,7 @@ export default function FractionAndDischargesTab() {
     setDestinationSku(sku);
     const prod = products.find(p => p.sku === sku);
     if (prod) {
-      const detected = detectUnitFromName(prod.name);
+      const detected = prod.unit || detectUnitFromName(prod.name);
       setTargetUnit(detected);
     }
   };
@@ -262,6 +367,11 @@ export default function FractionAndDischargesTab() {
   const selectedDestinationProduct = useMemo(() => {
     return products.find(p => p.sku === destinationSku);
   }, [products, destinationSku]);
+
+  const currentSourceStock = useMemo(() => {
+    if (!sourceSku || !selectedWarehouseId) return 0;
+    return getProductStockInWarehouse(sourceSku, selectedWarehouseId);
+  }, [sourceSku, selectedWarehouseId, stockMap, products]);
 
   const parsedSourceQty = useMemo(() => {
     const val = parseFloat(sourceQuantity);
@@ -320,7 +430,6 @@ export default function FractionAndDischargesTab() {
   }, [destinationPrice, unitCostResulting]);
 
   // Validaciones
-  const currentSourceStock = Number(selectedSourceProduct?.stock || 0);
   const isStockInsufficient = parsedSourceQty > currentSourceStock;
   
   const canCalculate = useMemo(() => {
@@ -345,88 +454,118 @@ export default function FractionAndDischargesTab() {
     if (!isFormValid || !selectedSourceProduct) return;
 
     setIsProcessing(true);
+    const docRef = `FRAC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+
     try {
       const warehouse = warehouses.find(w => w.id === selectedWarehouseId);
       const warehouseName = warehouse?.name || 'Bodega Principal';
 
-      // 1. Descontar producto origen (Matriz)
-      const newSourceStock = Math.max(0, currentSourceStock - parsedSourceQty);
-      const { error: srcErr } = await supabase
-        .from('products')
-        .update({ stock: newSourceStock })
-        .eq('id', selectedSourceProduct.id);
-      if (srcErr) throw srcErr;
+      // 1. Descontar producto origen (Matriz) en inventory_stock y en inventory
+      const currentWhSourceStock = getProductStockInWarehouse(selectedSourceProduct.sku, selectedWarehouseId);
+      const newWhSourceStock = Math.max(0, currentWhSourceStock - parsedSourceQty);
+      const newGlobalSourceStock = Math.max(0, (selectedSourceProduct.quantity || 0) - parsedSourceQty);
+
+      try {
+        await supabase.from('inventory_stock').upsert({
+          sku: selectedSourceProduct.sku,
+          warehouse_id: selectedWarehouseId,
+          quantity: newWhSourceStock
+        }, { onConflict: 'sku,warehouse_id' });
+      } catch (errUpsert) {
+        console.warn('Upsert inventory_stock source warning:', errUpsert);
+      }
+
+      try {
+        await supabase
+          .from('inventory')
+          .update({ quantity: newGlobalSourceStock })
+          .eq('sku', selectedSourceProduct.sku);
+      } catch (errUpd) {
+        console.warn('Update inventory source warning:', errUpd);
+      }
 
       // 2. Registrar movimiento Kardex de Origen
-      await supabase.from('kardex').insert({
-        product_id: selectedSourceProduct.id,
-        sku: selectedSourceProduct.sku,
-        name: selectedSourceProduct.name,
-        type: 'OUT',
-        reason: fractionFlow === 'VENTA' 
-          ? `FRACCIONAMIENTO_ORIGEN: Descarga de ${parsedSourceQty} ${sourceUnit}(s) para fraccionar en ${netResultingUnits.toFixed(2)} ${targetUnit}(s) de SKU ${destinationSku || selectedRecipeId}`
-          : `CONSUMO_PRODUCCION_FRACCION: Descarga directa de ${parsedSourceQty} ${sourceUnit}(s) para orden de producción/fórmula ${selectedRecipeId}`,
-        quantity: parsedSourceQty,
-        cost: sourceUnitCost,
-        total_cost: totalSourceCost,
-        warehouse_id: selectedWarehouseId,
-        responsible: operatorName || user?.email || 'Sistema',
-        created_at: new Date().toISOString()
-      });
+      try {
+        await supabase.from('kardex').insert({
+          sku: selectedSourceProduct.sku,
+          movement_type: fractionFlow === 'VENTA' ? 'FRACCIONAMIENTO_SALIDA' : 'PRODUCCION_CONSUMO',
+          location: warehouseName,
+          document_ref: docRef,
+          qty_in: 0,
+          qty_out: parsedSourceQty,
+          balance: newWhSourceStock,
+          unit_cost: sourceUnitCost
+        });
+      } catch (kErr) {
+        console.warn('Kardex insert source warning:', kErr);
+      }
 
       // 3. Manejar Destino según el Flujo
-      if (fractionFlow === 'VENTA') {
-        if (selectedDestinationProduct) {
-          const currentDestStock = Number(selectedDestinationProduct.stock || 0);
-          const newDestStock = currentDestStock + netResultingUnits;
-          
-          // Actualizar costo promedio ponderado si aplica, o mantener stock
-          const { error: dstErr } = await supabase
-            .from('products')
+      if (fractionFlow === 'VENTA' && selectedDestinationProduct) {
+        const currentWhDestStock = getProductStockInWarehouse(selectedDestinationProduct.sku, selectedWarehouseId);
+        const newWhDestStock = currentWhDestStock + netResultingUnits;
+        const newGlobalDestStock = (selectedDestinationProduct.quantity || 0) + netResultingUnits;
+
+        try {
+          await supabase.from('inventory_stock').upsert({
+            sku: selectedDestinationProduct.sku,
+            warehouse_id: selectedWarehouseId,
+            quantity: newWhDestStock
+          }, { onConflict: 'sku,warehouse_id' });
+        } catch (errDstUpsert) {
+          console.warn('Upsert inventory_stock destination warning:', errDstUpsert);
+        }
+
+        try {
+          await supabase
+            .from('inventory')
             .update({ 
-              stock: newDestStock,
+              quantity: newGlobalDestStock,
               cost: unitCostResulting > 0 ? unitCostResulting : selectedDestinationProduct.cost
             })
-            .eq('id', selectedDestinationProduct.id);
-          if (dstErr) throw dstErr;
+            .eq('sku', selectedDestinationProduct.sku);
+        } catch (errDstUpd) {
+          console.warn('Update inventory destination warning:', errDstUpd);
+        }
 
-          // Registrar entrada Kardex
+        // Registrar entrada Kardex
+        try {
           await supabase.from('kardex').insert({
-            product_id: selectedDestinationProduct.id,
             sku: selectedDestinationProduct.sku,
-            name: selectedDestinationProduct.name,
-            type: 'IN',
-            reason: `FRACCIONAMIENTO_DESTINO: Ingreso de ${netResultingUnits.toFixed(2)} ${targetUnit}(s) desde ${parsedSourceQty} ${sourceUnit}(s) de ${selectedSourceProduct.name}`,
-            quantity: netResultingUnits,
-            cost: unitCostResulting,
-            total_cost: totalSourceCost - (calculatedWasteUnits * unitCostResulting),
-            warehouse_id: selectedWarehouseId,
-            responsible: operatorName || user?.email || 'Sistema',
-            created_at: new Date().toISOString()
+            movement_type: 'FRACCIONAMIENTO_ENTRADA',
+            location: warehouseName,
+            document_ref: docRef,
+            qty_in: netResultingUnits,
+            qty_out: 0,
+            balance: newWhDestStock,
+            unit_cost: unitCostResulting
           });
+        } catch (kDstErr) {
+          console.warn('Kardex insert destination warning:', kDstErr);
         }
       }
 
       // 4. Si hubo merma, registrar asiento en Kardex
       if (calculatedWasteUnits > 0) {
-        await supabase.from('kardex').insert({
-          product_id: selectedSourceProduct.id,
-          sku: selectedSourceProduct.sku,
-          name: selectedSourceProduct.name,
-          type: 'OUT',
-          reason: `MERMA_FRACCIONAMIENTO: Pérdida de ${calculatedWasteUnits.toFixed(2)} ${targetUnit}(s) durante el proceso de fraccionamiento (${wasteType === 'PERCENT' ? `${wasteValue}%` : `${wasteValue} fijos`})`,
-          quantity: calculatedWasteUnits,
-          cost: unitCostResulting,
-          total_cost: calculatedWasteUnits * unitCostResulting,
-          warehouse_id: selectedWarehouseId,
-          responsible: operatorName || user?.email || 'Sistema',
-          created_at: new Date().toISOString()
-        });
+        try {
+          await supabase.from('kardex').insert({
+            sku: selectedSourceProduct.sku,
+            movement_type: 'MERMA_FRACCIONAMIENTO',
+            location: warehouseName,
+            document_ref: docRef,
+            qty_in: 0,
+            qty_out: calculatedWasteUnits,
+            balance: newWhSourceStock,
+            unit_cost: unitCostResulting
+          });
+        } catch (kMermaErr) {
+          console.warn('Kardex insert merma warning:', kMermaErr);
+        }
       }
 
-      // 5. Guardar registro en historial de descargos especiales
+      // 5. Guardar registro en historial
       const newRecord: SpecialDischargeRecord = {
-        id: `FRAC-${Date.now()}`,
+        id: docRef,
         type: fractionFlow === 'VENTA' ? 'FRACCIONAMIENTO' : 'CONSUMO_PRODUCCION',
         sku: selectedSourceProduct.sku,
         name: selectedSourceProduct.name,
@@ -449,13 +588,21 @@ export default function FractionAndDischargesTab() {
       const updatedHistory = [newRecord, ...history];
       setHistory(updatedHistory);
 
-      await supabase
-        .from('system_config')
-        .upsert({
-          key: 'special_discharges_history',
-          value: updatedHistory,
-          updated_at: new Date().toISOString()
-        });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('special_discharges_history', JSON.stringify(updatedHistory));
+      }
+
+      try {
+        await supabase
+          .from('system_config')
+          .upsert({
+            key: 'special_discharges_history',
+            value: updatedHistory,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'key' });
+      } catch (scErr) {
+        console.warn('System config history sync warning:', scErr);
+      }
 
       toast({
         title: 'Operación Exitosa',
@@ -498,8 +645,9 @@ export default function FractionAndDischargesTab() {
       toast({ title: 'Atención', description: 'La cantidad debe ser mayor a 0.', variant: 'destructive' });
       return;
     }
-    if (qty > (selectedProd.stock || 0)) {
-      toast({ title: 'Stock Insuficiente', description: 'La cantidad excede el stock disponible.', variant: 'destructive' });
+    const currentWhStock = getProductStockInWarehouse(dischargeSku, selectedWarehouseId);
+    if (qty > currentWhStock) {
+      toast({ title: 'Stock Insuficiente', description: `La cantidad (${qty}) excede el stock disponible (${currentWhStock}) en la bodega seleccionada.`, variant: 'destructive' });
       return;
     }
     if (!dischargeReason.trim()) {
@@ -508,36 +656,44 @@ export default function FractionAndDischargesTab() {
     }
 
     setIsProcessing(true);
+    const docRef = `SAL-${Date.now()}`;
     try {
       const warehouse = warehouses.find(w => w.id === selectedWarehouseId);
       const warehouseName = warehouse?.name || 'Bodega Principal';
 
-      // Descontar inventario
-      const newStock = Math.max(0, (selectedProd.stock || 0) - qty);
-      const { error: pErr } = await supabase
-        .from('products')
-        .update({ stock: newStock })
-        .eq('id', selectedProd.id);
-      if (pErr) throw pErr;
+      // Descontar inventario por bodega y global
+      const newWhStock = Math.max(0, currentWhStock - qty);
+      const newGlobalStock = Math.max(0, (selectedProd.quantity || 0) - qty);
+
+      try {
+        await supabase.from('inventory_stock').upsert({
+          sku: selectedProd.sku,
+          warehouse_id: selectedWarehouseId,
+          quantity: newWhStock
+        }, { onConflict: 'sku,warehouse_id' });
+      } catch (e1) {}
+
+      try {
+        await supabase.from('inventory').update({ quantity: newGlobalStock }).eq('sku', selectedProd.sku);
+      } catch (e2) {}
 
       // Kardex
-      await supabase.from('kardex').insert({
-        product_id: selectedProd.id,
-        sku: selectedProd.sku,
-        name: selectedProd.name,
-        type: 'OUT',
-        reason: `SALIDA_${dischargeType}: ${dischargeReason}`,
-        quantity: qty,
-        cost: selectedProd.cost || 0,
-        total_cost: qty * (selectedProd.cost || 0),
-        warehouse_id: selectedWarehouseId,
-        responsible: operatorName || user?.email || 'Sistema',
-        created_at: new Date().toISOString()
-      });
+      try {
+        await supabase.from('kardex').insert({
+          sku: selectedProd.sku,
+          movement_type: `SALIDA_${dischargeType}`,
+          location: warehouseName,
+          document_ref: docRef,
+          qty_in: 0,
+          qty_out: qty,
+          balance: newWhStock,
+          unit_cost: selectedProd.cost || 0
+        });
+      } catch (e3) {}
 
       // Historial
       const newRecord: SpecialDischargeRecord = {
-        id: `DIS-${Date.now()}`,
+        id: docRef,
         type: dischargeType,
         sku: selectedProd.sku,
         name: selectedProd.name,
@@ -552,13 +708,19 @@ export default function FractionAndDischargesTab() {
       const updatedHistory = [newRecord, ...history];
       setHistory(updatedHistory);
 
-      await supabase
-        .from('system_config')
-        .upsert({
-          key: 'special_discharges_history',
-          value: updatedHistory,
-          updated_at: new Date().toISOString()
-        });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('special_discharges_history', JSON.stringify(updatedHistory));
+      }
+
+      try {
+        await supabase
+          .from('system_config')
+          .upsert({
+            key: 'special_discharges_history',
+            value: updatedHistory,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'key' });
+      } catch (e4) {}
 
       toast({
         title: 'Salida Registrada',
@@ -611,19 +773,33 @@ export default function FractionAndDischargesTab() {
           </p>
         </div>
 
-        <Tabs value={activeSubTab} onValueChange={(v: any) => setActiveSubTab(v)} className="w-full sm:w-auto">
-          <TabsList className="grid grid-cols-3 w-full sm:w-auto">
-            <TabsTrigger value="fraccionar" className="text-xs gap-1.5">
-              <Scissors className="h-3.5 w-3.5" /> Fraccionar
-            </TabsTrigger>
-            <TabsTrigger value="salidas" className="text-xs gap-1.5">
-              <ArrowDownCircle className="h-3.5 w-3.5" /> Salidas Especiales
-            </TabsTrigger>
-            <TabsTrigger value="historial" className="text-xs gap-1.5">
-              <History className="h-3.5 w-3.5" /> Historial
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={loadData} 
+            disabled={loading}
+            className="h-8 text-xs gap-1.5"
+            title="Recargar inventarios"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Cargando...' : 'Actualizar'}
+          </Button>
+
+          <Tabs value={activeSubTab} onValueChange={(v: any) => setActiveSubTab(v)} className="w-full sm:w-auto">
+            <TabsList className="grid grid-cols-3 w-full sm:w-auto">
+              <TabsTrigger value="fraccionar" className="text-xs gap-1.5">
+                <Scissors className="h-3.5 w-3.5" /> Fraccionar
+              </TabsTrigger>
+              <TabsTrigger value="salidas" className="text-xs gap-1.5">
+                <ArrowDownCircle className="h-3.5 w-3.5" /> Salidas Especiales
+              </TabsTrigger>
+              <TabsTrigger value="historial" className="text-xs gap-1.5">
+                <History className="h-3.5 w-3.5" /> Historial
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {/* 1. SUB-TAB: FRACCIONAMIENTO */}
@@ -745,11 +921,14 @@ export default function FractionAndDischargesTab() {
                         <SelectValue placeholder="Buscar producto origen..." />
                       </SelectTrigger>
                       <SelectContent className="max-h-56">
-                        {products.map(p => (
-                          <SelectItem key={p.sku} value={p.sku} className="text-xs">
-                            [{p.sku}] {p.name} (Stock: {p.stock})
-                          </SelectItem>
-                        ))}
+                        {products.map(p => {
+                          const stockInWh = getProductStockInWarehouse(p.sku, selectedWarehouseId);
+                          return (
+                            <SelectItem key={p.sku} value={p.sku} className="text-xs">
+                              [{p.sku}] {p.name} (Stock: {stockInWh} {p.unit || 'uds'})
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -784,7 +963,7 @@ export default function FractionAndDischargesTab() {
                   {isStockInsufficient && (
                     <div className="text-xs text-rose-500 flex items-center gap-1.5 bg-rose-500/10 p-2 rounded-md font-medium border border-rose-500/30">
                       <AlertTriangle className="h-4 w-4 shrink-0" />
-                      <span>Stock insuficiente: Solicitas descargar {parsedSourceQty} {sourceUnit}s pero solo hay {currentSourceStock} disponibles.</span>
+                      <span>Stock insuficiente: Solicitas descargar {parsedSourceQty} {sourceUnit}s pero solo hay {currentSourceStock} disponibles en esta bodega.</span>
                     </div>
                   )}
                 </div>
@@ -806,11 +985,14 @@ export default function FractionAndDischargesTab() {
                             <SelectValue placeholder="Seleccionar producto resultante..." />
                           </SelectTrigger>
                           <SelectContent className="max-h-56">
-                            {products.filter(p => p.sku !== sourceSku).map(p => (
-                              <SelectItem key={p.sku} value={p.sku} className="text-xs">
-                                [{p.sku}] {p.name} (Stock Actual: {p.stock})
-                              </SelectItem>
-                            ))}
+                            {products.filter(p => p.sku !== sourceSku).map(p => {
+                              const stockInWh = getProductStockInWarehouse(p.sku, selectedWarehouseId);
+                              return (
+                                <SelectItem key={p.sku} value={p.sku} className="text-xs">
+                                  [{p.sku}] {p.name} (Stock: {stockInWh} {p.unit || 'uds'})
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1209,11 +1391,14 @@ export default function FractionAndDischargesTab() {
                       <SelectValue placeholder="Buscar producto..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-56">
-                      {products.map(p => (
-                        <SelectItem key={p.sku} value={p.sku} className="text-xs">
-                          [{p.sku}] {p.name} (Stock: {p.stock})
-                        </SelectItem>
-                      ))}
+                      {products.map(p => {
+                        const stockInWh = getProductStockInWarehouse(p.sku, selectedWarehouseId);
+                        return (
+                          <SelectItem key={p.sku} value={p.sku} className="text-xs">
+                            [{p.sku}] {p.name} (Stock: {stockInWh} {p.unit || 'uds'})
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
