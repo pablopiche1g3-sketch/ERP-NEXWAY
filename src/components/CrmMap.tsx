@@ -61,9 +61,10 @@ export function CrmMap({ locations, routes, onSelectLocation, onAddLocation, onD
           zoomControl: true
         });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
-          attribution: '© OpenStreetMap | ERP NexWay El Salvador'
+          subdomains: ['a', 'b', 'c'],
+          attribution: '© OpenStreetMap contributors | ERP NexWay El Salvador'
         }).addTo(map);
 
         mapInstanceRef.current = map;

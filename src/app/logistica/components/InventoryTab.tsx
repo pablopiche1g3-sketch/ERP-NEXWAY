@@ -155,9 +155,12 @@ export default function InventoryTab() {
   const [maxStock, setMaxStock] = useState<string>('0');
   const [reorderPoint, setReorderPoint] = useState<string>('0');
   const [productCost, setProductCost] = useState<string>('0');
+  const [defaultSupplierId, setDefaultSupplierId] = useState<string>('');
+  const [defaultSupplierName, setDefaultSupplierName] = useState<string>('');
   const [isActive, setIsActive] = useState<boolean>(true);
   const [isService, setIsService] = useState<boolean>(false);
   const [isExempt, setIsExempt] = useState<boolean>(false);
+  const [suppliersList, setSuppliersList] = useState<any[]>([]);
 
   const handleSelectPriceProduct = async (sku: string) => {
     const prod = inventory.find(p => p.sku === sku);
@@ -175,6 +178,8 @@ export default function InventoryTab() {
     setMaxStock(prod.max_stock?.toString() || '0');
     setReorderPoint(prod.reorder_point?.toString() || '0');
     setProductCost(prod.cost?.toString() || '0');
+    setDefaultSupplierId(prod.default_supplier_id || '');
+    setDefaultSupplierName(prod.default_supplier_name || '');
     setIsActive(prod.is_active ?? true);
     setIsService(prod.is_service ?? false);
     setIsExempt(prod.is_exempt ?? false);
@@ -191,7 +196,8 @@ export default function InventoryTab() {
 
   const handleSavePrice = async () => {
     if (!selectedPriceProduct) return;
-    setSavingPrice(true);    try {
+    setSavingPrice(true);
+    try {
       // 1. Actualizar campos en public.inventory
       const { error: invErr } = await supabase
         .from('inventory')
@@ -207,6 +213,8 @@ export default function InventoryTab() {
           max_stock: parseFloat(maxStock) || 0,
           reorder_point: parseFloat(reorderPoint) || 0,
           cost: parseFloat(productCost) || 0,
+          default_supplier_id: defaultSupplierId || null,
+          default_supplier_name: defaultSupplierName || null,
           is_active: isActive,
           is_service: isService,
           is_exempt: isExempt
@@ -237,6 +245,8 @@ export default function InventoryTab() {
       setSelectedPriceProduct(null);
       setPriceValue('');
       setSelectedPriceSupplierSku('');
+      setDefaultSupplierId('');
+      setDefaultSupplierName('');
       await loadSupabaseData();
     } catch (err: any) {
       console.error(err);
@@ -419,6 +429,13 @@ export default function InventoryTab() {
         .select('*')
         .order('name');
       setBranches(branchesData || []);
+
+      // Obtener proveedores
+      const { data: supData } = await supabase
+        .from('suppliers')
+        .select('*')
+        .order('name');
+      setSuppliersList(supData || []);
 
       // Helper function to bypass Supabase 1000-row limit with JWT error handling
       const fetchAllRows = async (table: string, orderByCol?: string) => {
@@ -2135,6 +2152,37 @@ export default function InventoryTab() {
                               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Código del Proveedor</Label>
                               <Input value={selectedPriceSupplierSku} onChange={e => setSelectedPriceSupplierSku(e.target.value)} placeholder="Código externo..." className="h-10 bg-background border-input rounded-xl text-xs font-mono font-bold" />
                             </div>
+                          </div>
+
+                          <div className="space-y-2 mt-4">
+                            <Label className="text-[10px] font-black uppercase text-indigo-500 dark:text-indigo-400 tracking-wider flex items-center gap-1">
+                              <Truck size={12} /> Proveedor Habitual (Para Reabastecimiento Automático)
+                            </Label>
+                            <Select 
+                              value={defaultSupplierId || "NONE"} 
+                              onValueChange={(val) => {
+                                if (val === "NONE") {
+                                  setDefaultSupplierId('');
+                                  setDefaultSupplierName('');
+                                } else {
+                                  const found = suppliersList.find(s => s.id === val);
+                                  setDefaultSupplierId(val);
+                                  setDefaultSupplierName(found?.name || '');
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs font-bold">
+                                <SelectValue placeholder="Seleccionar proveedor habitual..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="NONE" className="text-xs">-- Sin Proveedor Asignado --</SelectItem>
+                                {suppliersList.map(s => (
+                                  <SelectItem key={s.id} value={s.id} className="text-xs">
+                                    {s.name} {s.tax_id ? `(${s.tax_id})` : ''}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
 

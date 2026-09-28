@@ -279,7 +279,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         .select(`
           quantity,
           sku,
-          inventory ( name, min_stock, max_stock, reorder_point )
+          inventory ( name, min_stock, max_stock, reorder_point, cost, default_supplier_name, default_supplier_id )
         `);
       
       const lowStockItems = (stockData || []).filter(s => {
@@ -303,7 +303,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         });
         zeroStockNamesStr = names.slice(0, 3).join(', ') + (names.length > 3 ? '...' : '');
 
-        // AUTO-ORDER LOGIC (NEXBOT)
+        // AUTO-ORDER LOGIC (NEXBOT): Agrupación inteligente por Proveedor Asignado y Costos
         try {
           const { data: pendingOrders } = await supabase
             .from('supplier_orders')
@@ -322,49 +322,67 @@ export function BmsProvider({ children }: { children: ReactNode }) {
           });
 
           // Solo pedimos lo que no está pendiente
-          const itemsToOrder = uniqueLowSkus.filter(sku => !pendingSkus.has(sku)).map(sku => {
-            const item = lowStockItems.find(s => s.sku === sku);
-            const invObj = item?.inventory as any;
-            
-            // Sugerir cantidad basada en max_stock si está disponible
-            let suggestedQty = 10;
-            const maxStock = parseFloat(invObj?.max_stock) || 0;
-            const currentQty = parseFloat(item?.quantity as string) || 0;
-            if (maxStock > currentQty) {
-              suggestedQty = maxStock - currentQty;
-            }
+          const skusToOrder = uniqueLowSkus.filter(sku => !pendingSkus.has(sku));
 
-            return {
-              sku: sku,
-              name: invObj?.name || sku,
-              quantity: suggestedQty,
-              cost: 0
-            };
-          });
+          if (skusToOrder.length > 0) {
+            // Agrupar ítems por proveedor habitual
+            const itemsBySupplier: Record<string, any[]> = {};
 
-          if (itemsToOrder.length > 0) {
-            const orderCode = `NEXBOT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-            
-            // Intentar buscar algún proveedor por defecto para NexBot
+            // Intentar buscar algún proveedor por defecto si el ítem no tiene asignado
             const { data: defaultSupplier } = await supabase
               .from('suppliers')
               .select('name')
               .limit(1)
               .maybeSingle();
 
-            const supplierName = defaultSupplier?.name || 'PROVEEDOR POR ASIGNAR';
+            const fallbackSupplierName = defaultSupplier?.name || 'PROVEEDOR POR ASIGNAR';
 
-            await supabase.from('supplier_orders').insert({
-              code: orderCode,
-              supplier_name: supplierName,
-              destination_warehouse: 'CASA MATRIZ',
-              requested_by: '🤖 NexBot (Auto)',
-              items: itemsToOrder,
-              status: 'PENDIENTE'
+            skusToOrder.forEach(sku => {
+              const item = lowStockItems.find(s => s.sku === sku);
+              const invObj = item?.inventory as any;
+              
+              // Sugerir cantidad basada en max_stock si está disponible
+              let suggestedQty = 10;
+              const maxStock = parseFloat(invObj?.max_stock) || 0;
+              const currentQty = parseFloat(item?.quantity as string) || 0;
+              if (maxStock > currentQty) {
+                suggestedQty = maxStock - currentQty;
+              }
+
+              const unitCost = parseFloat(invObj?.cost) || 0;
+              const supplierKey = invObj?.default_supplier_name?.trim() || fallbackSupplierName;
+
+              if (!itemsBySupplier[supplierKey]) {
+                itemsBySupplier[supplierKey] = [];
+              }
+
+              itemsBySupplier[supplierKey].push({
+                sku: sku,
+                name: invObj?.name || sku,
+                quantity: suggestedQty,
+                cost: unitCost,
+                total: parseFloat((unitCost * suggestedQty).toFixed(2))
+              });
             });
-            console.log('🤖 NexBot generó pedido automático:', orderCode);
-            // Sumamos el que acabamos de crear
-            pendingOrdersCount++;
+
+            // Generar una orden de compra por cada proveedor
+            for (const [supName, supplierItems] of Object.entries(itemsBySupplier)) {
+              const orderCode = `NEXBOT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+              const orderTotal = supplierItems.reduce((sum, it) => sum + (it.quantity * (it.cost || 0)), 0);
+
+              await supabase.from('supplier_orders').insert({
+                code: orderCode,
+                supplier_name: supName,
+                destination_warehouse: 'CASA MATRIZ',
+                requested_by: '🤖 NexBot (Auto)',
+                items: supplierItems,
+                total: parseFloat(orderTotal.toFixed(2)),
+                status: 'PENDIENTE'
+              });
+
+              console.log(`🤖 NexBot generó pedido automático [${orderCode}] para ${supName} por un total de $${orderTotal.toFixed(2)}`);
+              pendingOrdersCount++;
+            }
           }
         } catch (botErr) {
           console.error('Error in NexBot auto-order:', botErr);

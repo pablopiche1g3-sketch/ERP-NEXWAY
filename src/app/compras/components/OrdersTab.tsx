@@ -27,7 +27,8 @@ import {
   Lock,
   Unlock,
   Mail,
-  LogOut
+  LogOut,
+  Zap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -160,7 +161,14 @@ export default function OrdersTab() {
           sku: item.sku,
           name: item.name,
           category: item.category,
+          brand: item.brand,
           price: parseFloat(item.price) || 0,
+          cost: parseFloat(item.cost) || 0,
+          min_stock: parseFloat(item.min_stock) || 5,
+          reorder_point: parseFloat(item.reorder_point) || 10,
+          max_stock: parseFloat(item.max_stock) || 30,
+          default_supplier_id: item.default_supplier_id,
+          default_supplier_name: item.default_supplier_name,
           quantity: totalQty,
           bodegas: bodegasMap
         };
@@ -510,6 +518,75 @@ export default function OrdersTab() {
     };
     reader.readAsArrayBuffer(file);
     if (e.target) e.target.value = '';
+  };
+
+  // Cargar automáticamente los productos con stock bajo asignados al proveedor seleccionado
+  const handleLoadLowStockForSupplier = () => {
+    if (!extSupplier) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Seleccione un Proveedor', 
+        description: 'Primero elija un proveedor para consultar sus productos en punto de reorden.' 
+      });
+      return;
+    }
+    
+    const matching = (inventory || []).filter(item => {
+      const isThisSupplier = (item.default_supplier_name && item.default_supplier_name.toLowerCase() === extSupplier.toLowerCase()) ||
+                             (item.brand && item.brand.toLowerCase() === extSupplier.toLowerCase());
+      const qty = Number(item.quantity || 0);
+      const reorder = Number(item.reorder_point || item.min_stock || 10);
+      return isThisSupplier && qty <= reorder;
+    });
+
+    if (matching.length === 0) {
+      const allForSupplier = (inventory || []).filter(item => 
+        (item.default_supplier_name && item.default_supplier_name.toLowerCase() === extSupplier.toLowerCase()) ||
+        (item.brand && item.brand.toLowerCase() === extSupplier.toLowerCase())
+      );
+      if (allForSupplier.length === 0) {
+        toast({
+          title: 'Sin Productos Asignados',
+          description: `No se encontraron productos en el catálogo vinculados a ${extSupplier}. Puedes asignarle productos en Logística → Inventario.`
+        });
+        return;
+      }
+      toast({
+        title: 'Inventario Saludable',
+        description: `Los productos de ${extSupplier} cuentan con existencias suficientes por encima del punto de reorden.`
+      });
+      return;
+    }
+
+    const newItems: OrderItem[] = matching.map(item => {
+      const currentQty = Number(item.quantity || 0);
+      const maxStock = Number(item.max_stock || 30);
+      const suggestedQty = Math.max(1, maxStock - currentQty);
+      const unitCost = Number(item.cost || item.price || 0);
+      return {
+        sku: item.sku,
+        name: item.name,
+        quantity: suggestedQty,
+        cost: unitCost
+      };
+    });
+
+    const currentSkus = new Set(extItems.map(i => i.sku));
+    const itemsToAdd = newItems.filter(i => !currentSkus.has(i.sku));
+
+    if (itemsToAdd.length === 0) {
+      toast({
+        title: 'Ya están agregados',
+        description: `Todos los productos con stock bajo de ${extSupplier} ya se encuentran en la lista actual.`
+      });
+      return;
+    }
+
+    setExtItems([...extItems, ...itemsToAdd]);
+    toast({
+      title: 'Productos Cargados con Éxito',
+      description: `Se agregaron ${itemsToAdd.length} producto(s) en punto de reorden para ${extSupplier} con sus costos unitarios.`
+    });
   };
 
   const handleRegisterBulkCodes = async () => {
@@ -1561,6 +1638,19 @@ export default function OrdersTab() {
                             </PopoverContent>
                           </Popover>
                         </div>
+
+                        {extSupplier && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleLoadLowStockForSupplier}
+                            className="w-full h-8 text-[10px] font-bold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 rounded-xl gap-1.5 transition-colors shadow-sm"
+                          >
+                            <Zap size={12} className="fill-amber-500 text-amber-500" />
+                            <span>⚡ Cargar Quiebres / Stock Bajo de {extSupplier}</span>
+                          </Button>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
