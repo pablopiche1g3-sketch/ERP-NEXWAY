@@ -28,7 +28,9 @@ import {
   Unlock,
   Mail,
   LogOut,
-  Zap
+  Zap,
+  ArrowUpRight,
+  Boxes
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,7 +61,7 @@ interface OrderItem {
 export default function OrdersTab() {
   const router = useRouter();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'interno' | 'externo' | 'cargar-codigos' | 'historial'>('interno');
+  const [activeTab, setActiveTab] = useState<'externo' | 'interno' | 'cargar-codigos' | 'historial'>('externo');
   const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'interno' | 'externo'>('all');
   const [historySearchTerm, setHistorySearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,8 +69,8 @@ export default function OrdersTab() {
   const { config } = useModuleConfig();
 
   const tabsList = useMemo(() => [
-    { id: 'interno', key: 'orders_interno' },
     { id: 'externo', key: 'orders_externo' },
+    { id: 'interno', key: 'orders_interno' },
     { id: 'cargar-codigos', key: 'orders_cargar-codigos' },
     { id: 'historial', key: 'orders_historial' },
   ], []);
@@ -1206,14 +1208,14 @@ export default function OrdersTab() {
       <div className="max-w-7xl mx-auto relative z-10">
         <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
           <TabsList className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar shadow-sm">
-            {config?.['orders_interno'] !== false && (
-              <TabsTrigger value="interno" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
-                <Warehouse size={14} className="mr-2" /> Pedidos Internos (Tiendas)
-              </TabsTrigger>
-            )}
             {config?.['orders_externo'] !== false && (
               <TabsTrigger value="externo" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
                 <Truck size={14} className="mr-2" /> Pedidos Externos (Proveedores)
+              </TabsTrigger>
+            )}
+            {config?.['orders_interno'] !== false && (
+              <TabsTrigger value="interno" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
+                <Warehouse size={14} className="mr-2" /> Traslados Internos (Tiendas)
               </TabsTrigger>
             )}
             {config?.['orders_cargar-codigos'] !== false && (
@@ -1230,185 +1232,62 @@ export default function OrdersTab() {
           <TabsContent value="interno" className="space-y-6 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
-              {/* Formulario Nueva Requisición */}
+              {/* Puente de Integración con Circuito de Traslados */}
               <div className="lg:col-span-5 space-y-6">
-                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-                  <CardHeader className="bg-indigo-600 dark:bg-violet-950 text-white p-5">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <ClipboardList size={18} className="text-violet-400" /> Nueva Requisición entre Sucursales
+                <Card className="bg-gradient-to-br from-indigo-900/90 via-slate-900 to-slate-950 border border-indigo-500/30 text-white rounded-3xl overflow-hidden shadow-2xl relative">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <CardHeader className="p-6 border-b border-white/10 relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-wider mb-2 border border-indigo-500/30">
+                      <Zap size={12} className="text-amber-400" /> Circuito Unificado NexWay
+                    </div>
+                    <CardTitle className="text-lg font-black tracking-tight text-white flex items-center gap-2">
+                      <Boxes size={22} className="text-indigo-400" /> Traslados & Despacho entre Sucursales
                     </CardTitle>
-                    <CardDescription className="text-violet-200/80 text-xs">Solicite y traslade stock de forma ágil.</CardDescription>
+                    <CardDescription className="text-slate-300 text-xs mt-1">
+                      El flujo operativo de abastecimiento interno se gestiona a través del <strong>Circuito de Logística</strong> con validación de stock en tiempo real y picking guiado.
+                    </CardDescription>
                   </CardHeader>
                   
-                  <CardContent className="p-6 space-y-4">
-                    <form onSubmit={handleCreateInternalOrder} className="space-y-4">
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bodega (la que da el material)</Label>
-                          <Select value={intSourceWh} onValueChange={setIntSourceWh}>
-                            <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white">
-                              <SelectValue placeholder="Origen..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {warehouses?.map(w => (
-                                <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bodega (que solicita)</Label>
-                          <Select value={intDestWh} onValueChange={setIntDestWh}>
-                            <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white">
-                              <SelectValue placeholder="Destino..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {warehouses?.map(w => (
-                                <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                  <CardContent className="p-6 space-y-5 relative z-10">
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                        <CheckCircle2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-white">Validación de Stock Físico</p>
+                          <p className="text-[11px] text-slate-300">Evita solicitar existencias fantasma verificando inventario real por bodega de origen.</p>
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Responsable de Solicitud</Label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                          <Input 
-                            placeholder="Nombre del encargado..." 
-                            value={intRequestedBy}
-                            onChange={e => setIntRequestedBy(e.target.value)}
-                            className="pl-9 h-11 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
-                          />
+                      <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                        <Truck size={18} className="text-sky-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-white">Picking & Guía de Remisión</p>
+                          <p className="text-[11px] text-slate-300">Manifiesto con datos del motorista, placa del vehículo y control de entrega.</p>
                         </div>
                       </div>
 
-                      {/* Buscador de items para añadir */}
-                      <div className="p-4 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-2xl border space-y-3">
-                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block">Agregar Producto Manual</Label>
-                        
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="col-span-2 space-y-1 relative">
-                              <Label className="text-[9px] font-bold text-slate-400">Código / SKU</Label>
-                              <Input
-                                placeholder="Escribe SKU..."
-                                value={intItemSku}
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  setIntItemSku(val);
-                                  const clean = val.trim().toUpperCase();
-                                  const match = inventory?.find((p: any) => p.sku === clean);
-                                  if (match) {
-                                    setIntItemName(match.name);
-                                    setIntIsManual(false);
-                                  } else {
-                                    setIntIsManual(true);
-                                  }
-                                }}
-                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-800 dark:text-white"
-                              />
-                              {/* Autocomplete Suggestions */}
-                              {intItemSku.trim().length > 0 && !inventory?.some((p: any) => p.sku === intItemSku.trim().toUpperCase()) && (
-                                <div className="absolute z-20 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
-                                  {inventory
-                                    ?.filter((p: any) => p.sku.toLowerCase().includes(intItemSku.toLowerCase()) || p.name.toLowerCase().includes(intItemSku.toLowerCase()))
-                                    .slice(0, 5)
-                                    .map((p: any) => (
-                                      <div
-                                        key={p.id}
-                                        className="p-2 hover:bg-slate-50 dark:hover:bg-muted text-left cursor-pointer transition-colors text-[11px] font-bold border-b last:border-0"
-                                        onClick={() => {
-                                          setIntItemSku(p.sku);
-                                          setIntItemName(p.name);
-                                          setIntIsManual(false);
-                                        }}
-                                      >
-                                        <span className="text-violet-600 font-mono">{p.sku}</span> - <span className="text-slate-700 dark:text-slate-350">{p.name}</span>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-400">Cantidad</Label>
-                              <Input 
-                                type="number" 
-                                value={intItemQty} 
-                                onChange={e => setIntItemQty(e.target.value)}
-                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center text-xs font-bold text-slate-800 dark:text-white"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[9px] font-bold text-slate-400">Descripción del Producto</Label>
-                            <Input
-                              placeholder={intIsManual ? "Escriba descripción para SKU nuevo..." : "Se auto-rellena al escribir SKU..."}
-                              value={intItemName}
-                              onChange={e => setIntItemName(e.target.value)}
-                              disabled={!intIsManual && intItemSku.trim() !== ''}
-                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white"
-                            />
-                            {intIsManual && intItemSku.trim().length > 0 && (
-                              <span className="text-[9px] text-amber-500 font-bold flex items-center gap-1 mt-0.5">
-                                <AlertTriangle size={10} /> Código nuevo. Se registrará automáticamente en el inventario al guardar.
-                              </span>
-                            )}
-                          </div>
+                      <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                        <Zap size={18} className="text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-white">Modo Exprés de 1 Clic</p>
+                          <p className="text-[11px] text-slate-300">Traslados instantáneos para transferencias inmediatas de mostrador.</p>
                         </div>
-
-                        <Button 
-                          type="button" 
-                          onClick={handleIntAddItem} 
-                          variant="outline" 
-                          className="w-full h-9 border-indigo-200 dark:border-violet-500/20 text-indigo-600 dark:text-violet-400 bg-white hover:bg-indigo-50 dark:bg-transparent dark:hover:bg-white/5 font-bold text-xs rounded-xl mt-2"
-                        >
-                          <Plus size={14} className="mr-1.5" /> Agregar a Lista
-                        </Button>
                       </div>
+                    </div>
 
-                      {/* Items Agregados */}
-                      {intItems.length > 0 && (
-                        <div className="space-y-2 pt-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Ítems Solicitados</Label>
-                          <ScrollArea className="h-32 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-white/5">
-                            <Table>
-                              <TableBody>
-                                                                  {intItems.map((item, idx) => (
-                                  <TableRow key={item.sku} className="hover:bg-slate-100 dark:hover:bg-white/10 border-slate-100 dark:border-white/5">
-                                    <TableCell className="py-2 text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">{item.sku}</TableCell>
-                                    <TableCell className="py-2 text-[11px] font-bold text-slate-800 dark:text-white">{item.name}</TableCell>
-                                    <TableCell className="py-2 text-center text-[10px] font-black text-slate-700 dark:text-white">{item.quantity} un.</TableCell>
-                                    <TableCell className="py-2 text-right">
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 text-slate-400 hover:text-rose-500"
-                                        onClick={() => setIntItems(prev => prev.filter(i => i.sku !== item.sku))}
-                                      >
-                                        <Trash2 size={12} />
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </ScrollArea>
-                        </div>
-                      )}
-
+                    <div className="pt-2">
                       <Button 
-                        type="submit" 
-                        className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 dark:bg-violet-600 dark:hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 dark:shadow-violet-600/20 text-xs transition-all active:scale-95"
-                        disabled={loading || intItems.length === 0}
+                        onClick={() => router.push('/logistica')}
+                        className="w-full h-12 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-500/25 text-xs transition-all flex items-center justify-center gap-2 active:scale-95 group"
                       >
-                        {loading ? <Loader2 className="animate-spin mr-2" /> : <ClipboardList className="mr-2" size={16} />}
-                        ENVIAR SOLICITUD INTERNA
+                        <Warehouse size={16} />
+                        ABRIR CIRCUITO DE TRASLADOS EN LOGÍSTICA
+                        <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                       </Button>
-                    </form>
+                      <p className="text-center text-[10px] text-slate-400 mt-2 font-medium">
+                        Redirige al Centro de Traslados & Despachos de Logística
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
