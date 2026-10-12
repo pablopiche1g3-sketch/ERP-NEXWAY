@@ -61,7 +61,7 @@ interface OrderItem {
 export default function OrdersTab() {
   const router = useRouter();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'externo' | 'interno' | 'cargar-codigos' | 'historial'>('externo');
+  const [activeTab, setActiveTab] = useState<'externo' | 'cargar-codigos' | 'historial'>('externo');
   const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'interno' | 'externo'>('all');
   const [historySearchTerm, setHistorySearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,7 +70,6 @@ export default function OrdersTab() {
 
   const tabsList = useMemo(() => [
     { id: 'externo', key: 'orders_externo' },
-    { id: 'interno', key: 'orders_interno' },
     { id: 'cargar-codigos', key: 'orders_cargar-codigos' },
     { id: 'historial', key: 'orders_historial' },
   ], []);
@@ -1187,7 +1186,7 @@ export default function OrdersTab() {
                 </div>
               )}
             </div>
-            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Gestión de órdenes de pedidos internas entre tiendas y externas con proveedores</p>
+            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Gestión y emisión de órdenes de compra para abastecimiento con proveedores externos</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1213,11 +1212,6 @@ export default function OrdersTab() {
                 <Truck size={14} className="mr-2" /> Pedidos Externos (Proveedores)
               </TabsTrigger>
             )}
-            {config?.['orders_interno'] !== false && (
-              <TabsTrigger value="interno" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
-                <Warehouse size={14} className="mr-2" /> Traslados Internos (Tiendas)
-              </TabsTrigger>
-            )}
             {config?.['orders_cargar-codigos'] !== false && (
               <TabsTrigger value="cargar-codigos" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
                 <FileSpreadsheet size={14} className="mr-2" /> Cargar Códigos (Excel)
@@ -1227,188 +1221,6 @@ export default function OrdersTab() {
               <Clock size={14} className="mr-2" /> Historial de Pedidos
             </TabsTrigger>
           </TabsList>
-
-          {/* ==================== TAB PEDIDOS INTERNOS ==================== */}
-          <TabsContent value="interno" className="space-y-6 outline-none">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Puente de Integración con Circuito de Traslados */}
-              <div className="lg:col-span-5 space-y-6">
-                <Card className="bg-gradient-to-br from-indigo-900/90 via-slate-900 to-slate-950 border border-indigo-500/30 text-white rounded-3xl overflow-hidden shadow-2xl relative">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-                  <CardHeader className="p-6 border-b border-white/10 relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-wider mb-2 border border-indigo-500/30">
-                      <Zap size={12} className="text-amber-400" /> Circuito Unificado NexWay
-                    </div>
-                    <CardTitle className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-                      <Boxes size={22} className="text-indigo-400" /> Traslados & Despacho entre Sucursales
-                    </CardTitle>
-                    <CardDescription className="text-slate-300 text-xs mt-1">
-                      El flujo operativo de abastecimiento interno se gestiona a través del <strong>Circuito de Logística</strong> con validación de stock en tiempo real y picking guiado.
-                    </CardDescription>
-                  </CardHeader>
-                  
-                  <CardContent className="p-6 space-y-5 relative z-10">
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                        <CheckCircle2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-bold text-white">Validación de Stock Físico</p>
-                          <p className="text-[11px] text-slate-300">Evita solicitar existencias fantasma verificando inventario real por bodega de origen.</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                        <Truck size={18} className="text-sky-400 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-bold text-white">Picking & Guía de Remisión</p>
-                          <p className="text-[11px] text-slate-300">Manifiesto con datos del motorista, placa del vehículo y control de entrega.</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                        <Zap size={18} className="text-amber-400 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-bold text-white">Modo Exprés de 1 Clic</p>
-                          <p className="text-[11px] text-slate-300">Traslados instantáneos para transferencias inmediatas de mostrador.</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                      <Button 
-                        onClick={() => router.push('/logistica')}
-                        className="w-full h-12 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-500/25 text-xs transition-all flex items-center justify-center gap-2 active:scale-95 group"
-                      >
-                        <Warehouse size={16} />
-                        ABRIR CIRCUITO DE TRASLADOS EN LOGÍSTICA
-                        <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                      </Button>
-                      <p className="text-center text-[10px] text-slate-400 mt-2 font-medium">
-                        Redirige al Centro de Traslados & Despachos de Logística
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Historial de Pedidos Internos */}
-              <div className="lg:col-span-7 space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <Input 
-                    placeholder="Buscar requisición por código, bodega o encargado..." 
-                    value={internalSearchFilter}
-                    onChange={e => setInternalSearchFilter(e.target.value)}
-                    className="pl-12 h-12 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl text-xs md:text-sm text-slate-800 dark:text-white"
-                  />
-                </div>
-
-                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-                  <ScrollArea className="h-[520px]">
-                    <Table>
-                      <TableHeader className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
-                        <TableRow>
-                          <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">Código / Fecha</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase">Ruta</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase">Solicitante</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase text-center">Ítems</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase text-center">Estado</TableHead>
-                          <TableHead className="w-10"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredInternalOrders.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-24 text-slate-400 italic text-xs">
-                              No se encontraron requisiciones registradas.
-                            </TableCell>
-                          </TableRow>
-                        ) : filteredInternalOrders.map((o: any) => (
-                          <TableRow key={o.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-200 dark:border-white/5 transition-colors">
-                            <TableCell className="px-4 md:px-6 py-4">
-                              <div className="flex flex-col">
-                                <span className="font-mono font-black text-xs text-slate-800 dark:text-white">{o.code}</span>
-                                <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold">{new Date(o.createdAt).toLocaleDateString()}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-800 dark:text-white">
-                                <span>{o.sourceWarehouse}</span>
-                                <ArrowRight size={10} className="text-slate-400" />
-                                <span className="text-indigo-600 dark:text-violet-400">{o.destinationWarehouse}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs font-bold text-slate-500 dark:text-slate-400">{o.requestedBy}</TableCell>
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className="text-[9px] bg-slate-50 border-slate-200">
-                                {o.items?.length || 0} productos
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex flex-col items-center gap-1">
-                                <Badge className={`font-black text-[9px] h-5 ${
-                                  o.status === 'PENDIENTE' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                  o.status === 'DESPACHADO' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                  'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                }`} variant="outline">
-                                  {o.status}
-                                </Badge>
-                                
-                                {/* Acciones rápidas de cambio de estado */}
-                                {o.status === 'PENDIENTE' && (
-                                  <Button 
-                                    size="sm" 
-                                    onClick={() => handleUpdateInternalStatus(o.id, o.status, 'DESPACHADO')}
-                                    className="h-6 px-2 text-[9px] font-bold bg-blue-600 text-white rounded-md mt-1"
-                                  >
-                                    Despachar
-                                  </Button>
-                                )}
-                                {o.status === 'DESPACHADO' && (
-                                  <Button 
-                                    size="sm" 
-                                    onClick={() => handleUpdateInternalStatus(o.id, o.status, 'RECIBIDO')}
-                                    className="h-6 px-2 text-[9px] font-bold bg-emerald-600 text-white rounded-md mt-1"
-                                  >
-                                    Confirmar Recibido
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-4">
-                              <div className="flex gap-1 items-center">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-7 w-7 text-slate-400 hover:text-blue-500" 
-                                  onClick={() => {
-                                    setSelectedOrderForPreview(o);
-                                    setPreviewType('interno');
-                                  }}
-                                >
-                                  <Eye size={12} />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-7 w-7 text-slate-400 hover:text-rose-500" 
-                                  onClick={() => handleDeleteInternalOrder(o.id)}
-                                >
-                                  <Trash2 size={12} />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </Card>
-              </div>
-
-            </div>
-          </TabsContent>
 
           {/* ==================== TAB PEDIDOS EXTERNOS ==================== */}
           <TabsContent value="externo" className="space-y-6 outline-none">
