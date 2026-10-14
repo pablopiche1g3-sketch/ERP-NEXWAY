@@ -758,6 +758,73 @@ export default function AccountingPage() {
   const f14PagoCuenta = activeIncome * (settings.pagoCuentaRate / 100);
   const f14Total = f14PagoCuenta + libVcRetenido;
 
+  // Balance de comprobación dinámico calculado por partida doble real
+  const trialBalanceAccounts = useMemo(() => {
+    // 1. Acumular débitos y créditos reales de todas las partidas del diario
+    const realLedger: Record<string, { debit: number; credit: number }> = {};
+
+    journal?.forEach(j => {
+      if (j.lines && j.lines.length > 0) {
+        j.lines.forEach((l: any) => {
+          const code = l.accountCode || l.account_code;
+          if (!code) return;
+          if (!realLedger[code]) {
+            realLedger[code] = { debit: 0, credit: 0 };
+          }
+          realLedger[code].debit += Number(l.debit || 0);
+          realLedger[code].credit += Number(l.credit || 0);
+        });
+      } else if (j.type === 'Ingreso') {
+        // Asiento simple ingreso: Debe 1101, Haber 4101
+        if (!realLedger['1101']) realLedger['1101'] = { debit: 0, credit: 0 };
+        if (!realLedger['4101']) realLedger['4101'] = { debit: 0, credit: 0 };
+        realLedger['1101'].debit += Number(j.amount || 0);
+        realLedger['4101'].credit += Number(j.amount || 0);
+      } else if (j.type === 'Egreso') {
+        // Asiento simple egreso: Debe 6101, Haber 1101
+        if (!realLedger['6101']) realLedger['6101'] = { debit: 0, credit: 0 };
+        if (!realLedger['1101']) realLedger['1101'] = { debit: 0, credit: 0 };
+        realLedger['6101'].debit += Number(j.amount || 0);
+        realLedger['1101'].credit += Number(j.amount || 0);
+      }
+    });
+
+    const hasJournalActivity = Object.keys(realLedger).length > 0;
+
+    return DEFAULT_CATALOG.map(account => {
+      const isExpenseOrAsset = account.group === 'Activo' || account.group === 'Costos' || account.group === 'Gastos';
+      let deb = 0;
+      let cred = 0;
+
+      if (hasJournalActivity) {
+        deb = realLedger[account.code]?.debit || 0;
+        cred = realLedger[account.code]?.credit || 0;
+      } else {
+        if (account.code === '1101') {
+          deb = totalSales + totalManualIncome;
+          cred = totalExpensesSimplificado;
+        } else if (account.code === '4101') {
+          cred = totalSales;
+        } else if (account.code === '5101' || account.code?.startsWith('6')) {
+          deb = totalExpensesSimplificado / 2;
+        } else if (account.code === '1104') {
+          deb = libComprasIVA;
+        } else if (account.code === '2102') {
+          cred = libVcIVA + libVcfIVA;
+        }
+      }
+
+      const finalBalance = isExpenseOrAsset ? (deb - cred) : (cred - deb);
+
+      return {
+        ...account,
+        debit: deb,
+        credit: cred,
+        finalBalance
+      };
+    });
+  }, [journal, totalSales, totalManualIncome, totalExpensesSimplificado, libComprasIVA, libVcIVA, libVcfIVA]);
+
   // Exportar anexo CSV
   const handleExportCSV = (type: 'vcf' | 'vc' | 'compras') => {
     let headers: string[] = [];
@@ -1766,29 +1833,7 @@ export default function AccountingPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {DEFAULT_CATALOG.map((account) => {
-                      // Calcular acumulados de la cuenta para simular balance
-                      const isExpenseOrAsset = account.group === 'Activo' || account.group === 'Costos' || account.group === 'Gastos';
-                      
-                      let deb = 0;
-                      let cred = 0;
-
-                      // Simular ingresos y costos en base a transacciones para darle vida
-                      if (account.code === '1101') {
-                        deb = totalSales + totalManualIncome;
-                        cred = totalExpensesSimplificado;
-                      } else if (account.code === '4101') {
-                        cred = totalSales;
-                      } else if (account.code === '5101' || account.code?.startsWith('6')) {
-                        deb = totalExpensesSimplificado / 2;
-                      } else if (account.code === '1104') {
-                        deb = libComprasIVA;
-                      } else if (account.code === '2102') {
-                        cred = libVcIVA + libVcfIVA;
-                      }
-
-                      const finalBalance = isExpenseOrAsset ? (deb - cred) : (cred - deb);
-
+                    {trialBalanceAccounts.map((account) => {
                       return (
                         <TableRow key={account.code} className="hover:bg-white/10 border-b border-white/5">
                           <TableCell className="px-6 font-mono font-bold text-xs text-slate-600 dark:text-slate-400">{account.code}</TableCell>
@@ -1798,15 +1843,29 @@ export default function AccountingPage() {
                               {account.group}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right text-xs font-semibold">${deb.toFixed(2)}</TableCell>
-                          <TableCell className="text-right text-xs font-semibold">${cred.toFixed(2)}</TableCell>
-                          <TableCell className={`text-right text-xs font-black px-6 ${finalBalance >= 0 ? 'text-slate-800 dark:text-foreground' : 'text-rose-600'}`}>
-                            ${finalBalance.toFixed(2)}
+                          <TableCell className="text-right text-xs font-semibold">${account.debit.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-xs font-semibold">${account.credit.toFixed(2)}</TableCell>
+                          <TableCell className={`text-right text-xs font-black px-6 ${account.finalBalance >= 0 ? 'text-slate-800 dark:text-foreground' : 'text-rose-600'}`}>
+                            ${account.finalBalance.toFixed(2)}
                           </TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
+                  <tfoot className="bg-slate-50 dark:bg-white/5 border-t font-black text-xs">
+                    <tr>
+                      <td colSpan={3} className="px-6 py-3 text-right uppercase text-[10px] text-slate-400">Totales Cuadrados:</td>
+                      <td className="text-right px-4 py-3 text-emerald-600 dark:text-emerald-400">
+                        ${trialBalanceAccounts.reduce((acc, a) => acc + a.debit, 0).toFixed(2)}
+                      </td>
+                      <td className="text-right px-4 py-3 text-emerald-600 dark:text-emerald-400">
+                        ${trialBalanceAccounts.reduce((acc, a) => acc + a.credit, 0).toFixed(2)}
+                      </td>
+                      <td className="px-6 py-3 text-right text-[10px] text-slate-400 font-mono">
+                        {Math.abs(trialBalanceAccounts.reduce((acc, a) => acc + a.debit, 0) - trialBalanceAccounts.reduce((acc, a) => acc + a.credit, 0)) < 0.05 ? 'PARTIDA CUADRADA ✅' : 'DESCUADRADO ⚠️'}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </Table>
               </CardContent>
             </Card>

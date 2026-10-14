@@ -47,6 +47,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { fetchSystemAppUsers, SystemUserOption } from '@/lib/session-operator';
+import { postDoubleEntryJournal } from '@/lib/accounting-journal';
 
 interface PurchaseItem {
   id: string;
@@ -833,12 +834,12 @@ export default function PurchasesTab() {
       ];
 
       try {
-        await supabase.from('journal').insert({
-          concept: `Nota de Crédito Proveedor [${parsedCreditNote.documentNumber}] - ${parsedCreditNote.supplierName} (Ref: ${parsedCreditNote.matchedPurchaseDoc || 'Compra'})`,
-          document_ref: parsedCreditNote.documentNumber,
+        await postDoubleEntryJournal({
+          description: `Nota de Crédito Proveedor [${parsedCreditNote.documentNumber}] - ${parsedCreditNote.supplierName} (Ref: ${parsedCreditNote.matchedPurchaseDoc || 'Compra'})`,
           amount: totalNc,
-          lines: journalLines,
-          branch_id: activeBranchId || null
+          type: 'Avanzado',
+          branchId: activeBranchId || null,
+          lines: journalLines
         });
       } catch (jErr) {
         console.warn('Error al registrar partida de NC en journal:', jErr);
@@ -1134,7 +1135,61 @@ export default function PurchasesTab() {
            if (dteErr) throw dteErr;
         }
 
-        toast({ title: "Compra Cerrada", description: `Stock actualizado en la bodega '${warehouse}' de forma exitosa.` });
+        // 4. Registro Contable Automático en Journal (Partida Doble Compras El Salvador)
+        try {
+          const gravadaCompra = totalPurchase / 1.13;
+          const ivaCreditoCompra = totalPurchase - gravadaCompra;
+
+          const purchaseJournalLines: any[] = [
+            {
+              account_code: '1105',
+              account_name: 'Inventarios de Mercadería',
+              debit: gravadaCompra,
+              credit: 0
+            },
+            {
+              account_code: '1104',
+              account_name: 'IVA Crédito Fiscal (13%)',
+              debit: ivaCreditoCompra,
+              credit: 0
+            }
+          ];
+
+          if (paymentMethod === 'Credito') {
+            purchaseJournalLines.push({
+              account_code: '2101',
+              account_name: 'Proveedores Locales C/P',
+              debit: 0,
+              credit: totalPurchase
+            });
+          } else if (paymentMethod === 'Transferencia') {
+            purchaseJournalLines.push({
+              account_code: '1102',
+              account_name: 'Bancos e Instituciones Financieras',
+              debit: 0,
+              credit: totalPurchase
+            });
+          } else {
+            purchaseJournalLines.push({
+              account_code: '1101',
+              account_name: 'Efectivo y Equivalentes de Efectivo',
+              debit: 0,
+              credit: totalPurchase
+            });
+          }
+
+          await postDoubleEntryJournal({
+            description: `Compra Proveedor [${fullDocumentNumber || pedidoId}] - ${supplierName || 'Proveedor Local'} (${paymentMethod})`,
+            amount: totalPurchase,
+            type: 'Avanzado',
+            branchId: activeBranchId || null,
+            lines: purchaseJournalLines
+          });
+        } catch (jErr) {
+          console.warn('Error al registrar asiento contable de compra:', jErr);
+        }
+
+        toast({ title: "Compra Cerrada", description: `Stock y partida contable registrados en la bodega '${warehouse}'.` });
       } else {
         toast({ title: "Borrador Guardado", description: "La compra está pendiente. El stock NO ha sido afectado." });
       }

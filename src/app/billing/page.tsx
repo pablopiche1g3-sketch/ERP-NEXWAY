@@ -51,6 +51,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
+import { postDoubleEntryJournal } from '@/lib/accounting-journal';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -2080,17 +2081,17 @@ export default function BillingPage() {
         if (sCheque > 0) journalLines.push({ account_code: '1101', account_name: 'Efectivo y Equivalentes (Cheques)', debit: sCheque, credit: 0 });
       }
 
-      // Créditos Fiscales
+      // Créditos Fiscales / Ingresos
       journalLines.push({ account_code: '2102', account_name: 'IVA Débito Fiscal (13%)', debit: 0, credit: ivaDebito });
       journalLines.push({ account_code: '4101', account_name: 'Ventas de Mercadería Gravadas', debit: 0, credit: gravada });
 
       try {
-        await supabase.from('journal').insert({
-          concept: `Venta POS [${correlative}] - ${customerName || 'Consumidor Final'} (${paymentMethod})`,
-          document_ref: correlative,
+        await postDoubleEntryJournal({
+          description: `Venta POS [${correlative}] - ${customerName || 'Consumidor Final'} (${paymentMethod})`,
           amount: totalCart,
-          lines: journalLines,
-          branch_id: activeBranchId || null
+          type: 'Avanzado',
+          branchId: activeBranchId || null,
+          lines: journalLines
         });
       } catch (jErr) {
         console.warn('Error al registrar partida contable en journal:', jErr);
