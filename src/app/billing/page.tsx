@@ -48,10 +48,21 @@ import {
   Layers,
   Split,
   Copy,
-  RefreshCw
+  RefreshCw,
+  Wifi,
+  WifiOff,
+  CloudOff
 } from 'lucide-react';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
 import { postDoubleEntryJournal } from '@/lib/accounting-journal';
+import {
+  cacheOfflineCatalog,
+  getOfflineCatalog,
+  getOfflineSalesQueue,
+  enqueueOfflineSale,
+  syncOfflineSalesQueue,
+  OfflineSaleRecord
+} from '@/lib/offline-pos';
 import { FocoVentaKPI } from '@/components/FocoVentaKPI';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -630,6 +641,72 @@ export default function BillingPage() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [pendingIncomingQty, setPendingIncomingQty] = useState<Record<string, number>>({});
 
+  // Estados para Resiliencia y Modo Offline
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineSaleRecord[]>([]);
+  const [isSyncingOffline, setIsSyncingOffline] = useState<boolean>(false);
+
+  useEffect(() => {
+    // 1. Detectar conectividad inicial
+    if (typeof window !== 'undefined') {
+      setIsOnline(navigator.onLine);
+      setOfflineQueue(getOfflineSalesQueue());
+
+      const handleOnline = () => {
+        setIsOnline(true);
+        toast({
+          title: "Conexión Restablecida 🌐",
+          description: "La red está activa. Sincronizando ventas pendientes..."
+        });
+        triggerOfflineSync();
+      };
+
+      const handleOffline = () => {
+        setIsOnline(false);
+        toast({
+          variant: "destructive",
+          title: "Modo Offline Activado ⚠️",
+          description: "Sin conexión a internet. Las ventas se guardarán localmente para no detener la caja."
+        });
+      };
+
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+  }, []);
+
+  const triggerOfflineSync = async () => {
+    if (isSyncingOffline) return;
+    setIsSyncingOffline(true);
+    try {
+      const result = await syncOfflineSalesQueue();
+      setOfflineQueue(getOfflineSalesQueue());
+      if (result.synced > 0) {
+        toast({
+          title: "Sincronización Exitosa ✅",
+          description: `Se sincronizaron ${result.synced} venta(s) guardadas en contingencia.`
+        });
+        await loadBillingData();
+      }
+      if (result.errors.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Ventas pendientes de sync",
+          description: `Quedan ${result.remaining} venta(s) por sincronizar.`
+        });
+      }
+    } catch (e: any) {
+      console.warn('Error durante sincronización offline:', e);
+    } finally {
+      setIsSyncingOffline(false);
+    }
+  };
+
   useEffect(() => {
     if (activeWarehouse) {
       loadBillingData();
@@ -1044,10 +1121,21 @@ export default function BillingPage() {
           };
         });
         setInventory(mappedInit);
+        // Cachear catálogo localmente para contingencia offline
+        try {
+          const sMap: Record<string, number> = {};
+          mappedInit.forEach(p => { sMap[p.sku] = p.quantity; });
+          cacheOfflineCatalog(mappedInit, sMap);
+        } catch {}
       }
 
     } catch (e: any) {
       console.error('Error al cargar datos en facturación:', e);
+      // Fallback a catálogo local offline si falla la conexión
+      const offlineCat = getOfflineCatalog();
+      if (offlineCat.products.length > 0) {
+        setInventory(offlineCat.products);
+      }
     } finally {
       setLoadingData(false);
     }
@@ -1059,6 +1147,19 @@ export default function BillingPage() {
       setInventory([]);
       return;
     }
+
+    // Si estamos offline, buscar directamente en la caché local
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      const offlineCat = getOfflineCatalog();
+      const term = searchTerm.toLowerCase().trim();
+      const matched = offlineCat.products.filter(p => 
+        (p.sku && p.sku.toLowerCase().includes(term)) ||
+        (p.name && p.name.toLowerCase().includes(term))
+      );
+      setInventory(matched);
+      return;
+    }
+
     setLoadingData(true);
     try {
       let whQuery = supabase.from('warehouses').select('*');
@@ -1875,6 +1976,64 @@ export default function BillingPage() {
         cheque: parseFloat(splitAmounts.cheque) || 0,
       } : null;
 
+      // --- RUTA DE CONTINGENCIA OFFLINE SI NO HAY RED ---
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        enqueueOfflineSale({
+          correlative,
+          docType: isPreFacturaOnly ? 'PRE_FACTURA' : docType,
+          customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+          customerId: selectedCust ? selectedCust.id : null,
+          customerEmail: customerEmail || '',
+          total: totalCart,
+          paymentMethod,
+          paymentDetails,
+          splitAmounts: paymentMethod === 'Mixto' ? splitAmounts : undefined,
+          items: cart.map(i => ({
+            id: i.id,
+            sku: i.sku,
+            name: i.name,
+            price: i.price,
+            originalPrice: (i as any).originalPrice || i.price,
+            quantity: Number(i.quantity) || 1
+          })),
+          sellerEmail: selectedSellerEmail || user?.email || null,
+          stationName: activeStation?.name || null,
+          branchId: activeBranchId || null,
+          warehouseId: deductWh?.id || null,
+          warehouseName: deductWh?.name || null
+        });
+
+        setOfflineQueue(getOfflineSalesQueue());
+
+        const cashVal = parseFloat(cashReceived) || totalCart;
+        const changeVal = Math.max(0, cashVal - totalCart);
+
+        setCompletedSaleData({
+          correlative,
+          docType,
+          total: totalCart,
+          cashReceived: cashVal,
+          change: changeVal,
+          customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+          items: [...cart]
+        });
+
+        toast({
+          title: "Venta Guardada Localmente (Modo Offline) ⚡",
+          description: `Comprobante ${correlative} emitido. Se sincronizará automáticamente al regresar la conexión.`
+        });
+
+        setCart([]);
+        setCustomerName('');
+        setCustomerEmail('');
+        setSelectedCustomer(null);
+        setSelectedPendingSaleId(null);
+        setCashReceived('');
+        setIsCheckoutOpen(false);
+        setIsProcessing(false);
+        return;
+      }
+
       let insertedSale: any = null;
 
       if (selectedPendingSaleId && !isPreFacturaOnly) {
@@ -2464,6 +2623,43 @@ export default function BillingPage() {
               )
             )}
           </div>
+
+          {/* Indicador de Conectividad y Cola Offline */}
+          <div className="flex items-center gap-2">
+            {!isOnline ? (
+              <Badge variant="destructive" className="h-8 px-2.5 flex items-center gap-1.5 text-[11px] font-black uppercase rounded-lg shadow-sm animate-pulse">
+                <WifiOff size={14} />
+                <span>OFFLINE (CONTINGENCIA)</span>
+              </Badge>
+            ) : offlineQueue.length > 0 ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={triggerOfflineSync}
+                disabled={isSyncingOffline}
+                className="h-8 px-3 border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg text-[11px] font-bold flex items-center gap-1.5"
+                title="Haga clic para sincronizar las ventas guardadas localmente"
+              >
+                {isSyncingOffline ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin text-amber-500" />
+                    <span>Sincronizando {offlineQueue.length}...</span>
+                  </>
+                ) : (
+                  <>
+                    <CloudOff size={13} className="text-amber-500" />
+                    <span>Sincronizar {offlineQueue.length} Venta(s)</span>
+                  </>
+                )}
+              </Button>
+            ) : (
+              <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                <Wifi size={13} />
+                <span>Online</span>
+              </span>
+            )}
+          </div>
+
           <ModeToggle />
         </div>
       </div>
