@@ -28,7 +28,9 @@ import {
   TrendingUp as GainIcon,
   Activity,
   Briefcase,
-  Printer
+  Printer,
+  FileSearch,
+  CheckCircle2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +44,7 @@ import { useTabs } from '@/hooks/use-tabs';
 import { useToast } from '@/hooks/use-toast';
 import { SettingsTab } from './components/settings-tab';
 import FiscalReportsTab from './components/FiscalReportsTab';
+import ManualAuditTab from './components/ManualAuditTab';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
@@ -89,6 +92,7 @@ export default function AccountingPage() {
 
   const accountingTabs = [
     { id: 'diario', key: 'accounting_diario' },
+    { id: 'auditoria', key: 'accounting_auditoria' },
     { id: 'balance-comprobacion', key: 'accounting_balance-comprobacion' },
     { id: 'rentabilidad', key: 'accounting_rentabilidad' },
     { id: 'libros_iva', key: 'accounting_libros_iva' },
@@ -125,6 +129,10 @@ export default function AccountingPage() {
       setLoadingJournal(true);
       setLoadingPurchases(true);
 
+      // 0. Cargar Clientes y Proveedores para enriquecer ventas y compras
+      const { data: custData } = await supabase.from('customers').select('id, name, nit, nrc');
+      const { data: suppData } = await supabase.from('suppliers').select('id, name, nit, nrc');
+
       // 1. Cargar Ventas
       const { data: salesData, error: salesErr } = await supabase
         .from('sales')
@@ -132,15 +140,24 @@ export default function AccountingPage() {
         .order('created_at', { ascending: false });
       
       if (!salesErr) {
-        setSales((salesData || []).map(s => ({
-          id: s.id,
-          correlative: s.correlative,
-          docType: s.doc_type,
-          customerId: s.customer_id,
-          total: parseFloat(s.total) || 0,
-          status: s.status,
-          timestamp: s.created_at
-        })));
+        setSales((salesData || []).map(s => {
+          const cust = (custData || []).find(c => c.id === s.customer_id);
+          return {
+            id: s.id,
+            correlative: s.correlative,
+            docType: s.doc_type,
+            customerId: s.customer_id,
+            customer: s.customer_name || cust?.name || (s.doc_type === 'CCF' ? 'Cliente Contribuyente' : 'Consumidor Final'),
+            nit: cust?.nit || s.nit,
+            nrc: cust?.nrc || s.nrc,
+            paymentMethod: s.payment_method || 'EFECTIVO',
+            branchId: s.branch_id,
+            items: s.items || [],
+            total: parseFloat(s.total) || 0,
+            status: s.status,
+            timestamp: s.created_at
+          };
+        }));
       }
 
       // 2. Cargar Compras
@@ -150,19 +167,26 @@ export default function AccountingPage() {
         .order('created_at', { ascending: false });
       
       if (!purchasesErr) {
-        setPurchases((purchasesData || []).map(p => ({
-          id: p.id,
-          orderId: p.order_id,
-          supplierId: p.supplier_id,
-          enteredBy: p.entered_by,
-          warehouseId: p.warehouse_id,
-          total: parseFloat(p.total) || 0,
-          status: p.status,
-          paymentMethod: p.payment_method,
-          creditDays: p.credit_days,
-          paymentStatus: p.payment_status,
-          timestamp: p.created_at
-        })));
+        setPurchases((purchasesData || []).map(p => {
+          const supp = (suppData || []).find(sp => sp.id === p.supplier_id);
+          return {
+            id: p.id,
+            orderId: p.order_id,
+            supplierId: p.supplier_id,
+            supplier: p.supplier_name || supp?.name || 'Proveedor Local',
+            nit: supp?.nit || p.nit,
+            nrc: supp?.nrc || p.nrc,
+            enteredBy: p.entered_by,
+            warehouseId: p.warehouse_id,
+            items: p.items || [],
+            total: parseFloat(p.total) || 0,
+            status: p.status,
+            paymentMethod: p.payment_method || 'CONTADO',
+            creditDays: p.credit_days,
+            paymentStatus: p.payment_status,
+            timestamp: p.created_at
+          };
+        }));
       }
 
       // 3. Cargar Inventario
@@ -254,7 +278,8 @@ export default function AccountingPage() {
     pagoCuentaRate: 1.75
   });
 
-  const [activeSubTab, setActiveSubTab] = useState<'movimientos' | 'catalogo'>('movimientos');
+  const [activeSubTab, setActiveSubTab] = useState<'movimientos' | 'auditoria' | 'catalogo'>('movimientos');
+  const [journalSearch, setJournalSearch] = useState('');
   const [activeTaxTab, setActiveTaxTab] = useState<'vcf' | 'vc' | 'compras'>('vcf');
   const [activeFormTab, setActiveFormTab] = useState<'f07' | 'f14'>('f07');
   const [rentabilidadSubTab, setRentabilidadSubTab] = useState<'productos' | 'licitaciones'>('productos');
@@ -1068,6 +1093,9 @@ export default function AccountingPage() {
                 <Button variant={activeSubTab === 'movimientos' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveSubTab('movimientos')}>
                   Movimientos Contables
                 </Button>
+                <Button variant={activeSubTab === 'auditoria' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold text-indigo-600 dark:text-indigo-400" onClick={() => setActiveSubTab('auditoria')}>
+                  <FileSearch size={12} className="mr-1.5" /> Auditoría & Detalle Manual
+                </Button>
                 <Button variant={activeSubTab === 'catalogo' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveSubTab('catalogo')}>
                   Catálogo de Cuentas Standard
                 </Button>
@@ -1076,7 +1104,7 @@ export default function AccountingPage() {
               {activeSubTab === 'movimientos' && (
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                  <Input placeholder="Buscar en el diario..." className="pl-9 h-9 text-xs bg-card border-border shadow-sm rounded-xl border-slate-200 dark:border-border text-foreground" />
+                  <Input placeholder="Buscar en el diario (descripción, cuentas)..." value={journalSearch} onChange={(e) => setJournalSearch(e.target.value)} className="pl-9 h-9 text-xs bg-card border-border shadow-sm rounded-xl border-slate-200 dark:border-border text-foreground" />
                 </div>
               )}
             </div>
@@ -1102,7 +1130,17 @@ export default function AccountingPage() {
                         </TableRow>
                       )}
                       
-                      {journal?.map((entry: any) => {
+                      {(journal || []).filter(entry => {
+                        if (!journalSearch.trim()) return true;
+                        const term = journalSearch.toLowerCase();
+                        const desc = (entry.description || '').toLowerCase();
+                        const typ = (entry.type || '').toLowerCase();
+                        const linesMatch = (entry.lines || []).some((l: any) => 
+                          (l.accountCode || '').toLowerCase().includes(term) || 
+                          (l.accountName || '').toLowerCase().includes(term)
+                        );
+                        return desc.includes(term) || typ.includes(term) || linesMatch;
+                      }).map((entry: any) => {
                         const isAdv = entry.type === 'Avanzado';
                         return (
                           <React.Fragment key={entry.id}>
@@ -1205,6 +1243,21 @@ export default function AccountingPage() {
                 </div>
               </Card>
             )}
+          </TabsContent>
+
+          {/* TAB AUDITORÍA & DETALLE MANUAL */}
+          <TabsContent value="auditoria" className="space-y-4 outline-none">
+            <ManualAuditTab 
+              sales={sales}
+              purchases={purchases}
+              journal={journal}
+              branches={branches}
+              catalog={DEFAULT_CATALOG}
+              onRefresh={loadAccountingData}
+              onOpenNewManualEntry={() => setIsAdvancedModalOpen(true)}
+              toast={toast}
+              settings={settings}
+            />
           </TabsContent>
 
           {/* TAB 2: NUEVA PESTAÑA - RENTABILIDAD & GANANCIAS POR COSTO DE PRODUCTO Y LICITACIONES */}
