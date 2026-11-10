@@ -527,14 +527,17 @@ export default function FractionAndDischargesTab() {
   }, [products, destinationSku]);
 
   const selectedPackageProduct = useMemo(() => {
+    if (!selectedPackageSku || selectedPackageSku === 'none') return undefined;
     return products.find(p => p.sku === selectedPackageSku);
   }, [products, selectedPackageSku]);
 
   const selectedCapProduct = useMemo(() => {
+    if (!selectedCapSku || selectedCapSku === 'none') return undefined;
     return products.find(p => p.sku === selectedCapSku);
   }, [products, selectedCapSku]);
 
   const selectedExtraProduct = useMemo(() => {
+    if (!selectedExtraSku || selectedExtraSku === 'none') return undefined;
     return products.find(p => p.sku === selectedExtraSku);
   }, [products, selectedExtraSku]);
 
@@ -627,17 +630,17 @@ export default function FractionAndDischargesTab() {
   const isStockInsufficient = parsedSourceQty > currentSourceStock;
   
   const packageStockInWh = useMemo(() => {
-    if (!selectedPackageSku || !selectedWarehouseId) return 9999;
+    if (!selectedPackageSku || selectedPackageSku === 'none' || !selectedWarehouseId) return 9999;
     return getProductStockInWarehouse(selectedPackageSku, selectedWarehouseId);
   }, [selectedPackageSku, selectedWarehouseId, stockMap, products]);
 
   const capStockInWh = useMemo(() => {
-    if (!selectedCapSku || !selectedWarehouseId) return 9999;
+    if (!selectedCapSku || selectedCapSku === 'none' || !selectedWarehouseId) return 9999;
     return getProductStockInWarehouse(selectedCapSku, selectedWarehouseId);
   }, [selectedCapSku, selectedWarehouseId, stockMap, products]);
 
-  const isPackageStockInsufficient = selectedPackageSku ? (netResultingUnits > packageStockInWh) : false;
-  const isCapStockInsufficient = selectedCapSku ? (netResultingUnits > capStockInWh) : false;
+  const isPackageStockInsufficient = (selectedPackageSku && selectedPackageSku !== 'none') ? (netResultingUnits > packageStockInWh) : false;
+  const isCapStockInsufficient = (selectedCapSku && selectedCapSku !== 'none') ? (netResultingUnits > capStockInWh) : false;
 
   const canCalculate = useMemo(() => {
     if (!selectedSourceProduct) return false;
@@ -830,7 +833,7 @@ export default function FractionAndDischargesTab() {
         batchNumber: batchNumber || undefined,
         expiryDate: expiryDate || undefined,
         reason: notes || (fractionFlow === 'VENTA' 
-          ? `Fraccionamiento: ${parsedSourceQty.toFixed(2)} ${sourceUnit}(s) -> ${netResultingUnits} envases de ${selectedFractionText}. ${pkgSummary ? `[${pkgSummary}]` : ''}`
+          ? `Fraccionamiento: ${(Number(parsedSourceQty) || 0).toFixed(2)} ${sourceUnit}(s) -> ${netResultingUnits} envases de ${selectedFractionText}. ${pkgSummary ? `[${pkgSummary}]` : ''}`
           : `Consumo directo en orden/receta de producción`),
         responsibleEmail: operatorName || user?.email || 'Desconocido',
         created_at: new Date().toISOString()
@@ -1161,7 +1164,7 @@ export default function FractionAndDischargesTab() {
                     </span>
                     {selectedSourceProduct && (
                       <Badge variant="outline" className={`text-[10px] font-mono ${isStockInsufficient ? 'border-rose-500 text-rose-500 bg-rose-500/10 font-bold' : 'text-muted-foreground'}`}>
-                        Stock Disponible: {currentSourceStock.toFixed(2)} {sourceUnit}s
+                        Stock Disponible: {(Number(currentSourceStock) || 0).toFixed(2)} {sourceUnit}s
                       </Badge>
                     )}
                   </div>
@@ -1177,7 +1180,7 @@ export default function FractionAndDischargesTab() {
                           const stockInWh = getProductStockInWarehouse(p.sku, selectedWarehouseId);
                           return (
                             <SelectItem key={p.sku} value={p.sku} className="text-xs">
-                              [{p.sku}] {p.name} (Stock: {stockInWh.toFixed(2)} {p.unit || 'uds'}) - ${Number(p.cost || 0).toFixed(2)}
+                              [{p.sku}] {p.name} (Stock: {(Number(stockInWh) || 0).toFixed(2)} {p.unit || 'uds'}) - ${Number(p.cost || 0).toFixed(2)}
                             </SelectItem>
                           );
                         })}
@@ -1396,7 +1399,7 @@ export default function FractionAndDischargesTab() {
                           <SelectValue placeholder="Sin envase..." />
                         </SelectTrigger>
                         <SelectContent className="max-h-48">
-                          <SelectItem value="" className="text-xs">Ninguno / Ya incluido</SelectItem>
+                          <SelectItem value="none" className="text-xs">Ninguno / Ya incluido</SelectItem>
                           {products.filter(p => p.sku !== sourceSku && p.sku !== destinationSku).map(p => (
                             <SelectItem key={p.sku} value={p.sku} className="text-xs">
                               [{p.sku}] {p.name} (+${Number(p.cost || 0).toFixed(2)})
@@ -1424,7 +1427,7 @@ export default function FractionAndDischargesTab() {
                           <SelectValue placeholder="Sin tapa..." />
                         </SelectTrigger>
                         <SelectContent className="max-h-48">
-                          <SelectItem value="" className="text-xs">Ninguna / Ya incluida</SelectItem>
+                          <SelectItem value="none" className="text-xs">Ninguna / Ya incluida</SelectItem>
                           {products.filter(p => p.sku !== sourceSku && p.sku !== destinationSku).map(p => (
                             <SelectItem key={p.sku} value={p.sku} className="text-xs">
                               [{p.sku}] {p.name} (+${Number(p.cost || 0).toFixed(2)})
@@ -1447,7 +1450,7 @@ export default function FractionAndDischargesTab() {
                           <SelectValue placeholder="Sin complemento..." />
                         </SelectTrigger>
                         <SelectContent className="max-h-48">
-                          <SelectItem value="" className="text-xs">Ninguno</SelectItem>
+                          <SelectItem value="none" className="text-xs">Ninguno</SelectItem>
                           {products.filter(p => p.sku !== sourceSku && p.sku !== destinationSku).map(p => (
                             <SelectItem key={p.sku} value={p.sku} className="text-xs">
                               [{p.sku}] {p.name} (+${Number(p.cost || 0).toFixed(2)})
