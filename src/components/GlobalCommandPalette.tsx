@@ -69,14 +69,14 @@ export function GlobalCommandPalette() {
       title: 'Nueva Venta en Punto de Venta (POS)',
       description: 'Abrir caja y facturación rápida con DTE',
       icon: ShoppingCart,
-      href: '/pos',
+      href: '/billing',
       shortcut: 'Alt + V'
     },
     {
       id: 'act-frac',
       category: 'Acciones Rápidas',
-      title: 'Fraccionar Producto a Granel',
-      description: 'Dividir tambores/barriles en unidades menores o consumo de producción',
+      title: 'Fraccionar Producto & Envasar (Galón / Cuartos)',
+      description: 'Dividir galones en 1/2, 1/4, 3/8, 1/32 con descuento de envases y tapas',
       icon: Scissors,
       href: '/logistica?tab=fraccionamiento',
       shortcut: 'Alt + F'
@@ -103,10 +103,10 @@ export function GlobalCommandPalette() {
     {
       id: 'log-kardex',
       category: 'Logística & Inventario',
-      title: 'Kardex Valorizado & Movimientos',
+      title: 'Kardex Valorizado FIFO & Movimientos',
       description: 'Historial de entradas, salidas y valorización de inventario',
       icon: FileSpreadsheet,
-      href: '/logistica?tab=kardex'
+      href: '/logistica?tab=kardex-valued'
     },
     {
       id: 'log-transfers',
@@ -129,10 +129,10 @@ export function GlobalCommandPalette() {
     {
       id: 'ven-dte',
       category: 'Ventas & POS',
-      title: 'Emisión & Historial DTE El Salvador',
-      description: 'Facturas de Consumidor Final (01), Crédito Fiscal (03) y anulaciones',
+      title: 'Emisión, Correo & Historial DTE El Salvador',
+      description: 'Facturas de Consumidor Final (01), Crédito Fiscal (03), envío de correo y anulaciones',
       icon: FileText,
-      href: '/pos'
+      href: '/billing'
     },
     {
       id: 'ven-crm',
@@ -145,12 +145,20 @@ export function GlobalCommandPalette() {
 
     // Finanzas
     {
+      id: 'fin-audit',
+      category: 'Finanzas & Contabilidad',
+      title: 'Auditoría & Revisión Manual de Operaciones',
+      description: 'Trazabilidad 360° de ventas, compras y partidas de doble entrada',
+      icon: FileSpreadsheet,
+      href: '/accounting'
+    },
+    {
       id: 'fin-cxp',
       category: 'Finanzas & Contabilidad',
       title: 'Cuentas por Pagar (CxP) & Proveedores',
       description: 'Registro de compras, gastos y emisión de Quedan',
       icon: CreditCard,
-      href: '/cxp'
+      href: '/finanzas'
     },
     {
       id: 'fin-cxc',
@@ -158,7 +166,7 @@ export function GlobalCommandPalette() {
       title: 'Cuentas por Cobrar (CxC) & Abonos',
       description: 'Saldos de clientes, estados de cuenta y cobros',
       icon: DollarSign,
-      href: '/cxc'
+      href: '/finanzas'
     },
 
     // Gestión

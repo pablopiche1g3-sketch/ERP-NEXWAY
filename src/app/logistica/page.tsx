@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import InventoryTab from './components/InventoryTab';
 import TransfersTab from './components/TransfersTab';
@@ -9,8 +10,17 @@ import ProductionTab from './components/ProductionTab';
 import FractionAndDischargesTab from './components/FractionAndDischargesTab';
 import { Package, Factory, Scissors, ArrowLeftRight, BarChart3 } from 'lucide-react';
 
-export default function LogisticaPage() {
-  const [activeTab, setActiveTab] = useState('inventario');
+function LogisticaContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams?.get('tab') || 'inventario';
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const paramTab = searchParams?.get('tab');
+    if (paramTab) {
+      setActiveTab(paramTab === 'kardex' ? 'kardex-valued' : paramTab);
+    }
+  }, [searchParams]);
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -70,5 +80,13 @@ export default function LogisticaPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function LogisticaPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Cargando Logística...</div>}>
+      <LogisticaContent />
+    </Suspense>
   );
 }

@@ -84,6 +84,7 @@ import { es } from 'date-fns/locale';
 import { ModeToggle } from '@/components/mode-toggle';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
 import { CustomerHistoryDialog } from './components/CustomerHistoryDialog';
+import { DteEmailSimulationModal, type DteEmailSalePayload } from '@/components/DteEmailSimulationModal';
 import { Textarea } from '@/components/ui/textarea';
 import { useStation } from './components/use-station';
 import { useTabs } from '@/hooks/use-tabs';
@@ -633,8 +634,13 @@ export default function BillingPage() {
     cashReceived: number;
     change: number;
     customerName: string;
+    customerEmail?: string;
     items: any[];
   } | null>(null);
+
+  // Estado para Simulación de Envío de Correo DTE
+  const [isEmailSimOpen, setIsEmailSimOpen] = useState(false);
+  const [emailSimSaleData, setEmailSimSaleData] = useState<DteEmailSalePayload | null>(null);
 
   // Estados para datos cargados desde Supabase
   const [cashConfig, setCashConfig] = useState<any>({ cashFloat: 100 });
@@ -919,6 +925,45 @@ export default function BillingPage() {
       setIsDetailsDialogOpen(false);
     } finally {
       setLoadingDetails(false);
+    }
+  };
+
+  const handleOpenEmailSimulatorForSale = async (sale: any) => {
+    try {
+      let saleItems = sale.items || [];
+      if (!saleItems || saleItems.length === 0) {
+        const { data: itemsData } = await supabase
+          .from('sales_items')
+          .select('*')
+          .eq('sale_id', sale.id);
+        saleItems = (itemsData || []).map((item: any) => ({
+          sku: item.sku || 'ITEM',
+          name: item.name || 'Producto Facturado',
+          quantity: Number(item.quantity) || 1,
+          price: parseFloat(item.price) || 0
+        }));
+      }
+      if (saleItems.length === 0) {
+        saleItems = [{ sku: 'GEN-01', name: 'Productos Varios según Factura', quantity: 1, price: parseFloat(sale.total) || 0 }];
+      }
+
+      const matchedCustomer = customers?.find((c: any) => c.name?.toLowerCase() === (sale.customer || sale.customerName || '').toLowerCase());
+
+      setEmailSimSaleData({
+        correlative: sale.correlative || 'DTE-01-0001',
+        docType: sale.docType || 'CF',
+        customerName: sale.customer || sale.customerName || 'Consumidor Final',
+        customerEmail: sale.customerEmail || matchedCustomer?.email || cashConfig?.catchAllEmail || 'cliente@empresa.com.sv',
+        customerNit: matchedCustomer?.nit || sale.nit,
+        customerNrc: matchedCustomer?.nrc || sale.nrc,
+        total: parseFloat(sale.total) || 0,
+        paymentMethod: sale.paymentMethod || 'Efectivo',
+        timestamp: sale.timestamp || new Date().toISOString(),
+        items: saleItems
+      });
+      setIsEmailSimOpen(true);
+    } catch (e) {
+      console.error('Error preparando correo DTE:', e);
     }
   };
 
@@ -2015,6 +2060,7 @@ export default function BillingPage() {
           cashReceived: cashVal,
           change: changeVal,
           customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+          customerEmail: customerEmail || selectedCustomer?.email || cashConfig?.catchAllEmail || '',
           items: [...cart]
         });
 
@@ -2264,6 +2310,7 @@ export default function BillingPage() {
         cashReceived: cashVal,
         change: changeVal,
         customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+        customerEmail: customerEmail || selectedCustomer?.email || cashConfig?.catchAllEmail || '',
         items: [...cart]
       });
 
@@ -3458,6 +3505,18 @@ export default function BillingPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
+                            title="Enviar DTE por Correo (Simulación)"
+                            className="h-8 w-8 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEmailSimulatorForSale(sale);
+                            }}
+                          >
+                            <Mail size={14} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
                             title="Invalidar / Anular DTE"
                             disabled={sale.status === 'CANCELADA'}
                             className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-50"
@@ -3628,6 +3687,7 @@ export default function BillingPage() {
                     Cerrar
                   </Button>
                   {selectedSaleDetails && (
+                    <div className="flex items-center gap-2">
                     <Button 
                       className="rounded-xl h-10 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
                       onClick={() => {
@@ -3715,6 +3775,17 @@ export default function BillingPage() {
                       <Printer size={14} className="mr-2" />
                       Imprimir / PDF
                     </Button>
+                    <Button 
+                      className="rounded-xl h-10 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => {
+                        setIsDetailsDialogOpen(false);
+                        handleOpenEmailSimulatorForSale(selectedSaleDetails);
+                      }}
+                    >
+                      <Mail size={14} className="mr-2" />
+                      Enviar por Correo (DTE)
+                    </Button>
+                    </div>
                   )}
                 </DialogFooter>
               </DialogContent>
@@ -4924,6 +4995,30 @@ export default function BillingPage() {
               </Button>
 
               <Button
+                onClick={() => {
+                  setEmailSimSaleData({
+                    correlative: completedSaleData.correlative,
+                    docType: completedSaleData.docType,
+                    customerName: completedSaleData.customerName,
+                    customerEmail: completedSaleData.customerEmail || 'cliente@empresa.com.sv',
+                    total: completedSaleData.total,
+                    paymentMethod: paymentMethod,
+                    timestamp: new Date().toISOString(),
+                    items: completedSaleData.items.map((i: any) => ({
+                      sku: i.sku || 'ITEM',
+                      name: i.name,
+                      quantity: Number(i.quantity) || 1,
+                      price: Number(i.price) || 0
+                    }))
+                  });
+                  setIsEmailSimOpen(true);
+                }}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 font-bold text-xs h-11 rounded-xl text-white"
+              >
+                <Mail size={16} className="mr-1.5" /> ENVIAR DTE POR CORREO (PDF + JSON)
+              </Button>
+
+              <Button
                 variant="outline"
                 onClick={() => setCompletedSaleData(null)}
                 className="w-full font-bold text-xs h-10 rounded-xl border-slate-700"
@@ -5138,6 +5233,13 @@ export default function BillingPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Simulación y Despacho de Correo Electrónico DTE */}
+      <DteEmailSimulationModal
+        open={isEmailSimOpen}
+        onOpenChange={setIsEmailSimOpen}
+        saleData={emailSimSaleData}
+      />
     </div>
   );
 }
