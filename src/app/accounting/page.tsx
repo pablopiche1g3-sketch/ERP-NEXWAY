@@ -1040,6 +1040,11 @@ export default function AccountingPage() {
                 <FileText size={14} className="mr-2"/> Libro Diario
               </TabsTrigger>
             )}
+            {config?.['accounting_auditoria'] !== false && (
+              <TabsTrigger value="auditoria" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <FileSearch size={14} className="mr-2"/> Auditoría & Detalle Manual
+              </TabsTrigger>
+            )}
             {config?.['accounting_balance-comprobacion'] !== false && (
               <TabsTrigger value="balance-comprobacion" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
                 <Scale size={14} className="mr-2"/> Balance Comprobación

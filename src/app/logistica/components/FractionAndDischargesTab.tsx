@@ -206,6 +206,8 @@ export default function FractionAndDischargesTab() {
   const [destinationSku, setDestinationSku] = useState<string>('');
   const [targetUnit, setTargetUnit] = useState<string>('Cuarto de Galón');
 
+  const [isCreatingChild, setIsCreatingChild] = useState<boolean>(false);
+
   // BOM de Envasado & Insumos Complementarios
   const [selectedPackageSku, setSelectedPackageSku] = useState<string>('');
   const [selectedCapSku, setSelectedCapSku] = useState<string>('');
@@ -505,6 +507,88 @@ export default function FractionAndDischargesTab() {
         }
       }
       autoDetectPackagingForFraction(text);
+    }
+  };
+
+  const handleCreateChildProduct = async () => {
+    if (!selectedSourceProduct) {
+      toast({
+        variant: 'destructive',
+        title: 'Seleccione Producto Matriz',
+        description: 'Primero debes seleccionar el producto líquido matriz.'
+      });
+      return;
+    }
+
+    setIsCreatingChild(true);
+    try {
+      const cleanFraction = selectedFractionText.replace('/', '-').replace(/[^a-zA-Z0-9.-]/g, '');
+      const newSku = `${selectedSourceProduct.sku}-${cleanFraction.toUpperCase()}`;
+      
+      // Verificar si ya existe
+      const existing = products.find(p => p.sku.toLowerCase() === newSku.toLowerCase());
+      if (existing) {
+        setDestinationSku(existing.sku);
+        toast({
+          title: 'Producto ya existente',
+          description: `Se seleccionó automáticamente [${existing.sku}] ${existing.name}`
+        });
+        setIsCreatingChild(false);
+        return;
+      }
+
+      const baseNameClean = selectedSourceProduct.name.replace(/\(\s*gal[oó]n\s*\)|gal[oó]n/gi, '').trim();
+      const newName = `${baseNameClean} (${selectedFractionText} Gal)`;
+      const estUnitCost = (sourceUnitCost * parsedFractionInfo.factor) + unitPackagingCost;
+      const suggestedPrice = estUnitCost > 0 ? Number((estUnitCost * 1.35).toFixed(2)) : Number(((selectedSourceProduct.price || 10) * parsedFractionInfo.factor * 1.15).toFixed(2));
+      const newUnit = targetUnit || `${selectedFractionText} Gal`;
+
+      const newProductObj: ProductItem = {
+        sku: newSku,
+        name: newName,
+        cost: Number(estUnitCost.toFixed(2)),
+        price: suggestedPrice,
+        unit: newUnit,
+        quantity: 0,
+        stock: 0
+      };
+
+      // Insertar en Supabase inventory
+      try {
+        await supabase.from('inventory').upsert({
+          sku: newSku,
+          name: newName,
+          category: 'Fraccionados',
+          cost: newProductObj.cost,
+          price: newProductObj.price,
+          unit: newUnit,
+          quantity: 0
+        }, { onConflict: 'sku' });
+      } catch (dbErr) {
+        console.warn('Warning creando hijo en Supabase:', dbErr);
+      }
+
+      // Actualizar estado local
+      const updatedProducts = [newProductObj, ...products];
+      setProducts(updatedProducts);
+      setDestinationSku(newSku);
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nexway_inventory', JSON.stringify(updatedProducts));
+      }
+
+      toast({
+        title: '✨ Presentación Fraccionada Creada',
+        description: `Se creó [${newSku}] "${newName}" con PVP sugerido de ${suggestedPrice.toFixed(2)} y quedó vinculado.`
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al crear presentación',
+        description: err.message || 'No se pudo generar el producto hijo.'
+      });
+    } finally {
+      setIsCreatingChild(false);
     }
   };
 
@@ -1329,9 +1413,24 @@ export default function FractionAndDischargesTab() {
                           })}
                         </SelectContent>
                       </Select>
-                      <p className="text-[10px] text-muted-foreground">
-                        {selectedDestinationProduct ? `Vinculado a: ${selectedDestinationProduct.name}` : 'Tip: Al elegir la fracción, el sistema intenta autodetectar el producto correspondiente.'}
-                      </p>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                        <p className="text-[10px] text-muted-foreground">
+                          {selectedDestinationProduct ? `✅ Vinculado a: ${selectedDestinationProduct.name} (PVP: ${Number(selectedDestinationProduct.price || 0).toFixed(2)})` : '¿No existe aún esta fracción en el inventario? Créala con 1 clic:'}
+                        </p>
+                        {selectedSourceProduct && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isCreatingChild}
+                            onClick={handleCreateChildProduct}
+                            className="h-7 text-[11px] font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg shrink-0 gap-1"
+                          >
+                            {isCreatingChild ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                            Crear "{selectedFractionText} Gal" en 1 Clic
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
