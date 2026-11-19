@@ -539,10 +539,24 @@ export default function ManagementPage() {
   const loadData = async () => {
     try {
       setLoadingUsers(true);
+
+      // 0. Reconciliar usuarios de Supabase Auth con public.profiles
+      let apiUsers: any[] = [];
+      try {
+        const syncRes = await fetch('/api/users/create', { method: 'GET', cache: 'no-store' });
+        if (syncRes.ok) {
+          const syncJson = await syncRes.json();
+          if (Array.isArray(syncJson?.users)) {
+            apiUsers = syncJson.users;
+          }
+        }
+      } catch {
+        // Fallback silencioso a consulta directa
+      }
       
       // 1. Cargar usuarios/perfiles reales de Supabase
       const { data: profsData, error: profsErr } = await supabase.from('profiles').select('*').order('email');
-      if (profsErr) throw profsErr;
+      if (profsErr && apiUsers.length === 0) throw profsErr;
 
       // 2. Cargar roles preasignados
       const { data: preConf } = await supabase.from('system_config').select('*').eq('key', 'preassigned_roles').maybeSingle();
@@ -550,7 +564,7 @@ export default function ManagementPage() {
 
       // Deduplicar automáticamente por correo electrónico (conservando la entrada de mayor privilegio o la más reciente)
       const uniqueProfilesMap = new Map<string, any>();
-      (profsData || []).forEach(p => {
+      [...apiUsers, ...(profsData || [])].forEach(p => {
         const emailKey = p.email?.toLowerCase()?.trim();
         if (!emailKey) return;
 
@@ -569,8 +583,11 @@ export default function ManagementPage() {
       const consolidatedUsers = Array.from(uniqueProfilesMap.values()).map(p => ({
         id: p.id,
         email: p.email,
+        full_name: p.full_name || p.permissions?.full_name || p.email?.split('@')[0],
+        name: p.full_name || p.permissions?.full_name || p.email?.split('@')[0],
         role: p.role,
         branch_id: p.branch_id,
+        station_id: p.station_id,
         isPreassigned: false,
         createdAt: p.created_at,
         permissions: p.permissions
@@ -578,11 +595,16 @@ export default function ManagementPage() {
 
       Object.keys(preassignedMap).forEach(email => {
         if (!consolidatedUsers.some(u => u.email?.toLowerCase() === email.toLowerCase())) {
+          const rawRole = preassignedMap[email];
+          const resolvedRole = typeof rawRole === 'string' ? rawRole : (rawRole?.role || 'vendedor');
           consolidatedUsers.push({
             id: 'preassigned:' + email,
             email: email,
-            role: preassignedMap[email],
-            branch_id: null,
+            full_name: email.split('@')[0],
+            name: email.split('@')[0],
+            role: resolvedRole,
+            branch_id: typeof rawRole === 'object' ? rawRole?.branch_id || null : null,
+            station_id: typeof rawRole === 'object' ? rawRole?.station_id || null : null,
             isPreassigned: true,
             createdAt: new Date().toISOString(),
             permissions: null
@@ -591,6 +613,11 @@ export default function ManagementPage() {
       });
 
       setUsersList(consolidatedUsers);
+      try {
+        localStorage.setItem('nexway_app_users', JSON.stringify(consolidatedUsers));
+      } catch {
+        // Ignore storage errors
+      }
 
       // 3. Cargar configuración de módulos
       const { data: modConf, error: modErr } = await supabase.from('system_config').select('*').eq('key', 'module_config').maybeSingle();
@@ -817,61 +844,48 @@ export default function ManagementPage() {
         usr.email?.toLowerCase() === usernameToAssign
       );
       
-      if (existingUser) {
-        // Si el usuario ya existe, actualizamos su rol y sucursal en la tabla profiles
-        const updatePayload: any = { role: preAssignRole };
-        if (preAssignBranchId) {
-          updatePayload.branch_id = preAssignBranchId === '__none' ? null : preAssignBranchId;
-          updatePayload.station_id = preAssignCashRegisterId === '__none' ? null : preAssignCashRegisterId;
-        }
-        const { error } = await supabase.from('profiles').update(updatePayload).eq('id', existingUser.id);
-        if (error) throw error;
+      if (!existingUser && (!preAssignPassword || preAssignPassword.length < 6)) {
         toast({ 
-          title: "Usuario Actualizado", 
-          description: `El usuario ya estaba registrado. Se actualizó su rol a ${ROLE_NAMES[preAssignRole]} y sucursal.` 
+          variant: "destructive", 
+          title: "Contraseña requerida", 
+          description: "Para crear un nuevo usuario, la contraseña es obligatoria y debe tener al menos 6 caracteres." 
         });
-      } else {
-        // Si es un usuario nuevo, la contraseña es obligatoria
-        if (!preAssignPassword || preAssignPassword.length < 5) {
-          toast({ 
-            variant: "destructive", 
-            title: "Contraseña requerida", 
-            description: "La contraseña es obligatoria y debe tener al menos 5 caracteres." 
-          });
-          setIsSaving(false);
-          return;
-        }
-
-        // Obtener el token de acceso de sesión
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-
-        // Llamar a nuestra API segura en el servidor
-        const response = await fetch('/api/users/create', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            username: usernameToAssign,
-            password: preAssignPassword,
-            role: preAssignRole,
-            branch_id: preAssignBranchId === '__none' ? null : preAssignBranchId,
-            station_id: preAssignCashRegisterId === '__none' ? null : preAssignCashRegisterId
-          })
-        });
-
-        const apiData = await response.json();
-        if (!response.ok) {
-          throw new Error(apiData.error || 'No se pudo crear el usuario.');
-        }
-
-        toast({ 
-          title: "Usuario Creado", 
-          description: `El usuario ${usernameToAssign} fue registrado con rol ${ROLE_NAMES[preAssignRole]} exitosamente.` 
-        });
+        setIsSaving(false);
+        return;
       }
+
+      // Obtener el token de acceso de sesión
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      // Llamar a nuestra API de administración /api/users/create (soporta crear o actualizar)
+      const response = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          username: usernameToAssign,
+          email: formattedEmail,
+          password: preAssignPassword && preAssignPassword.length >= 6 ? preAssignPassword : undefined,
+          role: preAssignRole,
+          branch_id: preAssignBranchId === '__none' ? null : (preAssignBranchId || undefined),
+          station_id: preAssignCashRegisterId === '__none' ? null : (preAssignCashRegisterId || undefined)
+        })
+      });
+
+      const apiData = await response.json();
+      if (!response.ok) {
+        throw new Error(apiData.error || 'No se pudo guardar el usuario.');
+      }
+
+      toast({ 
+        title: existingUser ? "Usuario Actualizado" : "Usuario Creado", 
+        description: existingUser
+          ? `Se actualizó el perfil de ${formattedEmail} al rol ${ROLE_NAMES[preAssignRole] || preAssignRole}.`
+          : `El usuario ${formattedEmail} fue registrado con rol ${ROLE_NAMES[preAssignRole] || preAssignRole} exitosamente.` 
+      });
       setPreAssignEmail('');
       setPreAssignPassword('');
       setPreAssignBranchId('');

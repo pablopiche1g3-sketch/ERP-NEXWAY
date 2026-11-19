@@ -34,28 +34,62 @@ export default function LoginForm() {
     setAuthError(null);
 
     try {
-      // 1. Intentar validar PIN contra app_users en Supabase
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('pin_code', pinCode)
-        .eq('status', 'active')
-        .single();
+      let matchedUser: any = null;
 
-      let matchedUser = data;
+      // 1. Intentar validar PIN contra profiles y system_config (app_users_registry) en Supabase
+      try {
+        const [{ data: profs }, { data: regCfg }] = await Promise.all([
+          supabase.from('profiles').select('*'),
+          supabase.from('system_config').select('value').eq('key', 'app_users_registry').maybeSingle(),
+        ]);
 
-      // Fallback a demo users
+        if (Array.isArray(profs)) {
+          const foundProf = profs.find(
+            (p: any) =>
+              p.permissions?.pin_code === pinCode &&
+              (p.permissions?.status || 'ACTIVO').toUpperCase() !== 'INACTIVO'
+          );
+          if (foundProf) {
+            matchedUser = {
+              id: foundProf.id,
+              email: foundProf.email,
+              full_name: foundProf.permissions?.full_name || foundProf.email.split('@')[0],
+              role: foundProf.role || 'cajero',
+            };
+          }
+        }
+
+        if (!matchedUser && Array.isArray(regCfg?.value)) {
+          const foundReg = regCfg.value.find(
+            (u: any) =>
+              u.pin_code === pinCode &&
+              (u.status || 'ACTIVO').toString().toUpperCase() !== 'INACTIVO' &&
+              (u.status || 'active').toString().toLowerCase() !== 'suspended'
+          );
+          if (foundReg) {
+            matchedUser = foundReg;
+          }
+        }
+      } catch {
+        // Continuar a fallback local
+      }
+
+      // Fallback a usuarios en localStorage
       if (!matchedUser) {
         const localUsersStr = localStorage.getItem('nexway_app_users');
         if (localUsersStr) {
           const localArr = JSON.parse(localUsersStr);
-          matchedUser = localArr.find((u: any) => u.pin_code === pinCode && u.status === 'active');
+          matchedUser = localArr.find(
+            (u: any) =>
+              u.pin_code === pinCode &&
+              (u.status === 'active' || (u.status || 'ACTIVO').toUpperCase() === 'ACTIVO')
+          );
         }
       }
 
       if (!matchedUser && (pinCode === '1234' || pinCode === '9999')) {
         matchedUser = {
-          email: 'admin@nexway.sv',
+          email: 'pablopiche1g3@gmail.com',
           full_name: 'Pablo Piche (Administrador)',
           role: 'administrador'
         };
@@ -86,39 +120,26 @@ export default function LoginForm() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanEmail = email.toLowerCase().trim();
-    if (!cleanEmail || !password) {
+    const rawIdentifier = email.toLowerCase().trim();
+    if (!rawIdentifier || !password) {
       setAuthError('Por favor completa todos los campos.');
       return;
     }
+
+    const cleanEmail = rawIdentifier.includes('@')
+      ? rawIdentifier
+      : `${rawIdentifier}@nexway.local`;
 
     setIsLoading(true);
     setAuthError(null);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password,
       });
 
       if (error) {
-        // Verificar si existe en app_users local
-        const { data: localData } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('email', cleanEmail)
-          .single();
-
-        if (localData && localData.status === 'active') {
-          localStorage.setItem('nexway_local_session', JSON.stringify({
-            user: localData,
-            login_at: new Date().toISOString()
-          }));
-          toast({ title: 'Acceso Local Exitoso', description: `Bienvenido ${localData.full_name}.` });
-          router.push('/');
-          return;
-        }
-
         throw error;
       }
 
@@ -179,7 +200,7 @@ export default function LoginForm() {
             onClick={() => setLoginMode('email')}
             className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${loginMode === 'email' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
           >
-            Correo + Clave
+            Usuario / Correo
           </button>
           <button
             type="button"
@@ -203,14 +224,14 @@ export default function LoginForm() {
         {loginMode === 'email' ? (
           <form onSubmit={handleEmailSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Correo Electrónico</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Usuario o Correo Electrónico</label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <Input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="usuario@empresa.com"
+                  placeholder="ej. diego o usuario@nexway.local"
                   className="pl-10 text-xs h-11 rounded-xl"
                   required
                 />

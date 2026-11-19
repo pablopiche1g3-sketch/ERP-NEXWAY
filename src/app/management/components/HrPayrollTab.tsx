@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Banknote, Landmark, FileText, Loader2, Save } from 'lucide-react';
-import { supabase } from '@/supabase/client';
+import { fetchSystemAppUsers } from '@/lib/session-operator';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 
@@ -16,22 +16,8 @@ export default function HrPayrollTab() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Intentar cargar usuarios reales desde app_users
-      const { data: appUsers, error: appErr } = await supabase
-        .from('app_users')
-        .select('id, full_name, username, email, role, status')
-        .order('full_name');
-
-      if (!appErr && appUsers && appUsers.length > 0) {
-        const clean = appUsers.filter((u: any) => u.email !== 'caja1@nexway.sv');
-        setUsers(clean);
-      } else {
-        // Fallback a profiles si app_users no retorna filas
-        const { data, error } = await supabase.from('profiles').select('id, email, role');
-        if (error) throw error;
-        const clean = (data || []).filter((u: any) => u.email !== 'caja1@nexway.sv');
-        setUsers(clean);
-      }
+      const list = await fetchSystemAppUsers();
+      setUsers(list);
     } catch (e: any) {
       console.error(e);
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar colaboradores para RH.' });

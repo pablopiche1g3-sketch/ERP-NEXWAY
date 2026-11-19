@@ -200,47 +200,113 @@ export default function UserAccessManagementTab() {
   ]);
   const [expandedModule, setExpandedModule] = useState<string | null>('billing');
 
+  const mapProfileToAppUser = (raw: any): AppUser => {
+    const rawEmail = (raw.email || '').toLowerCase().trim();
+    const rawRole = (raw.role || 'cajero').toLowerCase();
+    const presetKey =
+      rawRole === 'admin' || rawRole === 'gerencia' || rawRole === 'encargado'
+        ? 'administrador'
+        : ROLE_PRESETS[rawRole]
+        ? rawRole
+        : 'cajero';
+    const preset = ROLE_PRESETS[presetKey] || ROLE_PRESETS.cajero;
+    const perms = raw.permissions && typeof raw.permissions === 'object' ? raw.permissions : {};
+
+    const mods =
+      Array.isArray(raw.allowed_modules) && raw.allowed_modules.length > 0
+        ? raw.allowed_modules
+        : Array.isArray(perms.modules) && perms.modules.length > 0
+        ? perms.modules
+        : preset.modules;
+
+    const tabs =
+      Array.isArray(raw.allowed_tabs) && raw.allowed_tabs.length > 0
+        ? raw.allowed_tabs
+        : Array.isArray(perms.tabs) && perms.tabs.length > 0
+        ? perms.tabs
+        : preset.tabs;
+
+    const rawStatus = (raw.status || perms.status || 'active').toString().toLowerCase();
+    const isSuspended = rawStatus === 'suspended' || rawStatus === 'inactivo';
+
+    const prefix = rawEmail.split('@')[0] || 'usuario';
+    const formattedPrefix = prefix
+      .replace(/[._-]+/g, ' ')
+      .replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+    return {
+      id: raw.id || `usr_${prefix}`,
+      username: prefix,
+      email: raw.email || `${prefix}@nexway.local`,
+      full_name: raw.full_name || raw.name || perms.full_name || formattedPrefix,
+      role: raw.role || 'cajero',
+      pin_code: raw.pin_code || perms.pin_code || '1234',
+      status: isSuspended ? 'suspended' : 'active',
+      allowed_modules: mods,
+      allowed_tabs: tabs,
+      last_device: raw.last_device || 'Terminal ERP Registrada',
+      last_login: raw.last_login || raw.created_at || new Date().toISOString(),
+    };
+  };
+
   const loadUsers = async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const mergedMap = new Map<string, AppUser>();
 
-      if (!error && data && data.length > 0) {
-        const cleanUsers = data.filter(u => u.email !== 'caja1@nexway.sv');
-        setUsers(cleanUsers);
-        localStorage.setItem('nexway_app_users', JSON.stringify(cleanUsers));
+    const addRawUser = (raw: any) => {
+      if (!raw?.email) return;
+      const em = raw.email.toLowerCase().trim();
+      if (!em || em === 'caja1@nexway.sv') return;
+      const mapped = mapProfileToAppUser(raw);
+      mergedMap.set(em, mapped);
+    };
+
+    try {
+      // 1. Reconciliar y obtener lista unificada desde /api/users/create (GET)
+      try {
+        const res = await fetch('/api/users/create', { method: 'GET', cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json?.users)) {
+            json.users.forEach((u: any) => addRawUser(u));
+          }
+        }
+      } catch {
+        // Fallback a consulta directa con cliente Supabase
+      }
+
+      // 2. Consultar directamente public.profiles y system_config
+      const [profsRes, cfgRes] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('system_config').select('key, value').eq('key', 'app_users_registry').maybeSingle(),
+      ]);
+
+      if (Array.isArray(profsRes.data)) {
+        profsRes.data.forEach((p: any) => addRawUser(p));
+      }
+      if (Array.isArray(cfgRes.data?.value)) {
+        cfgRes.data.value.forEach((u: any) => addRawUser(u));
+      }
+
+      const finalUsers = Array.from(mergedMap.values());
+      if (finalUsers.length > 0) {
+        setUsers(finalUsers);
+        localStorage.setItem('nexway_app_users', JSON.stringify(finalUsers));
       } else {
         const localUsers = localStorage.getItem('nexway_app_users');
         if (localUsers) {
-          const parsed = JSON.parse(localUsers).filter((u: any) => u.email !== 'caja1@nexway.sv');
+          const parsed = JSON.parse(localUsers)
+            .filter((u: any) => u.email !== 'caja1@nexway.sv')
+            .map((u: any) => mapProfileToAppUser(u));
           setUsers(parsed);
-        } else {
-          const initialMock: AppUser[] = [
-            {
-              id: 'u1',
-              username: 'pablopiche1g3',
-              email: 'admin@nexway.sv',
-              full_name: 'Pablo Piche (Administrador)',
-              role: 'administrador',
-              pin_code: '9999',
-              status: 'active',
-              allowed_modules: MODULE_CATALOG.map(m => m.id),
-              allowed_tabs: MODULE_CATALOG.flatMap(m => m.tabs.map(t => `${m.id}_${t.id}`)),
-              last_device: 'Windows PC (Chrome)',
-              last_login: new Date().toISOString()
-            }
-          ];
-          setUsers(initialMock);
-          localStorage.setItem('nexway_app_users', JSON.stringify(initialMock));
         }
       }
     } catch {
       const localUsers = localStorage.getItem('nexway_app_users');
       if (localUsers) {
-        const parsed = JSON.parse(localUsers).filter((u: any) => u.email !== 'caja1@nexway.sv');
+        const parsed = JSON.parse(localUsers)
+          .filter((u: any) => u.email !== 'caja1@nexway.sv')
+          .map((u: any) => mapProfileToAppUser(u));
         setUsers(parsed);
       }
     } finally {
@@ -277,15 +343,47 @@ export default function UserAccessManagementTab() {
 
   const handleSaveUser = async () => {
     if (!fullName || !email) {
-      toast({ variant: 'destructive', title: 'Campos Incompletos', description: 'Por favor ingresa nombre y correo.' });
+      toast({ variant: 'destructive', title: 'Campos Incompletos', description: 'Por favor ingresa nombre y correo o usuario.' });
       return;
     }
 
+    const formattedEmail = email.includes('@')
+      ? email.toLowerCase().trim()
+      : `${email.toLowerCase().trim().replace(/\s+/g, '.')}@nexway.local`;
+
+    let savedId = editingUserId || 'usr_' + Date.now();
+
+    try {
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formattedEmail,
+          username: formattedEmail.split('@')[0],
+          full_name: fullName.trim(),
+          password: password && password.trim().length >= 6 ? password.trim() : undefined,
+          role,
+          pin_code: pinCode || '1234',
+          status: 'ACTIVO',
+          allowed_modules: selectedModules,
+          allowed_tabs: selectedTabs,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json?.user?.id) {
+        savedId = json.user.id;
+      } else if (!res.ok && json?.error) {
+        console.warn('Advertencia en /api/users/create:', json.error);
+      }
+    } catch (e) {
+      console.error('Error invocando /api/users/create:', e);
+    }
+
     const newUser: AppUser = {
-      id: editingUserId || 'usr_' + Date.now(),
-      username: email.split('@')[0],
-      email: email,
-      full_name: fullName,
+      id: savedId,
+      username: formattedEmail.split('@')[0],
+      email: formattedEmail,
+      full_name: fullName.trim(),
       role: role,
       pin_code: pinCode || '1234',
       status: 'active',
@@ -295,31 +393,20 @@ export default function UserAccessManagementTab() {
       last_login: new Date().toISOString()
     };
 
-    const updated = editingUserId
-      ? users.map(u => u.id === editingUserId ? newUser : u)
-      : [newUser, ...users];
+    const existingIdx = users.findIndex(
+      u => u.id === editingUserId || u.id === savedId || u.email.toLowerCase() === formattedEmail
+    );
+    const updated =
+      existingIdx >= 0
+        ? users.map((u, idx) => (idx === existingIdx ? newUser : u))
+        : [newUser, ...users];
 
     setUsers(updated);
     localStorage.setItem('nexway_app_users', JSON.stringify(updated));
 
-    try {
-      await supabase.from('app_users').upsert({
-        id: newUser.id,
-        email: newUser.email,
-        full_name: newUser.full_name,
-        role: newUser.role,
-        pin_code: newUser.pin_code,
-        status: newUser.status,
-        allowed_modules: newUser.allowed_modules,
-        allowed_tabs: newUser.allowed_tabs
-      });
-    } catch (e) {
-      console.error('Error saving app_user to Supabase:', e);
-    }
-
     toast({
       title: editingUserId ? 'Accesos Actualizados' : 'Nuevo Usuario Creado',
-      description: `Se guardó ${newUser.full_name} con ${selectedModules.length} módulos y ${selectedTabs.length} pestañas autorizadas.`
+      description: `Se guardó ${newUser.full_name} (${newUser.email}) con ${selectedModules.length} módulos y ${selectedTabs.length} pestañas autorizadas.`
     });
 
     setIsModalOpen(false);
@@ -374,7 +461,19 @@ export default function UserAccessManagementTab() {
     localStorage.setItem('nexway_app_users', JSON.stringify(updated));
 
     try {
-      await supabase.from('app_users').update({ status: newStatus }).eq('id', userObj.id);
+      await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userObj.email,
+          full_name: userObj.full_name,
+          role: userObj.role,
+          pin_code: userObj.pin_code,
+          status: newStatus === 'active' ? 'ACTIVO' : 'INACTIVO',
+          allowed_modules: userObj.allowed_modules,
+          allowed_tabs: userObj.allowed_tabs,
+        }),
+      });
     } catch (e) {
       console.error(e);
     }
@@ -391,7 +490,15 @@ export default function UserAccessManagementTab() {
     localStorage.setItem('nexway_app_users', JSON.stringify(updated));
 
     try {
-      await supabase.from('app_users').delete().eq('email', userObj.email);
+      await supabase.from('profiles').delete().eq('id', userObj.id);
+      await supabase.from('system_config').upsert(
+        {
+          key: 'app_users_registry',
+          value: updated,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'key' }
+      );
     } catch (e) {
       console.error('Error deleting user from Supabase:', e);
     }
