@@ -481,8 +481,16 @@ export default function FractionAndDischargesTab() {
     setSelectedFractionText(fracText);
     setCustomFractionInput(fracText);
     const preset = PRESET_FRACTIONS.find(p => p.fractionText === fracText);
+    const parsed = parseCustomFraction(fracText);
     if (preset) {
       setTargetUnit(preset.unitName);
+    } else if (parsed.isValid) {
+      setTargetUnit(parsed.label);
+    }
+    // Calcular automáticamente cuántos envases equivalen a 1 Galón (o 1 unidad si factor >= 1)
+    if (parsed.isValid && parsed.factor > 0) {
+      const autoUnits = parsed.factor >= 1 ? 1 : Math.max(1, Math.floor(1 / parsed.factor));
+      setUnitsToProduce(String(autoUnits));
     }
     if (selectedSourceProduct) {
       const child = findMatchingChildProduct(selectedSourceProduct.name, selectedSourceProduct.sku, fracText);
@@ -1285,7 +1293,7 @@ export default function FractionAndDischargesTab() {
                     </div>
                   )}
 
-                  {isStockInsufficient && (
+                  {selectedSourceProduct && isStockInsufficient && (
                     <div className="text-xs text-rose-500 flex items-center gap-1.5 bg-rose-500/10 p-2.5 rounded-lg font-medium border border-rose-500/30">
                       <AlertTriangle className="h-4 w-4 shrink-0" />
                       <span>Stock insuficiente: Se requieren {parsedSourceQty.toFixed(2)} {sourceUnit}s pero solo hay {currentSourceStock.toFixed(2)} en bodega.</span>
@@ -1302,6 +1310,59 @@ export default function FractionAndDischargesTab() {
                     <Badge className="bg-indigo-600 text-white text-[10px] font-mono">
                       {parsedFractionInfo.label}
                     </Badge>
+                  </div>
+
+                  {/* Selector Desplegable Automático con Flecha */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                      Seleccionar Tipo de Fracción Automática *
+                    </Label>
+                    <Select
+                      value={selectedFractionText}
+                      onValueChange={(val) => handleSelectFraction(val)}
+                    >
+                      <SelectTrigger className="h-10 text-xs font-bold rounded-xl border-indigo-500/40 bg-background/90 shadow-sm">
+                        <SelectValue placeholder="Seleccionar fracción a realizar automáticamente..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        <SelectItem value="1/2" className="text-xs font-semibold">
+                          1/2 Galón (64 oz) — Auto: 2 envases por Galón
+                        </SelectItem>
+                        <SelectItem value="3/8" className="text-xs font-semibold">
+                          3/8 Galón (48 oz) — Auto: 2 envases (0.75 Gal)
+                        </SelectItem>
+                        <SelectItem value="1/4" className="text-xs font-semibold">
+                          1/4 Galón (32 oz / Cuarto) — Auto: 4 envases por Galón
+                        </SelectItem>
+                        <SelectItem value="3/16" className="text-xs font-semibold">
+                          3/16 Galón (24 oz) — Auto: 5 envases (0.94 Gal)
+                        </SelectItem>
+                        <SelectItem value="1/8" className="text-xs font-semibold">
+                          1/8 Galón (16 oz / Octavo / Pinta) — Auto: 8 envases por Galón
+                        </SelectItem>
+                        <SelectItem value="1/16" className="text-xs font-semibold">
+                          1/16 Galón (8 oz) — Auto: 16 envases por Galón
+                        </SelectItem>
+                        <SelectItem value="1/32" className="text-xs font-semibold">
+                          1/32 Galón (4 oz) — Auto: 32 envases por Galón
+                        </SelectItem>
+                        <SelectItem value="5/16" className="text-xs">
+                          5/16 Galón (40 oz) — Fracción Especial
+                        </SelectItem>
+                        <SelectItem value="5/8" className="text-xs">
+                          5/8 Galón (80 oz) — Fracción Especial
+                        </SelectItem>
+                        <SelectItem value="3/4" className="text-xs">
+                          3/4 Galón (96 oz) — Fracción Especial
+                        </SelectItem>
+                        <SelectItem value="7/8" className="text-xs">
+                          7/8 Galón (112 oz) — Fracción Especial
+                        </SelectItem>
+                        <SelectItem value="5" className="text-xs font-semibold">
+                          Caneca / Cubeta (5 Galones — 640 oz)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Chips Rápidos de Fracciones Habituales */}

@@ -1730,9 +1730,26 @@ export default function BillingPage() {
     return Math.max(0, received - totalCart);
   }, [cashReceived, totalCart]);
 
-  const addToCart = (product: any) => {
+  const BILLING_FRACTION_OPTIONS = [
+    { value: '1/1', label: '1/1 Entero (128 oz)', shortLabel: '1/1 Entero', factor: 1, ounces: 128 },
+    { value: '7/8', label: '7/8 Galón (112 oz)', shortLabel: '7/8 Gal (112 oz)', factor: 0.875, ounces: 112 },
+    { value: '3/4', label: '3/4 Galón (96 oz)', shortLabel: '3/4 Gal (96 oz)', factor: 0.75, ounces: 96 },
+    { value: '5/8', label: '5/8 Galón (80 oz)', shortLabel: '5/8 Gal (80 oz)', factor: 0.625, ounces: 80 },
+    { value: '1/2', label: '1/2 Galón (64 oz)', shortLabel: '1/2 Gal (64 oz)', factor: 0.5, ounces: 64 },
+    { value: '3/8', label: '3/8 Galón (48 oz)', shortLabel: '3/8 Gal (48 oz)', factor: 0.375, ounces: 48 },
+    { value: '5/16', label: '5/16 Galón (40 oz)', shortLabel: '5/16 Gal (40 oz)', factor: 0.3125, ounces: 40 },
+    { value: '1/4', label: '1/4 Galón (32 oz)', shortLabel: '1/4 Gal (32 oz)', factor: 0.25, ounces: 32 },
+    { value: '3/16', label: '3/16 Galón (24 oz)', shortLabel: '3/16 Gal (24 oz)', factor: 0.1875, ounces: 24 },
+    { value: '1/8', label: '1/8 Galón (16 oz)', shortLabel: '1/8 Gal (16 oz)', factor: 0.125, ounces: 16 },
+    { value: '1/16', label: '1/16 Galón (8 oz)', shortLabel: '1/16 Gal (8 oz)', factor: 0.0625, ounces: 8 },
+    { value: '1/32', label: '1/32 Galón (4 oz)', shortLabel: '1/32 Gal (4 oz)', factor: 0.03125, ounces: 4 },
+  ];
+
+  const addToCart = (product: any, initialFractionValue: string = '1/1') => {
+    const fracOpt = BILLING_FRACTION_OPTIONS.find(f => f.value === initialFractionValue) || BILLING_FRACTION_OPTIONS[0];
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+      const cartItemId = fracOpt.value === '1/1' ? product.id : `${product.id}__frac_${fracOpt.value}`;
+      const existing = prev.find(item => item.id === cartItemId);
       let basePrice = product.price;
       if (clientPricesMap[product.sku] !== undefined) {
         basePrice = clientPricesMap[product.sku];
@@ -1744,13 +1761,64 @@ export default function BillingPage() {
       else if (profile.includes('distribuidor')) discount = 0.20;
       else if (profile.includes('vip')) discount = 0.10;
       
-      const customPrice = basePrice * (1 - discount);
+      const discountedBasePrice = basePrice * (1 - discount);
+      const effectivePrice = fracOpt.value === '1/1'
+        ? discountedBasePrice
+        : Number((discountedBasePrice * fracOpt.factor).toFixed(2));
+      const cleanBaseName = (product.name || '').replace(/\s*\[Fracción[^\]]*\]$/i, '').trim();
+      const effectiveName = fracOpt.value === '1/1'
+        ? cleanBaseName
+        : `${cleanBaseName} [Fracción ${fracOpt.value} Gal • ${fracOpt.ounces} oz]`;
 
       if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: Number(item.quantity || 0) + 1, price: customPrice, originalPrice: basePrice } as any : item);
+        return prev.map(item => item.id === cartItemId ? {
+          ...item,
+          quantity: Number(item.quantity || 0) + 1,
+          price: effectivePrice,
+          originalPrice: basePrice,
+          baseUnitPrice: discountedBasePrice,
+          baseName: cleanBaseName,
+          fractionText: fracOpt.value,
+          fractionFactor: fracOpt.factor
+        } as any : item);
       }
-      return [...prev, { id: product.id, name: product.name, sku: product.sku || 'N/A', price: customPrice || 0, originalPrice: basePrice, quantity: 1 } as any];
+      return [...prev, {
+        id: cartItemId,
+        name: effectiveName,
+        baseName: cleanBaseName,
+        sku: product.sku || 'N/A',
+        price: effectivePrice || 0,
+        originalPrice: basePrice,
+        baseUnitPrice: discountedBasePrice,
+        quantity: 1,
+        fractionText: fracOpt.value,
+        fractionFactor: fracOpt.factor
+      } as any];
     });
+  };
+
+  const updateCartFraction = (id: string, fractionValue: string) => {
+    const fracOpt = BILLING_FRACTION_OPTIONS.find(f => f.value === fractionValue) || BILLING_FRACTION_OPTIONS[0];
+    setCart(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const baseName = ((item as any).baseName || item.name || '').replace(/\s*\[Fracción[^\]]*\]$/i, '').trim();
+      const baseUnitPrice = Number((item as any).baseUnitPrice ?? (item as any).originalPrice ?? item.price) || 0;
+      const newPrice = fracOpt.value === '1/1'
+        ? baseUnitPrice
+        : Number((baseUnitPrice * fracOpt.factor).toFixed(2));
+      const newName = fracOpt.value === '1/1'
+        ? baseName
+        : `${baseName} [Fracción ${fracOpt.value} Gal • ${fracOpt.ounces} oz]`;
+      return {
+        ...item,
+        name: newName,
+        baseName,
+        baseUnitPrice,
+        price: newPrice,
+        fractionText: fracOpt.value,
+        fractionFactor: fracOpt.factor
+      } as any;
+    }));
   };
 
   const handleAddToCartFromHistory = (itemToAdd: { sku: string; name: string; price: number; quantity?: number }) => {
@@ -1848,11 +1916,13 @@ export default function BillingPage() {
           const physical = stockMap[item.sku] || 0;
           const pendingIncoming = pendingIncomingQty[item.sku] || 0;
           const available = physical + pendingIncoming;
-          if (available < (Number(item.quantity) || 0)) {
+          const fracFactor = Number((item as any).fractionFactor) || 1;
+          const requiredStock = Number(((Number(item.quantity) || 0) * fracFactor).toFixed(4));
+          if (available < requiredStock) {
             toast({ 
               variant: "destructive",
               title: "Stock Insuficiente", 
-              description: `El producto "${item.name}" no tiene existencias suficientes en "${deductWh.name}". Disponible: ${physical}, Solicitado: ${item.quantity}. No se puede facturar.` 
+              description: `El producto "${item.name}" no tiene existencias suficientes en "${deductWh.name}". Disponible: ${physical}, Requerido: ${requiredStock} (${item.quantity} × ${(item as any).fractionText || '1/1'}). No se puede facturar.` 
             });
             return;
           }
@@ -1987,7 +2057,9 @@ export default function BillingPage() {
         const physical = stockMap[item.sku] || 0;
         const pendingIncoming = pendingIncomingQty[item.sku] || 0;
         const available = physical + pendingIncoming;
-        if (available < (Number(item.quantity) || 0)) {
+        const fracFactor = Number((item as any).fractionFactor) || 1;
+        const requiredStock = Number(((Number(item.quantity) || 0) * fracFactor).toFixed(4));
+        if (available < requiredStock) {
           logNexbotEvent(
             'inventory',
             'BLOQUEO_STOCK',
@@ -2189,8 +2261,9 @@ export default function BillingPage() {
         
         for (const item of cart) {
           const currentStock = stockMap[item.sku] || 0;
-          const qty = Number(item.quantity) || 0;
-          const newQty = currentStock - qty; // Allow negative stock for pending pre-transfers
+          const fracFactor = Number((item as any).fractionFactor) || 1;
+          const qty = Number(((Number(item.quantity) || 0) * fracFactor).toFixed(4));
+          const newQty = Number((currentStock - qty).toFixed(4)); // Descuento proporcional automático en fracciones
 
           stockUpdates.push({
             action: 'UPSERT',
@@ -2972,18 +3045,51 @@ export default function BillingPage() {
                       {inventory.map((p) => (
                         <div 
                           key={p.id} 
-                          onClick={() => {
-                            addToCart(p);
-                            setSearchTerm('');
-                            setInventory([]);
-                          }}
-                          className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer rounded-xl border-b last:border-none border-slate-100 dark:border-white/5 flex justify-between items-center transition-colors"
+                          className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl border-b last:border-none border-slate-100 dark:border-white/5 flex justify-between items-center gap-3 transition-colors"
                         >
-                          <div className="flex flex-col gap-0.5">
+                          <div 
+                            onClick={() => {
+                              addToCart(p, '1/1');
+                              setSearchTerm('');
+                              setInventory([]);
+                            }}
+                            className="flex flex-col gap-0.5 flex-1 cursor-pointer"
+                          >
                             <span className="text-xs font-bold text-slate-800 dark:text-white/80">{p.name}</span>
                             <span className="text-[9px] text-slate-500 dark:text-white/40 font-mono">SKU: {p.sku} {p.category ? `• Ref: ${p.category}` : ''} • Stock: {p.quantity}</span>
                           </div>
-                          <span className="text-xs font-bold text-blue-600 dark:text-[#7c7fff]">${p.price.toFixed(2)}</span>
+                          <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <Select
+                              value="1/1"
+                              onValueChange={(fracVal) => {
+                                addToCart(p, fracVal);
+                                setSearchTerm('');
+                                setInventory([]);
+                              }}
+                            >
+                              <SelectTrigger className="h-7 px-2.5 text-[10px] font-bold rounded-lg bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-300 w-[125px]">
+                                <SelectValue placeholder="Fracción" />
+                              </SelectTrigger>
+                              <SelectContent className="dark:bg-[#0a0a14] dark:border-white/10">
+                                {BILLING_FRACTION_OPTIONS.map(fOpt => (
+                                  <SelectItem key={fOpt.value} value={fOpt.value} className="text-xs">
+                                    {fOpt.shortLabel}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                addToCart(p, '1/1');
+                                setSearchTerm('');
+                                setInventory([]);
+                              }}
+                              className="text-xs font-bold text-blue-600 dark:text-[#7c7fff] hover:underline px-1"
+                            >
+                              ${p.price.toFixed(2)}
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </Card>
@@ -3000,9 +3106,10 @@ export default function BillingPage() {
                   <Table>
                     <TableHeader className="bg-slate-50/50 dark:bg-transparent border-b border-slate-200 dark:border-white/5">
                       <TableRow className="hover:bg-transparent border-none">
-                        <TableHead className="text-[10px] font-medium uppercase text-slate-400 dark:text-white/30 tracking-wide w-12 text-center h-10">#</TableHead>
+                        <TableHead className="text-[10px] font-medium uppercase text-slate-400 dark:text-white/30 tracking-wide w-10 text-center h-10">#</TableHead>
                         <TableHead className="text-[10px] font-medium uppercase text-slate-400 dark:text-white/30 tracking-wide h-10">Producto</TableHead>
                         <TableHead className="text-[10px] font-medium uppercase text-slate-400 dark:text-white/30 tracking-wide h-10">SKU</TableHead>
+                        <TableHead className="text-[10px] font-medium uppercase text-indigo-500 dark:text-indigo-400 tracking-wide text-center h-10">Fracción Auto</TableHead>
                         <TableHead className="text-[10px] font-medium uppercase text-slate-400 dark:text-white/30 tracking-wide text-right h-10">Precio unit.</TableHead>
                         <TableHead className="text-[10px] font-medium uppercase text-slate-400 dark:text-white/30 tracking-wide text-center w-24 h-10">Cantidad</TableHead>
                         <TableHead className="text-[10px] font-medium uppercase text-slate-400 dark:text-white/30 tracking-wide text-right h-10">Descuento</TableHead>
@@ -3012,7 +3119,7 @@ export default function BillingPage() {
                     <TableBody>
                       {cart.length === 0 ? (
                         <TableRow className="hover:bg-transparent border-none">
-                          <TableCell colSpan={7} className="text-center py-10 bg-transparent">
+                          <TableCell colSpan={8} className="text-center py-10 bg-transparent">
                             <div className="flex flex-col items-center justify-center gap-2">
                               <Package size={28} className="text-slate-300 dark:text-white/10 mb-1" />
                               <p className="text-[12px] text-slate-500 dark:text-white/20 text-center leading-relaxed">No hay productos agregados<br/>Agrega productos para comenzar la venta.</p>
@@ -3022,8 +3129,25 @@ export default function BillingPage() {
                       ) : cart.map((item, idx) => (
                         <TableRow key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-white/5 transition-colors">
                           <TableCell className="text-center text-xs font-mono text-slate-400 dark:text-white/40 pr-0">{idx + 1}</TableCell>
-                          <TableCell className="font-medium text-xs text-slate-800 dark:text-white/80 py-4">{item.name}</TableCell>
+                          <TableCell className="font-medium text-xs text-slate-800 dark:text-white/80 py-3">{item.name}</TableCell>
                           <TableCell className="text-xs font-mono text-slate-400 dark:text-white/40">{item.sku}</TableCell>
+                          <TableCell className="text-center">
+                            <Select
+                              value={(item as any).fractionText || '1/1'}
+                              onValueChange={(val) => updateCartFraction(item.id, val)}
+                            >
+                              <SelectTrigger className="h-7 px-2 text-[11px] font-bold rounded-lg bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-300 w-[130px] mx-auto">
+                                <SelectValue placeholder="1/1 Entero" />
+                              </SelectTrigger>
+                              <SelectContent className="dark:bg-[#0a0a14] dark:border-white/10">
+                                {BILLING_FRACTION_OPTIONS.map(fOpt => (
+                                  <SelectItem key={fOpt.value} value={fOpt.value} className="text-xs">
+                                    {fOpt.shortLabel}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell className="text-right text-xs font-medium text-slate-600 dark:text-white/60">${item.price.toFixed(2)}</TableCell>
                           <TableCell className="text-center">
                             <Input
