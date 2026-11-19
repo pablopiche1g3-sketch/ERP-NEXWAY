@@ -24,7 +24,7 @@ function LogisticaContent() {
   }, [searchParams]);
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
+    <div className="flex-1 space-y-5 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm">
@@ -33,61 +33,61 @@ function LogisticaContent() {
           <div>
             <h2 className="text-2xl font-black tracking-tight text-foreground">Logística & Producción</h2>
             <p className="text-xs text-muted-foreground font-medium">
-              Control de inventario por bodega, fórmulas BOM, fraccionamiento de galones, Kardex FIFO y traslados.
+              Control de existencias por bodega, fraccionamiento de galones, fórmulas BOM, traslados y Kardex valorizado.
             </p>
           </div>
         </div>
         <ModeToggle />
       </div>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5 w-full">
         <TabsList className="bg-transparent p-0 h-auto flex flex-wrap w-full justify-start border-b border-slate-200 dark:border-white/10 gap-2 sm:gap-4">
           <TabsTrigger 
             value="inventario" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <Package size={15} /> Inventario General
-          </TabsTrigger>
-          <TabsTrigger 
-            value="produccion" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
-          >
-            <Factory size={15} /> Producción & Fórmulas
+            <Package size={15} /> 1. Inventario & Catálogo
           </TabsTrigger>
           <TabsTrigger 
             value="fraccionamiento" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <Scissors size={15} /> Fraccionamiento & Salidas
+            <Scissors size={15} /> 2. Fraccionamiento & Envasado
           </TabsTrigger>
           <TabsTrigger 
-            value="kardex-valued" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
+            value="produccion" 
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <BarChart3 size={15} /> Kardex Valorizado FIFO
+            <Factory size={15} /> 3. Producción & Fórmulas
           </TabsTrigger>
           <TabsTrigger 
             value="traslados" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <ArrowLeftRight size={15} /> Traslados y Requisiciones
+            <ArrowLeftRight size={15} /> 4. Traslados entre Bodegas
+          </TabsTrigger>
+          <TabsTrigger 
+            value="kardex-valued" 
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
+          >
+            <BarChart3 size={15} /> 5. Kardex Valorizado FIFO
           </TabsTrigger>
         </TabsList>
         
         <TabsContent value="inventario" className="outline-none">
           <InventoryTab />
         </TabsContent>
-        <TabsContent value="produccion" className="outline-none">
-          <ProductionTab />
-        </TabsContent>
         <TabsContent value="fraccionamiento" className="outline-none">
           <FractionAndDischargesTab />
         </TabsContent>
-        <TabsContent value="kardex-valued" className="outline-none">
-          <KardexValuedTab />
+        <TabsContent value="produccion" className="outline-none">
+          <ProductionTab />
         </TabsContent>
         <TabsContent value="traslados" className="outline-none">
           <TransfersTab />
+        </TabsContent>
+        <TabsContent value="kardex-valued" className="outline-none">
+          <KardexValuedTab />
         </TabsContent>
       </Tabs>
     </div>

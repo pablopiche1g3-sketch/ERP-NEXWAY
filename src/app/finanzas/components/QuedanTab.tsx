@@ -160,25 +160,7 @@ export default function QuedanTab() {
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
-<div className="max-w-7xl mx-auto flex items-center justify-between mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10" 
-            onClick={() => router.push('/')}
-          >
-            <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
-          </Button>
-          <div>
-            <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Área de Quedan</h1>
-            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Programación consolidada de pagos a proveedores</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <ModeToggle />
-        </div>
-      </div>
+
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
         {/* Panel Izquierdo: Formulario de Emisión */}

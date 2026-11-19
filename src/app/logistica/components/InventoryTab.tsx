@@ -1400,8 +1400,7 @@ export default function InventoryTab() {
     if (!inventory) return [];
     
     if (selectedWarehouse === 'Todas') {
-      // Consolidado requiere escribir para buscar
-      if (!searchTerm.trim()) return [];
+      if (!searchTerm.trim()) return inventory;
       return inventory.filter(item => 
         item.sku.toLowerCase().includes(searchTerm.toLowerCase()) || 
         item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1435,68 +1434,44 @@ export default function InventoryTab() {
   }, [inventory, selectedWhView]);
 
   return (
-    <div className="min-h-screen bg-transparent">
-      <div className="w-full max-w-[1920px] mx-auto mb-6 md:mb-8 flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-full bg-card border-border shadow-sm hover:bg-white/10 border-white/10 text-white" 
-            onClick={() => router.push('/')}
-          >
-            <ArrowLeft className="text-white" size={20} />
-          </Button>
-          <div>
-            <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">Centro Logístico & Catálogo</h1>
-            <p className="text-slate-400 text-xs md:text-sm">Administración de stock por bodega, códigos maestros de empresas y almacenes</p>
-          </div>
-        </div>
+    <div className="bg-transparent">
+      <RealDataImporterModal
+        isOpen={isRealDataModalOpen}
+        onClose={() => setIsRealDataModalOpen(false)}
+        onSuccess={() => loadSupabaseData()}
+      />
 
-        <Button
-          onClick={() => setIsRealDataModalOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-9 rounded-xl shadow-md flex items-center gap-1.5"
-        >
-          <Upload size={15} /> Cargar / Importar Datos Reales
-        </Button>
-
-        <RealDataImporterModal
-          isOpen={isRealDataModalOpen}
-          onClose={() => setIsRealDataModalOpen(false)}
-          onSuccess={() => loadSupabaseData()}
-        />
-      </div>
- 
       <div className="w-full max-w-[1920px] mx-auto relative z-10">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card border-border shadow-sm p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar">
-            {config?.['inventory_existencia'] !== false && (
-              <TabsTrigger data-tour-id="tab-existencias" value="existencias" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <Package size={14} className="mr-2" /> Existencias y Kárdex
-              </TabsTrigger>
-            )}
-            {config?.['inventory_maestro'] !== false && (
-              <TabsTrigger data-tour-id="tab-catalogo" value="catalogo" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <Tag size={14} className="mr-2" /> Catálogo Maestro
-              </TabsTrigger>
-            )}
-            {config?.['inventory_toma_fisica'] !== false && (
-              <TabsTrigger data-tour-id="tab-auditoria" value="auditoria" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap">
-                <ClipboardList size={14} className="mr-2" /> Auditoría de Bodegas
-              </TabsTrigger>
-            )}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-card border border-border/70 shadow-sm p-1.5 rounded-2xl">
+            <TabsList className="bg-transparent p-0 h-auto w-full sm:w-auto justify-start overflow-x-auto no-scrollbar gap-1">
+              {config?.['inventory_existencia'] !== false && (
+                <TabsTrigger data-tour-id="tab-existencias" value="existencias" className="rounded-xl px-4 py-2 text-xs font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
+                  <Package size={14} className="mr-1.5" /> Existencias por Bodega
+                </TabsTrigger>
+              )}
+              {config?.['inventory_maestro'] !== false && (
+                <TabsTrigger data-tour-id="tab-catalogo" value="catalogo" className="rounded-xl px-4 py-2 text-xs font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
+                  <Tag size={14} className="mr-1.5" /> Catálogo Maestro
+                </TabsTrigger>
+              )}
+              {config?.['inventory_toma_fisica'] !== false && (
+                <TabsTrigger data-tour-id="tab-auditoria" value="auditoria" className="rounded-xl px-4 py-2 text-xs font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
+                  <ClipboardList size={14} className="mr-1.5" /> Auditoría de Bodegas
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            <Button
+              onClick={() => setIsRealDataModalOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-8 px-3.5 rounded-xl shadow-sm flex items-center gap-1.5 shrink-0"
+            >
+              <Upload size={14} /> Cargar / Importar Datos Reales
+            </Button>
+          </div>
  
           {/* TAB EXISTENCIAS CON FILTRO DE STOCK POR BODEGA */}
-          
- 
- 
           <TabsContent value="existencias" className="space-y-4 outline-none">
-            <Tabs defaultValue="existencia" className="w-full space-y-4">
-              <TabsList className="bg-white/5 border border-white/10 rounded-xl p-1 mb-4 flex w-fit overflow-x-auto">
-                <TabsTrigger value="existencia" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Inventario Actual</TabsTrigger>
-                <TabsTrigger value="kardex" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Kárdex de Movimientos</TabsTrigger>
-              </TabsList>
-              <TabsContent value="existencia" className="space-y-4 outline-none">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-1 space-y-4">
                 <Card className="bg-card border-border shadow-sm rounded-2xl h-fit hidden lg:block">
@@ -1582,13 +1557,13 @@ export default function InventoryTab() {
                           return (
                             <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5 transition-colors">
                               <TableCell className="px-4 md:px-6 font-mono font-bold text-slate-600 dark:text-muted-foreground text-[10px] md:text-[11px] whitespace-nowrap">{item.sku}</TableCell>
-                              <TableCell className="font-bold text-white text-xs min-w-[120px]">{item.name}</TableCell>
+                              <TableCell className="font-bold text-foreground text-xs min-w-[120px]">{item.name}</TableCell>
                               <TableCell className="text-center">
                                 <Badge className={`font-black text-[9px] h-5 ${stockToShow <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
                                   {stockToShow} un.
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-right px-4 md:px-6 font-bold text-white text-xs whitespace-nowrap">
+                              <TableCell className="text-right px-4 md:px-6 font-bold text-foreground text-xs whitespace-nowrap">
                                 ${(item.price || 0).toFixed(2)}
                               </TableCell>
                             </TableRow>
@@ -1601,123 +1576,45 @@ export default function InventoryTab() {
               </div>
             </div>
           </TabsContent>
-              <TabsContent value="kardex" className="space-y-6 outline-none animate-in fade-in duration-300">
-              <Card className="bg-card border-border shadow-sm rounded-2xl">
-                <CardHeader className="p-6 border-b">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <History className="text-blue-600" size={18} />
-                    Kardex del Inventario (Historial de Movimientos)
-                  </CardTitle>
-                  <CardDescription className="text-xs">Consulte las transacciones de entrada, salida y ajustes de stock en tiempo real.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="p-6 flex gap-4 border-b">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <Input 
-                        placeholder="Buscar por SKU o descripción..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 h-11 bg-slate-50 border-slate-100 rounded-xl"
-                      />
-                    </div>
-                  </div>
-                  <Table>
-                    <TableHeader className="bg-white/10 border-b border-white/10">
-                      <TableRow>
-                        <TableHead className="text-[10px] font-black uppercase px-6">Fecha</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Código</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Movimiento</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Ubicación</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase">Documento</TableHead>
-                        <TableHead className="text-center text-[10px] font-black uppercase text-emerald-600">Ingreso</TableHead>
-                        <TableHead className="text-center text-[10px] font-black uppercase text-rose-600">Salida</TableHead>
-                        <TableHead className="text-center text-[10px] font-black uppercase">Saldo</TableHead>
-                        <TableHead className="text-right text-[10px] font-black uppercase px-6">Costo Unit.</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {!searchTerm.trim() ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-16 text-slate-400 italic text-xs font-medium">
-                            Digite un código de SKU en la barra de búsqueda para ver sus movimientos en el Kardex.
-                          </TableCell>
-                        </TableRow>
-                      ) : loadingKardex ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-16 text-slate-400 italic text-xs">
-                            Cargando kardex...
-                          </TableCell>
-                        </TableRow>
-                      ) : kardexItems.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-16 text-slate-400 italic text-xs">
-                            No se encontraron registros de inventario para este filtro.
-                          </TableCell>
-                        </TableRow>
-                      ) : kardexItems.map((item: any) => (
-                        <TableRow key={item.id} className="hover:bg-white/10 border-b border-white/5">
-                          <TableCell className="px-6 text-[11px] font-mono text-slate-400 whitespace-nowrap">
-                            {new Date(item.created_at).toLocaleString('es-SV', { dateStyle: 'short', timeStyle: 'short' })}
-                          </TableCell>
-                          <TableCell className="font-mono font-bold text-xs text-slate-700 dark:text-foreground">{item.sku}</TableCell>
-                          <TableCell>
-                            <Badge className={
-                              item.movement_type === 'INGRESO RÁPIDO' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                              item.movement_type === 'TRASLADO' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                              item.movement_type === 'FACTURA' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
-                              'bg-amber-50 text-amber-700 border-amber-100'
-                            } style={{ fontSize: '9px', fontWeight: 'bold' }}>
-                              {item.movement_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-[11px] text-slate-500">{item.location}</TableCell>
-                          <TableCell className="text-[11px] font-mono text-blue-600 underline cursor-pointer">{item.document_ref}</TableCell>
-                          <TableCell className="text-center font-bold text-emerald-600 text-xs">
-                            {Number(item.qty_in) > 0 ? `+${item.qty_in}` : '-'}
-                          </TableCell>
-                          <TableCell className="text-center font-bold text-rose-600 text-xs">
-                            {Number(item.qty_out) > 0 ? `-${item.qty_out}` : '-'}
-                          </TableCell>
-                          <TableCell className="text-center font-black text-xs">{item.balance}</TableCell>
-                          <TableCell className="text-right font-black text-xs px-6 text-slate-600">${Number(item.unit_cost).toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            </Tabs>
-          </TabsContent>
 
           <TabsContent value="catalogo" className="space-y-4 outline-none">
             <Tabs defaultValue="maestro" className="w-full space-y-4">
-              <TabsList className="bg-white/5 border border-white/10 rounded-xl p-1 mb-4 flex w-fit overflow-x-auto">
-                <TabsTrigger value="maestro" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Listado Maestro</TabsTrigger>
-                <TabsTrigger value="precios" className="rounded-lg text-xs font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white">Precios y BMS</TabsTrigger>
-                <TabsTrigger value="carga-masiva" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Carga Masiva</TabsTrigger>
-                <TabsTrigger value="vinculacion" className="rounded-lg text-xs font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white">Vincular Proveedores</TabsTrigger>
-              </TabsList>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <TabsList className="bg-card border border-border/70 shadow-sm rounded-xl p-1 flex w-fit overflow-x-auto">
+                  <TabsTrigger value="maestro" onClick={() => setMaestroSubTab('catalogo')} className="rounded-lg text-xs font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+                    Listado Maestro
+                  </TabsTrigger>
+                  <TabsTrigger value="precios" className="rounded-lg text-xs font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                    Precios y BMS
+                  </TabsTrigger>
+                  <TabsTrigger value="carga-masiva" className="rounded-lg text-xs font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+                    Carga Masiva
+                  </TabsTrigger>
+                  <TabsTrigger value="vinculacion" className="rounded-lg text-xs font-bold data-[state=active]:bg-amber-600 data-[state=active]:text-white">
+                    Vincular Proveedores
+                  </TabsTrigger>
+                </TabsList>
+
+                <div className="flex gap-1 bg-card border border-border/70 shadow-sm p-1 rounded-xl w-fit">
+                  <Button 
+                    variant={maestroSubTab === 'catalogo' ? 'default' : 'ghost'} 
+                    size="sm" 
+                    className="rounded-lg text-xs h-7 px-3 font-bold"
+                    onClick={() => setMaestroSubTab('catalogo')}
+                  >
+                    Catálogo General
+                  </Button>
+                  <Button 
+                    variant={maestroSubTab === 'empresas' ? 'default' : 'ghost'} 
+                    size="sm" 
+                    className="rounded-lg text-xs h-7 px-3 font-bold"
+                    onClick={() => setMaestroSubTab('empresas')}
+                  >
+                    Códigos de Empresas
+                  </Button>
+                </div>
+              </div>
               <TabsContent value="maestro" className="space-y-4 outline-none">
-            <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl w-fit">
-              <Button 
-                variant={maestroSubTab === 'catalogo' ? 'default' : 'ghost'} 
-                size="sm" 
-                className="rounded-lg text-xs h-8 font-bold"
-                onClick={() => setMaestroSubTab('catalogo')}
-              >
-                Catálogo Maestro de Productos
-              </Button>
-              <Button 
-                variant={maestroSubTab === 'empresas' ? 'default' : 'ghost'} 
-                size="sm" 
-                className="rounded-lg text-xs h-8 font-bold"
-                onClick={() => setMaestroSubTab('empresas')}
-              >
-                Códigos Internos de Empresas (Mapeo)
-              </Button>
-            </div>
 
             {maestroSubTab === 'catalogo' ? (
               // CATÁLOGO MAESTRO

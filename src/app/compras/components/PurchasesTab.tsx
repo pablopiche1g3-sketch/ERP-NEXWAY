@@ -1469,18 +1469,7 @@ export default function PurchasesTab() {
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
-<div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-white/10 hover:bg-white/10 dark:hover:bg-white/10" onClick={() => router.push('/')}>
-            <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
-          </Button>
-          <div>
-            <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Módulo de Compras</h1>
-            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Registro de compra operativa con soporte Hacienda DTE V3</p>
-          </div>
-        </div>
-        <ModeToggle />
-      </div>
+
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-7xl mx-auto space-y-6 relative z-10">
         <TabsList className="bg-transparent p-0 border-b border-white/10 w-full justify-start h-auto rounded-none gap-2">

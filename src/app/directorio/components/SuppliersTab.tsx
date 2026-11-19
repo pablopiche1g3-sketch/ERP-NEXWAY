@@ -442,42 +442,20 @@ export default function SuppliersTab() {
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden space-y-6">
       
-      {/* HEADER PRINCIPAL */}
-      <div className="max-w-7xl mx-auto bg-card/60 backdrop-blur-md border border-border/60 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="w-9 h-9 rounded-xl border-border/60 hover:bg-muted" 
-            onClick={() => router.push('/')}
-          >
-            <ArrowLeft className="text-foreground" size={16} />
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <Truck className="h-5 w-5 text-emerald-500" />
-              <h1 className="text-lg md:text-xl font-bold text-foreground font-headline leading-tight">
-                Directorio de Proveedores & Abastecimiento
-              </h1>
-            </div>
-            <p className="text-muted-foreground text-xs mt-0.5">
-              Gestión de suministrantes, condiciones tributarias DTE, retenciones de IVA y cuentas bancarias.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportToExcel}
-            className="h-8 text-xs font-semibold gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-          >
-            <FileSpreadsheet size={13} />
-            Exportar Excel
-          </Button>
-          <ModeToggle />
-        </div>
+      {/* BARRA DE ACCIONES RÁPIDAS */}
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <p className="text-xs text-muted-foreground font-medium">
+          Gestión de suministrantes, condiciones tributarias DTE, retenciones de IVA y cuentas bancarias.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportToExcel}
+          className="h-8 text-xs font-semibold gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+        >
+          <FileSpreadsheet size={13} />
+          Exportar Excel
+        </Button>
       </div>
 
       {/* TARJETAS DE KPIs EJECUTIVOS */}
