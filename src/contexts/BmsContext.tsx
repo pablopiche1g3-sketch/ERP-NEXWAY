@@ -15,28 +15,72 @@ export const logNexbotEvent = async (modulo: string, tipo_evento: string, payloa
     console.error('Error logging to nexbot_context_feed:', error);
   }
 };
+export interface CriticalProductItem {
+  sku: string;
+  name: string;
+  currentStock: number;
+  reorderPoint: number;
+  suggestedOrderQty: number;
+  unitCost: number;
+  price: number;
+  estimatedTotal: number;
+  supplierName: string;
+  priority: 'URGENTE' | 'ALTA' | 'MEDIA';
+}
+
+export interface StagnantProductItem {
+  sku: string;
+  name: string;
+  stock: number;
+  unitCost: number;
+  price: number;
+  tiedCapital: number;
+}
+
+export interface PendingOrderDetail {
+  id: string;
+  code: string;
+  supplierName: string;
+  destinationWarehouse: string;
+  itemsCount: number;
+  itemsPreview: string[];
+  total: number;
+}
+
 export interface GuideTask {
   id: string;
   title: string;
   description: string;
   category: 'setup' | 'operations' | 'opportunities';
   status: 'pending' | 'completed' | 'info';
+  priority?: 'URGENTE' | 'ALTA' | 'NORMAL';
+  badgeText?: string;
+  itemsPreview?: string[];
   actionLabel?: string;
   actionPath?: string;
+  secondaryActionLabel?: string;
+  secondaryActionPath?: string;
 }
 
-interface BmsStats {
+export interface BmsStats {
   branchesCount: number;
   productsCount: number;
   zeroStockProductsCount: number;
   zeroStockNames?: string;
   stagnantProductsCount: number;
+  stagnantCapitalTotal?: number;
+  estimatedRestockCost?: number;
+  todaySalesCount?: number;
+  todaySalesTotal?: number;
   hasSalesToday: boolean;
   hasClosingToday: boolean;
   crmTasksCount: number;
   pendingOrdersCount: number;
   pendingTransfersCount: number;
   inTransitTransfersCount: number;
+  criticalProductsList?: CriticalProductItem[];
+  stagnantProductsList?: StagnantProductItem[];
+  pendingOrdersDetails?: PendingOrderDetail[];
 }
 
 export interface MapLocation {
@@ -105,12 +149,19 @@ const defaultStats: BmsStats = {
   zeroStockProductsCount: 0,
   zeroStockNames: '',
   stagnantProductsCount: 0,
+  stagnantCapitalTotal: 0,
+  estimatedRestockCost: 0,
+  todaySalesCount: 0,
+  todaySalesTotal: 0,
   hasSalesToday: false,
   hasClosingToday: false,
   crmTasksCount: 0,
   pendingOrdersCount: 0,
   pendingTransfersCount: 0,
-  inTransitTransfersCount: 0
+  inTransitTransfersCount: 0,
+  criticalProductsList: [],
+  stagnantProductsList: [],
+  pendingOrdersDetails: []
 };
 
 const defaultMapData: MapData = {
@@ -273,146 +324,110 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         console.error('Error auto-asignando precios:', priceErr);
       }
 
-      // 3. Auditar stock vs punto de reorden (NexBot)
-      const { data: stockData } = await supabase
-        .from('inventory_stock')
-        .select(`
-          quantity,
-          sku,
-          inventory ( name, min_stock, max_stock, reorder_point, cost, default_supplier_name, default_supplier_id )
-        `);
-      
-      const lowStockItems = (stockData || []).filter(s => {
-        const inv = s.inventory as any;
-        const qty = parseFloat(s.quantity) || 0;
-        const reorderPt = parseFloat(inv?.reorder_point) || 0;
-        // Considera bajo stock si está igual o por debajo del punto de reorden
-        return qty <= reorderPt;
+      // 3. Auditar catálogo maestro, stock por bodega y órdenes a proveedor (sin columnas inexistentes)
+      const [invRes, stockRes, supRes, ordersRes] = await Promise.all([
+        supabase.from('inventory').select('*'),
+        supabase.from('inventory_stock').select('sku, quantity'),
+        supabase.from('suppliers').select('name').limit(1),
+        supabase.from('supplier_orders').select('*').eq('status', 'PENDIENTE').order('created_at', { ascending: false })
+      ]);
+
+      const allInventory = invRes.data || [];
+      const allStockRows = stockRes.data || [];
+      const fallbackSupplierName = supRes.data?.[0]?.name || 'PROVEEDOR PRINCIPAL';
+      const pendingOrdersRaw = ordersRes.data || [];
+
+      // Consolidar existencias por SKU
+      const skuStockMap: Record<string, number> = {};
+      allStockRows.forEach((st: any) => {
+        if (!st?.sku) return;
+        skuStockMap[st.sku] = (skuStockMap[st.sku] || 0) + (parseFloat(st.quantity) || 0);
       });
-      const lowStockProducts = lowStockItems.length;
 
-      let zeroStockNamesStr = '';
-      let pendingOrdersCount = 0;
+      // Construir lista detallada de productos críticos / por pedir
+      const criticalProductsList: CriticalProductItem[] = [];
+      allInventory.forEach((prod: any) => {
+        if (!prod?.sku || prod.is_service) return;
+        const currentStock = skuStockMap[prod.sku] ?? 0;
+        const explicitReorder = Math.max(parseFloat(prod.reorder_point) || 0, parseFloat(prod.min_stock) || 0);
+        const effectiveThreshold = explicitReorder > 0 ? explicitReorder : 2;
 
-      if (lowStockProducts > 0) {
-        const uniqueLowSkus = Array.from(new Set(lowStockItems.map(s => s.sku)));
-        const names = uniqueLowSkus.map(sku => {
-          const item = lowStockItems.find(s => s.sku === sku);
-          const nameObj = item?.inventory as any;
-          return nameObj?.name || sku;
-        });
-        zeroStockNamesStr = names.slice(0, 3).join(', ') + (names.length > 3 ? '...' : '');
+        if (currentStock <= effectiveThreshold) {
+          const maxStock = parseFloat(prod.max_stock) || 0;
+          const suggestedOrderQty = maxStock > currentStock ? (maxStock - currentStock) : Math.max(6, (effectiveThreshold * 3) - currentStock);
+          const unitCost = parseFloat(prod.cost) > 0
+            ? parseFloat(prod.cost)
+            : parseFloat(((parseFloat(prod.price) || 10) * 0.65).toFixed(2));
+          const estimatedTotal = parseFloat((suggestedOrderQty * unitCost).toFixed(2));
+          const priority: 'URGENTE' | 'ALTA' | 'MEDIA' =
+            currentStock <= 0 ? 'URGENTE' : currentStock <= 1 ? 'ALTA' : 'MEDIA';
 
-        // AUTO-ORDER LOGIC (NEXBOT): Agrupación inteligente por Proveedor Asignado y Costos
-        try {
-          const { data: pendingOrders } = await supabase
-            .from('supplier_orders')
-            .select('items')
-            .eq('status', 'PENDIENTE');
-
-          pendingOrdersCount = pendingOrders?.length || 0;
-
-          const pendingSkus = new Set<string>();
-          (pendingOrders || []).forEach(po => {
-             if (po.items && Array.isArray(po.items)) {
-               po.items.forEach((it: any) => {
-                 if (it.sku) pendingSkus.add(it.sku);
-               });
-             }
+          criticalProductsList.push({
+            sku: prod.sku,
+            name: prod.name || prod.sku,
+            currentStock,
+            reorderPoint: effectiveThreshold,
+            suggestedOrderQty,
+            unitCost,
+            price: parseFloat(prod.price) || 0,
+            estimatedTotal,
+            supplierName: fallbackSupplierName,
+            priority
           });
-
-          // Solo pedimos lo que no está pendiente
-          const skusToOrder = uniqueLowSkus.filter(sku => !pendingSkus.has(sku));
-
-          if (skusToOrder.length > 0) {
-            // Agrupar ítems por proveedor habitual
-            const itemsBySupplier: Record<string, any[]> = {};
-
-            // Intentar buscar algún proveedor por defecto si el ítem no tiene asignado
-            const { data: defaultSupplier } = await supabase
-              .from('suppliers')
-              .select('name')
-              .limit(1)
-              .maybeSingle();
-
-            const fallbackSupplierName = defaultSupplier?.name || 'PROVEEDOR POR ASIGNAR';
-
-            skusToOrder.forEach(sku => {
-              const item = lowStockItems.find(s => s.sku === sku);
-              const invObj = item?.inventory as any;
-              
-              // Sugerir cantidad basada en max_stock si está disponible
-              let suggestedQty = 10;
-              const maxStock = parseFloat(invObj?.max_stock) || 0;
-              const currentQty = parseFloat(item?.quantity as string) || 0;
-              if (maxStock > currentQty) {
-                suggestedQty = maxStock - currentQty;
-              }
-
-              const unitCost = parseFloat(invObj?.cost) || 0;
-              const supplierKey = invObj?.default_supplier_name?.trim() || fallbackSupplierName;
-
-              if (!itemsBySupplier[supplierKey]) {
-                itemsBySupplier[supplierKey] = [];
-              }
-
-              itemsBySupplier[supplierKey].push({
-                sku: sku,
-                name: invObj?.name || sku,
-                quantity: suggestedQty,
-                cost: unitCost,
-                total: parseFloat((unitCost * suggestedQty).toFixed(2))
-              });
-            });
-
-            // Generar una orden de compra por cada proveedor
-            for (const [supName, supplierItems] of Object.entries(itemsBySupplier)) {
-              const orderCode = `NEXBOT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-              const orderTotal = supplierItems.reduce((sum, it) => sum + (it.quantity * (it.cost || 0)), 0);
-
-              await supabase.from('supplier_orders').insert({
-                code: orderCode,
-                supplier_name: supName,
-                destination_warehouse: 'CASA MATRIZ',
-                requested_by: '🤖 NexBot (Auto)',
-                items: supplierItems,
-                total: parseFloat(orderTotal.toFixed(2)),
-                status: 'PENDIENTE'
-              });
-
-              console.log(`🤖 NexBot generó pedido automático [${orderCode}] para ${supName} por un total de $${orderTotal.toFixed(2)}`);
-              pendingOrdersCount++;
-            }
-          }
-        } catch (botErr) {
-          console.error('Error in NexBot auto-order:', botErr);
         }
-      } else {
-        // Aún si no hay stock bajo, revisamos si hay pedidos pendientes
-        const { count } = await supabase.from('supplier_orders').select('*', { count: 'exact', head: true }).eq('status', 'PENDIENTE');
-        pendingOrdersCount = count || 0;
-      }
+      });
 
-      // 4. Auditar si hay ventas hoy
+      // Ordenar primero los agotados (0 stock) y de mayor prioridad
+      criticalProductsList.sort((a, b) => a.currentStock - b.currentStock);
+
+      const lowStockProducts = criticalProductsList.length;
+      const estimatedRestockCost = criticalProductsList.reduce((acc, it) => acc + it.estimatedTotal, 0);
+      const zeroStockNamesStr = criticalProductsList
+        .slice(0, 4)
+        .map(it => `[${it.sku}] ${it.name} (Stock: ${it.currentStock}, Pedir: +${it.suggestedOrderQty})`)
+        .join(' • ');
+
+      // Procesar órdenes pendientes a proveedor
+      const pendingOrdersDetails: PendingOrderDetail[] = pendingOrdersRaw.map((po: any) => {
+        const itemsArr = Array.isArray(po.items) ? po.items : [];
+        const calcTotal = parseFloat(po.total) > 0
+          ? parseFloat(po.total)
+          : itemsArr.reduce((sum: number, it: any) => sum + ((parseFloat(it.quantity) || 1) * (parseFloat(it.cost) || parseFloat(it.price) || 12)), 0);
+        return {
+          id: po.id,
+          code: po.code || 'ORD-PEND',
+          supplierName: po.supplier_name || fallbackSupplierName,
+          destinationWarehouse: po.destination_warehouse || 'CASA MATRIZ',
+          itemsCount: itemsArr.length,
+          itemsPreview: itemsArr.slice(0, 4).map((it: any) => `[${it.sku}] ${it.name || it.sku} (${it.quantity || 1} uds)`),
+          total: parseFloat(calcTotal.toFixed(2))
+        };
+      });
+
+      let pendingOrdersCount = pendingOrdersDetails.length;
+
+      // 4. Auditar ventas de hoy
       const todayStr = new Date().toISOString().split('T')[0];
       const { data: salesToday } = await supabase
         .from('sales')
-        .select('id')
+        .select('id, total')
         .neq('status', 'CANCELADA')
-        .gte('created_at', todayStr)
-        .limit(1);
+        .gte('created_at', todayStr);
 
-      // 5. Auditar si hay cierre de caja hoy
+      const todaySalesCount = (salesToday || []).length;
+      const todaySalesTotal = (salesToday || []).reduce((acc, s: any) => acc + (parseFloat(s.total) || 0), 0);
+
+      // 5. Auditar cierre de caja de hoy
       const { data: closingToday } = await supabase
         .from('daily_closings')
         .select('id')
         .gte('date', todayStr)
         .limit(1);
 
-      // 6. Auditar productos estancados (Matemática tradicional sin IA)
+      // 6. Auditar productos estancados con valorización real (30 días)
       const limitDate = new Date();
       limitDate.setDate(limitDate.getDate() - 30);
-      
+
       const { data: sales30d } = await supabase
         .from('sales')
         .select('items')
@@ -420,7 +435,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         .gte('created_at', limitDate.toISOString());
 
       const soldSkuSet = new Set<string>();
-      (sales30d || []).forEach(sale => {
+      (sales30d || []).forEach((sale: any) => {
         if (sale.items && Array.isArray(sale.items)) {
           sale.items.forEach((item: any) => {
             if (item.sku) soldSkuSet.add(item.sku);
@@ -428,25 +443,28 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      const { data: inventoryList } = await supabase
-        .from('inventory')
-        .select('sku');
+      const stagnantProductsList: StagnantProductItem[] = [];
+      allInventory.forEach((p: any) => {
+        if (!p?.sku) return;
+        const stockVal = skuStockMap[p.sku] || 0;
+        if (stockVal >= 1 && !soldSkuSet.has(p.sku)) {
+          const unitPrice = parseFloat(p.price) || 0;
+          const unitCost = parseFloat(p.cost) || parseFloat((unitPrice * 0.65).toFixed(2));
+          const tiedCapital = parseFloat((stockVal * (unitPrice || unitCost || 15)).toFixed(2));
+          stagnantProductsList.push({
+            sku: p.sku,
+            name: p.name || p.sku,
+            stock: stockVal,
+            unitCost,
+            price: unitPrice,
+            tiedCapital
+          });
+        }
+      });
 
-      let stagnantCount = 0;
-      if (inventoryList && stockData) {
-        const skuStockMap: Record<string, number> = {};
-        const { data: stockItems } = await supabase.from('inventory_stock').select('sku, quantity');
-        (stockItems || []).forEach(st => {
-          skuStockMap[st.sku] = (skuStockMap[st.sku] || 0) + (parseFloat(st.quantity) || 0);
-        });
-
-        inventoryList.forEach(p => {
-          const stockVal = skuStockMap[p.sku] || 0;
-          if (stockVal > 15 && !soldSkuSet.has(p.sku)) {
-            stagnantCount++;
-          }
-        });
-      }
+      stagnantProductsList.sort((a, b) => b.tiedCapital - a.tiedCapital);
+      const stagnantCount = stagnantProductsList.length;
+      const stagnantCapitalTotal = stagnantProductsList.reduce((acc, it) => acc + it.tiedCapital, 0);
 
       // 6.5 Auditar traslados de circuito (solicitados y en tránsito)
       let pendingTransfers = 0;
@@ -466,7 +484,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
             inTransitTransfers = (parsed || []).filter((t: any) => t.estado === 'DESPACHADO').length;
           }
         }
-      } catch (trErr) {
+      } catch {
         if (typeof window !== 'undefined') {
           const localTr = localStorage.getItem('nexway_circuit_transfers');
           if (localTr) {
@@ -479,16 +497,23 @@ export function BmsProvider({ children }: { children: ReactNode }) {
 
       setStats({
         branchesCount: branchesCount || 0,
-        productsCount: productsCount || 0,
+        productsCount: productsCount || allInventory.length,
         zeroStockProductsCount: lowStockProducts,
         zeroStockNames: zeroStockNamesStr,
         stagnantProductsCount: stagnantCount,
-        hasSalesToday: (salesToday || []).length > 0,
+        stagnantCapitalTotal: parseFloat(stagnantCapitalTotal.toFixed(2)),
+        estimatedRestockCost: parseFloat(estimatedRestockCost.toFixed(2)),
+        todaySalesCount,
+        todaySalesTotal: parseFloat(todaySalesTotal.toFixed(2)),
+        hasSalesToday: todaySalesCount > 0,
         hasClosingToday: (closingToday || []).length > 0,
         crmTasksCount: pendingCrmTasks,
         pendingOrdersCount: pendingOrdersCount,
         pendingTransfersCount: pendingTransfers,
-        inTransitTransfersCount: inTransitTransfers
+        inTransitTransfersCount: inTransitTransfers,
+        criticalProductsList,
+        stagnantProductsList,
+        pendingOrdersDetails
       });
 
       // 7. Mapear clientes y sucursales reales en el Mapa Logístico
@@ -496,8 +521,6 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       const { data: realCustomers } = await supabase.from('customers').select('id, name, credit_limit').order('created_at', { ascending: false }).limit(20);
 
       const newLocations: MapLocation[] = [];
-      
-      // Asignar sucursales reales (usamos coordenadas fijas porque la BD no las tiene aún)
       (realBranches || []).forEach((b, idx) => {
         newLocations.push({
           id: b.id,
@@ -508,7 +531,6 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         });
       });
 
-      // Asignar clientes reales simulando su ubicación en San Salvador
       if (realCustomers) {
         realCustomers.forEach((c, idx) => {
           const lat = 13.68 + (Math.random() * 0.06 - 0.03);
@@ -539,14 +561,10 @@ export function BmsProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Audit initially when the app loads
     auditSystem();
-    
-    // Auto-refresh the BMS every 5 minutes silently
     const interval = setInterval(() => {
       auditSystem();
     }, 5 * 60 * 1000);
-    
     return () => clearInterval(interval);
   }, []);
 
@@ -554,7 +572,28 @@ export function BmsProvider({ children }: { children: ReactNode }) {
   const tasks = useMemo<GuideTask[]>(() => {
     const list: GuideTask[] = [];
 
-    // --- CATEGORÍA 1: CONFIGURACIÓN Y PUESTA EN MARCHA (SETUP) ---
+    // --- CATEGORÍA 1: ABASTECIMIENTO & PRODUCTOS POR PEDIR (SETUP / STOCK) ---
+    if ((stats.criticalProductsList || []).length > 0) {
+      const critList = stats.criticalProductsList || [];
+      const urgentCount = critList.filter(c => c.currentStock <= 0).length;
+      list.push({
+        id: 'setup_critical_restock',
+        title: `Productos por Pedir (${critList.length} SKUs)`,
+        description: `Se detectaron ${critList.length} productos en nivel crítico (${urgentCount} agotados). Reposición estimada: $${(stats.estimatedRestockCost || 0).toFixed(2)}.`,
+        category: 'setup',
+        status: 'pending',
+        priority: urgentCount > 0 ? 'URGENTE' : 'ALTA',
+        badgeText: urgentCount > 0 ? `${urgentCount} EN CERO` : 'REORDEN',
+        itemsPreview: critList.slice(0, 5).map(
+          c => `[${c.sku}] ${c.name} • Stock: ${c.currentStock} ➔ Pedir: +${c.suggestedOrderQty} uds ($${c.estimatedTotal.toFixed(2)})`
+        ),
+        actionLabel: 'Generar Pedido a Proveedor',
+        actionPath: '/compras?tab=ordenes',
+        secondaryActionLabel: 'Solicitar Traslado',
+        secondaryActionPath: '/logistica?tab=traslados'
+      });
+    }
+
     if (stats.branchesCount === 0) {
       list.push({
         id: 'setup_branch',
@@ -562,73 +601,55 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         description: 'No se detectan sucursales activas en el sistema. Es obligatorio tener al menos una.',
         category: 'setup',
         status: 'pending',
+        priority: 'URGENTE',
         actionLabel: 'Ir a Gerencia',
-        actionPath: '/management'
+        actionPath: '/management?tab=sucursales'
       });
     } else {
       list.push({
         id: 'setup_branch_done',
-        title: 'Sucursales Inicializadas',
-        description: `Tienes ${stats.branchesCount} sucursal(es) registrada(s).`,
+        title: 'Sucursales y Catálogo Activos',
+        description: `Operando con ${stats.branchesCount} sucursal(es) y ${stats.productsCount} producto(s) registrados en catálogo maestro.`,
         category: 'setup',
-        status: 'completed'
+        status: 'completed',
+        actionLabel: 'Ver Catálogo',
+        actionPath: '/logistica?tab=inventario'
       });
     }
 
-    if (stats.productsCount === 0) {
-      list.push({
-        id: 'setup_products',
-        title: 'Cargar Catálogo',
-        description: 'Tu catálogo maestro está vacío. Agrega tus productos.',
-        category: 'setup',
-        status: 'pending',
-        actionLabel: 'Ir a Inventario',
-        actionPath: '/inventory'
-      });
-    } else {
-      list.push({
-        id: 'setup_products_done',
-        title: 'Catálogo Listo',
-        description: `Cuentas con ${stats.productsCount} producto(s) en inventario.`,
-        category: 'setup',
-        status: 'completed'
-      });
-    }
-
-    // --- CATEGORÍA 2: OPERACIONES DIARIAS ---
-    if (stats.productsCount > 0 && stats.zeroStockProductsCount > 0) {
-      list.push({
-        id: 'ops_zero_stock',
-        title: 'Inventario Bajo Detectado',
-        description: `Tienes ${stats.zeroStockProductsCount} productos bajo el punto de reorden. Prioridad: ${stats.zeroStockNames}`,
-        category: 'operations',
-        status: 'pending',
-        actionLabel: 'Ver Inventario',
-        actionPath: '/inventory'
-      });
-    }
-
+    // --- CATEGORÍA 2: OPERACIONES DIARIAS, PEDIDOS Y CAJA ---
     if (stats.pendingOrdersCount > 0) {
+      const ordersDetails = stats.pendingOrdersDetails || [];
+      const totalOrdersValue = ordersDetails.reduce((s, o) => s + o.total, 0);
       list.push({
         id: 'ops_pending_orders',
-        title: `Pedidos a Proveedor (${stats.pendingOrdersCount})`,
-        description: '🤖 NexBot ha preparado pedidos automáticos por stock bajo. Por favor revísalos y autorízalos.',
+        title: `Órdenes de Compra por Autorizar (${stats.pendingOrdersCount})`,
+        description: `NexBot preparó ${stats.pendingOrdersCount} orden(es) de abastecimiento para proveedor por un valor estimado de $${totalOrdersValue.toFixed(2)}.`,
         category: 'operations',
         status: 'pending',
-        actionLabel: 'Ver Pedidos',
-        actionPath: '/inventory'
+        priority: 'ALTA',
+        badgeText: `$${totalOrdersValue.toFixed(2)}`,
+        itemsPreview: ordersDetails.slice(0, 3).flatMap(o => [
+          `📄 ${o.code} — ${o.supplierName} (${o.itemsCount} ítems • $${o.total.toFixed(2)})`,
+          ...o.itemsPreview.slice(0, 2).map(it => `   ↳ ${it}`)
+        ]),
+        actionLabel: 'Revisar y Autorizar Pedidos',
+        actionPath: '/compras?tab=ordenes',
+        secondaryActionLabel: 'Registrar Compra DTE',
+        secondaryActionPath: '/compras?tab=compras'
       });
     }
 
     if (stats.pendingTransfersCount > 0) {
       list.push({
         id: 'ops_pending_transfers',
-        title: `📦 Despachos de Traslado Pendientes (${stats.pendingTransfersCount})`,
-        description: 'Hay solicitudes de traslado entre sucursales en espera de picking y autorización de despacho en bodega.',
+        title: `📦 Requisiciones de Traslado Pendientes (${stats.pendingTransfersCount})`,
+        description: 'Solicitudes de reabastecimiento entre bodegas en espera de picking y despacho.',
         category: 'operations',
         status: 'pending',
-        actionLabel: 'Mesa de Despacho',
-        actionPath: '/logistica'
+        priority: 'ALTA',
+        actionLabel: 'Ir a Mesa de Despacho',
+        actionPath: '/logistica?tab=traslados'
       });
     }
 
@@ -636,82 +657,104 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       list.push({
         id: 'ops_intransit_transfers',
         title: `🚚 Mercadería en Tránsito (${stats.inTransitTransfersCount})`,
-        description: 'Hay traslados despachados en camino hacia sucursales esperando confirmación de recepción física.',
+        description: 'Traslados despachados esperando confirmación de recepción física en bodega destino.',
         category: 'operations',
         status: 'pending',
-        actionLabel: 'Recepción',
-        actionPath: '/logistica'
+        priority: 'URGENTE',
+        actionLabel: 'Confirmar Recepción',
+        actionPath: '/logistica?tab=traslados'
       });
     }
 
     if (!stats.hasSalesToday) {
       list.push({
         id: 'ops_first_sale',
-        title: 'Primera Venta del Día',
-        description: 'Aún no se reportan transacciones hoy.',
+        title: 'Terminal POS Lista — Sin Ventas Hoy',
+        description: 'La jornada está abierta pero aún no se han emitido facturas DTE (CF/CCF) en el turno actual.',
         category: 'operations',
         status: 'info',
-        actionLabel: 'Facturación',
-        actionPath: '/billing'
+        priority: 'NORMAL',
+        badgeText: '$0.00 HOY',
+        actionLabel: 'Abrir Punto de Venta (POS)',
+        actionPath: '/billing',
+        secondaryActionLabel: 'Ver Cotizaciones',
+        secondaryActionPath: '/crm'
       });
     } else {
       list.push({
         id: 'ops_sale_done',
-        title: 'Flujo de Ventas Iniciado',
-        description: 'Ya se han registrado transacciones comerciales hoy.',
+        title: `Ventas del Día Activas (${stats.todaySalesCount} DTE)`,
+        description: `Facturación acumulada hoy: $${(stats.todaySalesTotal || 0).toFixed(2)}.`,
         category: 'operations',
-        status: 'completed'
+        status: 'completed',
+        badgeText: `$${(stats.todaySalesTotal || 0).toFixed(2)}`,
+        actionLabel: 'Ir a Facturación',
+        actionPath: '/billing'
       });
     }
 
     if (stats.hasSalesToday && !stats.hasClosingToday) {
       list.push({
         id: 'ops_pending_closing',
-        title: 'Cierre de Caja Pendiente',
-        description: 'Hay ventas activas pero falta Cierre de Caja.',
+        title: 'Arqueo y Cierre de Turno Pendiente',
+        description: `Se registran ${stats.todaySalesCount} venta(s) por $${(stats.todaySalesTotal || 0).toFixed(2)} sin cierre de caja formalizado hoy.`,
         category: 'operations',
         status: 'pending',
-        actionLabel: 'Contabilidad',
-        actionPath: '/accounting'
+        priority: 'ALTA',
+        actionLabel: 'Ejecutar Arqueo de Caja',
+        actionPath: '/billing',
+        secondaryActionLabel: 'Auditoría Contable',
+        secondaryActionPath: '/accounting'
       });
     }
 
-    // --- INTEGRACIÓN CRM: Tareas y Seguimientos ---
     if (stats.crmTasksCount > 0) {
       list.push({
         id: 'ops_crm_tasks',
-        title: 'Tareas CRM Pendientes',
-        description: `Tienes ${stats.crmTasksCount} tarea(s) comercial(es) sin completar.`,
+        title: `Seguimientos Comerciales CRM (${stats.crmTasksCount})`,
+        description: `Tienes ${stats.crmTasksCount} gestión(es) de clientes pendientes de contacto hoy.`,
         category: 'operations',
         status: 'pending',
-        actionLabel: 'Ir al CRM',
+        priority: 'ALTA',
+        actionLabel: 'Abrir Embudo CRM',
         actionPath: '/crm'
       });
     }
 
-    // --- CATEGORÍA 3: OPORTUNIDADES (ANALÍTICA) ---
+    // --- CATEGORÍA 3: OPORTUNIDADES COMERCIALES & ROTACIÓN DE CAPITAL ---
     if (stats.stagnantProductsCount > 0) {
+      const stagList = stats.stagnantProductsList || [];
       list.push({
         id: 'opp_stagnant',
-        title: 'Productos Estancados',
-        description: `Tienes ${stats.stagnantProductsCount} productos sin movimiento en 30 días con alto stock. Arma una promo.`,
+        title: `Priorizar Rotación de Stock Estancado (${stats.stagnantProductsCount} SKUs)`,
+        description: `Capital inmovilizado sin ventas en 30 días: $${(stats.stagnantCapitalTotal || 0).toFixed(2)}. Impulsa su salida en sala de ventas o crea combos.`,
         category: 'opportunities',
-        status: 'info',
-        actionLabel: 'Inventario',
-        actionPath: '/inventory'
+        status: 'pending',
+        priority: 'ALTA',
+        badgeText: `$${(stats.stagnantCapitalTotal || 0).toFixed(2)} RETENIDO`,
+        itemsPreview: stagList.slice(0, 5).map(
+          s => `[${s.sku}] ${s.name} • ${s.stock} uds estancadas (Valor: $${s.tiedCapital.toFixed(2)})`
+        ),
+        actionLabel: 'Dar Prioridad en Foco de Venta',
+        actionPath: '/crm',
+        secondaryActionLabel: 'Ajustar Precio / Promo',
+        secondaryActionPath: '/logistica?tab=inventario'
       });
     }
 
-    // --- ALERTA LOGÍSTICA CRM (NexBot Analytics) ---
     if (defaultMapData.densityAlert) {
       list.push({
         id: 'alert_logistics_density',
-        title: '🤖 Análisis CRM: Logística',
+        title: '🤖 Optimización de Ruta y Despacho CRM',
         description: defaultMapData.densityAlert,
         category: 'opportunities',
         status: 'pending',
-        actionLabel: 'Ver Mapa',
-        actionPath: '/crm'
+        priority: 'NORMAL',
+        badgeText: 'AHORRO RUTA',
+        actionLabel: 'Priorizar Ruta en Mapa CRM',
+        actionPath: '/crm',
+        secondaryActionLabel: 'Cartera de Clientes',
+        secondaryActionPath: '/directorio?tab=clientes'
       });
     }
 
