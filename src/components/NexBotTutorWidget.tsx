@@ -115,14 +115,14 @@ export function NexBotTutorWidget() {
   } = useNexbotAuditor();
 
   // Estados de Control de Posición, Ocultar y Minimizar
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const [isHidden, setIsHidden] = useState(false);
   const [position, setPosition] = useState<'bottom-right' | 'bottom-left' | 'top-left'>('bottom-right');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedMin = localStorage.getItem('nexway_tutor_minimized');
-      if (savedMin === 'true') setIsMinimized(true);
+      if (savedMin === 'false') setIsMinimized(false);
 
       const savedHide = localStorage.getItem('nexway_tutor_hidden');
       if (savedHide === 'true') setIsHidden(true);
@@ -238,13 +238,15 @@ export function NexBotTutorWidget() {
   });
 
   const posClasses = 
-    position === 'bottom-left' ? 'bottom-5 left-5' :
+    position === 'bottom-left' ? 'bottom-4 left-4' :
     position === 'top-left' ? 'top-20 left-5' :
-    'bottom-5 right-5';
+    'bottom-4 right-4';
+
+  if (pathname === '/login') return null;
 
   if (isHidden) {
     return (
-      <div className={`fixed ${posClasses} z-50 animate-in fade-in duration-300`}>
+      <div className={`fixed ${posClasses} z-40 animate-in fade-in duration-300 print:hidden`}>
         <Button
           size="sm"
           onClick={() => toggleHidden()}
@@ -260,50 +262,21 @@ export function NexBotTutorWidget() {
   }
 
   return (
-    <div className={`fixed ${posClasses} z-50 animate-in fade-in duration-300`}>
+    <div className={`fixed ${posClasses} z-40 animate-in fade-in duration-300 print:hidden`}>
       {!isOpen ? (
         isMinimized ? (
-          <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-full border border-indigo-500/40 shadow-2xl backdrop-blur-md">
-            <Button
-              onClick={() => setIsOpen(true)}
-              title="Abrir Auditoría & Tutoría IA"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black h-10 w-10 p-0 rounded-full shadow-lg flex items-center justify-center relative border-none"
-            >
-              <BrainCircuit size={18} className="animate-pulse text-amber-300" />
-              {totalAlertsCount > 0 && (
-                <Badge className={`${auditIssues.some(i => i.severity === 'critico') ? 'bg-rose-500' : 'bg-amber-500'} text-slate-950 border-0 text-[9px] font-black px-1 py-0 rounded-full absolute -top-1 -right-1`}>
-                  {totalAlertsCount}
-                </Badge>
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={toggleMinimized}
-              title="Expandir nombre"
-              className="h-7 w-7 text-slate-400 hover:text-white rounded-full p-0"
-            >
-              <Maximize2 size={12} />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={cyclePosition}
-              title="Mover de esquina"
-              className="h-7 w-7 text-slate-400 hover:text-white rounded-full p-0"
-            >
-              <Move size={12} />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={toggleHidden}
-              title="Ocultar"
-              className="h-7 w-7 text-slate-400 hover:text-rose-400 rounded-full p-0"
-            >
-              <EyeOff size={12} />
-            </Button>
-          </div>
+          <Button
+            onClick={() => setIsOpen(true)}
+            title="Abrir Auditoría & Tutoría IA"
+            className="bg-slate-900/95 hover:bg-indigo-600 text-white font-black h-9 w-9 p-0 rounded-full shadow-lg border border-indigo-500/40 backdrop-blur-md flex items-center justify-center relative transition-all hover:scale-105"
+          >
+            <BrainCircuit size={17} className="text-amber-300" />
+            {totalAlertsCount > 0 && (
+              <Badge className={`${auditIssues.some(i => i.severity === 'critico') ? 'bg-rose-500' : 'bg-amber-500'} text-slate-950 border-0 text-[9px] font-black h-4 min-w-[16px] px-1 py-0 rounded-full absolute -top-1 -right-1 flex items-center justify-center`}>
+                {totalAlertsCount}
+              </Badge>
+            )}
+          </Button>
         ) : (
           <div className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white p-1 pl-4 rounded-full shadow-2xl border border-indigo-400/40 transition-all transform hover:scale-[1.02]">
             <div 

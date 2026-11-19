@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CxcTab from './components/CxcTab';
 import CxpTab from './components/CxpTab';
@@ -11,23 +12,36 @@ import BankingTab from './components/BankingTab';
 import CreditScoringTab from './components/CreditScoringTab';
 import BulkPaymentsTab from './components/BulkPaymentsTab';
 import AdvancesTab from './components/AdvancesTab';
-import { CalendarClock, TrendingUp, Building2, ShieldCheck, FileText, Coins } from 'lucide-react';
+import { CalendarClock, TrendingUp, Building2, ShieldCheck, FileText, Coins, Loader2 } from 'lucide-react';
+import { ModeToggle } from '@/components/mode-toggle';
 
-export default function FinanzasPage() {
-  const [activeTab, setActiveTab] = useState('cxc');
+function FinanzasContent() {
+  const searchParams = useSearchParams();
+  const queryTab = searchParams?.get('tab');
+  const [activeTab, setActiveTab] = useState(queryTab || 'cxc');
+
+  useEffect(() => {
+    const paramTab = searchParams?.get('tab');
+    if (paramTab) {
+      setActiveTab(paramTab);
+    }
+  }, [searchParams]);
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
-      <div className="flex items-center gap-3 pb-4 border-b border-slate-200 dark:border-white/10">
-        <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-indigo-500 shadow-sm">
-          <CalendarClock className="h-6 w-6" />
+      <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm">
+            <CalendarClock className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black tracking-tight text-foreground">Finanzas y Créditos</h2>
+            <p className="text-xs text-muted-foreground font-medium">
+              Suite financiera integral: CXC, CXP, Quedan, Nómina, Flujo de Caja Proyectado, Bancos, Credit Scoring, Pagos Masivos y Anticipos.
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl md:text-3xl font-black tracking-tight text-slate-800 dark:text-white">Finanzas y Créditos</h2>
-          <p className="text-xs text-slate-500 dark:text-white/60 font-medium">
-            Suite financiera integral: CXC, CXP, Quedan, Nómina, Flujo de Caja Proyectado, Bancos, Credit Scoring, Pagos Masivos y Anticipos.
-          </p>
-        </div>
+        <ModeToggle />
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
@@ -117,5 +131,13 @@ export default function FinanzasPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function FinanzasPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>}>
+      <FinanzasContent />
+    </Suspense>
   );
 }

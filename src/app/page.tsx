@@ -294,20 +294,22 @@ description: 'Movimiento entre bodegas',
           <div className="flex items-center gap-2 shrink-0">
             <PwaInstallButton />
             <ModeToggle />
-            {/* Perfil del Administrador (Solo Icono en Móvil) */}
+            {/* Perfil del Usuario Activo (Solo Iniciales en Móvil) */}
             <div className="hidden sm:flex items-center gap-2.5 bg-card border border-border p-1.5 pr-3.5 rounded-xl shadow-sm">
               <div className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-black text-xs uppercase">
-                AD
+                {(user?.email?.slice(0, 2) || 'AD').toUpperCase()}
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-[10px] font-black text-foreground leading-tight">Admin</span>
+                <span className="text-[10px] font-black text-foreground leading-tight">
+                  {user?.email?.split('@')[0] || 'Administrador'}
+                </span>
                 <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none mt-0.5">
-                  {ROLE_PERMISSIONS[userRole] ? 'Colaborador' : 'Administrador'}
+                  {userRole ? userRole.replace(/_/g, ' ') : 'Administrador'}
                 </span>
               </div>
             </div>
-            <div className="sm:hidden w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-black text-sm uppercase shadow-sm">
-              AD
+            <div className="sm:hidden w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-black text-sm uppercase shadow-sm" title={user?.email || 'Usuario'}>
+              {(user?.email?.slice(0, 2) || 'AD').toUpperCase()}
             </div>
           </div>
         </div>

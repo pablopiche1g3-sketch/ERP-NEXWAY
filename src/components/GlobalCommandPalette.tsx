@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { 
   Search, 
   Command, 
@@ -41,6 +41,7 @@ interface CommandItem {
 
 export function GlobalCommandPalette() {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -208,6 +209,8 @@ export function GlobalCommandPalette() {
   };
 
   const categories = Array.from(new Set(filteredCommands.map(c => c.category)));
+
+  if (pathname === '/login') return null;
 
   return (
     <>

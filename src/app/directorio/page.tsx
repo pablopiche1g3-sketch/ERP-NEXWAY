@@ -1,19 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CustomersTab from './components/CustomersTab';
 import SuppliersTab from './components/SuppliersTab';
-import { Building2 } from 'lucide-react';
+import { Building2, Loader2 } from 'lucide-react';
+import { ModeToggle } from '@/components/mode-toggle';
 
-export default function DirectorioPage() {
-  const [activeTab, setActiveTab] = useState('clientes');
+function DirectorioContent() {
+  const searchParams = useSearchParams();
+  const queryTab = searchParams?.get('tab');
+  const [activeTab, setActiveTab] = useState(queryTab || 'clientes');
+
+  useEffect(() => {
+    const paramTab = searchParams?.get('tab');
+    if (paramTab) {
+      setActiveTab(paramTab);
+    }
+  }, [searchParams]);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center space-x-2">
-        <Building2 className="h-6 w-6 text-indigo-500" />
-        <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-white">Directorio Comercial</h2>
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
+      <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm">
+            <Building2 className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black tracking-tight text-foreground">Directorio Comercial</h2>
+            <p className="text-xs text-muted-foreground font-medium">
+              Cartera de clientes contribuyentes/consumidores y catálogo de proveedores autorizados.
+            </p>
+          </div>
+        </div>
+        <ModeToggle />
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
@@ -40,5 +61,13 @@ export default function DirectorioPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function DirectorioPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>}>
+      <DirectorioContent />
+    </Suspense>
   );
 }

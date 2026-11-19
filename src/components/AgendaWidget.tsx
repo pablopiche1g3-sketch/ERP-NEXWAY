@@ -12,8 +12,8 @@ export function AgendaWidget() {
   const pathname = usePathname();
   const [isMinimized, setIsMinimized] = useState(true);
 
-  // If we are on the homepage (Dashboard), we hide the widget because the full AsistenteGuiaERP is already there.
-  if (pathname === '/') return null;
+  // If we are on the homepage (Dashboard) or login, hide the widget.
+  if (pathname === '/' || pathname === '/login') return null;
 
   const pendingTasks = tasks.filter(t => t.status === 'pending');
   const taskCount = pendingTasks.length;
@@ -21,19 +21,19 @@ export function AgendaWidget() {
   if (loading && taskCount === 0) return null;
 
   return (
-    <div className="fixed top-24 right-6 z-40 select-none print:hidden">
+    <div className="fixed bottom-4 left-44 z-40 hidden md:block select-none print:hidden">
       {isMinimized ? (
         <button
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-2 bg-[#16162a]/90 backdrop-blur-md border border-white/10 shadow-lg px-4 py-2 rounded-full hover:bg-[#1a1a32] transition-all hover:scale-105 group"
+          className="h-8 px-3 flex items-center gap-2 bg-[#16162a]/90 backdrop-blur-md border border-white/10 shadow-lg rounded-full hover:bg-[#1a1a32] transition-all hover:scale-105 group"
         >
           <div className="relative">
-            <CheckSquare size={16} className="text-emerald-400" />
+            <CheckSquare size={14} className="text-emerald-400" />
             {taskCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse border border-[#16162a]"></span>
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse border border-[#16162a]"></span>
             )}
           </div>
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-widest">
+          <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider">
             BMS Agenda
           </span>
           <span className="bg-white/10 text-[10px] font-black px-1.5 py-0.5 rounded-full text-slate-300">
@@ -41,7 +41,7 @@ export function AgendaWidget() {
           </span>
         </button>
       ) : (
-        <Card className="w-80 bg-[#11111e]/95 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+        <Card className="absolute bottom-10 left-0 w-80 bg-[#11111e]/95 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
           <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles size={16} className="text-indigo-400" />

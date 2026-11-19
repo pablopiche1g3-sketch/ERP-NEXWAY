@@ -9,6 +9,7 @@ import KardexValuedTab from './components/KardexValuedTab';
 import ProductionTab from './components/ProductionTab';
 import FractionAndDischargesTab from './components/FractionAndDischargesTab';
 import { Package, Factory, Scissors, ArrowLeftRight, BarChart3 } from 'lucide-react';
+import { ModeToggle } from '@/components/mode-toggle';
 
 function LogisticaContent() {
   const searchParams = useSearchParams();
@@ -23,10 +24,20 @@ function LogisticaContent() {
   }, [searchParams]);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center space-x-2">
-        <Package className="h-6 w-6 text-indigo-500" />
-        <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-white">Logística & Producción</h2>
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
+      <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm">
+            <Package className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black tracking-tight text-foreground">Logística & Producción</h2>
+            <p className="text-xs text-muted-foreground font-medium">
+              Control de inventario por bodega, fórmulas BOM, fraccionamiento de galones, Kardex FIFO y traslados.
+            </p>
+          </div>
+        </div>
+        <ModeToggle />
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">

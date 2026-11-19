@@ -187,7 +187,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </>
       ) : (
         <>
-          <div className="p-4 flex flex-col items-center border-b border-white/10 gap-3 shrink-0">
+          <div className="p-4 flex flex-col items-center border-b border-border gap-3 shrink-0">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-md shadow-indigo-500/10 font-headline">
               <div className="w-4 h-4 rounded-full border-2 border-white/95 flex items-center justify-center">
                 <div className="w-1.5 h-1.5 rounded-full bg-white/95"></div>
@@ -197,13 +197,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               variant="ghost"
               size="icon"
               onClick={onToggle}
-              className="h-7 w-7 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 active:scale-95 transition-colors"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-xl hover:bg-accent active:scale-95 transition-colors"
               title="Expandir menú"
             >
               <ChevronRight size={15} />
             </Button>
           </div>
-          <div className="py-2.5 border-b border-white/10 flex justify-center text-indigo-400 animate-in fade-in duration-200 shrink-0" title={branches.find(b => b.id === activeBranch)?.name || 'Sucursal'}>
+          <div className="py-2.5 border-b border-border flex justify-center text-indigo-600 dark:text-indigo-400 animate-in fade-in duration-200 shrink-0" title={branches.find(b => b.id === activeBranch)?.name || 'Sucursal'}>
             <Building size={18} />
           </div>
         </>

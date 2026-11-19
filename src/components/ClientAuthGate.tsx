@@ -13,6 +13,10 @@ import { TourOverlay } from '@/components/TourOverlay';
 const ROUTE_TO_MODULE: Record<string, string> = {
   '/billing': 'billing',
   '/accounting': 'accounting',
+  '/logistica': 'inventory',
+  '/compras': 'purchases',
+  '/finanzas': 'quedan',
+  '/directorio': 'customers',
   '/purchases': 'purchases',
   '/suppliers': 'suppliers',
   '/quedan': 'quedan',
