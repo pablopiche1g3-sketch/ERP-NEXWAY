@@ -168,13 +168,30 @@ export default function SuppliersTab() {
   const loadSuppliersData = async () => {
     try {
       setLoadingData(true);
-      const { data, error } = await supabase
-        .from('suppliers')
-        .select('*')
-        .order('name');
+      const [{ data, error }, { data: metaRow }] = await Promise.all([
+        supabase.from('suppliers').select('*').order('name'),
+        supabase.from('system_config').select('value').eq('key', 'suppliers_extended_metadata').maybeSingle()
+      ]);
       
       if (error) throw error;
-      setSuppliers(data || []);
+
+      let localMeta: Record<string, any> = {};
+      if (typeof window !== 'undefined') {
+        try {
+          const rawLocal = localStorage.getItem('nexway_suppliers_extended_meta');
+          if (rawLocal) localMeta = JSON.parse(rawLocal);
+        } catch {
+          // ignore
+        }
+      }
+      const remoteMeta: Record<string, any> = (metaRow?.value && typeof metaRow.value === 'object') ? metaRow.value : {};
+      const combinedMeta = { ...localMeta, ...remoteMeta };
+
+      const enriched = (data || []).map((s: any) => ({
+        ...s,
+        ...(combinedMeta[s.id] || {})
+      }));
+      setSuppliers(enriched);
     } catch (err: any) {
       console.error('Error al cargar proveedores:', err);
       toast({
@@ -184,6 +201,43 @@ export default function SuppliersTab() {
       });
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const saveSupplierExtendedMetadata = async (supplierId: string, extra: Record<string, any>) => {
+    if (!supplierId) return;
+    try {
+      let currentMeta: Record<string, any> = {};
+      if (typeof window !== 'undefined') {
+        const rawLocal = localStorage.getItem('nexway_suppliers_extended_meta');
+        if (rawLocal) currentMeta = JSON.parse(rawLocal);
+      }
+      const { data: metaRow } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'suppliers_extended_metadata')
+        .maybeSingle();
+
+      if (metaRow?.value && typeof metaRow.value === 'object') {
+        currentMeta = { ...currentMeta, ...metaRow.value };
+      }
+
+      currentMeta[supplierId] = { ...(currentMeta[supplierId] || {}), ...extra };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nexway_suppliers_extended_meta', JSON.stringify(currentMeta));
+      }
+
+      await supabase.from('system_config').upsert(
+        {
+          key: 'suppliers_extended_metadata',
+          value: currentMeta,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'key' }
+      );
+    } catch (e) {
+      console.warn('Advertencia guardando metadatos extendidos de proveedor:', e);
     }
   };
 
@@ -229,31 +283,41 @@ export default function SuppliersTab() {
     }
 
     try {
-      const payload: any = {
+      // Solo enviar columnas reales de public.suppliers
+      const dbPayload: any = {
         name: form.name.trim(),
-        commercial_name: form.commercial_name.trim() || null,
         nit: form.nit.trim() || null,
         nrc: form.nrc.trim() || null,
         giro: form.giro.trim() || null,
-        category: form.category || 'Mercadería General / Distribución',
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
-        contact_name: form.contact_name.trim() || null,
-        contact_phone: form.contact_phone.trim() || null,
-        contact_email: form.contact_email.trim() || null,
-        bank_name: form.bank_name || null,
-        bank_account: form.bank_account.trim() || null,
-        bank_account_type: form.bank_account_type || 'Corriente',
-        credit_days: parseInt(form.credit_days) || 30,
         apply_retention: form.apply_retention,
-        apply_perception: form.apply_perception,
-        is_gran_contribuyente: form.is_gran_contribuyente,
-        notes: form.notes.trim() || null
+        apply_perception: form.apply_perception
       };
 
-      const { error } = await supabase.from('suppliers').insert(payload);
+      const { data: insertedSup, error } = await supabase
+        .from('suppliers')
+        .insert(dbPayload)
+        .select('id')
+        .single();
       if (error) throw error;
+
+      if (insertedSup?.id) {
+        await saveSupplierExtendedMetadata(insertedSup.id, {
+          commercial_name: form.commercial_name.trim() || null,
+          category: form.category || 'Mercadería General / Distribución',
+          contact_name: form.contact_name.trim() || null,
+          contact_phone: form.contact_phone.trim() || null,
+          contact_email: form.contact_email.trim() || null,
+          bank_name: form.bank_name || null,
+          bank_account: form.bank_account.trim() || null,
+          bank_account_type: form.bank_account_type || 'Corriente',
+          credit_days: parseInt(form.credit_days) || 30,
+          is_gran_contribuyente: form.is_gran_contribuyente,
+          notes: form.notes.trim() || null
+        });
+      }
 
       toast({
         title: "Proveedor Registrado",
@@ -301,33 +365,37 @@ export default function SuppliersTab() {
 
     try {
       setIsSavingEdit(true);
+      // Solo actualizar columnas existentes en public.suppliers
       const { error } = await supabase
         .from('suppliers')
         .update({
           name: editForm.name.trim(),
-          commercial_name: editForm.commercial_name.trim() || null,
           nit: editForm.nit.trim() || null,
           nrc: editForm.nrc.trim() || null,
           giro: editForm.giro.trim() || null,
-          category: editForm.category,
           email: editForm.email.trim() || null,
           phone: editForm.phone.trim() || null,
           address: editForm.address.trim() || null,
-          contact_name: editForm.contact_name.trim() || null,
-          contact_phone: editForm.contact_phone.trim() || null,
-          contact_email: editForm.contact_email.trim() || null,
-          bank_name: editForm.bank_name,
-          bank_account: editForm.bank_account.trim() || null,
-          bank_account_type: editForm.bank_account_type,
-          credit_days: parseInt(editForm.credit_days) || 30,
           apply_retention: editForm.apply_retention,
-          apply_perception: editForm.apply_perception,
-          is_gran_contribuyente: editForm.is_gran_contribuyente,
-          notes: editForm.notes.trim() || null
+          apply_perception: editForm.apply_perception
         })
         .eq('id', editForm.id);
 
       if (error) throw error;
+
+      await saveSupplierExtendedMetadata(editForm.id, {
+        commercial_name: editForm.commercial_name.trim() || null,
+        category: editForm.category,
+        contact_name: editForm.contact_name.trim() || null,
+        contact_phone: editForm.contact_phone.trim() || null,
+        contact_email: editForm.contact_email.trim() || null,
+        bank_name: editForm.bank_name,
+        bank_account: editForm.bank_account.trim() || null,
+        bank_account_type: editForm.bank_account_type,
+        credit_days: parseInt(editForm.credit_days) || 30,
+        is_gran_contribuyente: editForm.is_gran_contribuyente,
+        notes: editForm.notes.trim() || null
+      });
 
       toast({ title: "Proveedor Actualizado", description: `${editForm.name} fue modificado con éxito.` });
       setIsEditOpen(false);

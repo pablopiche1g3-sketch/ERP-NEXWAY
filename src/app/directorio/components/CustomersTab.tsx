@@ -179,13 +179,30 @@ export default function CustomersTab() {
   const loadCustomersData = async () => {
     try {
       setLoadingData(true);
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .order('name');
+      const [{ data, error }, { data: metaRow }] = await Promise.all([
+        supabase.from('customers').select('*').order('name'),
+        supabase.from('system_config').select('value').eq('key', 'customers_extended_metadata').maybeSingle()
+      ]);
       
       if (error) throw error;
-      setCustomers(data || []);
+
+      let localMeta: Record<string, any> = {};
+      if (typeof window !== 'undefined') {
+        try {
+          const rawLocal = localStorage.getItem('nexway_customers_extended_meta');
+          if (rawLocal) localMeta = JSON.parse(rawLocal);
+        } catch {
+          // ignore
+        }
+      }
+      const remoteMeta: Record<string, any> = (metaRow?.value && typeof metaRow.value === 'object') ? metaRow.value : {};
+      const combinedMeta = { ...localMeta, ...remoteMeta };
+
+      const enriched = (data || []).map((c: any) => ({
+        ...c,
+        ...(combinedMeta[c.id] || {})
+      }));
+      setCustomers(enriched);
     } catch (err: any) {
       console.error('Error al cargar clientes:', err);
       toast({
@@ -270,6 +287,43 @@ export default function CustomersTab() {
     }
   };
 
+  const saveCustomerExtendedMetadata = async (customerId: string, extra: Record<string, any>) => {
+    if (!customerId) return;
+    try {
+      let currentMeta: Record<string, any> = {};
+      if (typeof window !== 'undefined') {
+        const rawLocal = localStorage.getItem('nexway_customers_extended_meta');
+        if (rawLocal) currentMeta = JSON.parse(rawLocal);
+      }
+      const { data: metaRow } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'customers_extended_metadata')
+        .maybeSingle();
+
+      if (metaRow?.value && typeof metaRow.value === 'object') {
+        currentMeta = { ...currentMeta, ...metaRow.value };
+      }
+
+      currentMeta[customerId] = { ...(currentMeta[customerId] || {}), ...extra };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nexway_customers_extended_meta', JSON.stringify(currentMeta));
+      }
+
+      await supabase.from('system_config').upsert(
+        {
+          key: 'customers_extended_metadata',
+          value: currentMeta,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'key' }
+      );
+    } catch (e) {
+      console.warn('Advertencia guardando metadatos extendidos de cliente:', e);
+    }
+  };
+
   // Crear Cliente
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,29 +333,42 @@ export default function CustomersTab() {
     }
 
     try {
-      const payload: any = {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const validPriceListId = form.price_list_id && uuidRegex.test(form.price_list_id.trim()) ? form.price_list_id.trim() : null;
+
+      // Solo enviar columnas reales de public.customers para evitar error de columna en PostgREST
+      const dbPayload: any = {
         name: form.name.trim(),
-        commercial_name: form.commercial_name.trim() || null,
         nit: form.nit.trim() || null,
         nrc: form.nrc.trim() || null,
         giro: form.giro.trim() || null,
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
-        department: form.department || 'San Salvador',
-        municipality: form.municipality || 'San Salvador Centro',
         type: activeFormTab === 'cf' ? 'Individual' : 'Empresa',
         category: activeFormTab === 'cf' ? 'Consumidor Final' : 'Crédito Fiscal',
         is_authorized_credit: form.is_authorized_credit,
         credit_limit: parseFloat(form.credit_limit) || 0.00,
         credit_days: parseInt(form.credit_days) || 30,
-        is_gran_contribuyente: form.is_gran_contribuyente,
-        price_list_id: form.price_list_id || null,
-        notes: form.notes.trim() || null
+        price_list_id: validPriceListId
       };
 
-      const { error } = await supabase.from('customers').insert(payload);
+      const { data: insertedCust, error } = await supabase
+        .from('customers')
+        .insert(dbPayload)
+        .select('id')
+        .single();
       if (error) throw error;
+
+      if (insertedCust?.id) {
+        await saveCustomerExtendedMetadata(insertedCust.id, {
+          commercial_name: form.commercial_name.trim() || null,
+          department: form.department || 'San Salvador',
+          municipality: form.municipality || 'San Salvador Centro',
+          is_gran_contribuyente: form.is_gran_contribuyente,
+          notes: form.notes.trim() || null
+        });
+      }
 
       toast({ 
         title: "Cliente Registrado con Éxito", 
@@ -343,31 +410,40 @@ export default function CustomersTab() {
 
     try {
       setIsSavingEdit(true);
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const validPriceListId = editForm.price_list_id && uuidRegex.test(editForm.price_list_id.trim()) ? editForm.price_list_id.trim() : null;
+
+      // Solo actualizar columnas existentes en public.customers
+      const dbUpdatePayload: any = {
+        name: editForm.name.trim(),
+        nit: editForm.nit.trim() || null,
+        nrc: editForm.nrc.trim() || null,
+        giro: editForm.giro.trim() || null,
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+        address: editForm.address.trim() || null,
+        type: editForm.type,
+        category: editForm.category,
+        is_authorized_credit: editForm.is_authorized_credit,
+        credit_limit: parseFloat(editForm.credit_limit) || 0.00,
+        credit_days: parseInt(editForm.credit_days) || 30,
+        price_list_id: validPriceListId
+      };
+
       const { error } = await supabase
         .from('customers')
-        .update({
-          name: editForm.name.trim(),
-          commercial_name: editForm.commercial_name.trim() || null,
-          nit: editForm.nit.trim() || null,
-          nrc: editForm.nrc.trim() || null,
-          giro: editForm.giro.trim() || null,
-          email: editForm.email.trim() || null,
-          phone: editForm.phone.trim() || null,
-          address: editForm.address.trim() || null,
-          department: editForm.department || 'San Salvador',
-          municipality: editForm.municipality || 'San Salvador Centro',
-          type: editForm.type,
-          category: editForm.category,
-          is_authorized_credit: editForm.is_authorized_credit,
-          credit_limit: parseFloat(editForm.credit_limit) || 0.00,
-          credit_days: parseInt(editForm.credit_days) || 30,
-          is_gran_contribuyente: editForm.is_gran_contribuyente,
-          price_list_id: editForm.price_list_id || null,
-          notes: editForm.notes.trim() || null
-        })
+        .update(dbUpdatePayload)
         .eq('id', editForm.id);
 
       if (error) throw error;
+
+      await saveCustomerExtendedMetadata(editForm.id, {
+        commercial_name: editForm.commercial_name.trim() || null,
+        department: editForm.department || 'San Salvador',
+        municipality: editForm.municipality || 'San Salvador Centro',
+        is_gran_contribuyente: editForm.is_gran_contribuyente,
+        notes: editForm.notes.trim() || null
+      });
 
       toast({ title: "Cliente Actualizado", description: `${editForm.name} ha sido modificado.` });
       setIsEditOpen(false);
