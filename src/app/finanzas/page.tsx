@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import CxcTab from './components/CxcTab';
 import CxpTab from './components/CxpTab';
 import QuedanTab from './components/QuedanTab';
@@ -11,24 +12,44 @@ import CashFlowTab from './components/CashFlowTab';
 import BankingTab from './components/BankingTab';
 import CreditScoringTab from './components/CreditScoringTab';
 import BulkPaymentsTab from './components/BulkPaymentsTab';
-import AdvancesTab from './components/AdvancesTab';
-import { CalendarClock, TrendingUp, Building2, ShieldCheck, FileText, Coins, Loader2 } from 'lucide-react';
+import {
+  CalendarClock,
+  TrendingUp,
+  Building2,
+  ShieldCheck,
+  FileText,
+  Users,
+  DollarSign,
+  Receipt,
+  Loader2
+} from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 
 function FinanzasContent() {
   const searchParams = useSearchParams();
   const queryTab = searchParams?.get('tab');
   const [activeTab, setActiveTab] = useState(queryTab || 'cxc');
+  const [cxcSubView, setCxcSubView] = useState<'cartera' | 'scoring'>('cartera');
+  const [bankingSubView, setBankingSubView] = useState<'cuentas' | 'txt'>('cuentas');
 
   useEffect(() => {
     const paramTab = searchParams?.get('tab');
-    if (paramTab) {
+    if (!paramTab) return;
+    if (paramTab === 'scoring') {
+      setActiveTab('cxc');
+      setCxcSubView('scoring');
+    } else if (paramTab === 'bulk') {
+      setActiveTab('banking');
+      setBankingSubView('txt');
+    } else if (paramTab === 'advances') {
+      setActiveTab('payroll');
+    } else {
       setActiveTab(paramTab);
     }
   }, [searchParams]);
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
+    <div className="flex-1 space-y-5 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm">
@@ -37,97 +58,111 @@ function FinanzasContent() {
           <div>
             <h2 className="text-2xl font-black tracking-tight text-foreground">Finanzas y Créditos</h2>
             <p className="text-xs text-muted-foreground font-medium">
-              Suite financiera integral: CXC, CXP, Quedan, Nómina, Flujo de Caja Proyectado, Bancos, Credit Scoring, Pagos Masivos y Anticipos.
+              Control de Cuentas por Cobrar (CXC), Cuentas por Pagar (CXP), Quedan, Tesorería Bancaria, Flujo de Caja y Planilla RH.
             </p>
           </div>
         </div>
         <ModeToggle />
       </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
-        <TabsList className="bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 flex flex-wrap gap-1 w-full md:w-auto">
-          <TabsTrigger 
-            value="cxc" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5 w-full">
+        <TabsList className="bg-transparent p-0 h-auto flex flex-wrap w-full justify-start border-b border-slate-200 dark:border-white/10 gap-2 sm:gap-4">
+          <TabsTrigger
+            value="cxc"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            Cuentas por Cobrar
+            <DollarSign size={15} /> 1. Cuentas por Cobrar (CXC)
           </TabsTrigger>
-          <TabsTrigger 
-            value="cxp" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+          <TabsTrigger
+            value="cxp"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            Cuentas por Pagar
+            <Receipt size={15} /> 2. Cuentas por Pagar (CXP)
           </TabsTrigger>
-          <TabsTrigger 
-            value="quedan" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+          <TabsTrigger
+            value="quedan"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            Gestión de Quedan
+            <FileText size={15} /> 3. Gestión de Quedan
           </TabsTrigger>
-          <TabsTrigger 
-            value="payroll" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+          <TabsTrigger
+            value="banking"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            Nómina & RH
+            <Building2 size={15} /> 4. Bancos & Pagos TXT
           </TabsTrigger>
-          <TabsTrigger 
-            value="cashflow" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md flex items-center gap-1"
+          <TabsTrigger
+            value="cashflow"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <TrendingUp size={13} /> Flujo de Caja
+            <TrendingUp size={15} /> 5. Flujo de Caja (Cash Flow)
           </TabsTrigger>
-          <TabsTrigger 
-            value="banking" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md flex items-center gap-1"
+          <TabsTrigger
+            value="payroll"
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <Building2 size={13} /> Bancos y Conciliación
-          </TabsTrigger>
-          <TabsTrigger 
-            value="scoring" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md flex items-center gap-1"
-          >
-            <ShieldCheck size={13} /> Credit Scoring
-          </TabsTrigger>
-          <TabsTrigger 
-            value="bulk" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md flex items-center gap-1"
-          >
-            <FileText size={13} /> Pagos Masivos TXT
-          </TabsTrigger>
-          <TabsTrigger 
-            value="advances" 
-            className="rounded-xl px-4 py-2 text-xs font-bold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md flex items-center gap-1"
-          >
-            <Coins size={13} /> Anticipos
+            <Users size={15} /> 6. Nómina, Bonos & Anticipos
           </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="cxc" className="outline-none">
-          <CxcTab />
+
+        <TabsContent value="cxc" className="space-y-4 outline-none">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-card border border-border/70 p-1.5 rounded-2xl w-fit shadow-sm">
+            <Button
+              size="sm"
+              variant={cxcSubView === 'cartera' ? 'default' : 'ghost'}
+              onClick={() => setCxcSubView('cartera')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <DollarSign size={14} /> Cartera de Créditos y Abonos
+            </Button>
+            <Button
+              size="sm"
+              variant={cxcSubView === 'scoring' ? 'default' : 'ghost'}
+              onClick={() => setCxcSubView('scoring')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <ShieldCheck size={14} /> Evaluador Credit Scoring (Riesgo)
+            </Button>
+          </div>
+          {cxcSubView === 'cartera' ? <CxcTab /> : <CreditScoringTab />}
         </TabsContent>
+
         <TabsContent value="cxp" className="outline-none">
           <CxpTab />
         </TabsContent>
+
         <TabsContent value="quedan" className="outline-none">
           <QuedanTab />
         </TabsContent>
-        <TabsContent value="payroll" className="outline-none">
-          <PayrollTab />
+
+        <TabsContent value="banking" className="space-y-4 outline-none">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-card border border-border/70 p-1.5 rounded-2xl w-fit shadow-sm">
+            <Button
+              size="sm"
+              variant={bankingSubView === 'cuentas' ? 'default' : 'ghost'}
+              onClick={() => setBankingSubView('cuentas')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <Building2 size={14} /> Cuentas Bancarias y Conciliación
+            </Button>
+            <Button
+              size="sm"
+              variant={bankingSubView === 'txt' ? 'default' : 'ghost'}
+              onClick={() => setBankingSubView('txt')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <FileText size={14} /> Pagos Masivos TXT (Planilla / Proveedores)
+            </Button>
+          </div>
+          {bankingSubView === 'cuentas' ? <BankingTab /> : <BulkPaymentsTab />}
         </TabsContent>
+
         <TabsContent value="cashflow" className="outline-none">
           <CashFlowTab />
         </TabsContent>
-        <TabsContent value="banking" className="outline-none">
-          <BankingTab />
-        </TabsContent>
-        <TabsContent value="scoring" className="outline-none">
-          <CreditScoringTab />
-        </TabsContent>
-        <TabsContent value="bulk" className="outline-none">
-          <BulkPaymentsTab />
-        </TabsContent>
-        <TabsContent value="advances" className="outline-none">
-          <AdvancesTab />
+
+        <TabsContent value="payroll" className="outline-none">
+          <PayrollTab />
         </TabsContent>
       </Tabs>
     </div>

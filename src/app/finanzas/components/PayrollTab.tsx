@@ -57,32 +57,50 @@ export default function PayrollTab() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Empleados / Perfiles
-      const { data: profs } = await supabase.from('profiles').select('id, email, role');
-      setEmployees(profs || []);
+      const [profsRes, cfgRes] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('system_config').select('value').eq('key', 'payroll_hr_registry').maybeSingle()
+      ]);
 
-      // 2. Préstamos
-      const { data: lns } = await supabase.from('employee_loans').select('*, profiles(email)');
-      setLoans(lns || []);
+      const profs = profsRes.data || [];
+      setEmployees(profs);
 
-      // 3. Bonos
-      const { data: bns } = await supabase.from('employee_bonuses').select('*, profiles(email)');
-      setBonuses(bns || []);
+      const hrData = (cfgRes.data?.value && typeof cfgRes.data.value === 'object') ? cfgRes.data.value : {};
+      const savedLoans: any[] = Array.isArray(hrData.loans) ? hrData.loans : [];
+      const savedBonuses: any[] = Array.isArray(hrData.bonuses) ? hrData.bonuses : [];
+      const savedSalaries: Record<string, number> = (hrData.baseSalaries && typeof hrData.baseSalaries === 'object') ? hrData.baseSalaries : {};
 
-      // Cargar últimos salarios base guardados si existen
-      const { data: pRecords } = await supabase.from('payroll_records').select('profile_id, base_salary');
-      const salMap: Record<string, number> = {};
-      (pRecords || []).forEach((r: any) => {
-        if (r.profile_id) salMap[r.profile_id] = parseFloat(r.base_salary) || 0;
+      // Enriquecer con profiles(email)
+      const profEmailMap: Record<string, string> = {};
+      profs.forEach((p: any) => {
+        profEmailMap[p.id] = p.email;
       });
-      setBaseSalaries(salMap);
 
+      setLoans(savedLoans.map(l => ({ ...l, profiles: { email: profEmailMap[l.profile_id] || l.employee_email || 'Colaborador' } })));
+      setBonuses(savedBonuses.map(b => ({ ...b, profiles: { email: profEmailMap[b.profile_id] || b.employee_email || 'Colaborador' } })));
+      setBaseSalaries(savedSalaries);
     } catch (e: any) {
       console.error('Error cargando Nómina:', e);
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos de Nómina.' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const persistHrData = async (nextLoans: any[], nextBonuses: any[], nextSalaries: Record<string, number>) => {
+    await supabase.from('system_config').upsert(
+      {
+        key: 'payroll_hr_registry',
+        value: {
+          loans: nextLoans,
+          bonuses: nextBonuses,
+          baseSalaries: nextSalaries,
+          updated_at: new Date().toISOString()
+        },
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'key' }
+    );
   };
 
   useEffect(() => {
@@ -138,38 +156,28 @@ export default function PayrollTab() {
   const handleProcessPayroll = async () => {
     setIsProcessingPayroll(true);
     try {
-      for (const emp of employees) {
-        const base = baseSalaries[emp.id] || 0;
-        if (base <= 0) continue;
-        const calc = calculatePayrollRow(emp.id, base);
+      const nextLoans = loans.map(l => {
+        if (l.status !== 'ACTIVO' || l.balance <= 0) return l;
+        const base = baseSalaries[l.profile_id] || 0;
+        if (base <= 0) return l;
+        const calc = calculatePayrollRow(l.profile_id, base);
+        if (calc.loanDeduction <= 0) return l;
+        const newBal = Math.max(0, l.balance - calc.loanDeduction);
+        return {
+          ...l,
+          balance: newBal,
+          status: newBal <= 0.01 ? 'PAGADO' : 'ACTIVO'
+        };
+      });
 
-        await supabase.from('payroll_records').insert({
-          profile_id: emp.id,
-          base_salary: base,
-          isss_deduction: calc.isss,
-          afp_deduction: calc.afp,
-          renta_deduction: calc.renta,
-          period: payrollPeriod,
-          net_paid: calc.netPaid,
-          status: 'PROCESADO'
-        });
+      const nextBonuses = bonuses.map(b => {
+        if (b.status !== 'PENDIENTE') return b;
+        const base = baseSalaries[b.profile_id] || 0;
+        if (base <= 0) return b;
+        return { ...b, status: 'PAGADO' };
+      });
 
-        // Descontar saldo de préstamo si aplica
-        const empLoan = loans.find(l => l.profile_id === emp.id && l.status === 'ACTIVO' && l.balance > 0);
-        if (empLoan && calc.loanDeduction > 0) {
-          const newBal = Math.max(0, empLoan.balance - calc.loanDeduction);
-          await supabase.from('employee_loans').update({
-            balance: newBal,
-            status: newBal <= 0 ? 'PAGADO' : 'ACTIVO'
-          }).eq('id', empLoan.id);
-        }
-
-        // Marcar bonos como pagados
-        const empBonuses = bonuses.filter(b => b.profile_id === emp.id && b.status === 'PENDIENTE');
-        for (const b of empBonuses) {
-          await supabase.from('employee_bonuses').update({ status: 'PAGADO' }).eq('id', b.id);
-        }
-      }
+      await persistHrData(nextLoans, nextBonuses, baseSalaries);
 
       toast({ title: 'Planilla Procesada', description: `Se registró el pago de planilla para el período ${payrollPeriod}.` });
       await loadData();
@@ -191,16 +199,22 @@ export default function PayrollTab() {
 
     setIsSavingLoan(true);
     try {
-      const { error } = await supabase.from('employee_loans').insert({
+      const empObj = employees.find(e => e.id === loanEmployeeId);
+      const newLoan = {
+        id: 'loan_' + Date.now(),
         profile_id: loanEmployeeId,
+        employee_email: empObj?.email || 'Colaborador',
         amount: amt,
         balance: amt,
         installment_amount: inst,
-        reason: loanReason || 'Préstamo Interno de Empresa',
-        status: 'ACTIVO'
-      });
-      if (error) throw error;
-      toast({ title: 'Préstamo Registrado', description: `Se otorgó préstamo por $${amt.toFixed(2)}.` });
+        reason: loanReason || 'Préstamo / Anticipo Interno de Empresa',
+        status: 'ACTIVO',
+        created_at: new Date().toISOString()
+      };
+      const nextLoans = [newLoan, ...loans];
+      await persistHrData(nextLoans, bonuses, baseSalaries);
+
+      toast({ title: 'Préstamo / Anticipo Registrado', description: `Se otorgó anticipo por $${amt.toFixed(2)}.` });
       setIsLoanModalOpen(false);
       setLoanEmployeeId('');
       setLoanAmount('');
@@ -222,14 +236,20 @@ export default function PayrollTab() {
     const amt = parseFloat(bonusAmount);
     setIsSavingBonus(true);
     try {
-      const { error } = await supabase.from('employee_bonuses').insert({
+      const empObj = employees.find(e => e.id === bonusEmployeeId);
+      const newBonus = {
+        id: 'bonus_' + Date.now(),
         profile_id: bonusEmployeeId,
+        employee_email: empObj?.email || 'Colaborador',
         amount: amt,
         reason: bonusReason || 'Bonificación por desempeño / comisión',
         month: payrollPeriod,
-        status: 'PENDIENTE'
-      });
-      if (error) throw error;
+        status: 'PENDIENTE',
+        created_at: new Date().toISOString()
+      };
+      const nextBonuses = [newBonus, ...bonuses];
+      await persistHrData(loans, nextBonuses, baseSalaries);
+
       toast({ title: 'Bono Registrado', description: `Se asignó bono por $${amt.toFixed(2)}.` });
       setIsBonusModalOpen(false);
       setBonusEmployeeId('');

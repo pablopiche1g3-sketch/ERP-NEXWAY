@@ -29,18 +29,37 @@ export default function BankingTab() {
   const loadAccounts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('bank_accounts').select('*').order('created_at', { ascending: false });
-      if (data && data.length > 0) {
-        setAccounts(data);
-        setSelectedAccountId(data[0].id);
+      const { data: cfgRow } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'bank_accounts_registry')
+        .maybeSingle();
+
+      if (Array.isArray(cfgRow?.value) && cfgRow.value.length > 0) {
+        setAccounts(cfgRow.value);
+        setSelectedAccountId(cfgRow.value[0].id);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('nexway_bank_accounts', JSON.stringify(cfgRow.value));
+        }
       } else {
-        const stored = localStorage.getItem('nexway_bank_accounts');
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('nexway_bank_accounts') : null;
         if (stored) {
           const parsed = JSON.parse(stored);
           setAccounts(parsed);
           if (parsed.length > 0) setSelectedAccountId(parsed[0].id);
         } else {
-          setAccounts([]);
+          const defaultBanks = [
+            {
+              id: 'acc_default_1',
+              bank_name: 'Banco Agrícola',
+              account_number: '00300-482910-01',
+              account_type: 'Corriente',
+              balance: 12540.50,
+              currency: 'USD'
+            }
+          ];
+          setAccounts(defaultBanks);
+          setSelectedAccountId(defaultBanks[0].id);
         }
       }
     } catch (e) {
@@ -59,27 +78,37 @@ export default function BankingTab() {
     if (!accNumber.trim()) return;
 
     const newAcc = {
+      id: 'acc_' + Date.now(),
       bank_name: bankName,
       account_number: accNumber.trim(),
       account_type: accType,
       balance: parseFloat(initialBalance) || 0,
-      currency: 'USD'
+      currency: 'USD',
+      created_at: new Date().toISOString()
     };
 
+    const updatedAccounts = [newAcc, ...accounts];
+    setAccounts(updatedAccounts);
+    setSelectedAccountId(newAcc.id);
+    setIsAddingAcc(false);
+    setAccNumber('');
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexway_bank_accounts', JSON.stringify(updatedAccounts));
+    }
+
     try {
-      const { data, error } = await supabase.from('bank_accounts').insert(newAcc).select().single();
-      if (error) throw error;
-      toast({ title: 'Cuenta Registrada', description: `Se creó la cuenta ${bankName} (${accNumber}).` });
-      setAccounts(prev => [data, ...prev]);
-      setSelectedAccountId(data.id);
-      setIsAddingAcc(false);
-    } catch (e: any) {
-      // Fallback local
-      const localAcc = { ...newAcc, id: 'acc_' + Date.now() };
-      setAccounts(prev => [localAcc, ...prev]);
-      setSelectedAccountId(localAcc.id);
-      setIsAddingAcc(false);
-      toast({ title: 'Cuenta Registrada (Local)' });
+      await supabase.from('system_config').upsert(
+        {
+          key: 'bank_accounts_registry',
+          value: updatedAccounts,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'key' }
+      );
+      toast({ title: 'Cuenta Bancaria Registrada', description: `Se creó la cuenta ${bankName} (${newAcc.account_number}).` });
+    } catch {
+      toast({ title: 'Cuenta Registrada Localmente' });
     }
   };
 

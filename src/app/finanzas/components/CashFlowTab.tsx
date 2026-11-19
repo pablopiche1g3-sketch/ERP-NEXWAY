@@ -18,28 +18,60 @@ export default function CashFlowTab() {
   const loadMetrics = async () => {
     setLoading(true);
     try {
-      // 1. Obtener ventas a crédito pendientes
-      const { data: salesData } = await supabase.from('sales').select('total, amount_paid').eq('payment_method', 'Crédito');
-      let pendingCxc = 0;
-      (salesData || []).forEach(s => {
-        const total = parseFloat(s.total) || 0;
-        const paid = parseFloat(s.amount_paid) || 0;
-        if (total > paid) pendingCxc += (total - paid);
+      const [salesRes, purchasesRes, quedanRes, cfgRes] = await Promise.all([
+        supabase.from('sales').select('id, total, status, payment_method'),
+        supabase.from('purchases').select('id, total, status, payment_status, payment_method'),
+        supabase.from('quedan').select('total_amount, status'),
+        supabase
+          .from('system_config')
+          .select('key, value')
+          .in('key', ['bank_accounts_registry', 'cxc_manual_records', 'cxp_manual_records', 'cxc_payments_registry', 'cxp_payments_registry'])
+      ]);
+
+      const cfgRows = cfgRes.data || [];
+      const bankList: any[] = cfgRows.find((r: any) => r.key === 'bank_accounts_registry')?.value || [];
+      const cxcMan: any[] = cfgRows.find((r: any) => r.key === 'cxc_manual_records')?.value || [];
+      const cxpMan: any[] = cfgRows.find((r: any) => r.key === 'cxp_manual_records')?.value || [];
+      const cxcPay: any[] = cfgRows.find((r: any) => r.key === 'cxc_payments_registry')?.value || [];
+      const cxpPay: any[] = cfgRows.find((r: any) => r.key === 'cxp_payments_registry')?.value || [];
+
+      // 1. Calcular CXC pendiente real
+      const creditSales = (salesRes.data || []).filter((s: any) => {
+        if (s.status === 'CANCELADA') return false;
+        const pm = (s.payment_method || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return pm.includes('credito') || s.status === 'PENDIENTE';
       });
+      const totalCxcBruto = [...creditSales, ...cxcMan].reduce((acc, s: any) => acc + (parseFloat(s.total) || 0), 0);
+      const totalCxcAbonos = cxcPay.reduce((acc, p: any) => acc + (parseFloat(p.amount) || 0), 0);
+      const pendingCxc = Math.max(0, totalCxcBruto - totalCxcAbonos);
       if (pendingCxc > 0) setCxcPending(pendingCxc);
 
-      // 2. Obtener compras a crédito pendientes
-      const { data: purchasesData } = await supabase.from('purchases').select('total, status').neq('status', 'PAGADO');
-      let pendingCxp = 0;
-      (purchasesData || []).forEach(p => {
-        pendingCxp += (parseFloat(p.total) || 0);
+      // 2. Calcular CXP pendiente real
+      const creditPurchases = (purchasesRes.data || []).filter((p: any) => {
+        if (p.payment_status === 'PAGADO') return false;
+        const pm = (p.payment_method || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return pm.includes('credito') || p.status === 'PENDIENTE' || p.payment_status === 'PENDIENTE';
       });
+      const totalCxpBruto = [...creditPurchases, ...cxpMan].reduce((acc, p: any) => acc + (parseFloat(p.total) || 0), 0);
+      const totalCxpPagos = cxpPay.reduce((acc, p: any) => acc + (parseFloat(p.amount) || 0), 0);
+      const pendingCxp = Math.max(0, totalCxpBruto - totalCxpPagos);
       if (pendingCxp > 0) setCxpPending(pendingCxp);
 
-      // 3. Saldo en bancos
-      const { data: banks } = await supabase.from('bank_accounts').select('balance');
-      let totalBank = 0;
-      (banks || []).forEach(b => totalBank += (parseFloat(b.balance) || 0));
+      // 3. Quedan pendientes
+      const totalQuedan = (quedanRes.data || [])
+        .filter((q: any) => q.status !== 'Pagado' && q.status !== 'PAGADO')
+        .reduce((acc, q: any) => acc + (parseFloat(q.total_amount) || 0), 0);
+      if (totalQuedan > 0) setQuedanPending(totalQuedan);
+
+      // 4. Saldo en bancos
+      let totalBank = bankList.reduce((acc, b: any) => acc + (parseFloat(b.balance) || 0), 0);
+      if (totalBank === 0 && typeof window !== 'undefined') {
+        const localBanks = localStorage.getItem('nexway_bank_accounts');
+        if (localBanks) {
+          const parsed = JSON.parse(localBanks);
+          totalBank = (parsed || []).reduce((acc: number, b: any) => acc + (parseFloat(b.balance) || 0), 0);
+        }
+      }
       if (totalBank > 0) setBankBalance(totalBank);
 
     } catch (e) {
