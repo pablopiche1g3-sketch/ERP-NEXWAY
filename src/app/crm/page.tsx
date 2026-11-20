@@ -615,6 +615,9 @@ export default function CRMPage() {
             <TabsTrigger data-tour-id="tab-retention" value="retention" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-orange-600 dark:data-[state=active]:text-orange-400 data-[state=active]:border-b-2 data-[state=active]:border-orange-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
               <AlertTriangle size={15} /> 3. Retención de Clientes
             </TabsTrigger>
+            <TabsTrigger data-tour-id="tab-mapa" value="mapa" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
+              <Navigation size={15} /> 4. Mapa de Rutas (Vendedores)
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="foco" className="mt-0 outline-none">
@@ -804,6 +807,116 @@ export default function CRMPage() {
             })}
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="mapa" className="mt-0 h-[620px] outline-none">
+            <div className="flex flex-col lg:flex-row h-full gap-4">
+              {/* Lista lateral izquierda (Rutas y Clientes para Visita) */}
+              <div className="w-full lg:w-1/3 bg-card rounded-2xl border border-border p-4 flex flex-col h-[320px] lg:h-full overflow-hidden shadow-sm">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
+                  <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Navigation className="text-indigo-500" size={15} /> Ruta de Visitas ({mapData.locations.length})
+                  </h3>
+                  <Badge variant="outline" className="text-[9px] font-bold">GPS Activo</Badge>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                  {mapData.locations.map(loc => (
+                    <div key={loc.id} className="p-3 bg-muted/40 border border-border rounded-xl hover:border-indigo-500/50 transition-all space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="text-xs font-bold text-foreground">{loc.name}</span>
+                        <Badge className={`text-[8px] font-black shrink-0 ${
+                          loc.type === 'VIP'
+                            ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'
+                            : loc.type === 'BRANCH'
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                            : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                        }`}>
+                          {loc.type}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>Crédito/Saldo: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">${(loc.balance || 0).toLocaleString()}</strong></span>
+                        <span className="text-[9px] truncate max-w-[140px]">{loc.address || 'Ubicación registrada'}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1.5 border-t border-border/60">
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`, '_blank')}
+                            className="h-6 px-2 text-[9.5px] font-bold text-blue-600 dark:text-blue-400 rounded-lg flex items-center gap-1"
+                          >
+                            <Navigation size={10} /> Google Maps
+                          </Button>
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                            onClick={() => window.open(`https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`, '_blank')}
+                            className="h-6 px-2 text-[9.5px] font-bold text-sky-600 dark:text-sky-400 rounded-lg flex items-center gap-1"
+                          >
+                            <Car size={10} /> Waze GPS
+                          </Button>
+                        </div>
+                        <Button
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            setMapData(prev => ({
+                              ...prev,
+                              locations: prev.locations.filter(l => l.id !== loc.id)
+                            }));
+                            toast({
+                              title: 'Ubicación Removida',
+                              description: `Se quitó "${loc.name}" de la ruta de visitas.`
+                            });
+                          }}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500 rounded-lg"
+                          title="Quitar de ruta"
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {mapData.locations.length === 0 && (
+                    <div className="text-center py-10 text-xs text-muted-foreground">
+                      No hay puntos en la ruta. Haz clic en el mapa para agregar clientes o sucursales.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Mapa Interactivo a la derecha */}
+              <div className="w-full lg:w-2/3 h-[420px] lg:h-full rounded-2xl overflow-hidden border border-border shadow-sm">
+                <CrmMap
+                  locations={mapData.locations}
+                  routes={mapData.routes}
+                  onAddLocation={(newLoc) => {
+                    setMapData(prev => ({
+                      ...prev,
+                      locations: [newLoc, ...prev.locations]
+                    }));
+                    toast({
+                      title: 'Ubicación Agregada a la Ruta 📍',
+                      description: `Se guardó "${newLoc.name}" en el mapa de vendedores.`
+                    });
+                  }}
+                  onDeleteLocation={(locId) => {
+                    setMapData(prev => ({
+                      ...prev,
+                      locations: prev.locations.filter(l => l.id !== locId)
+                    }));
+                    toast({
+                      title: 'Ubicación Eliminada',
+                      description: 'Se removió el punto del mapa de rutas.'
+                    });
+                  }}
+                />
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
 

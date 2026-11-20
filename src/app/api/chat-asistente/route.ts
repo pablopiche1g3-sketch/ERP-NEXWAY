@@ -49,10 +49,11 @@ CONOCIMIENTO ACTUALIZADO DE NEXWAY ERP (VERSIÓN ACTUAL EN PRODUCCIÓN):
    - 5. Flujo de Caja (Cash Flow): proyección real a 30, 60 y 90 días.
    - 6. Nómina, Bonos & Anticipos: planilla El Salvador (ISSS 3% máx $30, AFP 7.25%, Tabla ISR 4 tramos), bonificaciones y préstamos/anticipos unificados.
 
-5. CRM COMERCIAL (/crm) — 3 PESTAÑAS REALES SIN DATOS FALSOS:
+5. CRM COMERCIAL (/crm) — 4 PESTAÑAS OPERATIVAS:
    - 1. Embudo Comercial (Kanban): gestión de prospectos y negocios reales por etapa.
    - 2. Foco de Venta — Stock Estancado: listado real de productos sin rotación en 30 días con capital retenido ($) y botón "+ Crear Oportunidad" en 1 clic.
    - 3. Retención de Clientes: cálculo real de clientes inactivos (30, 60, 90, 180 días) con contacto directo por WhatsApp y Correo.
+   - 4. Mapa de Rutas (Vendedores): mapa interactivo con ubicaciones de clientes y sucursales, navegación directa con Google Maps y Waze GPS para visitas en campo.
 
 6. CONTABILIDAD (/accounting), DIRECTORIO (/directorio), ABASTECIMIENTO (/compras) Y GERENCIA (/management):
    - Contabilidad: Libro Diario (Partida Doble automática), Mayor, Balance, Libros IVA (CF, CCF, Compras), Formularios F07/F14, P&L y Centro de Auditoría Manual.
@@ -66,7 +67,7 @@ const MODULE_BLUEPRINTS: Record<string, string> = {
   'Registro de Compras': 'Pestañas en /compras: 1. Registro de Compras DTE. 2. Órdenes de Compra a Proveedores. 3. Recepción DTE por Correo.',
   'Registro de Clientes': 'Directorio Comercial (/directorio): 1. Cartera de Clientes (NIT/NRC/Correo DTE/Límite de crédito). 2. Directorio de Proveedores.',
   'Contabilidad y Finanzas': 'Contabilidad (/accounting): Libro Diario, Mayor, Balance, Libros IVA, Formularios MH (F07/F14), P&L y Centro de Auditoría Manual.',
-  'CRM Comercial': '3 Pestañas reales en /crm: 1. Embudo Comercial Kanban [TOUR:tab-kanban]. 2. Foco de Venta — Stock Estancado [TOUR:tab-foco]. 3. Retención de Clientes [TOUR:tab-retention].',
+  'CRM Comercial': '4 Pestañas reales en /crm: 1. Embudo Comercial Kanban [TOUR:tab-kanban]. 2. Foco de Venta — Stock Estancado [TOUR:tab-foco]. 3. Retención de Clientes [TOUR:tab-retention]. 4. Mapa de Rutas (Vendedores) [TOUR:tab-mapa] con Google Maps y Waze GPS.',
   'Gerencia y Reportes': 'Gerencia (/management): Usuarios y Roles (asignación de Caja POS, Sucursal y Permisos), Sucursales/Bodegas/Cajas, Perfil Fiscal y Diseñador de Impresión.',
   'Módulo Institucional': 'Licitaciones, Proyectos y P&L por Proyecto.',
   'Finanzas y Créditos': '6 Pestañas ordenadas en /finanzas: 1. Cuentas por Cobrar (CXC) + Credit Scoring. 2. Cuentas por Pagar (CXP). 3. Gestión de Quedan. 4. Bancos & Pagos TXT. 5. Flujo de Caja Proyectado. 6. Nómina, Bonos & Anticipos.',

@@ -97,13 +97,14 @@ const MODULE_GUIDES: Record<string, { title: string; steps: string[]; taxTip: st
     taxTip: '💡 Tip Legal El Salvador: ISSS (3% máx $30), AFP (7.25%) e ISR Renta se calculan automáticamente en la pestaña 6.'
   },
   '/crm': {
-    title: 'Guía Paso a Paso: Embudo Comercial, Foco de Venta y Retención',
+    title: 'Guía Paso a Paso: Embudo Comercial, Foco de Venta, Retención y Mapa de Rutas',
     steps: [
       'Paso 1 (Embudo Kanban): En "1. Embudo Comercial" crea nuevas oportunidades vinculadas a clientes y muévelas hasta Ganada.',
       'Paso 2 (Foco de Venta): En "2. Foco de Venta — Stock Estancado" identifica productos sin rotación en 30 días y pulsa "+ Crear Oportunidad" en 1 clic.',
-      'Paso 3 (Retención): En "3. Retención de Clientes" filtra clientes inactivos (30, 60 o 90 días) y contáctalos directo por WhatsApp o Correo.'
+      'Paso 3 (Retención): En "3. Retención de Clientes" filtra clientes inactivos (30, 60 o 90 días) y contáctalos directo por WhatsApp o Correo.',
+      'Paso 4 (Mapa de Rutas): En "4. Mapa de Rutas (Vendedores)" consulta las ubicaciones de clientes para visitas en campo y abre la navegación directa en Google Maps o Waze GPS.'
     ],
-    taxTip: '💡 Tip Comercial: Prioriza primero los productos con mayor Capital Retenido ($) en la pestaña 2 para liberar flujo de caja rápido.'
+    taxTip: '💡 Tip Comercial: Organiza tus visitas en el Mapa de Rutas por zona para reducir costos de combustible y visitar primero a los clientes con mayor potencial.'
   },
   '/accounting': {
     title: 'Guía Paso a Paso: Contabilidad, Libros IVA y Auditoría Manual',
