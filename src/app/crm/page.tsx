@@ -54,8 +54,9 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CrmMap } from '@/components/CrmMap';
+import { CrmMap, SellerRouteStop } from '@/components/CrmMap';
 import { useBms } from '@/contexts/BmsContext';
+import { fetchSystemAppUsers } from '@/lib/session-operator';
 
 const STAGES = [
   { id: 'PROSPECTO', label: 'Prospecto (Lead)', color: 'border-t-slate-500 bg-slate-500/5 text-slate-400' },
@@ -125,9 +126,43 @@ export default function CRMPage() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [isCreatingQuotation, setIsCreatingQuotation] = useState(false);
 
+  // Estado persistente de Rutas de Vendedores (Mapa CRM)
+  const [sellerRouteStops, setSellerRouteStops] = useState<SellerRouteStop[]>([]);
+  const [crmSellers, setCrmSellers] = useState<{ id: string; full_name: string; email: string }[]>([]);
+  const [selectedRouteSeller, setSelectedRouteSeller] = useState<string>('all');
+  const [focusedStopId, setFocusedStopId] = useState<string | null>(null);
+
+  const persistSellerRouteStops = async (nextStops: SellerRouteStop[]) => {
+    setSellerRouteStops(nextStops);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('nexway_crm_seller_routes', JSON.stringify(nextStops));
+      } catch {}
+    }
+    try {
+      await supabase.from('system_config').upsert(
+        {
+          key: 'crm_seller_routes',
+          value: nextStops,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'key' }
+      );
+    } catch (e) {
+      console.warn('Advertencia guardando rutas de vendedores:', e);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
+      // 0. Vendedores reales y rutas guardadas
+      const [usersList, routesCfgRes] = await Promise.all([
+        fetchSystemAppUsers(),
+        supabase.from('system_config').select('value').eq('key', 'crm_seller_routes').maybeSingle()
+      ]);
+      setCrmSellers(usersList.map(u => ({ id: u.id, full_name: u.full_name, email: u.email })));
+
       // 1. Oportunidades
       const { data: opps } = await supabase
         .from('crm_opportunities')
@@ -138,9 +173,38 @@ export default function CRMPage() {
       // 2. Clientes
       const { data: custs } = await supabase
         .from('customers')
-        .select('id, name, email, phone')
+        .select('id, name, email, phone, address, credit_limit')
         .order('name');
       setCustomers(custs || []);
+
+      // Cargar rutas persistidas o inicializar desde clientes reales
+      let savedStops: SellerRouteStop[] = [];
+      if (Array.isArray(routesCfgRes.data?.value) && routesCfgRes.data.value.length > 0) {
+        savedStops = routesCfgRes.data.value;
+      } else if (typeof window !== 'undefined') {
+        try {
+          const rawLocal = localStorage.getItem('nexway_crm_seller_routes');
+          if (rawLocal) savedStops = JSON.parse(rawLocal);
+        } catch {}
+      }
+
+      if (savedStops.length === 0 && (custs || []).length > 0) {
+        savedStops = (custs || []).slice(0, 8).map((c: any, idx: number) => ({
+          id: `cust-stop-${c.id}`,
+          customerId: c.id,
+          name: c.name,
+          lat: 13.6929 + ((idx % 4) - 1.5) * 0.012,
+          lng: -89.2182 + (Math.floor(idx / 4) - 0.5) * 0.015,
+          type: (c.credit_limit || 0) > 0 ? 'VIP' : 'DELIVERY',
+          balance: Number(c.credit_limit) || 0,
+          address: c.address || 'San Salvador',
+          phone: c.phone || '',
+          sellerEmail: '',
+          sellerName: 'Ruta General',
+          visited: false
+        }));
+      }
+      setSellerRouteStops(savedStops);
 
       // 3. Catálogo e inventario crítico/estancado
       const { data: inv } = await supabase
@@ -809,114 +873,238 @@ export default function CRMPage() {
         )}
           </TabsContent>
 
-          <TabsContent value="mapa" className="mt-0 h-[620px] outline-none">
-            <div className="flex flex-col lg:flex-row h-full gap-4">
-              {/* Lista lateral izquierda (Rutas y Clientes para Visita) */}
-              <div className="w-full lg:w-1/3 bg-card rounded-2xl border border-border p-4 flex flex-col h-[320px] lg:h-full overflow-hidden shadow-sm">
-                <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
-                  <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-2">
-                    <Navigation className="text-indigo-500" size={15} /> Ruta de Visitas ({mapData.locations.length})
-                  </h3>
-                  <Badge variant="outline" className="text-[9px] font-bold">GPS Activo</Badge>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                  {mapData.locations.map(loc => (
-                    <div key={loc.id} className="p-3 bg-muted/40 border border-border rounded-xl hover:border-indigo-500/50 transition-all space-y-2">
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="text-xs font-bold text-foreground">{loc.name}</span>
-                        <Badge className={`text-[8px] font-black shrink-0 ${
-                          loc.type === 'VIP'
-                            ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'
-                            : loc.type === 'BRANCH'
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                            : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                        }`}>
-                          {loc.type}
+          <TabsContent value="mapa" className="mt-0 outline-none">
+            {(() => {
+              const filteredStops = selectedRouteSeller === 'all'
+                ? sellerRouteStops
+                : sellerRouteStops.filter(s => s.sellerEmail === selectedRouteSeller || !s.sellerEmail);
+              const visitedCount = filteredStops.filter(s => s.visited).length;
+              const progressPct = filteredStops.length > 0 ? Math.round((visitedCount / filteredStops.length) * 100) : 0;
+
+              const handleOpenFullGoogleMapsRoute = () => {
+                const pendingStops = filteredStops.filter(s => !s.visited);
+                const targets = pendingStops.length > 0 ? pendingStops : filteredStops;
+                if (targets.length === 0) {
+                  toast({ variant: 'destructive', title: 'Sin paradas', description: 'Agrega al menos un cliente en el mapa para trazar la ruta.' });
+                  return;
+                }
+                const dest = targets[targets.length - 1];
+                const waypoints = targets.slice(0, -1).map(t => `${t.lat},${t.lng}`).join('|');
+                const url = `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ''}&travelmode=driving`;
+                window.open(url, '_blank');
+              };
+
+              const handleToggleStopVisited = (stopId: string) => {
+                const next = sellerRouteStops.map(s =>
+                  s.id === stopId
+                    ? { ...s, visited: !s.visited, visitedAt: !s.visited ? new Date().toISOString() : undefined }
+                    : s
+                );
+                persistSellerRouteStops(next);
+              };
+
+              const handleResetRouteVisits = () => {
+                const next = sellerRouteStops.map(s => ({ ...s, visited: false, visitedAt: undefined }));
+                persistSellerRouteStops(next);
+                toast({ title: 'Jornada de Visitas Reiniciada', description: 'Todas las paradas quedaron listas como pendientes.' });
+              };
+
+              return (
+                <div className="space-y-4">
+                  {/* Barra Superior de Control de Ruta para Vendedores */}
+                  <div className="bg-card border border-border rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase text-muted-foreground block">Filtrar Ruta por Vendedor</span>
+                        <Select value={selectedRouteSeller} onValueChange={setSelectedRouteSeller}>
+                          <SelectTrigger className="w-56 h-9 text-xs font-bold rounded-xl">
+                            <UserCheck size={13} className="mr-1.5 text-indigo-500" />
+                            <SelectValue placeholder="Todos los Vendedores" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos los Vendedores</SelectItem>
+                            {crmSellers.map(s => (
+                              <SelectItem key={s.id} value={s.email} className="text-xs">{s.full_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="min-w-[200px] space-y-1">
+                        <div className="flex justify-between text-[11px] font-bold">
+                          <span className="text-muted-foreground">Avance de Visitas Hoy:</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">{visitedCount}/{filteredStops.length} ({progressPct}%)</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${progressPct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleOpenFullGoogleMapsRoute}
+                        className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl gap-1.5 shadow-sm"
+                      >
+                        <Navigation size={14} /> Abrir Ruta Completa en Google Maps
+                      </Button>
+                      {visitedCount > 0 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={handleResetRouteVisits}
+                          className="h-9 text-xs font-bold rounded-xl"
+                        >
+                          Reiniciar Visitas
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Panel Dividido: Lista Ordenada de Paradas + Mapa Interactivo */}
+                  <div className="flex flex-col lg:flex-row h-[620px] gap-4">
+                    <div className="w-full lg:w-1/3 bg-card rounded-2xl border border-border p-4 flex flex-col h-[320px] lg:h-full overflow-hidden shadow-sm">
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
+                        <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-2">
+                          <MapPin className="text-indigo-500" size={15} /> Paradas de la Ruta ({filteredStops.length})
+                        </h3>
+                        <Badge variant="outline" className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                          Guardado en Nube
                         </Badge>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                        <span>Crédito/Saldo: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">${(loc.balance || 0).toLocaleString()}</strong></span>
-                        <span className="text-[9px] truncate max-w-[140px]">{loc.address || 'Ubicación registrada'}</span>
-                      </div>
-                      <div className="flex items-center justify-between pt-1.5 border-t border-border/60">
-                        <div className="flex gap-1.5">
-                          <Button
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`, '_blank')}
-                            className="h-6 px-2 text-[9.5px] font-bold text-blue-600 dark:text-blue-400 rounded-lg flex items-center gap-1"
+                      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                        {filteredStops.map((loc, idx) => (
+                          <div
+                            key={loc.id}
+                            onClick={() => setFocusedStopId(loc.id)}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer space-y-2 ${
+                              loc.visited
+                                ? 'bg-emerald-500/10 border-emerald-500/40'
+                                : focusedStopId === loc.id
+                                ? 'bg-indigo-500/10 border-indigo-500/50 shadow-sm'
+                                : 'bg-muted/30 border-border hover:border-indigo-500/40'
+                            }`}
                           >
-                            <Navigation size={10} /> Google Maps
-                          </Button>
-                          <Button
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                            onClick={() => window.open(`https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`, '_blank')}
-                            className="h-6 px-2 text-[9.5px] font-bold text-sky-600 dark:text-sky-400 rounded-lg flex items-center gap-1"
-                          >
-                            <Car size={10} /> Waze GPS
-                          </Button>
-                        </div>
-                        <Button
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setMapData(prev => ({
-                              ...prev,
-                              locations: prev.locations.filter(l => l.id !== loc.id)
-                            }));
-                            toast({
-                              title: 'Ubicación Removida',
-                              description: `Se quitó "${loc.name}" de la ruta de visitas.`
-                            });
-                          }}
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500 rounded-lg"
-                          title="Quitar de ruta"
-                        >
-                          <Trash2 size={12} />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {mapData.locations.length === 0 && (
-                    <div className="text-center py-10 text-xs text-muted-foreground">
-                      No hay puntos en la ruta. Haz clic en el mapa para agregar clientes o sucursales.
-                    </div>
-                  )}
-                </div>
-              </div>
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 text-white ${loc.visited ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
+                                  {loc.visited ? '✓' : idx + 1}
+                                </span>
+                                <span className={`text-xs font-bold truncate ${loc.visited ? 'line-through text-emerald-700 dark:text-emerald-300' : 'text-foreground'}`}>
+                                  {loc.name}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleStopVisited(loc.id);
+                                }}
+                                className={`text-[9px] font-black px-2 py-0.5 rounded-full border transition-colors shrink-0 ${
+                                  loc.visited
+                                    ? 'bg-emerald-600 text-white border-emerald-600'
+                                    : 'bg-background text-muted-foreground border-border hover:border-emerald-500 hover:text-emerald-600'
+                                }`}
+                              >
+                                {loc.visited ? 'VISITADO ✓' : 'MARCAR VISITA'}
+                              </button>
+                            </div>
 
-              {/* Mapa Interactivo a la derecha */}
-              <div className="w-full lg:w-2/3 h-[420px] lg:h-full rounded-2xl overflow-hidden border border-border shadow-sm">
-                <CrmMap
-                  locations={mapData.locations}
-                  routes={mapData.routes}
-                  onAddLocation={(newLoc) => {
-                    setMapData(prev => ({
-                      ...prev,
-                      locations: [newLoc, ...prev.locations]
-                    }));
-                    toast({
-                      title: 'Ubicación Agregada a la Ruta 📍',
-                      description: `Se guardó "${newLoc.name}" en el mapa de vendedores.`
-                    });
-                  }}
-                  onDeleteLocation={(locId) => {
-                    setMapData(prev => ({
-                      ...prev,
-                      locations: prev.locations.filter(l => l.id !== locId)
-                    }));
-                    toast({
-                      title: 'Ubicación Eliminada',
-                      description: 'Se removió el punto del mapa de rutas.'
-                    });
-                  }}
-                />
-              </div>
-            </div>
+                            <div className="text-[10px] text-muted-foreground space-y-0.5 pl-7">
+                              <div className="truncate">📍 {loc.address || 'Ubicación GPS'}</div>
+                              {loc.sellerName && <div className="text-indigo-600 dark:text-indigo-400 font-semibold">👤 {loc.sellerName}</div>}
+                              {loc.notes && <div className="italic text-foreground/80">“{loc.notes}”</div>}
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1.5 pl-7 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex gap-1.5">
+                                <Button
+                                  size="sm"
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`, '_blank')}
+                                  className="h-6 px-2 text-[9.5px] font-bold text-blue-600 dark:text-blue-400 rounded-lg flex items-center gap-1"
+                                >
+                                  <Navigation size={10} /> Maps
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => window.open(`https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`, '_blank')}
+                                  className="h-6 px-2 text-[9.5px] font-bold text-sky-600 dark:text-sky-400 rounded-lg flex items-center gap-1"
+                                >
+                                  <Car size={10} /> Waze
+                                </Button>
+                                {loc.phone && (
+                                  <Button
+                                    size="sm"
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => window.open(`https://wa.me/${loc.phone!.replace(/[^0-9]/g, '')}`, '_blank')}
+                                    className="h-6 px-2 text-[9.5px] font-bold text-emerald-600 rounded-lg"
+                                    title="WhatsApp"
+                                  >
+                                    <Phone size={10} />
+                                  </Button>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                  const next = sellerRouteStops.filter(l => l.id !== loc.id);
+                                  persistSellerRouteStops(next);
+                                  toast({ title: 'Parada Eliminada', description: `Se quitó "${loc.name}" de la ruta.` });
+                                }}
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-500 rounded-lg"
+                                title="Quitar de ruta"
+                              >
+                                <Trash2 size={12} />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                        {filteredStops.length === 0 && (
+                          <div className="text-center py-10 text-xs text-muted-foreground">
+                            No hay paradas asignadas. Haz clic en <strong>&quot;Agregar Parada de Cliente&quot;</strong> en el mapa para asignar clientes a esta ruta.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Mapa Interactivo con Ruta Numerada y Polilínea */}
+                    <div className="w-full lg:w-2/3 h-[420px] lg:h-full rounded-2xl overflow-hidden border border-border shadow-sm">
+                      <CrmMap
+                        locations={filteredStops}
+                        routes={mapData.routes}
+                        customers={customers}
+                        sellers={crmSellers}
+                        focusedLocationId={focusedStopId}
+                        onToggleVisited={handleToggleStopVisited}
+                        onAddLocation={(newLoc) => {
+                          const next = [...sellerRouteStops, newLoc];
+                          persistSellerRouteStops(next);
+                          toast({
+                            title: 'Parada Guardada en Ruta 📍',
+                            description: `"${newLoc.name}" quedó guardado permanentemente en el mapa de vendedores.`
+                          });
+                        }}
+                        onDeleteLocation={(locId) => {
+                          const next = sellerRouteStops.filter(l => l.id !== locId);
+                          persistSellerRouteStops(next);
+                          toast({ title: 'Parada Eliminada', description: 'Se removió el punto del mapa de rutas.' });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </TabsContent>
         </Tabs>
 
