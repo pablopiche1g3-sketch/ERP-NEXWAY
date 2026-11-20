@@ -120,11 +120,97 @@ export default function TransfersTab() {
   const [notes, setNotes] = useState<string>('');
   const [isExpressMode, setIsExpressMode] = useState<boolean>(false);
 
-  // Modal de Picking / Despacho Guiado
+  // Modal de Picking / Despacho Guiado (Con Autoguardado Persistente)
   const [selectedTransferForDispatch, setSelectedTransferForDispatch] = useState<TransferCircuitRecord | null>(null);
   const [dispatchDriver, setDispatchDriver] = useState<string>('');
   const [dispatchPlaca, setDispatchPlaca] = useState<string>('');
   const [pickingChecklist, setPickingChecklist] = useState<Record<string, boolean>>({});
+  const [pickingQuantities, setPickingQuantities] = useState<Record<string, number>>({});
+  const [pickingDrafts, setPickingDrafts] = useState<Record<string, {
+    checklist: Record<string, boolean>;
+    pickedQty: Record<string, number>;
+    driver: string;
+    placa: string;
+    updatedAt: string;
+  }>>({});
+
+  const loadPickingDrafts = async () => {
+    let localMap: Record<string, any> = {};
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('nexway_dispatch_picking_drafts');
+        if (raw) localMap = JSON.parse(raw);
+      } catch {}
+    }
+    try {
+      const { data } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'dispatch_picking_drafts')
+        .maybeSingle();
+      if (data?.value && typeof data.value === 'object') {
+        const merged = { ...localMap, ...(data.value as Record<string, any>) };
+        setPickingDrafts(merged);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('nexway_dispatch_picking_drafts', JSON.stringify(merged));
+        }
+        return;
+      }
+    } catch {}
+    setPickingDrafts(localMap);
+  };
+
+  const persistPickingDraft = (
+    transferId: string,
+    checklist: Record<string, boolean>,
+    pickedQty: Record<string, number>,
+    driver: string,
+    placa: string
+  ) => {
+    const nextDrafts = {
+      ...pickingDrafts,
+      [transferId]: {
+        checklist,
+        pickedQty,
+        driver,
+        placa,
+        updatedAt: new Date().toISOString()
+      }
+    };
+    setPickingDrafts(nextDrafts);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('nexway_dispatch_picking_drafts', JSON.stringify(nextDrafts));
+      } catch {}
+    }
+    supabase
+      .from('system_config')
+      .upsert({
+        key: 'dispatch_picking_drafts',
+        value: nextDrafts,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' })
+      .then(() => {}, () => {});
+  };
+
+  const clearPickingDraft = (transferId: string) => {
+    const nextDrafts = { ...pickingDrafts };
+    delete nextDrafts[transferId];
+    setPickingDrafts(nextDrafts);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('nexway_dispatch_picking_drafts', JSON.stringify(nextDrafts));
+      } catch {}
+    }
+    supabase
+      .from('system_config')
+      .upsert({
+        key: 'dispatch_picking_drafts',
+        value: nextDrafts,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' })
+      .then(() => {}, () => {});
+  };
 
   // Modal de Detalle / Guía de Remisión
   const [viewingTransfer, setViewingTransfer] = useState<TransferCircuitRecord | null>(null);
@@ -136,6 +222,7 @@ export default function TransfersTab() {
   useEffect(() => {
     loadData();
     resolveActiveOperator();
+    loadPickingDrafts();
   }, []);
 
   const resolveActiveOperator = async () => {
@@ -444,16 +531,60 @@ export default function TransfersTab() {
     }
   };
 
-  // Abrir modal de Picking / Despacho
+  // Abrir ventana grande de Picking / Despacho restaurando el avance guardado
   const handleOpenDispatchModal = (transfer: TransferCircuitRecord) => {
     setSelectedTransferForDispatch(transfer);
-    setDispatchDriver(transfer.transportista || '');
-    setDispatchPlaca(transfer.vehiculo_placa || '');
+    const saved = pickingDrafts[transfer.id];
+
     const checklist: Record<string, boolean> = {};
+    const pickedQty: Record<string, number> = {};
     transfer.items.forEach(i => {
-      checklist[i.sku] = false;
+      checklist[i.sku] = saved?.checklist?.[i.sku] ?? false;
+      pickedQty[i.sku] = saved?.pickedQty?.[i.sku] !== undefined
+        ? saved.pickedQty[i.sku]
+        : (checklist[i.sku] ? i.quantity : 0);
     });
+
     setPickingChecklist(checklist);
+    setPickingQuantities(pickedQty);
+    setDispatchDriver(saved?.driver ?? transfer.transportista ?? '');
+    setDispatchPlaca(saved?.placa ?? transfer.vehiculo_placa ?? '');
+  };
+
+  const handleTogglePickingItem = (sku: string, requestedQty: number) => {
+    if (!selectedTransferForDispatch) return;
+    const nextChecked = !pickingChecklist[sku];
+    const nextChecklist = { ...pickingChecklist, [sku]: nextChecked };
+    const nextQty = {
+      ...pickingQuantities,
+      [sku]: nextChecked ? (pickingQuantities[sku] > 0 ? pickingQuantities[sku] : requestedQty) : 0
+    };
+    setPickingChecklist(nextChecklist);
+    setPickingQuantities(nextQty);
+    persistPickingDraft(selectedTransferForDispatch.id, nextChecklist, nextQty, dispatchDriver, dispatchPlaca);
+  };
+
+  const handleUpdatePickedQty = (sku: string, newVal: number, requestedQty: number) => {
+    if (!selectedTransferForDispatch) return;
+    const clamped = Math.max(0, Math.min(requestedQty, newVal));
+    const nextQty = { ...pickingQuantities, [sku]: clamped };
+    const nextChecklist = { ...pickingChecklist, [sku]: clamped >= requestedQty };
+    setPickingQuantities(nextQty);
+    setPickingChecklist(nextChecklist);
+    persistPickingDraft(selectedTransferForDispatch.id, nextChecklist, nextQty, dispatchDriver, dispatchPlaca);
+  };
+
+  const handleMarkAllPicked = () => {
+    if (!selectedTransferForDispatch) return;
+    const nextChecklist: Record<string, boolean> = {};
+    const nextQty: Record<string, number> = {};
+    selectedTransferForDispatch.items.forEach(i => {
+      nextChecklist[i.sku] = true;
+      nextQty[i.sku] = i.quantity;
+    });
+    setPickingChecklist(nextChecklist);
+    setPickingQuantities(nextQty);
+    persistPickingDraft(selectedTransferForDispatch.id, nextChecklist, nextQty, dispatchDriver, dispatchPlaca);
   };
 
   // Confirmar Despacho Físico (Bodeguero)
@@ -520,6 +651,7 @@ export default function TransfersTab() {
           .eq('id', selectedTransferForDispatch.id);
       } catch (e) {}
 
+      clearPickingDraft(selectedTransferForDispatch.id);
       const updated = transfers.map(t => t.id === selectedTransferForDispatch.id ? updatedTransfer : t);
       setTransfers(updated);
       if (typeof window !== 'undefined') {
@@ -1002,47 +1134,88 @@ export default function TransfersTab() {
                 No hay traslados pendientes de despacho en este momento.
               </div>
             ) : (
-              pendingDispatchTransfers.map(t => (
-                <Card key={t.id} className="border-border/60 shadow-sm hover:border-primary/50 transition-all flex flex-col justify-between">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-primary">{t.correlativo}</span>
-                      <Badge variant="outline" className="text-[10px] text-amber-500 bg-amber-500/10 border-amber-500/30">
-                        {t.estado}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-xs font-semibold flex items-center gap-1 mt-1">
-                      <span>{t.origen_nombre}</span>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="text-emerald-500">{t.destino_nombre}</span>
-                    </CardTitle>
-                    <CardDescription className="text-[10px]">
-                      Solicitado por: {t.solicitado_por} ({new Date(t.created_at).toLocaleDateString()})
-                    </CardDescription>
-                  </CardHeader>
+              pendingDispatchTransfers.map(t => {
+                const draft = pickingDrafts[t.id];
+                const checkedCount = draft
+                  ? t.items.filter(it => draft.checklist?.[it.sku]).length
+                  : 0;
+                const progressPct = t.items.length > 0 ? Math.round((checkedCount / t.items.length) * 100) : 0;
 
-                  <CardContent className="space-y-3 pt-0">
-                    <div className="p-2 rounded bg-muted/30 border border-border/40 text-[11px] space-y-1">
-                      <div className="font-bold text-foreground">Ítems a Despachar ({t.items.length}):</div>
-                      <div className="max-h-24 overflow-y-auto space-y-0.5">
-                        {t.items.map(it => (
-                          <div key={it.sku} className="flex justify-between text-muted-foreground text-[10px]">
-                            <span className="truncate">{it.quantity}x {it.name}</span>
-                            <span className="font-mono">[{it.sku}]</span>
-                          </div>
-                        ))}
+                return (
+                  <Card
+                    key={t.id}
+                    onClick={() => handleOpenDispatchModal(t)}
+                    className={`border-border/60 shadow-sm hover:border-amber-500/60 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between ${checkedCount > 0 ? 'ring-1 ring-amber-500/40 bg-amber-500/[0.03]' : ''}`}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-bold text-primary">{t.correlativo}</span>
+                        {checkedCount > 0 ? (
+                          <Badge className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 font-black">
+                            EN PICKING ({checkedCount}/{t.items.length})
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] text-amber-500 bg-amber-500/10 border-amber-500/30">
+                            {t.estado}
+                          </Badge>
+                        )}
                       </div>
-                    </div>
+                      <CardTitle className="text-xs font-semibold flex items-center gap-1 mt-1">
+                        <span>{t.origen_nombre}</span>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="text-emerald-500">{t.destino_nombre}</span>
+                      </CardTitle>
+                      <CardDescription className="text-[10px]">
+                        Solicitado por: {t.solicitado_por} ({new Date(t.created_at).toLocaleDateString()})
+                      </CardDescription>
+                    </CardHeader>
 
-                    <Button
-                      onClick={() => handleOpenDispatchModal(t)}
-                      className="w-full h-8 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
-                    >
-                      <ClipboardList className="h-3.5 w-3.5" /> Iniciar Picking & Despachar
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))
+                    <CardContent className="space-y-3 pt-0">
+                      {checkedCount > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                            <span>Avance físico guardado</span>
+                            <span>{progressPct}%</span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-500 transition-all duration-300"
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="p-2 rounded bg-muted/30 border border-border/40 text-[11px] space-y-1">
+                        <div className="font-bold text-foreground">Ítems a Despachar ({t.items.length}):</div>
+                        <div className="max-h-24 overflow-y-auto space-y-0.5">
+                          {t.items.map(it => {
+                            const isDone = !!draft?.checklist?.[it.sku];
+                            return (
+                              <div key={it.sku} className={`flex justify-between text-[10px] ${isDone ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-muted-foreground'}`}>
+                                <span className="truncate">{isDone ? '✓ ' : ''}{it.quantity}x {it.name}</span>
+                                <span className="font-mono">[{it.sku}]</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDispatchModal(t);
+                        }}
+                        className="w-full h-9 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white gap-1.5 rounded-xl"
+                      >
+                        <ClipboardList className="h-3.5 w-3.5" />
+                        {checkedCount > 0 ? `Continuar Picking (${checkedCount}/${t.items.length})` : 'Abrir Mesa de Picking & Despachar'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </div>
         </div>
@@ -1307,110 +1480,237 @@ export default function TransfersTab() {
         </div>
       )}
 
-      {/* MODAL: CHECKLIST DE PICKING & DESPACHO GUIADO */}
+      {/* VENTANA GRANDE: MESA DE PICKING FÍSICO CON AUTOGUARDADO PERSISTENTE */}
       <Dialog open={!!selectedTransferForDispatch} onOpenChange={(open) => !open && setSelectedTransferForDispatch(null)}>
-        <DialogContent className="max-w-2xl bg-slate-950 border-slate-800 text-slate-100">
-          <DialogHeader className="border-b border-slate-800 pb-3">
-            <DialogTitle className="text-sm font-bold flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-amber-400" />
-                Mesa de Picking & Despacho [{selectedTransferForDispatch?.correlativo}]
-              </span>
-              <Badge variant="outline" className="text-[10px] text-amber-400 bg-amber-400/10 border-amber-400/30">
-                Modo Bodeguero
-              </Badge>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
-              Verifica físicamente cada producto en la estantería antes de autorizar la salida del camión.
-            </DialogDescription>
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl">
+          <DialogHeader className="p-5 bg-slate-900 text-white border-b border-white/10 shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <DialogTitle className="text-base sm:text-lg font-black flex items-center gap-2">
+                  <Truck className="h-5 w-5 text-amber-400" />
+                  Mesa de Picking Físico y Despacho — {selectedTransferForDispatch?.correlativo}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-300 mt-1">
+                  Marca el check físico a medida que sacas cada producto de bodega. Todo tu avance se guarda automáticamente si sales de esta ventana.
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">
+                  ✓ Autoguardado Activo
+                </Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleMarkAllPicked}
+                  className="h-8 text-xs font-bold border-white/20 bg-white/5 hover:bg-white/15 text-white rounded-xl"
+                >
+                  <Check className="h-3.5 w-3.5 mr-1" /> Marcar Todos Listos
+                </Button>
+              </div>
+            </div>
           </DialogHeader>
 
-          {selectedTransferForDispatch && (
-            <div className="space-y-4 py-2">
-              <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs flex justify-between">
-                <div>
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Ruta de Transporte:</span>
-                  <div className="font-semibold text-slate-200 mt-0.5">
-                    {selectedTransferForDispatch.origen_nombre} ➔ {selectedTransferForDispatch.destino_nombre}
+          {selectedTransferForDispatch && (() => {
+            const totalItems = selectedTransferForDispatch.items.length;
+            const checkedItemsCount = selectedTransferForDispatch.items.filter(it => !!pickingChecklist[it.sku]).length;
+            const progressPct = totalItems > 0 ? Math.round((checkedItemsCount / totalItems) * 100) : 0;
+
+            return (
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {/* Resumen de Ruta y Barra de Progreso */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-muted/40 border border-border">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ruta de Traslado</span>
+                    <div className="text-sm font-black text-foreground flex items-center gap-1.5 mt-0.5">
+                      <span>{selectedTransferForDispatch.origen_nombre}</span>
+                      <ArrowRight className="h-4 w-4 text-amber-500" />
+                      <span className="text-emerald-600 dark:text-emerald-400">{selectedTransferForDispatch.destino_nombre}</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">Solicitante: {selectedTransferForDispatch.solicitado_por}</span>
+                  </div>
+
+                  <div className="md:col-span-2 flex flex-col justify-center space-y-2">
+                    <div className="flex items-center justify-between text-xs font-black">
+                      <span className="text-foreground">
+                        Avance de Preparación Física: {checkedItemsCount} de {totalItems} productos sacados
+                      </span>
+                      <span className={progressPct === 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
+                        {progressPct}%
+                      </span>
+                    </div>
+                    <div className="h-3 w-full rounded-full bg-muted border border-border overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${progressPct === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Solicitante:</span>
-                  <div className="text-slate-200 mt-0.5">{selectedTransferForDispatch.solicitado_por}</div>
+
+                {/* Tabla Grande de Picking Físico */}
+                <div className="border border-border rounded-2xl overflow-hidden bg-background">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/60 border-b border-border text-[10px] uppercase font-black text-muted-foreground">
+                      <tr>
+                        <th className="py-3 px-4 text-center w-16">Check</th>
+                        <th className="py-3 px-4 text-left">SKU</th>
+                        <th className="py-3 px-4 text-left">Producto a Sacar de Bodega</th>
+                        <th className="py-3 px-4 text-center">Stock Origen</th>
+                        <th className="py-3 px-4 text-center">Solicitado</th>
+                        <th className="py-3 px-4 text-center w-44">Sacado Físicamente</th>
+                        <th className="py-3 px-4 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {selectedTransferForDispatch.items.map(it => {
+                        const isChecked = !!pickingChecklist[it.sku];
+                        const pickedVal = pickingQuantities[it.sku] ?? (isChecked ? it.quantity : 0);
+                        const stockAvail = getStockInWarehouse(it.sku, selectedTransferForDispatch.origen_id);
+
+                        return (
+                          <tr
+                            key={it.sku}
+                            onClick={() => handleTogglePickingItem(it.sku, it.quantity)}
+                            className={`cursor-pointer transition-colors ${
+                              isChecked
+                                ? 'bg-emerald-500/10 hover:bg-emerald-500/15'
+                                : 'hover:bg-muted/40'
+                            }`}
+                          >
+                            <td className="py-3.5 px-4 text-center">
+                              <div
+                                className={`w-7 h-7 mx-auto rounded-lg flex items-center justify-center border-2 transition-all ${
+                                  isChecked
+                                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
+                                    : 'border-muted-foreground/40 bg-background'
+                                }`}
+                              >
+                                {isChecked && <Check className="h-4 w-4 stroke-[3]" />}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-bold text-xs text-muted-foreground">
+                              {it.sku}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className={`text-sm font-bold ${isChecked ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground'}`}>
+                                {it.name}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono text-xs text-muted-foreground">
+                              {stockAvail} uds
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <Badge variant="outline" className="font-mono font-black text-xs px-2.5 py-0.5">
+                                {it.quantity} uds
+                              </Badge>
+                            </td>
+                            <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7 rounded-lg"
+                                  onClick={() => handleUpdatePickedQty(it.sku, pickedVal - 1, it.quantity)}
+                                >
+                                  -
+                                </Button>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={it.quantity}
+                                  value={pickedVal}
+                                  onChange={(e) => handleUpdatePickedQty(it.sku, parseFloat(e.target.value) || 0, it.quantity)}
+                                  className="w-16 h-7 text-center text-xs font-mono font-black rounded-lg"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7 rounded-lg"
+                                  onClick={() => handleUpdatePickedQty(it.sku, pickedVal + 1, it.quantity)}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              {isChecked ? (
+                                <Badge className="bg-emerald-600 text-white text-[10px] font-black">
+                                  SACADO ✓
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/40 text-[10px] font-bold">
+                                  PENDIENTE
+                                </Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Datos del Transportista (también se autoguardan) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-foreground">Nombre del Chofer / Transportista *</Label>
+                    <Input
+                      value={dispatchDriver}
+                      onChange={e => {
+                        setDispatchDriver(e.target.value);
+                        persistPickingDraft(selectedTransferForDispatch.id, pickingChecklist, pickingQuantities, e.target.value, dispatchPlaca);
+                      }}
+                      placeholder="Ej: Carlos Ramos"
+                      className="h-9 text-xs rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-foreground">Placa del Vehículo / Camión</Label>
+                    <Input
+                      value={dispatchPlaca}
+                      onChange={e => {
+                        setDispatchPlaca(e.target.value);
+                        persistPickingDraft(selectedTransferForDispatch.id, pickingChecklist, pickingQuantities, dispatchDriver, e.target.value);
+                      }}
+                      placeholder="Ej: C-124982"
+                      className="h-9 text-xs rounded-xl font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Barra de Acciones del Pie */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      persistPickingDraft(selectedTransferForDispatch.id, pickingChecklist, pickingQuantities, dispatchDriver, dispatchPlaca);
+                      setSelectedTransferForDispatch(null);
+                      toast({
+                        title: 'Avance de Picking Guardado',
+                        description: `Se guardó el progreso (${checkedItemsCount}/${totalItems} productos marcados). Puedes continuar cuando desees.`
+                      });
+                    }}
+                    className="w-full sm:w-auto h-10 text-xs font-bold rounded-xl"
+                  >
+                    Guardar Avance y Salir ({checkedItemsCount}/{totalItems})
+                  </Button>
+
+                  <Button
+                    onClick={handleConfirmDispatch}
+                    disabled={isProcessing || !dispatchDriver.trim() || checkedItemsCount < totalItems}
+                    className="w-full sm:w-auto h-10 px-6 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white gap-2 rounded-xl shadow-md"
+                  >
+                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
+                    Autorizar Salida de Bodega & Generar Guía ({checkedItemsCount}/{totalItems})
+                  </Button>
                 </div>
               </div>
-
-              {/* Checklist de Picking */}
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Checklist de Preparación Física:
-                </div>
-                <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
-                  {selectedTransferForDispatch.items.map(it => {
-                    const isChecked = !!pickingChecklist[it.sku];
-                    return (
-                      <div 
-                        key={it.sku}
-                        onClick={() => setPickingChecklist({ ...pickingChecklist, [it.sku]: !isChecked })}
-                        className={`p-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${
-                          isChecked 
-                            ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300' 
-                            : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded flex items-center justify-center border ${
-                            isChecked ? 'bg-emerald-600 border-emerald-500 text-white' : 'border-slate-700 bg-slate-800'
-                          }`}>
-                            {isChecked && <Check className="h-3.5 w-3.5" />}
-                          </div>
-                          <div>
-                            <div className="text-xs font-semibold">{it.name}</div>
-                            <div className="text-[10px] opacity-70 font-mono">SKU: {it.sku}</div>
-                          </div>
-                        </div>
-
-                        <div className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-slate-800 border border-slate-700">
-                          {it.quantity} unidades
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Datos del Conductor */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-400">Nombre del Chofer / Transportista *</Label>
-                  <Input 
-                    value={dispatchDriver} 
-                    onChange={e => setDispatchDriver(e.target.value)} 
-                    placeholder="Ej: Carlos Ramos" 
-                    className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-100" 
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-400">Placa del Vehículo / Camión</Label>
-                  <Input 
-                    value={dispatchPlaca} 
-                    onChange={e => setDispatchPlaca(e.target.value)} 
-                    placeholder="Ej: C-124982" 
-                    className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-100" 
-                  />
-                </div>
-              </div>
-
-              <Button
-                onClick={handleConfirmDispatch}
-                disabled={isProcessing || !dispatchDriver.trim()}
-                className="w-full h-9 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-md"
-              >
-                {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
-                Autorizar Salida de Bodega & Generar Guía de Remisión
-              </Button>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

@@ -44,6 +44,17 @@ import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/supabase/use-user';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
+import {
+  BaseMeasureType,
+  MEASURE_UNITS_CATALOG,
+  ProductFractionRule,
+  ProductFractionOption,
+  FixedSupplyConfig,
+  parseFractionExpression,
+  loadProductFractionRules,
+  saveProductFractionRule,
+  computeSuppliesCost,
+} from '@/lib/product-fraction-rules';
 
 export interface SpecialDischargeRecord {
   id: string;
@@ -208,10 +219,20 @@ export default function FractionAndDischargesTab() {
 
   const [isCreatingChild, setIsCreatingChild] = useState<boolean>(false);
 
-  // BOM de Envasado & Insumos Complementarios
-  const [selectedPackageSku, setSelectedPackageSku] = useState<string>('');
-  const [selectedCapSku, setSelectedCapSku] = useState<string>('');
-  const [selectedExtraSku, setSelectedExtraSku] = useState<string>('');
+  // Reglas Configurables por Producto Padre (Multi-Medida, Fracciones Permitidas, Insumos Fijos y Precio Editable)
+  const [productRules, setProductRules] = useState<Record<string, ProductFractionRule>>({});
+  const [selectedBaseMeasure, setSelectedBaseMeasure] = useState<BaseMeasureType>('GALON');
+  const [enabledProductFractions, setEnabledProductFractions] = useState<ProductFractionOption[]>(
+    MEASURE_UNITS_CATALOG.GALON.defaultFractions.map(f => ({ ...f }))
+  );
+  const [newFractionToAdd, setNewFractionToAdd] = useState<string>('');
+  const [editableSalePrice, setEditableSalePrice] = useState<string>('');
+  const [isSavingRule, setIsSavingRule] = useState<boolean>(false);
+
+  // BOM de Envasado & Insumos Complementarios (Fijables por Producto)
+  const [selectedPackageSku, setSelectedPackageSku] = useState<string>('none');
+  const [selectedCapSku, setSelectedCapSku] = useState<string>('none');
+  const [selectedExtraSku, setSelectedExtraSku] = useState<string>('none');
 
   // Producción vinculada
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>('');
@@ -240,6 +261,7 @@ export default function FractionAndDischargesTab() {
   useEffect(() => {
     loadData();
     resolveActiveOperator();
+    loadProductFractionRules().then(rules => setProductRules(rules));
   }, []);
 
   const resolveActiveOperator = async () => {
@@ -463,43 +485,240 @@ export default function FractionAndDischargesTab() {
     if (foundCap) setSelectedCapSku(foundCap.sku);
   };
 
+  const inferBaseMeasure = (name: string, unit?: string): BaseMeasureType => {
+    const txt = `${name || ''} ${unit || ''}`.toLowerCase();
+    if (txt.includes('yarda') || txt.includes(' yd')) return 'YARDA';
+    if (txt.includes('pie') || txt.includes(' ft')) return 'PIE';
+    if (txt.includes('metro') || txt.includes(' mt')) return 'METRO';
+    if (txt.includes('libra') || txt.includes(' lb')) return 'LIBRA';
+    if (txt.includes('kilo') || txt.includes(' kg')) return 'KILOGRAMO';
+    if (txt.includes('rollo') || txt.includes('bobina')) return 'ROLLO';
+    if (txt.includes('caja') || txt.includes('fardo')) return 'CAJA';
+    return 'GALON';
+  };
+
+  const handleBaseMeasureChange = (measure: BaseMeasureType) => {
+    setSelectedBaseMeasure(measure);
+    const def = MEASURE_UNITS_CATALOG[measure] || MEASURE_UNITS_CATALOG.GALON;
+    setSourceUnit(def.shortLabel);
+    const nextFracs = def.defaultFractions.map(f => ({ ...f }));
+    setEnabledProductFractions(nextFracs);
+    if (nextFracs.length > 0) {
+      setSelectedFractionText(nextFracs[0].fractionText);
+      setCustomFractionInput(nextFracs[0].fractionText);
+      setTargetUnit(nextFracs[0].label);
+      const autoUnits = nextFracs[0].factor >= 1 ? 1 : Math.max(1, Math.floor(1 / nextFracs[0].factor));
+      setUnitsToProduce(String(autoUnits));
+    }
+  };
+
   const handleSourceProductChange = (sku: string) => {
     setSourceSku(sku);
     const prod = products.find(p => p.sku === sku);
-    if (prod) {
-      const detected = prod.unit || detectUnitFromName(prod.name);
-      setSourceUnit(detected);
-      const child = findMatchingChildProduct(prod.name, prod.sku, selectedFractionText);
-      if (child) {
-        setDestinationSku(child.sku);
-        setTargetUnit(child.unit || 'Unidad');
+    if (!prod) return;
+
+    const existingRule = productRules[sku];
+    if (existingRule) {
+      const def = MEASURE_UNITS_CATALOG[existingRule.baseMeasure] || MEASURE_UNITS_CATALOG.GALON;
+      setSelectedBaseMeasure(existingRule.baseMeasure);
+      setSourceUnit(def.shortLabel);
+      const ruleFracs: ProductFractionOption[] = existingRule.enabledFractions.length > 0
+        ? existingRule.enabledFractions
+        : def.defaultFractions.map(f => ({ ...f }));
+      setEnabledProductFractions(ruleFracs);
+
+      const firstFrac = ruleFracs[0];
+      if (firstFrac) {
+        setSelectedFractionText(firstFrac.fractionText);
+        setCustomFractionInput(firstFrac.fractionText);
+        setTargetUnit(firstFrac.label);
+        const autoUnits = firstFrac.factor >= 1 ? 1 : Math.max(1, Math.floor(1 / firstFrac.factor));
+        setUnitsToProduce(String(autoUnits));
+
+        // Cargar insumos fijos asignados a esta fracción o al producto padre
+        const sup = firstFrac.fixedSupplies || existingRule.defaultSupplies;
+        setSelectedPackageSku(sup?.packageSku || 'none');
+        setSelectedCapSku(sup?.capSku || 'none');
+        setSelectedExtraSku(sup?.extraSku || 'none');
+
+        const supCost = computeSuppliesCost(sup);
+        const calcSale = firstFrac.customSalePrice !== undefined
+          ? firstFrac.customSalePrice
+          : Number(((Number(prod.price || 0) * firstFrac.factor) + supCost).toFixed(2));
+        setEditableSalePrice(calcSale > 0 ? calcSale.toFixed(2) : '');
       }
+    } else {
+      const inferred = inferBaseMeasure(prod.name, prod.unit);
+      const def = MEASURE_UNITS_CATALOG[inferred] || MEASURE_UNITS_CATALOG.GALON;
+      setSelectedBaseMeasure(inferred);
+      setSourceUnit(def.shortLabel);
+      const defaults = def.defaultFractions.map(f => ({ ...f }));
+      setEnabledProductFractions(defaults);
+      setSelectedPackageSku('none');
+      setSelectedCapSku('none');
+      setSelectedExtraSku('none');
+      if (defaults[0]) {
+        setSelectedFractionText(defaults[0].fractionText);
+        setCustomFractionInput(defaults[0].fractionText);
+        setTargetUnit(defaults[0].label);
+        const calcSale = Number((Number(prod.price || 0) * defaults[0].factor).toFixed(2));
+        setEditableSalePrice(calcSale > 0 ? calcSale.toFixed(2) : '');
+      }
+    }
+
+    const child = findMatchingChildProduct(prod.name, prod.sku, selectedFractionText);
+    if (child) {
+      setDestinationSku(child.sku);
+      setTargetUnit(child.unit || 'Unidad');
     }
   };
 
   const handleSelectFraction = (fracText: string) => {
     setSelectedFractionText(fracText);
     setCustomFractionInput(fracText);
-    const preset = PRESET_FRACTIONS.find(p => p.fractionText === fracText);
-    const parsed = parseCustomFraction(fracText);
-    if (preset) {
-      setTargetUnit(preset.unitName);
-    } else if (parsed.isValid) {
-      setTargetUnit(parsed.label);
-    }
-    // Calcular automáticamente cuántos envases equivalen a 1 Galón (o 1 unidad si factor >= 1)
+    const parsed = parseFractionExpression(fracText, selectedBaseMeasure);
+    const matchingOpt = enabledProductFractions.find(f => f.fractionText === fracText);
+    setTargetUnit(matchingOpt?.label || parsed.label);
+
     if (parsed.isValid && parsed.factor > 0) {
       const autoUnits = parsed.factor >= 1 ? 1 : Math.max(1, Math.floor(1 / parsed.factor));
       setUnitsToProduce(String(autoUnits));
     }
+
+    // Si esta fracción tiene insumos fijos o precio guardado en la regla, cargarlos automáticamente
+    if (matchingOpt?.fixedSupplies) {
+      setSelectedPackageSku(matchingOpt.fixedSupplies.packageSku || 'none');
+      setSelectedCapSku(matchingOpt.fixedSupplies.capSku || 'none');
+      setSelectedExtraSku(matchingOpt.fixedSupplies.extraSku || 'none');
+    } else if (sourceSku && productRules[sourceSku]?.defaultSupplies) {
+      const defSup = productRules[sourceSku].defaultSupplies!;
+      setSelectedPackageSku(defSup.packageSku || 'none');
+      setSelectedCapSku(defSup.capSku || 'none');
+      setSelectedExtraSku(defSup.extraSku || 'none');
+    } else {
+      autoDetectPackagingForFraction(fracText);
+    }
+
     if (selectedSourceProduct) {
+      const supCost = matchingOpt?.fixedSupplies
+        ? computeSuppliesCost(matchingOpt.fixedSupplies)
+        : unitPackagingCost;
+      const calcSale = matchingOpt?.customSalePrice !== undefined
+        ? matchingOpt.customSalePrice
+        : Number(((Number(selectedSourceProduct.price || 0) * parsed.factor) + supCost).toFixed(2));
+      setEditableSalePrice(calcSale > 0 ? calcSale.toFixed(2) : '');
+
       const child = findMatchingChildProduct(selectedSourceProduct.name, selectedSourceProduct.sku, fracText);
       if (child) {
         setDestinationSku(child.sku);
-        setTargetUnit(child.unit || preset?.unitName || 'Unidad');
       }
     }
-    autoDetectPackagingForFraction(fracText);
+  };
+
+  const handleAddFractionToProduct = () => {
+    const clean = newFractionToAdd.trim();
+    if (!clean) return;
+    const parsed = parseFractionExpression(clean, selectedBaseMeasure);
+    if (!parsed.isValid) {
+      toast({ variant: 'destructive', title: 'Fracción inválida', description: 'Usa formato como 1/2, 1/4, 3/8, 3/32 o decimal 0.5.' });
+      return;
+    }
+    if (enabledProductFractions.some(f => f.fractionText === clean)) {
+      toast({ title: 'Fracción ya agregada', description: `La fracción ${clean} ya está habilitada para este producto.` });
+      return;
+    }
+    const newOpt: ProductFractionOption = {
+      fractionText: clean,
+      label: parsed.label,
+      factor: parsed.factor,
+      subUnitValue: parsed.subUnits
+    };
+    const nextList = [...enabledProductFractions, newOpt];
+    setEnabledProductFractions(nextList);
+    setNewFractionToAdd('');
+    handleSelectFraction(clean);
+    toast({ title: 'Fracción agregada', description: `Se habilitó "${parsed.label}" para este producto. Recuerda pulsar Guardar Regla.` });
+  };
+
+  const handleRemoveFractionFromProduct = (fracText: string) => {
+    if (enabledProductFractions.length <= 1) {
+      toast({ variant: 'destructive', title: 'Mínimo requerido', description: 'Deja al menos 1 fracción habilitada para el producto.' });
+      return;
+    }
+    const nextList = enabledProductFractions.filter(f => f.fractionText !== fracText);
+    setEnabledProductFractions(nextList);
+    if (selectedFractionText === fracText && nextList[0]) {
+      handleSelectFraction(nextList[0].fractionText);
+    }
+  };
+
+  const handleSaveCurrentProductRule = async () => {
+    if (!selectedSourceProduct) {
+      toast({ variant: 'destructive', title: 'Selecciona un Producto Padre', description: 'Primero elige el producto padre a configurar.' });
+      return;
+    }
+    setIsSavingRule(true);
+    try {
+      const currentSupplies: FixedSupplyConfig = {
+        packageSku: selectedPackageSku !== 'none' ? selectedPackageSku : undefined,
+        packageName: selectedPackageProduct?.name,
+        packageCost: selectedPackageProduct ? Number(selectedPackageProduct.cost || 0) : 0,
+        capSku: selectedCapSku !== 'none' ? selectedCapSku : undefined,
+        capName: selectedCapProduct?.name,
+        capCost: selectedCapProduct ? Number(selectedCapProduct.cost || 0) : 0,
+        extraSku: selectedExtraSku !== 'none' ? selectedExtraSku : undefined,
+        extraName: selectedExtraProduct?.name,
+        extraCost: selectedExtraProduct ? Number(selectedExtraProduct.cost || 0) : 0,
+      };
+      const supCostTotal = computeSuppliesCost(currentSupplies);
+      const parsedEditedPrice = parseFloat(editableSalePrice);
+
+      const updatedFractions: ProductFractionOption[] = enabledProductFractions.map(f => {
+        if (f.fractionText !== selectedFractionText) return f;
+        return {
+          ...f,
+          fixedSupplies: currentSupplies,
+          suppliesTotalCost: supCostTotal,
+          customSalePrice: !isNaN(parsedEditedPrice) && parsedEditedPrice > 0
+            ? Number(parsedEditedPrice.toFixed(2))
+            : Number(((Number(selectedSourceProduct.price || 0) * f.factor) + supCostTotal).toFixed(2))
+        };
+      });
+
+      const rule: ProductFractionRule = {
+        parentSku: selectedSourceProduct.sku,
+        parentName: selectedSourceProduct.name,
+        baseMeasure: selectedBaseMeasure,
+        enabledFractions: updatedFractions,
+        defaultSupplies: currentSupplies,
+        updatedAt: new Date().toISOString()
+      };
+
+      const savedMap = await saveProductFractionRule(rule);
+      setProductRules(savedMap);
+      setEnabledProductFractions(updatedFractions);
+
+      // Si hay producto hijo seleccionado y el usuario editó el precio de venta, actualizar también su precio en inventario
+      if (selectedDestinationProduct && !isNaN(parsedEditedPrice) && parsedEditedPrice > 0) {
+        try {
+          await supabase
+            .from('inventory')
+            .update({ price: Number(parsedEditedPrice.toFixed(2)) })
+            .eq('sku', selectedDestinationProduct.sku);
+        } catch {
+          // ignore
+        }
+      }
+
+      toast({
+        title: '✅ Regla de Producto Guardada',
+        description: `Se fijaron ${updatedFractions.length} fracción(es) en ${MEASURE_UNITS_CATALOG[selectedBaseMeasure].label}, insumos (+${supCostTotal.toFixed(2)}) y PVP final de ${(!isNaN(parsedEditedPrice) ? parsedEditedPrice : 0).toFixed(2)} para Facturación POS.`
+      });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message || 'No se pudo guardar la regla.' });
+    } finally {
+      setIsSavingRule(false);
+    }
   };
 
   const handleCustomFractionChange = (text: string) => {
@@ -638,10 +857,16 @@ export default function FractionAndDischargesTab() {
     return getProductStockInWarehouse(sourceSku, selectedWarehouseId);
   }, [sourceSku, selectedWarehouseId, stockMap, products]);
 
-  // Factor de fracción evaluado (porción de galón: 0.25, 0.5, 0.375, etc.)
+  // Factor de fracción evaluado según la unidad base seleccionada (Galón, Yarda, Pie, Metro, Libra, etc.)
   const parsedFractionInfo = useMemo(() => {
-    return parseCustomFraction(customFractionInput || selectedFractionText);
-  }, [customFractionInput, selectedFractionText]);
+    const res = parseFractionExpression(customFractionInput || selectedFractionText, selectedBaseMeasure);
+    return {
+      factor: res.factor,
+      ounces: res.subUnits,
+      label: res.label,
+      isValid: res.isValid
+    };
+  }, [customFractionInput, selectedFractionText, selectedBaseMeasure]);
 
   // Cantidad de envases/botes resultantes a envasar
   const parsedUnitsToProduce = useMemo(() => {
@@ -694,6 +919,13 @@ export default function FractionAndDischargesTab() {
     if (selectedExtraProduct) cost += Number(selectedExtraProduct.cost || 0);
     return cost;
   }, [selectedPackageProduct, selectedCapProduct, selectedExtraProduct]);
+
+  // Recalcular precio sugerido de venta al cambiar insumos o fracción
+  const suggestedSalePriceWithSupplies = useMemo(() => {
+    const parentSalePrice = Number(selectedSourceProduct?.price || 0);
+    const baseProportional = parentSalePrice * parsedFractionInfo.factor;
+    return Number((baseProportional + unitPackagingCost).toFixed(2));
+  }, [selectedSourceProduct, parsedFractionInfo.factor, unitPackagingCost]);
 
   const totalPackagingCost = useMemo(() => {
     return unitPackagingCost * netResultingUnits;
@@ -1210,7 +1442,7 @@ export default function FractionAndDischargesTab() {
                     </div>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 text-indigo-400 bg-indigo-500/10">
-                    Base: 1 Galón = 128 oz
+                    Medida Base: {MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.label || 'Galón'}
                   </Badge>
                 </div>
               </CardHeader>
@@ -1261,23 +1493,41 @@ export default function FractionAndDischargesTab() {
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Seleccionar Producto Matriz *</Label>
-                    <Select value={sourceSku} onValueChange={handleSourceProductChange}>
-                      <SelectTrigger className="h-9 text-xs rounded-xl">
-                        <SelectValue placeholder="Buscar producto líquido (galón, tambor, solvente)..." />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-56">
-                        {products.map(p => {
-                          const stockInWh = getProductStockInWarehouse(p.sku, selectedWarehouseId);
-                          return (
-                            <SelectItem key={p.sku} value={p.sku} className="text-xs">
-                              [{p.sku}] {p.name} (Stock: {(Number(stockInWh) || 0).toFixed(2)} {p.unit || 'uds'}) - ${Number(p.cost || 0).toFixed(2)}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                    <div className="sm:col-span-8 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Seleccionar Producto Padre a Fraccionar *</Label>
+                      <Select value={sourceSku} onValueChange={handleSourceProductChange}>
+                        <SelectTrigger className="h-9 text-xs rounded-xl">
+                          <SelectValue placeholder="Buscar producto padre (galón, yarda, pie, metro, rollo)..." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-56">
+                          {products.map(p => {
+                            const stockInWh = getProductStockInWarehouse(p.sku, selectedWarehouseId);
+                            const hasRule = !!productRules[p.sku];
+                            return (
+                              <SelectItem key={p.sku} value={p.sku} className="text-xs">
+                                {hasRule ? '★ ' : ''}[{p.sku}] {p.name} (Stock: {(Number(stockInWh) || 0).toFixed(2)}) — PVP: ${Number(p.price || 0).toFixed(2)}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="sm:col-span-4 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Medida de Fracción *</Label>
+                      <Select value={selectedBaseMeasure} onValueChange={(v) => handleBaseMeasureChange(v as BaseMeasureType)}>
+                        <SelectTrigger className="h-9 text-xs font-bold rounded-xl border-indigo-500/30">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.values(MEASURE_UNITS_CATALOG).map(m => (
+                            <SelectItem key={m.id} value={m.id} className="text-xs font-semibold">
+                              {m.label}
                             </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {selectedSourceProduct && (
@@ -1312,133 +1562,108 @@ export default function FractionAndDischargesTab() {
                     </Badge>
                   </div>
 
-                  {/* Selector Desplegable Automático con Flecha */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                      Seleccionar Tipo de Fracción Automática *
-                    </Label>
-                    <Select
-                      value={selectedFractionText}
-                      onValueChange={(val) => handleSelectFraction(val)}
-                    >
-                      <SelectTrigger className="h-10 text-xs font-bold rounded-xl border-indigo-500/40 bg-background/90 shadow-sm">
-                        <SelectValue placeholder="Seleccionar fracción a realizar automáticamente..." />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        <SelectItem value="1/2" className="text-xs font-semibold">
-                          1/2 Galón (64 oz) — Auto: 2 envases por Galón
-                        </SelectItem>
-                        <SelectItem value="3/8" className="text-xs font-semibold">
-                          3/8 Galón (48 oz) — Auto: 2 envases (0.75 Gal)
-                        </SelectItem>
-                        <SelectItem value="1/4" className="text-xs font-semibold">
-                          1/4 Galón (32 oz / Cuarto) — Auto: 4 envases por Galón
-                        </SelectItem>
-                        <SelectItem value="3/16" className="text-xs font-semibold">
-                          3/16 Galón (24 oz) — Auto: 5 envases (0.94 Gal)
-                        </SelectItem>
-                        <SelectItem value="1/8" className="text-xs font-semibold">
-                          1/8 Galón (16 oz / Octavo / Pinta) — Auto: 8 envases por Galón
-                        </SelectItem>
-                        <SelectItem value="1/16" className="text-xs font-semibold">
-                          1/16 Galón (8 oz) — Auto: 16 envases por Galón
-                        </SelectItem>
-                        <SelectItem value="1/32" className="text-xs font-semibold">
-                          1/32 Galón (4 oz) — Auto: 32 envases por Galón
-                        </SelectItem>
-                        <SelectItem value="5/16" className="text-xs">
-                          5/16 Galón (40 oz) — Fracción Especial
-                        </SelectItem>
-                        <SelectItem value="5/8" className="text-xs">
-                          5/8 Galón (80 oz) — Fracción Especial
-                        </SelectItem>
-                        <SelectItem value="3/4" className="text-xs">
-                          3/4 Galón (96 oz) — Fracción Especial
-                        </SelectItem>
-                        <SelectItem value="7/8" className="text-xs">
-                          7/8 Galón (112 oz) — Fracción Especial
-                        </SelectItem>
-                        <SelectItem value="5" className="text-xs font-semibold">
-                          Caneca / Cubeta (5 Galones — 640 oz)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Solo Fracciones Habilitadas para este Producto Padre */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-bold text-indigo-600 dark:text-indigo-300">
+                        Fracciones Habilitadas para este Producto ({MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.label})
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground">
+                        Solo estas medidas aparecerán al facturar
+                      </span>
+                    </div>
 
-                  {/* Chips Rápidos de Fracciones Habituales */}
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground mb-1.5 block">
-                      Selecciona una fracción predefinida o escribe una personalizada (ej. 3/8, 1/32, 5/16):
-                    </Label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {PRESET_FRACTIONS.map(preset => {
-                        const isSelected = selectedFractionText === preset.fractionText;
+                      {enabledProductFractions.map(opt => {
+                        const isSelected = selectedFractionText === opt.fractionText;
+                        const subVal = Number((opt.factor * (MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.subUnitsPerBase || 1)).toFixed(1));
+                        const subLbl = MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.subUnitLabel || '';
                         return (
-                          <button
-                            key={preset.fractionText}
-                            type="button"
-                            onClick={() => handleSelectFraction(preset.fractionText)}
-                            className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                          <div
+                            key={opt.fractionText}
+                            onClick={() => handleSelectFraction(opt.fractionText)}
+                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
                               isSelected
                                 ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/30 font-bold'
                                 : 'border-border/70 bg-card hover:bg-muted/70 text-foreground'
                             }`}
                           >
                             <div className="flex items-center justify-between w-full">
-                              <span className="text-xs font-black">{preset.fractionText}</span>
-                              <span className={`text-[9px] font-mono ${isSelected ? 'text-indigo-200' : 'text-muted-foreground'}`}>
-                                {preset.factor < 0.1 ? preset.factor.toFixed(4) : preset.factor.toFixed(2)}
-                              </span>
+                              <span className="text-xs font-black">{opt.fractionText} {MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.shortLabel}</span>
+                              {enabledProductFractions.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveFractionFromProduct(opt.fractionText);
+                                  }}
+                                  className={`text-[10px] px-1 rounded hover:bg-rose-500 hover:text-white ${isSelected ? 'text-indigo-200' : 'text-muted-foreground'}`}
+                                  title="Quitar esta fracción de este producto"
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </div>
-                            <div className={`text-[10px] truncate mt-1 ${isSelected ? 'text-white' : 'text-muted-foreground'}`}>
-                              {preset.label}
+                            <div className={`text-[10px] truncate mt-1 ${isSelected ? 'text-indigo-100' : 'text-muted-foreground'}`}>
+                              {subVal} {subLbl}
                             </div>
-                            <div className={`text-[9px] font-mono mt-0.5 ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>
-                              {preset.ounces} oz
-                            </div>
-                          </button>
+                            {opt.customSalePrice !== undefined && (
+                              <div className={`text-[9.5px] font-mono mt-0.5 font-bold ${isSelected ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                PVP: ${opt.customSalePrice.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
-                  </div>
 
-                  {/* Entrada libre de fracciones (3/8, 1/32, 5/16, etc.) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Escribir Fracción Manual (ej. 1/32, 3/8, 0.25):
-                      </Label>
-                      <div className="relative">
+                    {/* Agregar fracción personalizada SOLO a este producto (ej. 3/32, 3/8, 1/3) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 pt-1">
+                      <div className="sm:col-span-6 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">
+                          Agregar otra fracción a este producto (ej. 3/8, 1/32, 3/32, 1/3):
+                        </Label>
+                        <div className="flex gap-1.5">
+                          <Input
+                            value={newFractionToAdd}
+                            onChange={e => setNewFractionToAdd(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFractionToProduct(); } }}
+                            placeholder="Ej: 3/8 o 3/32"
+                            className="h-9 text-xs font-mono font-bold"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleAddFractionToProduct}
+                            className="h-9 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shrink-0"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Agregar
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-6 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">
+                          ¿Cuántas fracciones / unidades vas a preparar? *
+                        </Label>
                         <Input
-                          value={customFractionInput}
-                          onChange={e => handleCustomFractionChange(e.target.value)}
-                          placeholder="Ej: 3/8 o 1/32"
-                          className="h-9 text-xs font-mono font-bold pl-3"
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={unitsToProduce}
+                          onChange={e => setUnitsToProduce(e.target.value)}
+                          placeholder="Ej: 4"
+                          className="h-9 text-xs font-black text-indigo-600 dark:text-indigo-400"
                         />
                       </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">
-                        ¿Cuántos envases / botes vas a sacar? *
-                      </Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={unitsToProduce}
-                        onChange={e => setUnitsToProduce(e.target.value)}
-                        placeholder="Ej: 4"
-                        className="h-9 text-xs font-black text-indigo-600 dark:text-indigo-400"
-                      />
                     </div>
                   </div>
 
                   {/* Resumen Visual Inmediato del Consumo */}
                   <div className="p-2.5 rounded-lg bg-background/80 border border-indigo-500/20 text-xs flex items-center justify-between">
-                    <span className="text-muted-foreground">Consumo de líquido calculado:</span>
+                    <span className="text-muted-foreground">Consumo del producto padre calculado:</span>
                     <span className="font-mono font-bold text-foreground">
-                      {unitsToProduce || 0} envases × {parsedFractionInfo.factor < 0.1 ? parsedFractionInfo.factor.toFixed(4) : parsedFractionInfo.factor.toFixed(3)} = <strong className="text-indigo-600 dark:text-indigo-400">{parsedSourceQty.toFixed(2)} Galones</strong> ({(parsedSourceQty * 128).toFixed(1)} oz)
+                      {unitsToProduce || 0} uds × {parsedFractionInfo.factor < 0.1 ? parsedFractionInfo.factor.toFixed(4) : parsedFractionInfo.factor.toFixed(3)} = <strong className="text-indigo-600 dark:text-indigo-400">{parsedSourceQty.toFixed(2)} {MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.shortLabel || sourceUnit}</strong> ({(parsedSourceQty * (MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.subUnitsPerBase || 1)).toFixed(1)} {MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.subUnitLabel})
                     </span>
                   </div>
                 </div>
@@ -1621,12 +1846,68 @@ export default function FractionAndDischargesTab() {
                     </div>
                   </div>
 
-                  {unitPackagingCost > 0 && (
-                    <div className="p-2 rounded-lg bg-card border border-border/50 text-[11px] text-muted-foreground flex justify-between">
-                      <span>Costo de empaque por unidad:</span>
-                      <span className="font-mono font-bold text-foreground">+${unitPackagingCost.toFixed(2)} por cada bote</span>
+                  {/* Cálculo de Precio de Venta con Insumos Fijos (Editable) y Guardado de Regla */}
+                  <div className="p-3 rounded-xl bg-card border border-indigo-500/30 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                      <div className="p-2 rounded-lg bg-muted/40">
+                        <span className="text-muted-foreground block text-[10px]">Precio Base ({selectedFractionText}):</span>
+                        <span className="font-mono font-bold text-foreground">
+                          ${(Number(selectedSourceProduct?.price || 0) * parsedFractionInfo.factor).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-muted/40">
+                        <span className="text-muted-foreground block text-[10px]">+ Insumos Fijos:</span>
+                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                          +${unitPackagingCost.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <span className="text-emerald-700 dark:text-emerald-400 block text-[10px] font-bold">PVP Sugerido Total:</span>
+                        <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
+                          ${suggestedSalePriceWithSupplies.toFixed(2)}
+                        </span>
+                      </div>
                     </div>
-                  )}
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-end justify-between gap-3">
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-xs font-bold text-foreground">
+                          Precio de Venta Final para "{selectedFractionText} {MEASURE_UNITS_CATALOG[selectedBaseMeasure]?.shortLabel}" (Editable $)
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editableSalePrice}
+                            onChange={e => setEditableSalePrice(e.target.value)}
+                            placeholder={suggestedSalePriceWithSupplies.toFixed(2)}
+                            className="h-9 text-xs font-mono font-black text-emerald-600 dark:text-emerald-400"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditableSalePrice(suggestedSalePriceWithSupplies.toFixed(2))}
+                            className="h-9 text-[11px] font-bold shrink-0"
+                            title="Aplicar suma exacta de fracción + insumos"
+                          >
+                            Usar Sugerido
+                          </Button>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        disabled={!selectedSourceProduct || isSavingRule}
+                        onClick={handleSaveCurrentProductRule}
+                        className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm shrink-0 gap-1.5"
+                      >
+                        {isSavingRule ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                        Fijar Insumos, Fracciones y PVP
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* PASO 5: Merma y Trazabilidad */}
