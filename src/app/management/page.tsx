@@ -737,17 +737,28 @@ export default function ManagementPage() {
   };
 
   const handleChangeUserBranch = async (userId: string, branchId: string | null) => {
+    const targetUser = usersList.find((u: any) => u.id === userId);
+    if (!targetUser) return;
+    const prevBranchId = targetUser.branch_id;
+    setUsersList(prev => prev.map(u => u.id === userId ? { ...u, branch_id: branchId } : u));
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ branch_id: branchId })
-        .eq('id', userId);
-      if (error) throw error;
-      toast({ title: "Sucursal de Usuario Actualizada", description: "Se reasignó la sucursal del usuario." });
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: targetUser.email,
+          role: targetUser.role || 'vendedor',
+          branch_id: branchId
+        })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'No se pudo reasignar la sucursal.');
+      toast({ title: "Sucursal de Usuario Actualizada", description: "Se reasignó la sucursal del usuario correctamente." });
       await loadData();
     } catch (err: any) {
       console.error(err);
+      setUsersList(prev => prev.map(u => u.id === userId ? { ...u, branch_id: prevBranchId } : u));
       toast({ variant: "destructive", title: "Error", description: err.message || "No se pudo reasignar la sucursal." });
     } finally {
       setIsSaving(false);
@@ -767,14 +778,27 @@ export default function ManagementPage() {
   };
 
   const handleChangeRole = async (userId: string, newRole: string) => {
+    const targetUser = usersList.find((u: any) => u.id === userId);
+    if (!targetUser) return;
+    const prevRole = targetUser.role;
+    setUsersList(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
-      if (error) throw error;
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: targetUser.email,
+          role: newRole
+        })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'No se pudo actualizar el rol.');
       toast({ title: "Rol de Usuario Actualizado", description: `El usuario ahora tiene el rol de ${ROLE_NAMES[newRole] || newRole}.` });
       await loadData();
     } catch (error: any) {
       console.error('Error al actualizar rol de usuario:', error);
+      setUsersList(prev => prev.map(u => u.id === userId ? { ...u, role: prevRole } : u));
       toast({ 
         variant: "destructive", 
         title: "Error al cambiar rol", 
@@ -1095,9 +1119,48 @@ export default function ManagementPage() {
   // ─── Asignar caja a usuario ─────────────────────────────────────
   const handleAssignStation = async (userId: string, stationId: string) => {
     if (userId.startsWith('preassigned:')) return;
-    await supabase.from('profiles').update({ station_id: stationId || null }).eq('id', userId);
-    await loadData();
-    toast({ title: 'Caja asignada al usuario.' });
+    const targetUser = usersList.find((u: any) => u.id === userId);
+    if (!targetUser) return;
+
+    const normalizedStationId = stationId && stationId !== '__none' ? stationId : null;
+    const prevStationId = targetUser.station_id;
+
+    // Actualización visual inmediata
+    setUsersList(prev => prev.map(u => u.id === userId ? { ...u, station_id: normalizedStationId } : u));
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: targetUser.email,
+          role: targetUser.role || 'vendedor',
+          station_id: normalizedStationId
+        })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'No se pudo asignar la caja al usuario.');
+
+      const stationName = normalizedStationId
+        ? (posStations.find(s => s.id === normalizedStationId)?.name || 'Caja seleccionada')
+        : 'Sin caja asignada';
+
+      toast({
+        title: 'Caja Actualizada',
+        description: `${targetUser.email} ahora tiene asignada: ${stationName}.`
+      });
+      await loadData();
+    } catch (err: any) {
+      console.error('Error al asignar caja:', err);
+      setUsersList(prev => prev.map(u => u.id === userId ? { ...u, station_id: prevStationId } : u));
+      toast({
+        variant: 'destructive',
+        title: 'Error al asignar caja',
+        description: err.message || 'No se pudo guardar la asignación de caja.'
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // ─── Análisis: datos filtrados por período ──────────────────────

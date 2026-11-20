@@ -152,8 +152,8 @@ export async function GET() {
         full_name: fullName,
         name: fullName,
         role: p.role || regMatch?.role || preMatch?.role || 'vendedor',
-        station_id: p.station_id || sanitizeUuid(regMatch?.station_id, null),
-        branch_id: p.branch_id || sanitizeUuid(regMatch?.branch_id, defaultBranchUuid),
+        station_id: p.station_id ?? regMatch?.station_id ?? null,
+        branch_id: p.branch_id ?? null,
         pin_code: perms.pin_code ?? regMatch?.pin_code ?? '',
         status: perms.status || regMatch?.status || 'ACTIVO',
         permissions: perms,
@@ -367,12 +367,12 @@ export async function POST(request: Request) {
 
     const resolvedStationId =
       station_id !== undefined
-        ? sanitizeUuid(station_id, null)
-        : sanitizeUuid(existingProfile?.station_id, null);
+        ? (station_id === null || station_id === '' || station_id === '__none' ? null : String(station_id).trim())
+        : (existingProfile?.station_id || null);
 
     const resolvedBranchId =
       branch_id !== undefined
-        ? sanitizeUuid(branch_id, defaultBranchUuid)
+        ? (branch_id === null || branch_id === '' || branch_id === '__none' ? null : sanitizeUuid(branch_id, defaultBranchUuid))
         : sanitizeUuid(existingProfile?.branch_id, defaultBranchUuid);
 
     const profilePayload = {
