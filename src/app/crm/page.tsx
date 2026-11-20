@@ -605,26 +605,103 @@ export default function CRMPage() {
         </div>
 
         <Tabs defaultValue="kanban" className="w-full mt-6">
-          <TabsList className="bg-slate-900/50 border border-white/10 mb-4 rounded-xl p-1 h-12">
-            <TabsTrigger data-tour-id="tab-kanban" value="kanban" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              <SlidersHorizontal size={14} className="mr-2" /> Embudo Kanban
+          <TabsList className="bg-transparent p-0 h-auto flex flex-wrap w-full justify-start border-b border-slate-200 dark:border-white/10 gap-2 sm:gap-4 mb-5">
+            <TabsTrigger data-tour-id="tab-kanban" value="kanban" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
+              <SlidersHorizontal size={15} /> 1. Embudo Comercial (Kanban)
             </TabsTrigger>
-            <TabsTrigger data-tour-id="tab-mapa" value="mapa" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
-              <Navigation size={14} className="mr-2" /> Mapa Logístico
+            <TabsTrigger data-tour-id="tab-foco" value="foco" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
+              <Package size={15} /> 2. Foco de Venta — Stock Estancado ({stagnantProducts.length})
             </TabsTrigger>
-            <TabsTrigger data-tour-id="tab-gmail" value="gmail" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-red-500 data-[state=active]:text-white">
-              <Mail size={14} className="mr-2" /> Bandeja CRM
-            </TabsTrigger>
-            <TabsTrigger data-tour-id="tab-retention" value="retention" className="rounded-lg text-xs font-bold px-6 py-2 data-[state=active]:bg-orange-600 data-[state=active]:text-white">
-               Retención de Clientes
+            <TabsTrigger data-tour-id="tab-retention" value="retention" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-orange-600 dark:data-[state=active]:text-orange-400 data-[state=active]:border-b-2 data-[state=active]:border-orange-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
+              <AlertTriangle size={15} /> 3. Retención de Clientes
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="gmail" className="mt-0 outline-none">
-            <GmailClient context="crm" />
+          <TabsContent value="foco" className="mt-0 outline-none">
+            <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
+              <CardHeader className="bg-muted/30 border-b border-border p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <CardTitle className="text-base font-black uppercase tracking-tight flex items-center gap-2 text-foreground">
+                    <Package className="text-amber-500" size={18} />
+                    Foco de Venta — Productos sin Rotación (30 Días)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                    Productos reales en inventario con existencias disponibles pero sin ventas recientes. Crea una oportunidad comercial con 1 clic para darles salida.
+                  </CardDescription>
+                </div>
+                <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-mono text-xs font-black">
+                  {stagnantProducts.length} SKUs para Priorizar
+                </Badge>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b border-border text-[10px] uppercase font-black text-muted-foreground">
+                      <tr>
+                        <th className="p-4 text-left">SKU</th>
+                        <th className="p-4 text-left">Producto</th>
+                        <th className="p-4 text-center">Existencias</th>
+                        <th className="p-4 text-right">Precio Unit.</th>
+                        <th className="p-4 text-right">Capital Retenido</th>
+                        <th className="p-4 text-right">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {stagnantProducts.map((prod: any) => {
+                        const tiedVal = (Number(prod.stock) || 0) * (Number(prod.price) || 0);
+                        return (
+                          <tr key={prod.sku} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-4 font-mono font-bold text-xs text-muted-foreground">{prod.sku}</td>
+                            <td className="p-4 font-bold text-xs text-foreground">{prod.name}</td>
+                            <td className="p-4 text-center">
+                              <Badge variant="outline" className="font-mono text-xs border-amber-500/40 text-amber-600 dark:text-amber-400">
+                                {prod.stock} uds
+                              </Badge>
+                            </td>
+                            <td className="p-4 text-right font-mono text-xs">${(Number(prod.price) || 0).toFixed(2)}</td>
+                            <td className="p-4 text-right font-mono font-black text-xs text-amber-600 dark:text-amber-400">
+                              ${tiedVal.toFixed(2)}
+                            </td>
+                            <td className="p-4 text-right">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setOppForm({
+                                    id: '',
+                                    title: `Promoción ${prod.name}`,
+                                    customer_id: 'none',
+                                    contact_name: '',
+                                    estimated_value: String(Math.round(tiedVal)),
+                                    stage: 'PROSPECTO',
+                                    priority: 'ALTA',
+                                    suggested_sku: prod.sku,
+                                    notes: `Impulsar rotación de ${prod.stock} unidades estancadas en bodega.`
+                                  });
+                                  setIsOppModalOpen(true);
+                                }}
+                                className="h-8 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl"
+                              >
+                                <Plus size={13} className="mr-1" /> Crear Oportunidad
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {stagnantProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-12 text-center text-xs text-muted-foreground">
+                            🎯 Excelente: no se detectan productos estancados sin rotación en los últimos 30 días.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          <TabsContent value="retention" className="outline-none mt-6">
+          <TabsContent value="retention" className="outline-none mt-0">
              <RetentionTab />
           </TabsContent>
 
@@ -727,105 +804,6 @@ export default function CRMPage() {
             })}
           </div>
         )}
-          </TabsContent>
-
-          <TabsContent value="mapa" className="mt-0 h-[600px] outline-none">
-            <div className="flex flex-col lg:flex-row h-full gap-4">
-              {/* Lista lateral izquierda (Prioridades) */}
-              <div className="w-full lg:w-1/3 bg-slate-900/30 rounded-xl border border-white/5 p-4 flex flex-col h-[300px] lg:h-full overflow-hidden">
-                <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <AlertTriangle className="text-amber-500" size={16} /> Prioridades
-                </h3>
-                <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                  {mapData.locations.map(loc => (
-                    <div key={loc.id} className="p-3 bg-slate-950/80 border border-white/10 rounded-xl hover:border-indigo-500/50 cursor-pointer transition-all space-y-2">
-                      <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-white">{loc.name}</span>
-                        <Badge className={`text-[8px] font-black ${
-                          loc.type === 'VIP' ? 'bg-blue-500/20 text-blue-400' : loc.type === 'BRANCH' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                        }`}>
-                          {loc.type}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-400">
-                        <span>Saldo: <strong className="text-emerald-400 font-mono">${(loc.balance || 0).toLocaleString()}</strong></span>
-                        <span className="text-[9px] text-slate-500">{loc.address || 'San Salvador'}</span>
-                      </div>
-                      {/* Botones de Accion */}
-                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                        <div className="flex gap-1.5">
-                          <Button
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`, '_blank')}
-                            className="h-6 px-2 text-[9px] font-bold text-blue-400 hover:text-white hover:bg-blue-600/30 rounded-lg flex items-center gap-1"
-                          >
-                            <Navigation size={10} /> Google Maps
-                          </Button>
-                          <Button
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                            onClick={() => window.open(`https://waze.com/ul?ll=${loc.lat},${loc.lng}&navigate=yes`, '_blank')}
-                            className="h-6 px-2 text-[9px] font-bold text-sky-400 hover:text-white hover:bg-sky-600/30 rounded-lg flex items-center gap-1"
-                          >
-                            <Car size={10} /> Waze GPS
-                          </Button>
-                        </div>
-                        <Button
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setMapData(prev => ({
-                              ...prev,
-                              locations: prev.locations.filter(l => l.id !== loc.id)
-                            }));
-                            toast({
-                              title: "Dirección Eliminada 🗑️",
-                              description: `Se eliminó "${loc.name}" del mapa.`
-                            });
-                          }}
-                          className="h-6 w-6 p-0 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg"
-                          title="Borrar Dirección"
-                        >
-                          <Trash2 size={12} />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Mapa a la derecha */}
-              <div className="w-full lg:w-2/3 h-[400px] lg:h-full">
-                <CrmMap 
-                  locations={mapData.locations} 
-                  routes={mapData.routes} 
-                  onAddLocation={(newLoc) => {
-                    setMapData(prev => ({
-                      ...prev,
-                      locations: [newLoc, ...prev.locations]
-                    }));
-                    toast({
-                      title: "Dirección Agregada 📍",
-                      description: `Se guardó "${newLoc.name}" en el mapa.`
-                    });
-                  }}
-                  onDeleteLocation={(locId) => {
-                    setMapData(prev => ({
-                      ...prev,
-                      locations: prev.locations.filter(l => l.id !== locId)
-                    }));
-                    toast({
-                      title: "Dirección Eliminada 🗑️",
-                      description: "Se removió la ubicación del mapa."
-                    });
-                  }}
-                />
-              </div>
-            </div>
           </TabsContent>
         </Tabs>
 

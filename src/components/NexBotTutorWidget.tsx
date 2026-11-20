@@ -44,56 +44,96 @@ export interface AiProposal {
 }
 
 const MODULE_GUIDES: Record<string, { title: string; steps: string[]; taxTip: string }> = {
+  '/': {
+    title: 'Guía Paso a Paso: Centro Ejecutivo y Agenda Táctica',
+    steps: [
+      'Paso 1: Revisa las píldoras superiores (Productos a Pedir, Pedidos Proveedor y Stock Estancado) para ver el monto real en riesgo.',
+      'Paso 2: Haz clic en "Ver Tabla Completa" para priorizar SKUs críticos o productos sin rotación.',
+      'Paso 3: En la Agenda Táctica, pulsa "⚡ NexBot: Actualizar Plan IA" para generar acciones priorizadas con productos reales.',
+      'Paso 4: Cambia la prioridad (🔴 Urgente / 🟠 Alta / 🔵 Normal) con un clic y usa el botón de acceso directo para ir al área correspondiente.'
+    ],
+    taxTip: '💡 Tip Ejecutivo: Prioriza primero los productos marcados como 🔴 URGENTE (stock en cero) para evitar pérdida de ventas.'
+  },
   '/billing': {
-    title: 'Tutoría de Facturación & Emisión de DTE (POS)',
+    title: 'Guía Paso a Paso: Facturación POS, Fracciones y Correo DTE',
     steps: [
-      '1. Selecciona o verifica la Caja y Bodega activa en la barra superior.',
-      '2. Agrega los productos al carrito con búsqueda o código de barra.',
-      '3. Elige Consumidor Final (CF) o Crédito Fiscal (CCF).',
-      '4. Para CCF se requiere Razón Social, NIT y NRC obligatorios.',
-      '5. Selecciona el método de pago (Efectivo rápido o Tarjeta/Transferencia) y emite el DTE.'
+      'Paso 1: Verifica la Caja POS, Bodega activa y selecciona al Vendedor / Asesor en la parte superior.',
+      'Paso 2: Busca el producto por nombre o SKU y agrégalo a la factura.',
+      'Paso 3: Si el producto tiene fracciones habilitadas, despliega la flecha "Fracción Auto ▾" (ej. 1/4 Gal, 1/2 Yd) y ajusta el Precio Unitario si deseas.',
+      'Paso 4: Selecciona el cliente, tipo de DTE (CF o CCF), forma de pago y pulsa "FINALIZAR" para descontar la fracción exacta del inventario.',
+      'Paso 5: Al emitir la venta, usa "Enviar / Simular Correo DTE" para remitir PDF + JSON al cliente; al cierre del turno realiza el Arqueo con Visto Bueno.'
     ],
-    taxTip: '💡 Tip Fiscal El Salvador: Si el cliente es Grande Contribuyente, aplica el 1% de Retención de IVA en compras mayores a $100.00.'
-  },
-  '/compras': {
-    title: 'Tutoría de Gestión de Compras y Proveedores',
-    steps: [
-      '1. Registra las órdenes de compra solicitadas a proveedores.',
-      '2. Al recibir la mercadería, confirma el ingreso para actualizar el Kardex.',
-      '3. Registra el documento del proveedor (Factura o CCF).',
-      '4. Verifica las retenciones de IVA (1% o 13%) según la clasificación del proveedor.'
-    ],
-    taxTip: '💡 Tip Fiscal: El Crédito Fiscal debe incluir el NRC y NIT del proveedor para deducir el IVA en el Informe F07.'
-  },
-  '/finanzas': {
-    title: 'Tutoría de Finanzas, Bancos y Tesorería',
-    steps: [
-      '1. Revisa la proyección de Flujo de Caja a 30, 60 y 90 días.',
-      '2. Registra los saldos de Cuentas Bancarias y concilia los estados en CSV.',
-      '3. Consulta la evaluación de Credit Scoring antes de aprobar créditos a clientes.',
-      '4. Genera archivos TXT masivos para pago a proveedores vía banca en línea empresarial.'
-    ],
-    taxTip: '💡 Tip Financiero: Mantén un margen de liquidez de al menos 1.5 en el indicador Razón Corriente.'
-  },
-  '/management': {
-    title: 'Tutoría de Gerencia, Nómina y Configuración',
-    steps: [
-      '1. En Nómina y RH, ingresa los salarios base de tus colaboradores.',
-      '2. El sistema calcula automáticamente ISSS (3% max $30), AFP (7.25%) e ISR Renta (Tabla 4 tramos).',
-      '3. Gestiona préstamos y anticipos de empleados descontados de planilla.',
-      '4. Diseña las plantillas de impresión (Ticket 80mm o Carta) en el Diseñador Modular.'
-    ],
-    taxTip: '💡 Tip Legal El Salvador: Las retenciones de renta e ISSS/AFP deben declararse antes del día 10 de cada mes.'
+    taxTip: '💡 Tip Fiscal El Salvador: Para Crédito Fiscal (CCF 03) asegúrate de que el cliente tenga NIT, NRC y Giro registrados en Directorio Comercial.'
   },
   '/logistica': {
-    title: 'Tutoría de Circuito de Traslados, Despacho y Reabastecimiento',
+    title: 'Guía Paso a Paso: Inventario, Fraccionamiento Multi-Medida y Picking',
     steps: [
-      '1. Solicitudes y Modo Exprés (1 Clic): Crea traslados con circuito guiado o activa Modo Exprés para mover 1 unidad al instante.',
-      '2. Mesa de Despacho & Picking: El bodeguero valida ítem por ítem con checklist físico e ingresa motorista/placa de transporte.',
-      '3. Recepción en Destino: La sucursal destino confirma la llegada física, acreditando el stock en Kardex automáticamente.',
-      '4. Reabastecimiento ROP: NexBot y BMS vigilan el punto de reorden y consolidan compras a proveedores al detectar quiebres.'
+      'Paso 1 (Inventario): En "1. Inventario & Catálogo" consulta el stock consolidado o por bodega, registra SKUs en Catálogo Maestro o realiza Toma Física.',
+      'Paso 2 (Configurar Fracción): En "2. Fraccionamiento & Envasado" elige el Producto Padre y su Medida Base (Galón, Yarda, Pie, Metro, Libra, Rollo o Caja).',
+      'Paso 3 (Habilitar Medidas e Insumos Fijos): Agrega o quita las fracciones permitidas para ese producto, asigna envases/insumos fijos, edita el Precio de Venta Final y pulsa "Fijar Insumos, Fracciones y PVP".',
+      'Paso 4 (Traslados y Despacho): En "4. Traslados entre Bodegas ➔ 2. Despachar" haz clic en cualquier solicitud pendiente para abrir la ventana grande de Picking Físico y marcar el check (✓) por producto.',
+      'Paso 5 (Autoguardado): Si sales de la ventana de Picking, tu avance se guarda automáticamente; al completar todos los checks, ingresa motorista/placa y autoriza la salida.'
     ],
-    taxTip: '💡 Tip Logístico & Legal: Toda mercadería en tránsito debe contar con su correlativo o Guía de Remisión física para respaldo ante auditorías de transporte.'
+    taxTip: '💡 Tip Logístico: Solo las fracciones que fijes en el Paso 3 aparecerán en el selector de Facturación POS para mantener limpio el punto de venta.'
+  },
+  '/compras': {
+    title: 'Guía Paso a Paso: Abastecimiento y Órdenes de Compra',
+    steps: [
+      'Paso 1: Revisa en "Órdenes de Compra" los pedidos pendientes o genera uno nuevo seleccionando proveedor y SKUs.',
+      'Paso 2: Al recibir la mercadería física, registra la compra DTE en "Registro de Compras" para cargar el inventario y Kardex automáticamente.',
+      'Paso 3: Verifica retenciones o percepciones de IVA (1%) según la categoría del proveedor.',
+      'Paso 4: Si la compra es al crédito, se reflejará automáticamente en Finanzas ➔ 2. Cuentas por Pagar (CXP).'
+    ],
+    taxTip: '💡 Tip Fiscal: El CCF de compra debe llevar número de control DTE, NIT y NRC del proveedor para deducirlo en el Formulario F07.'
+  },
+  '/finanzas': {
+    title: 'Guía Paso a Paso: CXC, CXP, Quedan, Bancos y Planilla',
+    steps: [
+      'Paso 1 (CXC): En "1. Cuentas por Cobrar" visualiza facturas al crédito, registra nuevas cuentas con "+ Nueva Cuenta CXC" y aplica abonos (sincronizados con Libro Diario y POS).',
+      'Paso 2 (CXP y Quedan): En "2. Cuentas por Pagar" y "3. Gestión de Quedan" controla vencimientos y aplica pagos a proveedores.',
+      'Paso 3 (Bancos y TXT): En "4. Bancos & Pagos TXT" administra cuentas bancarias, concilia saldos y genera archivos TXT masivos.',
+      'Paso 4 (Cash Flow y Nómina): Consulta la liquidez a 30/60/90 días en "5. Flujo de Caja" y procesa planilla, bonos y anticipos en "6. Nómina, Bonos & Anticipos".'
+    ],
+    taxTip: '💡 Tip Legal El Salvador: ISSS (3% máx $30), AFP (7.25%) e ISR Renta se calculan automáticamente en la pestaña 6.'
+  },
+  '/crm': {
+    title: 'Guía Paso a Paso: Embudo Comercial, Foco de Venta y Retención',
+    steps: [
+      'Paso 1 (Embudo Kanban): En "1. Embudo Comercial" crea nuevas oportunidades vinculadas a clientes y muévelas hasta Ganada.',
+      'Paso 2 (Foco de Venta): En "2. Foco de Venta — Stock Estancado" identifica productos sin rotación en 30 días y pulsa "+ Crear Oportunidad" en 1 clic.',
+      'Paso 3 (Retención): En "3. Retención de Clientes" filtra clientes inactivos (30, 60 o 90 días) y contáctalos directo por WhatsApp o Correo.'
+    ],
+    taxTip: '💡 Tip Comercial: Prioriza primero los productos con mayor Capital Retenido ($) en la pestaña 2 para liberar flujo de caja rápido.'
+  },
+  '/accounting': {
+    title: 'Guía Paso a Paso: Contabilidad, Libros IVA y Auditoría Manual',
+    steps: [
+      'Paso 1: Revisa en "Libro Diario" las partidas automáticas generadas por ventas POS, compras y abonos CXC/CXP.',
+      'Paso 2: Verifica el cuadre contable en "Balance de Comprobación" y el resultado en "Estado de Resultados (P&L)".',
+      'Paso 3: Exporta los Libros Oficiales de IVA y prepara F07 / F14 en las pestañas tributarias.',
+      'Paso 4: Usa el "Centro de Auditoría Manual" para revisar trazabilidad 360° de operaciones.'
+    ],
+    taxTip: '💡 Tip Contable: Toda partida cumple el principio de Partida Doble (Debe = Haber) y separa el 13% de IVA Débito/Crédito Fiscal.'
+  },
+  '/directorio': {
+    title: 'Guía Paso a Paso: Directorio de Clientes y Proveedores',
+    steps: [
+      'Paso 1: Selecciona la pestaña "Clientes" o "Proveedores" según el registro a gestionar.',
+      'Paso 2: Para crear un registro, completa Razón Social, NIT/NRC, Correo DTE, teléfono y condiciones de crédito.',
+      'Paso 3: Para editar correo, límite de crédito o datos fiscales de un cliente existente, haz clic en el botón Editar (lápiz) en su fila y guarda los cambios.',
+      'Paso 4: Usa "Exportar Excel" para descargar tu cartera completa en cualquier momento.'
+    ],
+    taxTip: '💡 Tip DTE: Mantener actualizado el Correo DTE de cada cliente permite enviarle sus facturas en 1 clic desde Facturación POS.'
+  },
+  '/management': {
+    title: 'Guía Paso a Paso: Usuarios, Cajas POS, Sucursales y Permisos',
+    steps: [
+      'Paso 1: En "Control de Usuarios" crea un nuevo colaborador indicando nombre de usuario, contraseña (mín. 6 caracteres), rol y sucursal.',
+      'Paso 2: En la lista de usuarios, asigna al instante su Rol, Sucursal y Caja POS usando los selectores de cada fila.',
+      'Paso 3: Para permisos detallados por módulo y pestaña, abre "Permisos de Módulos" o el ícono de escudo en la fila del usuario.',
+      'Paso 4: El colaborador puede iniciar sesión en /login con su usuario (ej. diego), correo completo o PIN.'
+    ],
+    taxTip: '💡 Tip de Seguridad: Asigna cada cajero a su propia Caja POS para que el arqueo y correlativo de turno queden auditados por usuario.'
   }
 };
 

@@ -1,48 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize the Google Gen AI SDK safely
 const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 const SYSTEM_INSTRUCTIONS = `
 Eres "NexBot", el Asistente Experto e IA Integradora de NexWay ERP.
-Posees conocimientos profundos y avanzados en Asesoría Contable, Fiscal, Operativa, Logística y Comercial para empresas en El Salvador y Latinoamérica.
+Posees conocimientos profundos y actualizados de TODOS los módulos reales de NexWay ERP y asesoría contable, fiscal, operativa, logística y comercial para empresas en El Salvador y Latinoamérica.
 
-PERFIL Y CAPACIDADES DE ASESORÍA DE NEXBOT:
-1. ARQUITECTURA DE EMPRESA LIMPIAS Y MOTOR CONTABLE ESTILO MÓNICA 8.5:
-   - El sistema está diseñado para iniciar 100% LIMPIO EN BLANCO (sin cuentas bancarias simuladas, productos estáticos ni evaluaciones de crédito falsas precargadas), permitiendo a cada empresa construir o importar su información real sin contaminación de datos de prueba.
-   - Cuenta con el "Cargador Directo de Datos Reales / Purgador Demo" para limpiar muestras de prueba y subir plantillas Excel de inventarios, clientes y proveedores.
-   - Motor Contable Integrado Mónica 8.5: Generación automática de asientos en el Libro Diario al realizar ventas DTE (FE 01, CCF 03) y compras a proveedores, con el principio de Partida Doble (Debe: Caja/Bancos/CXC = Haber: Ventas + IVA Débito 13%).
-   - Manejo de Libros Oficiales de IVA de El Salvador: Libro de Ventas Consumidor Final, Ventas a Contribuyentes CCF y Libro de Compras.
+REGLA OBLIGATORIA DE FORMATO EN TUS EXPLICACIONES:
+- SIEMPRE que expliques cómo hacer un proceso, trámite, registro o configuración en el ERP, debes responder en formato **paso a paso numerado y claro**:
+  - **Paso 1:** Indica el módulo y pestaña exacta donde debe ir el usuario.
+  - **Paso 2:** Indica qué campos llenar, qué producto/cliente seleccionar o qué opción activar.
+  - **Paso 3:** Indica el botón exacto a presionar y qué efecto automático produce en inventario, Kardex, contabilidad o facturación.
+  - (Agrega Paso 4, Paso 5, etc. según sea necesario, siendo directo, práctico y fácil de seguir).
+- Cuando el usuario diga "enséñame", "guíame", "muéstrame" o pregunte dónde está un elemento, incluye al final en una nueva línea el comando: [TOUR:id_del_elemento|Mensaje corto]
 
-2. FACTURACIÓN ELECTRÓNICA Y DTE (MINISTERIO DE HACIENDA DE EL SALVADOR):
-   - Dominas la emisión de Documentos Tributarios Electrónicos (DTE): Factura Electrónica (FE 01), Comprobante de Crédito Fiscal Electrónico (CCFE 03), Nota de Remisión (NR 04), Nota de Crédito (NC 05), Nota de Débito (ND 06), Comprobante de Retención (CR 07), Factura de Exportación (FEX 11) y Comprobante de Sujeto Excluido (FSE 14).
-   - Explicas la Retención del 1% de IVA (ventas a Grandes Contribuyentes) y la Percepción del 1% de IVA.
-   - Explicas los Formularios Tributarios: F07 (Pago Cuenta e IVA) y F14 (Retenciones Renta e ISR).
+CONOCIMIENTO ACTUALIZADO DE NEXWAY ERP (VERSIÓN ACTUAL EN PRODUCCIÓN):
+1. PANEL DE INICIO — CENTRO EJECUTIVO DE CONTROL Y AGENDA TÁCTICA (/):
+   - Muestra píldoras ejecutivas en tiempo real: Productos a Pedir (con SKUs, stock actual, cantidad sugerida y costo estimado), Pedidos a Proveedor pendientes y Capital en Stock Estancado (>30 días sin venta).
+   - Permite abrir la tabla completa de priorización y redirigir con 1 clic al área correspondiente (/compras?tab=ordenes, /logistica?tab=traslados, /crm, /billing).
+   - La Agenda Táctica soporta niveles de prioridad (🔴 URGENTE, 🟠 ALTA, 🔵 NORMAL) y redirección directa al módulo en cada tarjeta.
 
-3. MAQUETACIÓN WIDESCREEN Y TEMA ADAPTATIVO:
-   - El ERP aprovecha el 100% del ancho útil de pantalla en computadoras (Widescreen 1080p, 1440p, 4K) sin franjas negras laterales y se adapta proporcionalmente en Tablets y Celulares.
-   - El Tema Blanco (Light Mode) y Tema Noche son 100% dinámicos en todas las pestañas, encabezados y modales.
+2. LOGÍSTICA & PRODUCCIÓN (/logistica) — 5 PESTAÑAS ORDENADAS:
+   - 1. Inventario & Catálogo: Existencias por Bodega (Consolidado visible de inmediato), Catálogo Maestro, Precios/BMS, Carga Masiva, Vincular Proveedores y Auditoría/Toma Física.
+   - 2. Fraccionamiento & Envasado:
+     * Multi-Medida por Producto Padre: puedes asignar si un producto se fracciona en Galón (128 oz), Yarda (36 pulg), Pie (12 pulg), Metro (100 cm), Libra (16 oz), Kilogramo (1000 g), Rollo o Caja.
+     * Fracciones Exclusivas por Producto: solo aparecen las fracciones que habilites para ese producto padre (las medidas especiales como 3/32 o 3/8 solo aparecen si las agregas manualmente en ese producto).
+     * Insumos Fijos y Precio de Venta Editable: puedes asignar envase/bolsa, tapa o complemento y pulsar "Fijar Insumos, Fracciones y PVP". El costo de los insumos se suma automáticamente al precio proporcional y puedes editar el Precio de Venta Final ($) antes de guardar la regla.
+   - 3. Producción & Fórmulas: Recetas BOM y órdenes de fabricación por lotes.
+   - 4. Traslados entre Bodegas:
+     * Solicitudes de traslado o Modo Exprés (1 clic).
+     * Mesa de Despacho: al hacer clic en una solicitud pendiente se abre una VENTANA GRANDE de Picking Físico con barra de progreso, tabla de productos, check físico (✓) y controles +/- para cantidad sacada. Todo el avance se AUTOGUARDA automáticamente si el bodeguero sale de la ventana o cambia de pestaña.
+     * Recepción en Destino y Reabastecimiento.
+   - 5. Kardex Valorizado FIFO: Historial único y valorizado de entradas, salidas, fraccionamientos y traslados.
 
-4. MODO GUÍA INTERACTIVO EN PANTALLA:
-   - Cuando el usuario diga "enséñame", "guíame", "muéstrame" o pregunte dónde está un elemento, incluye en una nueva línea el comando: [TOUR:id_del_elemento|Mensaje corto]
+3. FACTURACIÓN POS Y DTE EL SALVADOR (/billing):
+   - Emisión de Factura Electrónica (FE 01 / CF) y Crédito Fiscal (CCFE 03 / CCF), Notas de Crédito (NC 05) y Débito (ND 06).
+   - Fraccionamiento Automático al Facturar: los productos con regla configurada muestran un selector con flecha (Fracción Auto ▾) únicamente con sus fracciones permitidas, aplicando el costo de insumos fijos, permitiendo editar el Precio Unitario directamente en la tabla y descontando la fracción proporcional exacta del inventario y Kardex al emitir la factura.
+   - Envío y Simulación de Correo DTE: permite enviar/simular el envío de la factura emitida con PDF + JSON de Hacienda al correo del cliente desde el modal de venta completada o el historial, quedando guardado en la carpeta "Enviados (DTE)".
+   - Arqueo y Cierre de Caja Inteligente: conteo físico, auditoría BMS + sugerencias IA, Visto Bueno del Cajero y reporte imprimible con desglose de CF, CCF y Abonos.
 
-5. TONO Y ESTILO:
-   - Profesional, analítico, seguro, claro y altamente enfocado en resolver dudas contables y operativas del negocio.
+4. FINANZAS Y CRÉDITOS (/finanzas) — 6 PESTAÑAS ORDENADAS:
+   - 1. Cuentas por Cobrar (CXC) + Evaluador Credit Scoring: botón "+ Nueva Cuenta CXC", registro de abonos sincronizados con Libro Diario y Facturación POS, y recordatorios por WhatsApp.
+   - 2. Cuentas por Pagar (CXP): botón "+ Nueva Cuenta CXP", control de vencimientos y registro de pagos a proveedores.
+   - 3. Gestión de Quedan.
+   - 4. Bancos & Pagos TXT: administración de cuentas bancarias, conciliación y generación de archivos TXT masivos.
+   - 5. Flujo de Caja (Cash Flow): proyección real a 30, 60 y 90 días.
+   - 6. Nómina, Bonos & Anticipos: planilla El Salvador (ISSS 3% máx $30, AFP 7.25%, Tabla ISR 4 tramos), bonificaciones y préstamos/anticipos unificados.
+
+5. CRM COMERCIAL (/crm) — 3 PESTAÑAS REALES SIN DATOS FALSOS:
+   - 1. Embudo Comercial (Kanban): gestión de prospectos y negocios reales por etapa.
+   - 2. Foco de Venta — Stock Estancado: listado real de productos sin rotación en 30 días con capital retenido ($) y botón "+ Crear Oportunidad" en 1 clic.
+   - 3. Retención de Clientes: cálculo real de clientes inactivos (30, 60, 90, 180 días) con contacto directo por WhatsApp y Correo.
+
+6. CONTABILIDAD (/accounting), DIRECTORIO (/directorio), ABASTECIMIENTO (/compras) Y GERENCIA (/management):
+   - Contabilidad: Libro Diario (Partida Doble automática), Mayor, Balance, Libros IVA (CF, CCF, Compras), Formularios F07/F14, P&L y Centro de Auditoría Manual.
+   - Directorio Comercial: creación y edición de Clientes y Proveedores con exportación a Excel.
+   - Gerencia y Usuarios: creación de usuarios (acceso con nombre de usuario, correo o PIN), asignación inmediata de Caja POS, Sucursal, Rol y Permisos granulares por módulo/pestaña.
 `;
 
 const MODULE_BLUEPRINTS: Record<string, string> = {
-  'Facturación y Ventas': 'Pestañas y Operativa: 1. POS (Punto de Venta) [TOUR:tab-pos]: Emitir DTEs (Factura, Crédito Fiscal, Ticket), seleccionar estación/caja, cliente y cobrar en efectivo/tarjeta/crédito. 2. Historial de Ventas [TOUR:tab-history]: Re-impresión de DTEs y anulaciones. 3. Arqueo de Caja [TOUR:tab-arqueo]: Cierre ciego de turno, liberación de caja y re-cierre sin errores de duplicidad. 4. Créditos (CXC) [TOUR:tab-creditos]. 5. Diseñador de Impresión por Bloques.',
-  'Inventario y Logística': 'Pestañas: 1. Existencias [TOUR:tab-existencia]. 2. Catálogo Maestro [TOUR:tab-catalogo]. 3. Precios y Variantes [TOUR:tab-precios]. 4. Kardex [TOUR:tab-kardex]. 5. Toma Física [TOUR:tab-toma-fisica]. 6. Carga Masiva [TOUR:tab-carga-masiva]. 7. Vincular Proveedor [TOUR:tab-vinculacion]. 8. Entradas [TOUR:tab-entradas]. 9. Bodegas [TOUR:tab-config].',
-  'Registro de Compras': 'Pestañas: 1. Historial Compras [TOUR:tab-historial]. 2. Órdenes de Compra [TOUR:tab-ordenes]. 3. Importación DTE Gmail [TOUR:tab-gmail]. 4. Registro de Facturas y Proveedores.',
-  'Registro de Clientes': 'Pestañas: 1. Directorio de Clientes (NIT/NRC/Dirección). 2. Límites de Crédito y Categorías Fiscales (Gran Contribuyente, Exento, Distribuidor).',
-  'Contabilidad y Finanzas': 'Pestañas Contables: 1. Libro Diario [TOUR:tab-diario]: Asientos manuales y automáticos. 2. Centros de Costo [TOUR:tab-cost-centers]: Asignación a sucursales y SKUs. 3. Balance de Comprobación [TOUR:tab-balance]. 4. Libros IVA [TOUR:tab-libros-iva] (Ventas Consumidor, Ventas Contribuyente, Compras). 5. Formularios MH [TOUR:tab-mh] (F07, F14). 6. P&L / Estado de Resultados [TOUR:tab-pnl].',
-  'CRM Comercial': 'Pestañas: 1. Embudo Kanban [TOUR:tab-kanban]. 2. Retención de Clientes Inactivos [TOUR:tab-retention]. 3. Mapa Logístico [TOUR:tab-mapa]. 4. Bandeja CRM [TOUR:tab-gmail].',
-  'Gerencia y Reportes': 'Pestañas: 1. Dashboard KPIs. 2. Recursos Humanos & Nómina [TOUR:tab-rrhh]: Planilla, Deducciones ISSS/AFP/Renta, Préstamos y Bonos. 3. Usuarios y Roles (RBAC). 4. Diseñador de Impresión [TOUR:tab-print-designer]. 5. Script SQL Maestro.',
-  'Módulo Institucional': 'Pestañas: 1. Licitaciones y Proyectos. 2. Análisis P&L por Proyecto: Comparativa Ingresos vs Costos Directos. 3. Cargar Costos. 4. Consolidación. 5. Libro Mayor por Proyecto.',
-  'Finanzas y Créditos': 'Pestañas: 1. Cuentas por Cobrar (CXC) [TOUR:tab-cxc]: Seguimiento de cartera, registro de abonos y recordatorios WhatsApp. 2. Cuentas por Pagar (CXP) [TOUR:tab-cxp]: Programación de pagos a proveedores y días de crédito. 3. Gestión de Quedan [TOUR:tab-quedan]. 4. Nómina & Recursos Humanos [TOUR:tab-payroll]: Cálculo de planilla laboral con deducciones ISSS/AFP/ISR El Salvador.',
-  'Centro Documental': 'Funciones: Creación y edición de documentos Word y hojas de Excel en nube sin vinculación a módulos.'
+  'Facturación y Ventas': 'Pestañas: 1. POS [TOUR:tab-pos] (Fracción Auto por producto, precio unitario editable, envío de correo DTE PDF+JSON). 2. Historial de Ventas [TOUR:tab-history] (reimpresión, correo DTE, anulaciones). 3. Arqueo / Cierre [TOUR:tab-arqueo] (auditoría BMS+IA, Visto Bueno del Cajero). 4. Créditos (CXC) [TOUR:tab-creditos].',
+  'Inventario y Logística': '5 Pestañas ordenadas en /logistica: 1. Inventario & Catálogo [TOUR:tab-existencias]. 2. Fraccionamiento & Envasado (multi-medida Galón/Yarda/Pie/Metro/Libra, fracciones por producto, insumos fijos y PVP editable). 3. Producción & Fórmulas BOM. 4. Traslados entre Bodegas (ventana grande de Picking Físico con autoguardado). 5. Kardex Valorizado FIFO.',
+  'Registro de Compras': 'Pestañas en /compras: 1. Registro de Compras DTE. 2. Órdenes de Compra a Proveedores. 3. Recepción DTE por Correo.',
+  'Registro de Clientes': 'Directorio Comercial (/directorio): 1. Cartera de Clientes (NIT/NRC/Correo DTE/Límite de crédito). 2. Directorio de Proveedores.',
+  'Contabilidad y Finanzas': 'Contabilidad (/accounting): Libro Diario, Mayor, Balance, Libros IVA, Formularios MH (F07/F14), P&L y Centro de Auditoría Manual.',
+  'CRM Comercial': '3 Pestañas reales en /crm: 1. Embudo Comercial Kanban [TOUR:tab-kanban]. 2. Foco de Venta — Stock Estancado [TOUR:tab-foco]. 3. Retención de Clientes [TOUR:tab-retention].',
+  'Gerencia y Reportes': 'Gerencia (/management): Usuarios y Roles (asignación de Caja POS, Sucursal y Permisos), Sucursales/Bodegas/Cajas, Perfil Fiscal y Diseñador de Impresión.',
+  'Módulo Institucional': 'Licitaciones, Proyectos y P&L por Proyecto.',
+  'Finanzas y Créditos': '6 Pestañas ordenadas en /finanzas: 1. Cuentas por Cobrar (CXC) + Credit Scoring. 2. Cuentas por Pagar (CXP). 3. Gestión de Quedan. 4. Bancos & Pagos TXT. 5. Flujo de Caja Proyectado. 6. Nómina, Bonos & Anticipos.',
+  'Centro Documental': 'Creación y edición de documentos internos.'
 };
 
 export async function POST(req: NextRequest) {
@@ -63,13 +91,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prepare model
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_INSTRUCTIONS,
     });
 
-    // Format messages for the Gemini SDK
     const contents = messages.map((msg: any) => {
       let role = 'user';
       if (msg.role === 'assistant' || msg.role === 'model') {
@@ -81,18 +107,17 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // Add current module context to the last user message if available
     if (contents.length > 0) {
       const lastMsg = contents[contents.length - 1];
       if (lastMsg.role === 'user') {
-        let contextPrefix = `[Contexto del ERP: El usuario está actualmente en el módulo de "${currentModule || 'Desconocido'}"]\n`;
-        
+        let contextPrefix = `[Contexto del ERP: El usuario está actualmente en el módulo de "${currentModule || 'Panel Principal'}"]\n`;
+
         if (currentModule && MODULE_BLUEPRINTS[currentModule]) {
-          contextPrefix += `[Manual del Módulo: ${MODULE_BLUEPRINTS[currentModule]}]\n`;
+          contextPrefix += `[Guía del Módulo Actual: ${MODULE_BLUEPRINTS[currentModule]}]\n`;
         }
 
         if (bmsData) {
-          contextPrefix += `[Datos del BMS y Estado del Sistema: ${JSON.stringify(bmsData)}]\n`;
+          contextPrefix += `[Datos en Vivo del BMS: ${JSON.stringify(bmsData)}]\n`;
         }
         lastMsg.parts[0].text = `${contextPrefix}\n${lastMsg.parts[0].text}`;
       }
@@ -101,8 +126,8 @@ export async function POST(req: NextRequest) {
     const result = await model.generateContent({
       contents,
       generationConfig: {
-        maxOutputTokens: 900,
-        temperature: 0.7,
+        maxOutputTokens: 1100,
+        temperature: 0.6,
       }
     });
 

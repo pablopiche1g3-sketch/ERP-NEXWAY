@@ -742,23 +742,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    if (defaultMapData.densityAlert) {
-      list.push({
-        id: 'alert_logistics_density',
-        title: '🤖 Optimización de Ruta y Despacho CRM',
-        description: defaultMapData.densityAlert,
-        category: 'opportunities',
-        status: 'pending',
-        priority: 'NORMAL',
-        badgeText: 'AHORRO RUTA',
-        actionLabel: 'Priorizar Ruta en Mapa CRM',
-        actionPath: '/crm',
-        secondaryActionLabel: 'Cartera de Clientes',
-        secondaryActionPath: '/directorio?tab=clientes'
-      });
-    }
-
-    // --- ALERTAS DE SENCILLO (BMS SMART CHANGE) ---
+    // --- ALERTA DE SENCILLO (BMS SMART CHANGE) ---
     const quartersAmount = inventoryQuarters * 0.25;
     const onesAmount = inventoryOnes * 1;
     
