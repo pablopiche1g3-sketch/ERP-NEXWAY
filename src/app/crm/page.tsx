@@ -33,7 +33,9 @@ import {
   ListTodo,
   Navigation,
   Mails,
-  Car
+  Car,
+  Crosshair,
+  ArrowUpDown
 } from 'lucide-react';
 import { useUser } from '@/supabase/use-user';
 import { supabase } from '@/supabase/client';
@@ -54,7 +56,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CrmMap, SellerRouteStop } from '@/components/CrmMap';
+import { CrmMap, SellerRouteStop, calculateDistanceKm } from '@/components/CrmMap';
 import { useBms } from '@/contexts/BmsContext';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
 
@@ -131,6 +133,49 @@ export default function CRMPage() {
   const [crmSellers, setCrmSellers] = useState<{ id: string; full_name: string; email: string }[]>([]);
   const [selectedRouteSeller, setSelectedRouteSeller] = useState<string>('all');
   const [focusedStopId, setFocusedStopId] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [sortByNearest, setSortByNearest] = useState(false);
+
+  const requestLiveGps = (silent = false) => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      if (!silent) {
+        toast({
+          variant: 'destructive',
+          title: 'GPS no disponible',
+          description: 'Tu navegador no soporta geolocalización o requiere conexión segura (HTTPS).'
+        });
+      }
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(coords);
+        setGpsLoading(false);
+        if (!silent) {
+          toast({
+            title: 'GPS Activado 📍',
+            description: `Ubicación detectada (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}). Las rutas ahora salen desde tu punto actual.`
+          });
+        }
+      },
+      (err) => {
+        setGpsLoading(false);
+        if (!silent) {
+          const reason =
+            err.code === 1
+              ? 'Permiso de ubicación denegado. Permite el acceso a la ubicación en el candado del navegador.'
+              : err.code === 2
+              ? 'No se pudo obtener señal de ubicación en este dispositivo.'
+              : 'Tiempo de espera agotado al buscar señal GPS.';
+          toast({ variant: 'destructive', title: 'No se pudo activar el GPS', description: reason });
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  };
 
   const persistSellerRouteStops = async (nextStops: SellerRouteStop[]) => {
     setSellerRouteStops(nextStops);
@@ -253,6 +298,7 @@ export default function CRMPage() {
 
   useEffect(() => {
     loadData();
+    requestLiveGps(true);
   }, []);
 
   // Cargar detalles cuando se selecciona una oportunidad
@@ -875,11 +921,23 @@ export default function CRMPage() {
 
           <TabsContent value="mapa" className="mt-0 outline-none">
             {(() => {
-              const filteredStops = selectedRouteSeller === 'all'
+              const rawFilteredStops = selectedRouteSeller === 'all'
                 ? sellerRouteStops
                 : sellerRouteStops.filter(s => s.sellerEmail === selectedRouteSeller || !s.sellerEmail);
+
+              const filteredStops = sortByNearest && userLocation
+                ? [...rawFilteredStops].sort((a, b) => {
+                    if (Boolean(a.visited) !== Boolean(b.visited)) return a.visited ? 1 : -1;
+                    const dA = calculateDistanceKm(userLocation.lat, userLocation.lng, a.lat, a.lng);
+                    const dB = calculateDistanceKm(userLocation.lat, userLocation.lng, b.lat, b.lng);
+                    return dA - dB;
+                  })
+                : rawFilteredStops;
+
               const visitedCount = filteredStops.filter(s => s.visited).length;
               const progressPct = filteredStops.length > 0 ? Math.round((visitedCount / filteredStops.length) * 100) : 0;
+
+              const originParam = userLocation ? `&origin=${userLocation.lat},${userLocation.lng}` : '';
 
               const handleOpenFullGoogleMapsRoute = () => {
                 const pendingStops = filteredStops.filter(s => !s.visited);
@@ -890,7 +948,7 @@ export default function CRMPage() {
                 }
                 const dest = targets[targets.length - 1];
                 const waypoints = targets.slice(0, -1).map(t => `${t.lat},${t.lng}`).join('|');
-                const url = `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ''}&travelmode=driving`;
+                const url = `https://www.google.com/maps/dir/?api=1${originParam}&destination=${dest.lat},${dest.lng}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ''}&travelmode=driving`;
                 window.open(url, '_blank');
               };
 
@@ -930,7 +988,7 @@ export default function CRMPage() {
                         </Select>
                       </div>
 
-                      <div className="min-w-[200px] space-y-1">
+                      <div className="min-w-[180px] space-y-1">
                         <div className="flex justify-between text-[11px] font-bold">
                           <span className="text-muted-foreground">Avance de Visitas Hoy:</span>
                           <span className="text-emerald-600 dark:text-emerald-400">{visitedCount}/{filteredStops.length} ({progressPct}%)</span>
@@ -942,6 +1000,41 @@ export default function CRMPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={userLocation ? 'outline' : 'default'}
+                        onClick={() => requestLiveGps(false)}
+                        disabled={gpsLoading}
+                        className={`h-9 text-xs font-bold rounded-xl gap-1.5 ${
+                          userLocation
+                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
+                            : 'bg-sky-600 hover:bg-sky-700 text-white'
+                        }`}
+                      >
+                        {gpsLoading ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Crosshair size={14} />
+                        )}
+                        {userLocation ? 'GPS Activo (Actualizar)' : 'Activar Mi GPS'}
+                      </Button>
+
+                      {userLocation && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={sortByNearest ? 'default' : 'outline'}
+                          onClick={() => setSortByNearest(prev => !prev)}
+                          className={`h-9 text-xs font-bold rounded-xl gap-1.5 ${
+                            sortByNearest ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''
+                          }`}
+                        >
+                          <ArrowUpDown size={13} />
+                          {sortByNearest ? 'Orden: Más Cercanos' : 'Ordenar por Cercanía'}
+                        </Button>
+                      )}
+
                       <Button
                         type="button"
                         size="sm"
@@ -972,11 +1065,15 @@ export default function CRMPage() {
                           <MapPin className="text-indigo-500" size={15} /> Paradas de la Ruta ({filteredStops.length})
                         </h3>
                         <Badge variant="outline" className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                          Guardado en Nube
+                          {userLocation ? 'GPS En Vivo' : 'Guardado en Nube'}
                         </Badge>
                       </div>
                       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                        {filteredStops.map((loc, idx) => (
+                        {filteredStops.map((loc, idx) => {
+                          const distKm = userLocation
+                            ? calculateDistanceKm(userLocation.lat, userLocation.lng, loc.lat, loc.lng)
+                            : null;
+                          return (
                           <div
                             key={loc.id}
                             onClick={() => setFocusedStopId(loc.id)}
@@ -1014,7 +1111,14 @@ export default function CRMPage() {
                             </div>
 
                             <div className="text-[10px] text-muted-foreground space-y-0.5 pl-7">
-                              <div className="truncate">📍 {loc.address || 'Ubicación GPS'}</div>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="truncate">📍 {loc.address || 'Ubicación GPS'}</span>
+                                {distKm !== null && (
+                                  <span className="font-mono font-black text-sky-600 dark:text-sky-400 shrink-0">
+                                    {distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`}
+                                  </span>
+                                )}
+                              </div>
                               {loc.sellerName && <div className="text-indigo-600 dark:text-indigo-400 font-semibold">👤 {loc.sellerName}</div>}
                               {loc.notes && <div className="italic text-foreground/80">“{loc.notes}”</div>}
                             </div>
@@ -1025,7 +1129,7 @@ export default function CRMPage() {
                                   size="sm"
                                   type="button"
                                   variant="outline"
-                                  onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`, '_blank')}
+                                  onClick={() => window.open(`https://www.google.com/maps/dir/?api=1${originParam}&destination=${loc.lat},${loc.lng}&travelmode=driving`, '_blank')}
                                   className="h-6 px-2 text-[9.5px] font-bold text-blue-600 dark:text-blue-400 rounded-lg flex items-center gap-1"
                                 >
                                   <Navigation size={10} /> Maps
@@ -1068,7 +1172,8 @@ export default function CRMPage() {
                               </Button>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                         {filteredStops.length === 0 && (
                           <div className="text-center py-10 text-xs text-muted-foreground">
                             No hay paradas asignadas. Haz clic en <strong>&quot;Agregar Parada de Cliente&quot;</strong> en el mapa para asignar clientes a esta ruta.
@@ -1085,6 +1190,9 @@ export default function CRMPage() {
                         customers={customers}
                         sellers={crmSellers}
                         focusedLocationId={focusedStopId}
+                        userLocation={userLocation}
+                        gpsLoading={gpsLoading}
+                        onRequestGps={() => requestLiveGps(false)}
                         onToggleVisited={handleToggleStopVisited}
                         onAddLocation={(newLoc) => {
                           const next = [...sellerRouteStops, newLoc];
