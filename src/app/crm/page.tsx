@@ -131,11 +131,41 @@ export default function CRMPage() {
   // Estado persistente de Rutas de Vendedores (Mapa CRM)
   const [sellerRouteStops, setSellerRouteStops] = useState<SellerRouteStop[]>([]);
   const [crmSellers, setCrmSellers] = useState<{ id: string; full_name: string; email: string }[]>([]);
+  const [crmBranches, setCrmBranches] = useState<{ id: string; name: string }[]>([]);
   const [selectedRouteSeller, setSelectedRouteSeller] = useState<string>('all');
   const [focusedStopId, setFocusedStopId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [originLabel, setOriginLabel] = useState<string>('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [sortByNearest, setSortByNearest] = useState(false);
+
+  const handleSetManualOrigin = (coords: { lat: number; lng: number }, label = 'Ubicación Manual') => {
+    setUserLocation(coords);
+    setOriginLabel(label);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('nexway_crm_manual_origin', JSON.stringify({ coords, label }));
+      } catch {}
+    }
+    toast({
+      title: 'Punto de Salida Actualizado 📍',
+      description: `Origen fijado en "${label}" (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}).`
+    });
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('nexway_crm_manual_origin');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.coords?.lat && parsed?.coords?.lng) {
+          setUserLocation(parsed.coords);
+          setOriginLabel(parsed.label || 'Ubicación Guardada');
+        }
+      }
+    } catch {}
+  }, []);
 
   const requestLiveGps = (silent = false) => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
@@ -153,6 +183,7 @@ export default function CRMPage() {
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setUserLocation(coords);
+        setOriginLabel('GPS del Dispositivo');
         setGpsLoading(false);
         if (!silent) {
           toast({
@@ -208,6 +239,7 @@ export default function CRMPage() {
       const [
         usersList,
         routesCfgRes,
+        branchesRes,
         oppsRes,
         custsRes,
         invRes,
@@ -216,6 +248,7 @@ export default function CRMPage() {
       ] = await Promise.all([
         fetchSystemAppUsers(),
         supabase.from('system_config').select('value').eq('key', 'crm_seller_routes').maybeSingle(),
+        supabase.from('branches').select('id, name').order('name'),
         supabase.from('crm_opportunities').select('*').order('created_at', { ascending: false }).limit(200),
         supabase.from('customers').select('id, name, email, phone, address, credit_limit').order('name').limit(300),
         supabase.from('inventory').select('sku, name, price'),
@@ -224,6 +257,7 @@ export default function CRMPage() {
       ]);
 
       setCrmSellers(usersList.map(u => ({ id: u.id, full_name: u.full_name, email: u.email })));
+      setCrmBranches((branchesRes.data || []).map((b: any) => ({ id: b.id, name: b.name })));
       setOpportunities(oppsRes.data || []);
       const custs = custsRes.data || [];
       setCustomers(custs);
@@ -986,6 +1020,43 @@ export default function CRMPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      {sellerRouteStops.some((s) => s.type === 'BRANCH') && (
+                        <Select
+                          value={
+                            sellerRouteStops.find(
+                              (s) =>
+                                s.type === 'BRANCH' &&
+                                userLocation &&
+                                Math.abs(s.lat - userLocation.lat) < 0.0001 &&
+                                Math.abs(s.lng - userLocation.lng) < 0.0001
+                            )?.id || '__custom'
+                          }
+                          onValueChange={(branchStopId) => {
+                            const found = sellerRouteStops.find((s) => s.id === branchStopId);
+                            if (found) {
+                              handleSetManualOrigin({ lat: found.lat, lng: found.lng }, found.name);
+                              setFocusedStopId(found.id);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9 w-52 text-xs font-bold rounded-xl border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                            <SelectValue placeholder="Salir desde Sucursal..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__custom" disabled className="text-xs">
+                              {originLabel ? `Origen: ${originLabel}` : 'Elegir Sucursal de Salida...'}
+                            </SelectItem>
+                            {sellerRouteStops
+                              .filter((s) => s.type === 'BRANCH')
+                              .map((br) => (
+                                <SelectItem key={br.id} value={br.id} className="text-xs font-semibold">
+                                  🏪 Salir desde: {br.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+
                       <Button
                         type="button"
                         size="sm"
@@ -1003,7 +1074,7 @@ export default function CRMPage() {
                         ) : (
                           <Crosshair size={14} />
                         )}
-                        {userLocation ? 'GPS Activo (Actualizar)' : 'Activar Mi GPS'}
+                        {userLocation ? (originLabel ? `Origen: ${originLabel}` : 'GPS Activo') : 'Activar Mi GPS'}
                       </Button>
 
                       {userLocation && (
@@ -1080,20 +1151,33 @@ export default function CRMPage() {
                                   {loc.name}
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleStopVisited(loc.id);
-                                }}
-                                className={`text-[9px] font-black px-2 py-0.5 rounded-full border transition-colors shrink-0 ${
-                                  loc.visited
-                                    ? 'bg-emerald-600 text-white border-emerald-600'
-                                    : 'bg-background text-muted-foreground border-border hover:border-emerald-500 hover:text-emerald-600'
-                                }`}
-                              >
-                                {loc.visited ? 'VISITADO ✓' : 'MARCAR VISITA'}
-                              </button>
+                              {loc.type === 'BRANCH' ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetManualOrigin({ lat: loc.lat, lng: loc.lng }, loc.name);
+                                  }}
+                                  className="text-[9px] font-black px-2 py-0.5 rounded-full border bg-emerald-600/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-600 hover:text-white transition-colors shrink-0"
+                                >
+                                  🏪 USAR DE ORIGEN
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleStopVisited(loc.id);
+                                  }}
+                                  className={`text-[9px] font-black px-2 py-0.5 rounded-full border transition-colors shrink-0 ${
+                                    loc.visited
+                                      ? 'bg-emerald-600 text-white border-emerald-600'
+                                      : 'bg-background text-muted-foreground border-border hover:border-emerald-500 hover:text-emerald-600'
+                                  }`}
+                                >
+                                  {loc.visited ? 'VISITADO ✓' : 'MARCAR VISITA'}
+                                </button>
+                              )}
                             </div>
 
                             <div className="text-[10px] text-muted-foreground space-y-0.5 pl-7">
@@ -1174,11 +1258,14 @@ export default function CRMPage() {
                         locations={filteredStops}
                         routes={mapData.routes}
                         customers={customers}
+                        branches={crmBranches}
                         sellers={crmSellers}
                         focusedLocationId={focusedStopId}
                         userLocation={userLocation}
+                        originLabel={originLabel}
                         gpsLoading={gpsLoading}
                         onRequestGps={() => requestLiveGps(false)}
+                        onSetManualOrigin={handleSetManualOrigin}
                         onToggleVisited={handleToggleStopVisited}
                         onAddLocation={(newLoc) => {
                           const next = [...sellerRouteStops, newLoc];

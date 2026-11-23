@@ -5,7 +5,31 @@ import { MapLocation, MapRoute } from '@/contexts/BmsContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Navigation, Car, Plus, Trash2, Check, CheckCircle2, UserCheck, Phone, Crosshair, Loader2 } from 'lucide-react';
+import { MapPin, Navigation, Car, Plus, Trash2, Check, CheckCircle2, UserCheck, Phone, Crosshair, Loader2, Store, LocateFixed } from 'lucide-react';
+
+export function parseCoordsFromText(input: string): { lat: number; lng: number } | null {
+  const clean = (input || '').trim();
+  if (!clean) return null;
+
+  // Formato !3dLAT!4dLNG de Google Maps
+  const bangMatch = clean.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (bangMatch) {
+    const lat = parseFloat(bangMatch[1]);
+    const lng = parseFloat(bangMatch[2]);
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) return { lat, lng };
+  }
+
+  // Formato @LAT,LNG o q=LAT,LNG o texto plano "13.6929, -89.2182"
+  const pairMatch = clean.match(/(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})/);
+  if (pairMatch) {
+    const lat = parseFloat(pairMatch[1]);
+    const lng = parseFloat(pairMatch[2]);
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return { lat, lng };
+    }
+  }
+  return null;
+}
 
 export interface SellerRouteStop extends MapLocation {
   sellerEmail?: string;
@@ -35,10 +59,13 @@ interface CrmMapProps {
   locations: SellerRouteStop[];
   routes: MapRoute[];
   customers?: { id: string; name: string; phone?: string; address?: string; credit_limit?: number }[];
+  branches?: { id: string; name: string }[];
   sellers?: { id: string; full_name: string; email: string }[];
   userLocation?: { lat: number; lng: number } | null;
+  originLabel?: string;
   gpsLoading?: boolean;
   onRequestGps?: () => void;
+  onSetManualOrigin?: (coords: { lat: number; lng: number }, label?: string) => void;
   focusedLocationId?: string | null;
   onSelectLocation?: (location: SellerRouteStop) => void;
   onAddLocation?: (newLoc: SellerRouteStop) => void;
@@ -49,10 +76,13 @@ interface CrmMapProps {
 export function CrmMap({
   locations,
   customers = [],
+  branches = [],
   sellers = [],
   userLocation = null,
+  originLabel,
   gpsLoading = false,
   onRequestGps,
+  onSetManualOrigin,
   focusedLocationId,
   onSelectLocation,
   onAddLocation,
@@ -66,10 +96,13 @@ export function CrmMap({
   const polylineRef = useRef<any>(null);
 
   const [selectedLocation, setSelectedLocation] = useState<SellerRouteStop | null>(null);
-  const [isAddingMode, setIsAddingMode] = useState<boolean>(false);
+  const [mapMode, setMapMode] = useState<'idle' | 'add_client' | 'add_branch' | 'set_origin'>('idle');
   const [pendingCoords, setPendingCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [pendingPinType, setPendingPinType] = useState<'client' | 'branch'>('client');
+  const [coordsPasteInput, setCoordsPasteInput] = useState<string>('');
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('custom');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('custom');
   const [newLocationName, setNewLocationName] = useState<string>('');
   const [newLocationAddress, setNewLocationAddress] = useState<string>('');
   const [newLocationPhone, setNewLocationPhone] = useState<string>('');
@@ -148,8 +181,17 @@ export function CrmMap({
 
       map.off('click');
       map.on('click', (e: any) => {
-        if (isAddingMode) {
+        if (mapMode === 'add_client') {
+          setPendingPinType('client');
           setPendingCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
+          setCoordsPasteInput(`${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`);
+        } else if (mapMode === 'add_branch') {
+          setPendingPinType('branch');
+          setPendingCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
+          setCoordsPasteInput(`${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`);
+        } else if (mapMode === 'set_origin' && onSetManualOrigin) {
+          onSetManualOrigin({ lat: e.latlng.lat, lng: e.latlng.lng }, 'Ubicación Fijada en Mapa');
+          setMapMode('idle');
         }
       });
 
@@ -192,7 +234,7 @@ export function CrmMap({
 
         userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], { icon: gpsIcon })
           .addTo(map)
-          .bindTooltip('📍 Tu Ubicación Actual (GPS)', { direction: 'top', offset: [0, -10] });
+          .bindTooltip(originLabel ? `📍 Origen: ${originLabel}` : '📍 Tu Ubicación Actual', { direction: 'top', offset: [0, -10] });
 
         latLngs.push([userLocation.lat, userLocation.lng]);
       }
@@ -200,12 +242,12 @@ export function CrmMap({
       locations.forEach((loc, idx) => {
         let color = '#4f46e5';
         let label = String(idx + 1);
-        if (loc.visited) {
+        if (loc.type === 'BRANCH') {
+          color = '#059669';
+          label = '🏪';
+        } else if (loc.visited) {
           color = '#10b981';
           label = '✓';
-        } else if (loc.type === 'BRANCH') {
-          color = '#059669';
-          label = 'S';
         } else if (loc.type === 'VIP') {
           color = '#2563eb';
         } else if (loc.type === 'DELIVERY') {
@@ -217,7 +259,12 @@ export function CrmMap({
           : '';
 
         const marker = L.marker([loc.lat, loc.lng], { icon: createNumberedIcon(color, label) }).addTo(map);
-        marker.bindTooltip(`${idx + 1}. ${loc.name}${distTxt}${loc.visited ? ' (Visitado ✓)' : ''}`, { direction: 'top', offset: [0, -24] });
+        marker.bindTooltip(
+          loc.type === 'BRANCH'
+            ? `🏪 Sucursal / Tienda: ${loc.name}`
+            : `${idx + 1}. ${loc.name}${distTxt}${loc.visited ? ' (Visitado ✓)' : ''}`,
+          { direction: 'top', offset: [0, -24] }
+        );
 
         marker.on('click', () => {
           setSelectedLocation(loc);
@@ -225,12 +272,12 @@ export function CrmMap({
         });
 
         markersRef.current.push(marker);
-        if (!loc.visited) {
+        if (!loc.visited && loc.type !== 'BRANCH') {
           latLngs.push([loc.lat, loc.lng]);
         }
       });
 
-      // Dibujar línea punteada conectando desde el GPS actual hacia las paradas pendientes
+      // Dibujar línea punteada conectando desde el origen actual hacia las paradas pendientes
       if (latLngs.length >= 2) {
         polylineRef.current = L.polyline(latLngs, {
           color: '#6366f1',
@@ -242,26 +289,27 @@ export function CrmMap({
     };
 
     loadLeaflet();
-  }, [locations, userLocation, isAddingMode, onSelectLocation]);
+  }, [locations, userLocation, originLabel, mapMode, onSelectLocation, onSetManualOrigin]);
 
   const handleSaveNewLocation = () => {
     if (!pendingCoords || !newLocationName.trim()) return;
 
-    const matchedCust = customers.find(c => c.id === selectedCustomerId);
-    const matchedSeller = sellers.find(s => s.email === newLocationSeller);
+    const isBranch = pendingPinType === 'branch';
+    const matchedCust = !isBranch ? customers.find(c => c.id === selectedCustomerId) : undefined;
+    const matchedSeller = !isBranch ? sellers.find(s => s.email === newLocationSeller) : undefined;
 
     const newLoc: SellerRouteStop = {
-      id: `stop-${Date.now()}`,
+      id: isBranch ? `branch-${Date.now()}` : `stop-${Date.now()}`,
       name: newLocationName.trim(),
       lat: pendingCoords.lat,
       lng: pendingCoords.lng,
-      type: matchedCust ? 'VIP' : 'DELIVERY',
+      type: isBranch ? 'BRANCH' : matchedCust ? 'VIP' : 'DELIVERY',
       balance: matchedCust?.credit_limit || 0,
-      address: newLocationAddress.trim() || `GPS: ${pendingCoords.lat.toFixed(4)}, ${pendingCoords.lng.toFixed(4)}`,
+      address: newLocationAddress.trim() || `GPS: ${pendingCoords.lat.toFixed(5)}, ${pendingCoords.lng.toFixed(5)}`,
       phone: newLocationPhone.trim() || matchedCust?.phone || '',
       customerId: matchedCust?.id,
-      sellerEmail: matchedSeller?.email || '',
-      sellerName: matchedSeller?.full_name || 'Sin asignar',
+      sellerEmail: isBranch ? '' : matchedSeller?.email || '',
+      sellerName: isBranch ? 'Sucursal / Tienda' : matchedSeller?.full_name || 'Sin asignar',
       notes: newLocationNotes.trim() || '',
       visited: false
     };
@@ -270,13 +318,19 @@ export function CrmMap({
       onAddLocation(newLoc);
     }
 
+    if (isBranch && onSetManualOrigin) {
+      onSetManualOrigin({ lat: pendingCoords.lat, lng: pendingCoords.lng }, newLoc.name);
+    }
+
     setPendingCoords(null);
+    setCoordsPasteInput('');
     setSelectedCustomerId('custom');
+    setSelectedBranchId('custom');
     setNewLocationName('');
     setNewLocationAddress('');
     setNewLocationPhone('');
     setNewLocationNotes('');
-    setIsAddingMode(false);
+    setMapMode('idle');
   };
 
   const buildGoogleMapsUrl = (destLat: number, destLng: number) => {
@@ -287,24 +341,63 @@ export function CrmMap({
   return (
     <div className="w-full h-full relative rounded-2xl overflow-hidden bg-slate-950 flex flex-col">
       {/* Barra Superior de Herramientas del Mapa */}
-      <div className="absolute top-3 left-14 right-3 z-20 flex flex-wrap items-center gap-2 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-white/10 shadow-lg w-fit">
+      <div className="absolute top-3 left-14 right-3 z-20 flex flex-wrap items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-white/10 shadow-lg w-fit">
         <Button
           type="button"
           size="sm"
-          variant={isAddingMode ? 'default' : 'outline'}
+          variant={mapMode === 'add_client' ? 'default' : 'outline'}
           onClick={() => {
-            setIsAddingMode(!isAddingMode);
+            setMapMode(mapMode === 'add_client' ? 'idle' : 'add_client');
             setPendingCoords(null);
           }}
           className={`h-8 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-            isAddingMode
+            mapMode === 'add_client'
               ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black'
               : 'bg-slate-950/80 text-white border-white/15 hover:bg-white/10'
           }`}
         >
           <Plus size={14} />
-          {isAddingMode ? 'Haz Clic en el Mapa...' : 'Agregar Parada'}
+          {mapMode === 'add_client' ? 'Clic en Mapa (Cliente)...' : 'Agregar Cliente'}
         </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          variant={mapMode === 'add_branch' ? 'default' : 'outline'}
+          onClick={() => {
+            setMapMode(mapMode === 'add_branch' ? 'idle' : 'add_branch');
+            setPendingCoords(null);
+          }}
+          className={`h-8 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+            mapMode === 'add_branch'
+              ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black'
+              : 'bg-slate-950/80 text-emerald-300 border-emerald-500/35 hover:bg-emerald-500/20'
+          }`}
+        >
+          <Store size={13} />
+          {mapMode === 'add_branch' ? 'Clic en Mapa (Sucursal)...' : 'Fijar Sucursal / Tienda'}
+        </Button>
+
+        {onSetManualOrigin && (
+          <Button
+            type="button"
+            size="sm"
+            variant={mapMode === 'set_origin' ? 'default' : 'outline'}
+            onClick={() => {
+              setMapMode(mapMode === 'set_origin' ? 'idle' : 'set_origin');
+              setPendingCoords(null);
+            }}
+            className={`h-8 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+              mapMode === 'set_origin'
+                ? 'bg-sky-400 hover:bg-sky-500 text-slate-950 font-black'
+                : 'bg-slate-950/80 text-sky-300 border-sky-500/35 hover:bg-sky-500/20'
+            }`}
+            title="Si el GPS de tu PC da otra ubicación, haz clic en el mapa para fijar dónde estás realmente"
+          >
+            <LocateFixed size={13} />
+            {mapMode === 'set_origin' ? 'Clic donde estás...' : 'Corregir Mi Ubicación'}
+          </Button>
+        )}
 
         {onRequestGps && (
           <Button
@@ -317,127 +410,178 @@ export function CrmMap({
               }
             }}
             disabled={gpsLoading}
-            className={`h-8 text-[11px] font-bold rounded-lg flex items-center gap-1.5 ${
-              userLocation
-                ? 'bg-sky-600 hover:bg-sky-700 text-white'
-                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-            }`}
+            className="h-8 text-[11px] font-bold rounded-lg flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white"
           >
             {gpsLoading ? <Loader2 size={13} className="animate-spin" /> : <Crosshair size={13} />}
-            {userLocation ? 'GPS Activo (Centrar)' : 'Activar Mi GPS'}
-          </Button>
-        )}
-
-        {userLocation && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setIsAddingMode(false);
-              setPendingCoords({ lat: userLocation.lat, lng: userLocation.lng });
-            }}
-            className="h-8 text-[11px] font-bold rounded-lg bg-slate-950/80 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20 flex items-center gap-1"
-            title="Guardar cliente en mi ubicación GPS actual"
-          >
-            <MapPin size={13} /> Fijar Cliente Aquí
+            GPS
           </Button>
         )}
       </div>
 
-      {/* Formulario Emergente para Vincular Cliente Real */}
+      {/* Formulario Emergente para Vincular Cliente o Sucursal / Tienda */}
       {pendingCoords && (
         <div className="absolute top-16 left-4 right-4 sm:left-14 sm:w-96 bg-card border border-indigo-500/40 p-4 rounded-2xl shadow-2xl z-30 space-y-3 animate-in fade-in">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-              <MapPin size={14} /> Registrar Parada ({pendingCoords.lat.toFixed(4)}, {pendingCoords.lng.toFixed(4)})
+            <span className={`text-xs font-black flex items-center gap-1.5 ${pendingPinType === 'branch' ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
+              {pendingPinType === 'branch' ? <Store size={14} /> : <MapPin size={14} />}
+              {pendingPinType === 'branch' ? 'Fijar Sucursal / Tienda' : 'Registrar Parada de Cliente'}
             </span>
             <button onClick={() => setPendingCoords(null)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
           </div>
 
-          {customers.length > 0 && (
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground">Cliente del Directorio (Opcional)</label>
-              <Select
-                value={selectedCustomerId}
-                onValueChange={(val) => {
-                  setSelectedCustomerId(val);
-                  const found = customers.find(c => c.id === val);
-                  if (found) {
-                    setNewLocationName(found.name);
-                    setNewLocationAddress(found.address || '');
-                    setNewLocationPhone(found.phone || '');
+          {/* Pegar enlace de Google Maps o Coordenadas exactas */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase text-muted-foreground">
+              Coordenadas o Enlace de Google Maps (Opcional para precisión exacta)
+            </label>
+            <Input
+              placeholder="Ej. 13.7012, -89.2244 o pega link de Google Maps"
+              value={coordsPasteInput}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCoordsPasteInput(v);
+                const parsed = parseCoordsFromText(v);
+                if (parsed) {
+                  setPendingCoords(parsed);
+                  if (mapInstanceRef.current) {
+                    mapInstanceRef.current.flyTo([parsed.lat, parsed.lng], 16, { duration: 0.6 });
                   }
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs rounded-xl">
-                  <SelectValue placeholder="Elegir cliente existente..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-48">
-                  <SelectItem value="custom">-- Escribir Nombre Manualmente --</SelectItem>
-                  {customers.map(c => (
-                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <Input
-            placeholder="Nombre del Cliente o Punto de Visita *"
-            value={newLocationName}
-            onChange={e => setNewLocationName(e.target.value)}
-            className="h-8 text-xs rounded-xl"
-            autoFocus
-          />
-
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              placeholder="Dirección / Referencia"
-              value={newLocationAddress}
-              onChange={e => setNewLocationAddress(e.target.value)}
-              className="h-8 text-xs rounded-xl"
-            />
-            <Input
-              placeholder="Teléfono / WhatsApp"
-              value={newLocationPhone}
-              onChange={e => setNewLocationPhone(e.target.value)}
-              className="h-8 text-xs rounded-xl"
+                }
+              }}
+              className="h-8 text-[11px] font-mono rounded-xl"
             />
           </div>
 
-          {sellers.length > 0 && (
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground">Asignar a Vendedor</label>
-              <Select value={newLocationSeller} onValueChange={setNewLocationSeller}>
-                <SelectTrigger className="h-8 text-xs rounded-xl">
-                  <SelectValue placeholder="Seleccionar vendedor..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Cualquier Vendedor (Ruta General)</SelectItem>
-                  {sellers.map(s => (
-                    <SelectItem key={s.id} value={s.email} className="text-xs">{s.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {pendingPinType === 'branch' ? (
+            <>
+              {branches.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Sucursal del ERP</label>
+                  <Select
+                    value={selectedBranchId}
+                    onValueChange={(val) => {
+                      setSelectedBranchId(val);
+                      const found = branches.find((b) => b.id === val);
+                      if (found) setNewLocationName(found.name);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs rounded-xl">
+                      <SelectValue placeholder="Elegir sucursal..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-48">
+                      <SelectItem value="custom">-- Escribir Nombre de Tienda --</SelectItem>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-          <Input
-            placeholder="Objetivo de visita (Ej. Cotizar pintura, cobrar CCF...)"
-            value={newLocationNotes}
-            onChange={e => setNewLocationNotes(e.target.value)}
-            className="h-8 text-xs rounded-xl"
-          />
+              <Input
+                placeholder="Nombre de la Sucursal o Tienda *"
+                value={newLocationName}
+                onChange={e => setNewLocationName(e.target.value)}
+                className="h-8 text-xs rounded-xl"
+                autoFocus
+              />
+
+              <Input
+                placeholder="Dirección exacta de la tienda..."
+                value={newLocationAddress}
+                onChange={e => setNewLocationAddress(e.target.value)}
+                className="h-8 text-xs rounded-xl"
+              />
+            </>
+          ) : (
+            <>
+              {customers.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Cliente del Directorio (Opcional)</label>
+                  <Select
+                    value={selectedCustomerId}
+                    onValueChange={(val) => {
+                      setSelectedCustomerId(val);
+                      const found = customers.find(c => c.id === val);
+                      if (found) {
+                        setNewLocationName(found.name);
+                        setNewLocationAddress(found.address || '');
+                        setNewLocationPhone(found.phone || '');
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs rounded-xl">
+                      <SelectValue placeholder="Elegir cliente existente..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-48">
+                      <SelectItem value="custom">-- Escribir Nombre Manualmente --</SelectItem>
+                      {customers.map(c => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Input
+                placeholder="Nombre del Cliente o Punto de Visita *"
+                value={newLocationName}
+                onChange={e => setNewLocationName(e.target.value)}
+                className="h-8 text-xs rounded-xl"
+                autoFocus
+              />
+
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="Dirección / Referencia"
+                  value={newLocationAddress}
+                  onChange={e => setNewLocationAddress(e.target.value)}
+                  className="h-8 text-xs rounded-xl"
+                />
+                <Input
+                  placeholder="Teléfono / WhatsApp"
+                  value={newLocationPhone}
+                  onChange={e => setNewLocationPhone(e.target.value)}
+                  className="h-8 text-xs rounded-xl"
+                />
+              </div>
+
+              {sellers.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Asignar a Vendedor</label>
+                  <Select value={newLocationSeller} onValueChange={setNewLocationSeller}>
+                    <SelectTrigger className="h-8 text-xs rounded-xl">
+                      <SelectValue placeholder="Seleccionar vendedor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Cualquier Vendedor (Ruta General)</SelectItem>
+                      {sellers.map(s => (
+                        <SelectItem key={s.id} value={s.email} className="text-xs">{s.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Input
+                placeholder="Objetivo de visita (Ej. Cotizar pintura, cobrar CCF...)"
+                value={newLocationNotes}
+                onChange={e => setNewLocationNotes(e.target.value)}
+                className="h-8 text-xs rounded-xl"
+              />
+            </>
+          )}
 
           <div className="flex gap-2 pt-1">
             <Button
               type="button"
               onClick={handleSaveNewLocation}
               disabled={!newLocationName.trim()}
-              className="flex-1 h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-1"
+              className={`flex-1 h-8 text-xs font-bold text-white rounded-xl gap-1 ${
+                pendingPinType === 'branch' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
             >
-              <Check size={14} /> Guardar en Ruta
+              <Check size={14} /> {pendingPinType === 'branch' ? 'Guardar Sucursal y Usar de Origen' : 'Guardar en Ruta'}
             </Button>
             <Button
               type="button"
