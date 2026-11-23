@@ -1576,8 +1576,7 @@ export default function ManagementPage() {
               )}
               {activeGroup === 'users' && (
                 <>
-                  <TabsTrigger value="permissions" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Usuarios y Accesos</TabsTrigger>
-                  <TabsTrigger value="roles" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Gestión de Roles</TabsTrigger>
+                  <TabsTrigger value="permissions" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-emerald-600 text-xs">Usuarios, Sucursales y Cajas</TabsTrigger>
                 </>
               )}
             </TabsList>
@@ -3294,19 +3293,21 @@ DO ${'$'}${'$'} BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.suppl
 
           <ScrollArea className="flex-1 pr-2 my-4">
             <div className="space-y-6">
-              {/* META MENSUAL DE VENTAS */}
-              <div className="p-4 rounded-xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 space-y-3">
-                <div className="flex flex-col space-y-1.5">
-                  <Label className="text-xs font-black uppercase text-indigo-700 dark:text-indigo-400">Meta Mensual de Ventas ($)</Label>
-                  <p className="text-[10px] text-muted-foreground">Establece el objetivo de ventas acumuladas para este empleado en el mes en curso.</p>
-                  <Input 
-                    type="number"
-                    placeholder="Ej. 5000"
-                    value={userPermsMeta}
-                    onChange={(e) => setUserPermsMeta(e.target.value)}
-                    className="h-10 bg-white dark:bg-zinc-900 border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold w-full sm:w-60"
-                  />
+              {/* METAS CENTRALIZADAS EN FINANZAS */}
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Metas Mensuales y Bonos</div>
+                  <p className="text-[10px] text-muted-foreground">Las metas de ventas y comisiones se gestionan de forma centralizada en Finanzas.</p>
                 </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => router.push('/finanzas?tab=payroll')}
+                  className="h-8 text-xs font-bold rounded-xl shrink-0"
+                >
+                  Ir a Finanzas →
+                </Button>
               </div>
 
               {modules.map((m) => {

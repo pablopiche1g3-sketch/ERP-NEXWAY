@@ -152,8 +152,8 @@ export async function GET() {
         full_name: fullName,
         name: fullName,
         role: p.role || regMatch?.role || preMatch?.role || 'vendedor',
-        station_id: p.station_id ?? regMatch?.station_id ?? null,
-        branch_id: p.branch_id ?? null,
+        station_id: p.station_id ?? perms.station_id ?? regMatch?.station_id ?? null,
+        branch_id: p.branch_id ?? perms.branch_id ?? regMatch?.branch_id ?? null,
         pin_code: perms.pin_code ?? regMatch?.pin_code ?? '',
         status: perms.status || regMatch?.status || 'ACTIVO',
         permissions: perms,
@@ -368,26 +368,40 @@ export async function POST(request: Request) {
     const resolvedStationId =
       station_id !== undefined
         ? (station_id === null || station_id === '' || station_id === '__none' ? null : String(station_id).trim())
-        : (existingProfile?.station_id || null);
+        : (existingProfile?.station_id ?? prevPerms.station_id ?? null);
 
     const resolvedBranchId =
       branch_id !== undefined
         ? (branch_id === null || branch_id === '' || branch_id === '__none' ? null : sanitizeUuid(branch_id, defaultBranchUuid))
-        : sanitizeUuid(existingProfile?.branch_id, defaultBranchUuid);
+        : sanitizeUuid(existingProfile?.branch_id ?? prevPerms.branch_id, defaultBranchUuid);
 
-    const profilePayload = {
+    const mergedPermissionsWithStation = {
+      ...mergedPermissions,
+      station_id: resolvedStationId,
+      branch_id: resolvedBranchId,
+    };
+
+    const profilePayload: any = {
       id: targetUserId,
       email: formattedEmail,
       role,
       station_id: resolvedStationId,
       branch_id: resolvedBranchId,
-      permissions: mergedPermissions,
+      permissions: mergedPermissionsWithStation,
     };
 
-    // 3. Upsert en public.profiles
-    const { error: profileError } = await supabaseAdmin
+    // 3. Upsert en public.profiles (con fallback automático si station_id tiene FK/columna incompatible)
+    let { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert(profilePayload, { onConflict: 'id' });
+
+    if (profileError) {
+      const { station_id: _omitStation, ...fallbackPayload } = profilePayload;
+      const retryRes = await supabaseAdmin
+        .from('profiles')
+        .upsert(fallbackPayload, { onConflict: 'id' });
+      profileError = retryRes.error;
+    }
 
     if (profileError) {
       return NextResponse.json(

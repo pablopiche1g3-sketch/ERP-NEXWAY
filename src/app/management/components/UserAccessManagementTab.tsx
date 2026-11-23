@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -26,7 +28,10 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  Trash2
+  Trash2,
+  Building2,
+  Store,
+  TrendingUp
 } from 'lucide-react';
 
 export interface ModuleDefinition {
@@ -170,6 +175,8 @@ export interface AppUser {
   email: string;
   full_name: string;
   role: string;
+  branch_id?: string | null;
+  station_id?: string | null;
   pin_code: string;
   status: 'active' | 'suspended';
   allowed_modules: string[];
@@ -179,10 +186,13 @@ export interface AppUser {
 }
 
 export default function UserAccessManagementTab() {
+  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [posStations, setPosStations] = useState<{ id: string; name: string; warehouse_name?: string }[]>([]);
 
   // Modal para Nuevo Usuario / Edición de Accesos
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -193,6 +203,8 @@ export default function UserAccessManagementTab() {
   const [password, setPassword] = useState('');
   const [pinCode, setPinCode] = useState('1234');
   const [role, setRole] = useState('cajero');
+  const [branchId, setBranchId] = useState<string>('__none');
+  const [stationId, setStationId] = useState<string>('__none');
 
   const [selectedModules, setSelectedModules] = useState<string[]>(['billing']);
   const [selectedTabs, setSelectedTabs] = useState<string[]>([
@@ -240,6 +252,8 @@ export default function UserAccessManagementTab() {
       email: raw.email || `${prefix}@nexway.local`,
       full_name: raw.full_name || raw.name || perms.full_name || formattedPrefix,
       role: raw.role || 'cajero',
+      branch_id: raw.branch_id ?? perms.branch_id ?? null,
+      station_id: raw.station_id ?? perms.station_id ?? null,
       pin_code: raw.pin_code || perms.pin_code || '1234',
       status: isSuspended ? 'suspended' : 'active',
       allowed_modules: mods,
@@ -275,11 +289,16 @@ export default function UserAccessManagementTab() {
         // Fallback a consulta directa con cliente Supabase
       }
 
-      // 2. Consultar directamente public.profiles y system_config
-      const [profsRes, cfgRes] = await Promise.all([
+      // 2. Consultar directamente public.profiles, branches, pos_stations y system_config
+      const [profsRes, cfgRes, branchesRes, stationsRes] = await Promise.all([
         supabase.from('profiles').select('*'),
         supabase.from('system_config').select('key, value').eq('key', 'app_users_registry').maybeSingle(),
+        supabase.from('branches').select('id, name').order('name'),
+        supabase.from('system_config').select('value').eq('key', 'pos_stations').maybeSingle(),
       ]);
+
+      setBranches((branchesRes.data || []) as { id: string; name: string }[]);
+      setPosStations(Array.isArray(stationsRes.data?.value) ? stationsRes.data.value : []);
 
       if (Array.isArray(profsRes.data)) {
         profsRes.data.forEach((p: any) => addRawUser(p));
@@ -336,9 +355,61 @@ export default function UserAccessManagementTab() {
     setEmail(user.email);
     setPinCode(user.pin_code || '1234');
     setRole(user.role || 'cajero');
+    setBranchId(user.branch_id || '__none');
+    setStationId(user.station_id || '__none');
     setSelectedModules(user.allowed_modules || []);
     setSelectedTabs(user.allowed_tabs || ROLE_PRESETS[user.role]?.tabs || []);
     setIsModalOpen(true);
+  };
+
+  const handleQuickAssignBranch = async (userObj: AppUser, nextBranchVal: string) => {
+    const normalizedBranch = nextBranchVal && nextBranchVal !== '__none' ? nextBranchVal : null;
+    setUsers((prev) => prev.map((u) => (u.id === userObj.id ? { ...u, branch_id: normalizedBranch } : u)));
+    try {
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userObj.email,
+          full_name: userObj.full_name,
+          role: userObj.role,
+          branch_id: normalizedBranch,
+          station_id: userObj.station_id ?? null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Error guardando sucursal');
+      const bName = branches.find((b) => b.id === normalizedBranch)?.name || 'Sin sucursal';
+      toast({ title: 'Sucursal Asignada', description: `${userObj.full_name} → ${bName}` });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al asignar sucursal', description: err?.message });
+      loadUsers();
+    }
+  };
+
+  const handleQuickAssignStation = async (userObj: AppUser, nextStationVal: string) => {
+    const normalizedStation = nextStationVal && nextStationVal !== '__none' ? nextStationVal : null;
+    setUsers((prev) => prev.map((u) => (u.id === userObj.id ? { ...u, station_id: normalizedStation } : u)));
+    try {
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userObj.email,
+          full_name: userObj.full_name,
+          role: userObj.role,
+          branch_id: userObj.branch_id ?? null,
+          station_id: normalizedStation,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Error guardando caja POS');
+      const sName = posStations.find((s) => s.id === normalizedStation)?.name || 'Sin caja asignada';
+      toast({ title: 'Caja POS Asignada ✓', description: `${userObj.full_name} → ${sName}` });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al asignar caja', description: err?.message });
+      loadUsers();
+    }
   };
 
   const handleSaveUser = async () => {
@@ -350,6 +421,9 @@ export default function UserAccessManagementTab() {
     const formattedEmail = email.includes('@')
       ? email.toLowerCase().trim()
       : `${email.toLowerCase().trim().replace(/\s+/g, '.')}@nexway.local`;
+
+    const resolvedBranchId = branchId && branchId !== '__none' ? branchId : null;
+    const resolvedStationId = stationId && stationId !== '__none' ? stationId : null;
 
     let savedId = editingUserId || 'usr_' + Date.now();
 
@@ -363,6 +437,8 @@ export default function UserAccessManagementTab() {
           full_name: fullName.trim(),
           password: password && password.trim().length >= 6 ? password.trim() : undefined,
           role,
+          branch_id: resolvedBranchId,
+          station_id: resolvedStationId,
           pin_code: pinCode || '1234',
           status: 'ACTIVO',
           allowed_modules: selectedModules,
@@ -373,7 +449,7 @@ export default function UserAccessManagementTab() {
       if (res.ok && json?.user?.id) {
         savedId = json.user.id;
       } else if (!res.ok && json?.error) {
-        console.warn('Advertencia en /api/users/create:', json.error);
+        toast({ variant: 'destructive', title: 'Advertencia', description: json.error });
       }
     } catch (e) {
       console.error('Error invocando /api/users/create:', e);
@@ -385,6 +461,8 @@ export default function UserAccessManagementTab() {
       email: formattedEmail,
       full_name: fullName.trim(),
       role: role,
+      branch_id: resolvedBranchId,
+      station_id: resolvedStationId,
       pin_code: pinCode || '1234',
       status: 'active',
       allowed_modules: selectedModules,
@@ -420,6 +498,8 @@ export default function UserAccessManagementTab() {
     setPassword('');
     setPinCode('1234');
     setRole('cajero');
+    setBranchId('__none');
+    setStationId('__none');
     setSelectedModules(ROLE_PRESETS.cajero.modules);
     setSelectedTabs(ROLE_PRESETS.cajero.tabs);
   };
@@ -553,7 +633,16 @@ export default function UserAccessManagementTab() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            onClick={() => router.push('/finanzas?tab=payroll')}
+            variant="outline"
+            className="font-bold text-xs h-10 rounded-xl flex items-center gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+          >
+            <TrendingUp size={15} /> Metas y Bonos (Finanzas)
+          </Button>
+
           <Button
             onClick={handleUnifyUsers}
             variant="outline"
@@ -590,9 +679,10 @@ export default function UserAccessManagementTab() {
             <TableRow>
               <TableHead className="text-xs font-bold">Colaborador / Correo</TableHead>
               <TableHead className="text-xs font-bold">Categoría / Rol</TableHead>
+              <TableHead className="text-xs font-bold">Sucursal</TableHead>
+              <TableHead className="text-xs font-bold">Caja POS / Bodega</TableHead>
               <TableHead className="text-xs font-bold text-center">PIN POS</TableHead>
-              <TableHead className="text-xs font-bold">Módulos Autorizados</TableHead>
-              <TableHead className="text-xs font-bold text-center">Pestañas Activas</TableHead>
+              <TableHead className="text-xs font-bold">Accesos</TableHead>
               <TableHead className="text-xs font-bold text-center">Estado</TableHead>
               <TableHead className="text-xs font-bold text-right">Acciones</TableHead>
             </TableRow>
@@ -611,21 +701,48 @@ export default function UserAccessManagementTab() {
                     {ROLE_PRESETS[u.role]?.label || u.role}
                   </Badge>
                 </TableCell>
+                <TableCell>
+                  <Select
+                    value={u.branch_id || '__none'}
+                    onValueChange={(val) => handleQuickAssignBranch(u, val)}
+                  >
+                    <SelectTrigger className="h-8 w-36 text-[11px] font-semibold rounded-lg bg-background">
+                      <SelectValue placeholder="Sin sucursal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none" className="text-xs">Sin sucursal</SelectItem>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id} className="text-xs">
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={u.station_id || '__none'}
+                    onValueChange={(val) => handleQuickAssignStation(u, val)}
+                  >
+                    <SelectTrigger className="h-8 w-44 text-[11px] font-semibold rounded-lg bg-background">
+                      <SelectValue placeholder="Sin caja asignada" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none" className="text-xs">Sin caja asignada</SelectItem>
+                      {posStations.map((st) => (
+                        <SelectItem key={st.id} value={st.id} className="text-xs">
+                          {st.name}{st.warehouse_name ? ` (${st.warehouse_name})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
                 <TableCell className="text-center font-mono font-bold text-xs text-amber-600 dark:text-amber-400">
                   {u.pin_code || '1234'}
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1 max-w-[200px]">
-                    {(u.allowed_modules || []).map(mId => (
-                      <Badge key={mId} variant="outline" className="text-[8px] font-bold uppercase py-0 bg-white/5">
-                        {mId}
-                      </Badge>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="secondary" className="font-mono text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200">
-                    {(u.allowed_tabs || ROLE_PRESETS[u.role]?.tabs || []).length} Pestañas
+                  <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200">
+                    {(u.allowed_modules || []).length} Mód · {(u.allowed_tabs || ROLE_PRESETS[u.role]?.tabs || []).length} Pest.
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
@@ -720,6 +837,56 @@ export default function UserAccessManagementTab() {
                   maxLength={4}
                   placeholder="1234"
                   className="text-xs h-9 rounded-xl font-mono font-bold text-center"
+                />
+              </div>
+            </div>
+
+            {/* Sucursal, Caja POS y Contraseña */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold flex items-center gap-1">
+                  <Building2 size={12} className="text-blue-500" /> Sucursal Asignada
+                </Label>
+                <Select value={branchId} onValueChange={setBranchId}>
+                  <SelectTrigger className="h-9 text-xs rounded-xl">
+                    <SelectValue placeholder="Sin sucursal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none" className="text-xs">Sin sucursal</SelectItem>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold flex items-center gap-1">
+                  <Store size={12} className="text-emerald-500" /> Caja POS / Bodega
+                </Label>
+                <Select value={stationId} onValueChange={setStationId}>
+                  <SelectTrigger className="h-9 text-xs rounded-xl">
+                    <SelectValue placeholder="Sin caja asignada" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none" className="text-xs">Sin caja asignada</SelectItem>
+                    {posStations.map((st) => (
+                      <SelectItem key={st.id} value={st.id} className="text-xs">
+                        {st.name}{st.warehouse_name ? ` (${st.warehouse_name})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Contraseña (Opcional)</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={editingUserId ? 'Dejar vacío para no cambiar' : 'Mín. 6 caracteres'}
+                  className="text-xs h-9 rounded-xl"
                 />
               </div>
             </div>
