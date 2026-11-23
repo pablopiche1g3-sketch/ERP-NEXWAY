@@ -24,7 +24,7 @@ import {
   X,
   Plus
 } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
@@ -223,7 +223,8 @@ export function GlobalCommandPalette() {
       {/* Modal Command Palette (se abre con Ctrl+K o desde el botón en la barra superior) */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden bg-popover text-popover-foreground border-border shadow-2xl">
-          <div className="p-3 border-b border-border flex items-center gap-3 bg-muted/40">
+          <DialogTitle className="sr-only">Paleta de Comandos Rápidos</DialogTitle>
+          <div className="p-3 pr-11 border-b border-border flex items-center gap-3 bg-muted/40">
             <Search className="h-4 w-4 text-slate-400 shrink-0" />
             <Input 
               value={search}

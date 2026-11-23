@@ -299,14 +299,14 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       ] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from('branches').select('id, name'),
-        supabase.from('inventory').select('id, sku, name, cost, price, reorder_point, min_stock, max_stock, is_service'),
+        supabase.from('inventory').select('sku, name, cost, price, reorder_point, min_stock, max_stock, is_service'),
         supabase.from('inventory_stock').select('sku, quantity'),
         supabase.from('suppliers').select('name').limit(1),
         supabase.from('supplier_orders').select('*').eq('status', 'PENDIENTE').order('created_at', { ascending: false }).limit(25),
         supabase.from('sales').select('id, total').neq('status', 'CANCELADA').gte('created_at', todayStr),
         supabase.from('daily_closings').select('id').gte('date', todayStr).limit(1),
-        supabase.from('sales').select('items').neq('status', 'CANCELADA').gte('created_at', limitDate.toISOString()).limit(500),
-        supabase.from('traslados_circuito').select('estado'),
+        supabase.from('sales_items').select('sku, sales!inner(created_at, status)').neq('sales.status', 'CANCELADA').gte('sales.created_at', limitDate.toISOString()).limit(500),
+        supabase.from('transfers').select('status').limit(100),
         supabase.from('customers').select('id, name, credit_limit').order('created_at', { ascending: false }).limit(20)
       ]);
 
@@ -406,12 +406,8 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       const todaySalesTotal = salesToday.reduce((acc, s: any) => acc + (parseFloat(s.total) || 0), 0);
 
       const soldSkuSet = new Set<string>();
-      sales30d.forEach((sale: any) => {
-        if (sale.items && Array.isArray(sale.items)) {
-          sale.items.forEach((item: any) => {
-            if (item.sku) soldSkuSet.add(item.sku);
-          });
-        }
+      sales30d.forEach((row: any) => {
+        if (row?.sku) soldSkuSet.add(row.sku);
       });
 
       const stagnantProductsList: StagnantProductItem[] = [];
@@ -437,14 +433,14 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       const stagnantCount = stagnantProductsList.length;
       const stagnantCapitalTotal = stagnantProductsList.reduce((acc, it) => acc + it.tiedCapital, 0);
 
-      // 6.5 Auditar traslados de circuito (reutilizando resultado en paralelo)
+      // 6.5 Auditar traslados (usando tabla transfers + respaldo local)
       let pendingTransfers = 0;
       let inTransitTransfers = 0;
       try {
         const trData = transfersRes?.data;
         if (trData && trData.length > 0) {
-          pendingTransfers = trData.filter((t: any) => t.estado === 'SOLICITADO' || t.estado === 'EN_PICKING').length;
-          inTransitTransfers = trData.filter((t: any) => t.estado === 'DESPACHADO').length;
+          pendingTransfers = trData.filter((t: any) => t.status === 'PETICION' || t.status === 'SOLICITADO' || t.status === 'EN_PICKING').length;
+          inTransitTransfers = trData.filter((t: any) => t.status === 'ENVIADO' || t.status === 'DESPACHADO').length;
         } else if (typeof window !== 'undefined') {
           const localTr = localStorage.getItem('nexway_circuit_transfers');
           if (localTr) {

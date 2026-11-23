@@ -39,7 +39,7 @@ export function DashboardComercialKPI({ embeddedView = false }: DashboardComerci
       const [salesRes, stockRes, productRes] = await Promise.all([
         supabase
           .from('sales')
-          .select('id, created_at, total, customer_name, items, status')
+          .select('id, created_at, total, customer_name, status')
           .neq('status', 'CANCELADA')
           .order('created_at', { ascending: false })
           .limit(600),

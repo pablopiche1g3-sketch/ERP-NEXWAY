@@ -138,8 +138,7 @@ export default function AccountingPage() {
         invRes,
         journalRes,
         linesRes,
-        bRes,
-        cRes
+        bRes
       ] = await Promise.all([
         supabase.from('customers').select('id, name, nit, nrc'),
         supabase.from('suppliers').select('id, name, nit, nrc'),
@@ -148,8 +147,7 @@ export default function AccountingPage() {
         supabase.from('inventory').select('sku, name, category, price'),
         supabase.from('journal').select('*').order('created_at', { ascending: false }).limit(500),
         supabase.from('journal_lines').select('*').limit(1000),
-        supabase.from('branches').select('*'),
-        supabase.from('cost_centers').select('*')
+        supabase.from('branches').select('*')
       ]);
 
       const custData = custRes.data || [];
@@ -242,7 +240,7 @@ export default function AccountingPage() {
       setInstProjects([]);
 
       setBranches(bRes.data || []);
-      setCostCenters(cRes.data || []);
+      setCostCenters([]);
 
     } catch (err: any) {
       console.error('Error al cargar datos contables de Supabase:', err);

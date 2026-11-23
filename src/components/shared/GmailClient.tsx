@@ -143,8 +143,10 @@ export default function GmailClient({ context = 'compras', onImportDteToPurchase
 
   const checkStatus = useCallback(async () => {
     setCheckingStatus(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
     try {
-      const res = await fetch('/api/gmail/status');
+      const res = await fetch('/api/gmail/status', { signal: controller.signal });
       const data = await res.json();
       setConfigured(Boolean(data.configured));
       setConnected(Boolean(data.connected));
@@ -153,8 +155,10 @@ export default function GmailClient({ context = 'compras', onImportDteToPurchase
         await Promise.all([fetchMessages(activeFolder, ''), loadProcessedDteIds()]);
       }
     } catch {
+      setConfigured(false);
       setConnected(false);
     } finally {
+      clearTimeout(timer);
       setCheckingStatus(false);
     }
   }, [activeFolder, fetchMessages, loadProcessedDteIds]);

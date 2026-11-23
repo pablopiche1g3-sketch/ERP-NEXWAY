@@ -220,7 +220,7 @@ export default function CRMPage() {
         supabase.from('customers').select('id, name, email, phone, address, credit_limit').order('name').limit(300),
         supabase.from('inventory').select('sku, name, price'),
         supabase.from('inventory_stock').select('sku, quantity'),
-        supabase.from('sales').select('items').neq('status', 'CANCELADA').gte('created_at', limit30d.toISOString()).limit(500)
+        supabase.from('sales_items').select('sku, sales!inner(created_at, status)').neq('sales.status', 'CANCELADA').gte('sales.created_at', limit30d.toISOString()).limit(500)
       ]);
 
       setCrmSellers(usersList.map(u => ({ id: u.id, full_name: u.full_name, email: u.email })));
@@ -261,12 +261,8 @@ export default function CRMPage() {
       setInventory(inv);
 
       const soldSkuSet = new Set<string>();
-      (salesRes.data || []).forEach(s => {
-        if (s.items && Array.isArray(s.items)) {
-          s.items.forEach((item: any) => {
-            if (item.sku) soldSkuSet.add(item.sku);
-          });
-        }
+      (salesRes.data || []).forEach((row: any) => {
+        if (row?.sku) soldSkuSet.add(row.sku);
       });
 
       const stockMap: Record<string, number> = {};

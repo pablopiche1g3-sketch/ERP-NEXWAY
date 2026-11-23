@@ -225,7 +225,7 @@ export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte 
         .order('created_at', { ascending: false });
       setPurchasesHistory(purchHistoryData || []);
 
-      // Cargar catálogo de DTEs pendientes desde Gmail (system_config) y tabla legacy si existe
+      // Cargar catálogo de DTEs pendientes desde Gmail (system_config)
       const mergedDtes: any[] = [];
       try {
         const { data: gmailDteCfg } = await supabase
@@ -238,15 +238,6 @@ export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte 
             .filter((d: any) => d && d.estado !== 'PROCESADO')
             .forEach((d: any) => mergedDtes.push(d));
         }
-      } catch {}
-
-      try {
-        const { data: dteData } = await supabase
-          .from('facturas_proveedores_json')
-          .select('*')
-          .eq('estado', 'PENDIENTE_PROCESAR')
-          .order('created_at', { ascending: false });
-        (dteData || []).forEach((d: any) => mergedDtes.push(d));
       } catch {}
 
       setPendingDtes(mergedDtes);
