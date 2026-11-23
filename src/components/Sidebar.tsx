@@ -15,8 +15,7 @@ import {
   ChevronLeft,
   Sparkles,
   Package,
-  LogOut,
-  Mail
+  LogOut
 } from 'lucide-react';
 import { useUser, getTenantName, ROLE_PERMISSIONS } from '@/supabase/use-user';
 import { Button } from '@/components/ui/button';
@@ -92,7 +91,6 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     { id: 'directorio', title: 'Directorio Comercial', path: '/directorio', icon: <Building2 size={18} /> },
     { id: 'logistica', title: 'Logística de Stock', path: '/logistica', icon: <Package size={18} /> },
     { id: 'compras', title: 'Abastecimiento', path: '/compras', icon: <Truck size={18} /> },
-    { id: 'correo', title: 'Correo ERP (Gmail)', path: '/compras?tab=gmail', icon: <Mail size={18} className="text-red-500" /> },
     { id: 'finanzas', title: 'Finanzas y Créditos', path: '/finanzas', icon: <CalendarClock size={18} /> },
     { id: 'institutional', title: 'Institucional', path: '/institutional', icon: <Building size={18} /> },
     { id: 'crm', title: 'CRM Comercial', path: '/crm', icon: <Sparkles size={18} className="text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]" /> },
@@ -110,15 +108,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       return item.id === 'billing';
     }
 
-    const permKey = item.id === 'correo' ? 'compras' : item.id;
-
     if (permissions && Array.isArray(permissions.modules)) {
-      return permissions.modules.includes(permKey) || (permKey === 'compras' && permissions.modules.includes('purchases'));
+      return permissions.modules.includes(item.id);
     }
     
     const safeRole = role ? role.toLowerCase().trim() : 'pedidos';
     const allowed = ROLE_PERMISSIONS[safeRole] || ROLE_PERMISSIONS['pedidos'];
-    return allowed.includes(permKey) || (permKey === 'compras' && allowed.includes('purchases'));
+    return allowed.includes(item.id);
   });
 
   const handleSignOut = async () => {
