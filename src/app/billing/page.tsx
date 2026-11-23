@@ -510,8 +510,16 @@ export default function BillingPage() {
     }
   };
 
-  // Arqueo States
+  // Arqueo States (Flujo simplificado en 4 pasos: 1. Fondo Base, 2. Tarjetas/Otros, 3. Entrega Efectivo, 4. Validar y Cerrar)
   const [cashierVistoBueno, setCashierVistoBueno] = useState(false);
+  const [baseFloatDenominations, setBaseFloatDenominations] = useState<Record<string, number>>({
+    '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
+    '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
+  });
+  const [baseFloatDirectAmount, setBaseFloatDirectAmount] = useState<string>('');
+  const [showBaseDenoms, setShowBaseDenoms] = useState(false);
+  const [showExpensesBox, setShowExpensesBox] = useState(false);
+  const [closingDifferenceNote, setClosingDifferenceNote] = useState<string>('');
   const [cashDenominations, setCashDenominations] = useState<Record<string, number>>({
     '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
     '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
@@ -519,6 +527,14 @@ export default function BillingPage() {
 
   const adjustDenomination = (den: string, amount: number) => {
     setCashDenominations(prev => ({
+      ...prev,
+      [den]: Math.max(0, (prev[den] || 0) + amount)
+    }));
+  };
+
+  const adjustBaseDenomination = (den: string, amount: number) => {
+    setBaseFloatDirectAmount('');
+    setBaseFloatDenominations(prev => ({
       ...prev,
       [den]: Math.max(0, (prev[den] || 0) + amount)
     }));
@@ -554,6 +570,9 @@ export default function BillingPage() {
         if (savedArqueo) {
           const parsed = JSON.parse(savedArqueo);
           if (parsed.cashDenominations) setCashDenominations(parsed.cashDenominations);
+          if (parsed.baseFloatDenominations) setBaseFloatDenominations(parsed.baseFloatDenominations);
+          if (parsed.baseFloatDirectAmount !== undefined) setBaseFloatDirectAmount(parsed.baseFloatDirectAmount);
+          if (parsed.closingDifferenceNote !== undefined) setClosingDifferenceNote(parsed.closingDifferenceNote);
           if (parsed.expenses) setExpenses(parsed.expenses);
           if (parsed.physicalCard !== undefined) setPhysicalCard(parsed.physicalCard);
           if (parsed.physicalTransfer !== undefined) setPhysicalTransfer(parsed.physicalTransfer);
@@ -576,6 +595,9 @@ export default function BillingPage() {
       netPhysicalCash,
       reportedSalesAmount,
       cashDenominations,
+      baseFloatDenominations,
+      baseFloatDirectAmount,
+      closingDifferenceNote,
       expenses,
       physicalCard,
       physicalTransfer,
@@ -620,6 +642,12 @@ export default function BillingPage() {
       '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
       '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
     });
+    setBaseFloatDenominations({
+      '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
+      '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
+    });
+    setBaseFloatDirectAmount('');
+    setClosingDifferenceNote('');
     setExpenses([]);
     setPhysicalCard(0);
     setPhysicalTransfer(0);
@@ -1615,13 +1643,26 @@ export default function BillingPage() {
       }, 0) || 0
   , [activeShiftSales]);
 
-  const totalPhysicalCash = useMemo(() => 
+  const baseFloatFromDenoms = useMemo(() =>
+    Object.entries(baseFloatDenominations).reduce((acc, [den, qty]) => acc + (parseFloat(den) * qty), 0)
+  , [baseFloatDenominations]);
+
+  const countedBaseFloat = useMemo(() => {
+    if (baseFloatDirectAmount !== '') return Math.max(0, parseFloat(baseFloatDirectAmount) || 0);
+    return baseFloatFromDenoms;
+  }, [baseFloatDirectAmount, baseFloatFromDenoms]);
+
+  const countedDeliveryCash = useMemo(() =>
     Object.entries(cashDenominations).reduce((acc, [den, qty]) => acc + (parseFloat(den) * qty), 0)
   , [cashDenominations]);
 
-  const netPhysicalCash = useMemo(() => 
-    Math.max(0, totalPhysicalCash - (cashConfig?.cashFloat || 0))
-  , [totalPhysicalCash, cashConfig]);
+  const totalPhysicalCash = useMemo(() =>
+    Number((countedBaseFloat + countedDeliveryCash).toFixed(2))
+  , [countedBaseFloat, countedDeliveryCash]);
+
+  const netPhysicalCash = useMemo(() =>
+    Number(countedDeliveryCash.toFixed(2))
+  , [countedDeliveryCash]);
 
   const handleAiBmsAutoSync = () => {
     setPhysicalCard(systemCardSales);
@@ -1629,8 +1670,8 @@ export default function BillingPage() {
     setPhysicalCheck(systemCheckSales);
     setPhysicalCredit(systemCreditSales);
     toast({
-      title: "🤖 Cruce Automático Realizado",
-      description: "La IA sincronizó los montos de Tarjetas, Transferencias, Cheques y Crédito con la autorización del BMS."
+      title: "✓ Formas de Pago Verificadas",
+      description: "Se confirmaron los montos de Tarjetas, Transferencias, Cheques y Crédito contra el sistema."
     });
   };
 
@@ -1638,8 +1679,20 @@ export default function BillingPage() {
     expenses.reduce((acc, e) => acc + e.amount, 0)
   , [expenses]);
 
+  const expectedDeliveryCash = useMemo(() =>
+    Number(Math.max(0, systemCashSales - totalExpenses).toFixed(2))
+  , [systemCashSales, totalExpenses]);
+
+  const baseFloatDifference = useMemo(() =>
+    Number((countedBaseFloat - (cashConfig?.cashFloat || 0)).toFixed(2))
+  , [countedBaseFloat, cashConfig]);
+
+  const deliveryCashDifference = useMemo(() =>
+    Number((countedDeliveryCash - expectedDeliveryCash).toFixed(2))
+  , [countedDeliveryCash, expectedDeliveryCash]);
+
   const cashDifference = useMemo(() => 
-    totalPhysicalCash - (systemCashSales + (cashConfig?.cashFloat || 0) - totalExpenses)
+    Number((totalPhysicalCash - (systemCashSales + (cashConfig?.cashFloat || 0) - totalExpenses)).toFixed(2))
   , [totalPhysicalCash, systemCashSales, cashConfig, totalExpenses]);
 
   const cardDifference = useMemo(() => physicalCard - systemCardSales, [physicalCard, systemCardSales]);
@@ -2598,42 +2651,60 @@ export default function BillingPage() {
   };
 
   const handleDayClosing = async () => {
-    if (role !== 'admin') {
-      const hasDifference = cashDifference !== 0 || cardDifference !== 0 || checkDifference !== 0 || transferDifference !== 0 || creditDifference !== 0;
-      if (hasDifference) {
-        // Encontrar la primera diferencia para mostrar en el alert
-        const diff = cashDifference !== 0 ? cashDifference : 
-                     cardDifference !== 0 ? cardDifference : 
-                     checkDifference !== 0 ? checkDifference : 
-                     transferDifference !== 0 ? transferDifference : creditDifference;
-        triggerArqueoAlert(diff);
-        toast({ 
-          variant: "destructive", 
-          title: "Arqueo Bloqueado", 
-          description: "Hay un descuadre en los valores reportados. Verifica la alerta de auditoría con tu supervisor."
-        });
-        return;
-      }
+    const hasDifference =
+      Math.abs(cashDifference) > 0.009 ||
+      Math.abs(cardDifference) > 0.009 ||
+      Math.abs(checkDifference) > 0.009 ||
+      Math.abs(transferDifference) > 0.009 ||
+      Math.abs(creditDifference) > 0.009;
+
+    if (hasDifference) {
+      const diff =
+        Math.abs(cashDifference) > 0.009 ? cashDifference :
+        Math.abs(cardDifference) > 0.009 ? cardDifference :
+        Math.abs(checkDifference) > 0.009 ? checkDifference :
+        Math.abs(transferDifference) > 0.009 ? transferDifference : creditDifference;
+      triggerArqueoAlert(diff);
     }
 
     setIsProcessing(true);
     try {
       const closingDateStr = new Date().toISOString().split('T')[0];
-      const salesReportedAmt = Number(reportedSalesAmount) || systemCashSales;
+      const salesReportedAmt = Number(reportedSalesAmount) || (systemCashSales + systemCardSales + systemTransferSales + systemCheckSales + systemCreditSales);
 
       const outgoingUser = outgoingCashierEmail || user?.email || 'Admin';
-      const incomingUser = !incomingCashierEmail || incomingCashierEmail === 'SIN_RELEVO' ? 'Sin Relevo (Cierre de Día)' : incomingCashierEmail;
+      const incomingUser = !incomingCashierEmail || incomingCashierEmail === 'SIN_RELEVO' ? 'Cierre de Día' : incomingCashierEmail;
+      const diffLabel =
+        Math.abs(cashDifference) < 0.01
+          ? 'Cuadrado ($0.00)'
+          : cashDifference > 0
+          ? `Sobrante (+$${cashDifference.toFixed(2)})`
+          : `Faltante (-$${Math.abs(cashDifference).toFixed(2)})`;
+
+      // Guardar únicamente columnas válidas en daily_closings (sin 'incoming_cashier' que no existe en la tabla)
+      const denominationsPayload: Record<string, any> = {
+        ...cashDenominations,
+        _meta: {
+          base_float_counted: countedBaseFloat,
+          base_float_expected: cashConfig?.cashFloat || 0,
+          base_float_denominations: baseFloatDenominations,
+          delivery_cash_counted: countedDeliveryCash,
+          delivery_cash_expected: expectedDeliveryCash,
+          closing_note: closingDifferenceNote.trim() || diffLabel,
+          incoming_cashier: incomingUser
+        }
+      };
 
       const { error } = await supabase
         .from('daily_closings')
         .upsert({
           date: closingDateStr,
-          cash_float: cashConfig?.cashFloat || 0,
+          cash_float: countedBaseFloat || cashConfig?.cashFloat || 0,
           system_cash_sales: systemCashSales,
           physical_cash_found: totalPhysicalCash,
           expenses: totalExpenses,
           difference: cashDifference,
-          denominations: cashDenominations,
+          denominations: denominationsPayload,
           system_card_sales: systemCardSales,
           physical_card_found: physicalCard,
           card_difference: cardDifference,
@@ -2646,17 +2717,17 @@ export default function BillingPage() {
           system_credit_sales: systemCreditSales,
           physical_credit_found: physicalCredit,
           credit_difference: creditDifference,
-          closed_by: outgoingUser,
-          incoming_cashier: incomingUser
+          closed_by: outgoingUser
         }, { onConflict: 'date' });
 
       if (error) throw error;
 
       // 1. Asiento Contable Automático de Cierre de Caja en General Ledger (journal)
+      const noteText = closingDifferenceNote.trim() ? ` | Nota: ${closingDifferenceNote.trim()}` : '';
       await supabase.from('journal').insert({
-        description: `CIERRE DIARIO DE CAJA [${closingDateStr}] - Recaudación Efectivo Neta: $${netPhysicalCash.toFixed(2)} | Relevo: Saliente (${outgoingUser}) ➡️ Entrante (${incomingUser})`,
+        description: `CIERRE DIARIO DE CAJA [${closingDateStr}] - Fondo Base: $${countedBaseFloat.toFixed(2)} | Entrega Efectivo: $${countedDeliveryCash.toFixed(2)} | ${diffLabel}${noteText} | Por: ${outgoingUser}`,
         type: 'Ingreso',
-        amount: salesReportedAmt
+        amount: countedDeliveryCash > 0 ? countedDeliveryCash : salesReportedAmt
       });
 
       if (totalExpenses > 0) {
@@ -2670,8 +2741,14 @@ export default function BillingPage() {
       logNexbotEvent(
         'billing',
         'AUDITORIA_JORNADA',
-        { difference: cashDifference, closed_by: outgoingUser, incoming_cashier: incomingUser, reported_sales: salesReportedAmt },
-        `El cajero ${outgoingUser} formalizó el cierre de caja entregando el turno a ${incomingUser}. Venta reportada: $${salesReportedAmt}. Diferencia: $${cashDifference}.`
+        {
+          difference: cashDifference,
+          closed_by: outgoingUser,
+          base_float_counted: countedBaseFloat,
+          delivery_cash_counted: countedDeliveryCash,
+          closing_note: closingDifferenceNote.trim() || diffLabel
+        },
+        `El cajero ${outgoingUser} cerró la jornada. Fondo Base: $${countedBaseFloat.toFixed(2)} | Entrega Efectivo: $${countedDeliveryCash.toFixed(2)} | Estado: ${diffLabel}.`
       );
 
       // 2. Reiniciar todos los conteos y montos a CERO ($0.00) para el nuevo día
@@ -2679,6 +2756,12 @@ export default function BillingPage() {
         '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
         '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
       });
+      setBaseFloatDenominations({
+        '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
+        '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
+      });
+      setBaseFloatDirectAmount('');
+      setClosingDifferenceNote('');
       setExpenses([]);
       setPhysicalCard(0);
       setPhysicalTransfer(0);
@@ -2694,10 +2777,11 @@ export default function BillingPage() {
       await supabase.from('system_config').delete().eq('key', 'active_cash_draft');
       setLastClosingTimestamp(new Date().toISOString());
       setIsDayClosingConfirmOpen(false);
+      await loadBillingData();
 
       toast({ 
-        title: "¡Jornada Cerrada y Cuadrada! 🚀", 
-        description: "Se registró el asiento contable y los conteos de caja fueron reiniciados a cero para la nueva jornada." 
+        title: "¡Día Cerrado Exitosamente! ✓", 
+        description: `Fondo Base: $${countedBaseFloat.toFixed(2)} · Entrega Efectivo: $${countedDeliveryCash.toFixed(2)} · ${diffLabel}.` 
       });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error al guardar cierre", description: e.message });
@@ -3986,591 +4070,531 @@ export default function BillingPage() {
             </Dialog>
           </TabsContent>
 
-          {/* TAB ARQUEO */}
-          <TabsContent value="arqueo" className="space-y-6 outline-none">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Conteo de Billetes/Monedas */}
-              <div className="lg:col-span-5 space-y-6">
-                <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                  <div className="bg-card text-foreground p-5 flex flex-row items-center justify-between border-b border-border">
-                    <div>
-                      <h3 className="text-sm font-bold flex items-center gap-2">
-                        <Coins size={18} className="text-amber-400 animate-pulse" /> Conteo de Efectivo
-                      </h3>
-                      <p className="text-[10px] text-slate-300 dark:text-white/50 mt-1">Registre la cantidad de billetes y monedas físicas en caja.</p>
+          {/* TAB ARQUEO — Flujo Simple en 4 Pasos */}
+          <TabsContent value="arqueo" className="space-y-5 outline-none">
+            {/* Barra Superior: Fecha, Cierres Anteriores y Herramientas */}
+            <div className="p-4 bg-card border border-border rounded-2xl flex flex-wrap justify-between items-center gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/15 rounded-xl text-indigo-500">
+                  <Clock size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-tight">
+                    {selectedPastClosure ? `Cierre Histórico: ${selectedPastClosure.date}` : 'Cierre de Caja del Día'}
+                  </h3>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {selectedPastClosure
+                      ? `Cerrado por: ${selectedPastClosure.closed_by || 'Cajero'} · Recaudación: $${((selectedPastClosure.physical_cash_found || 0) - (selectedPastClosure.cash_float || 0)).toFixed(2)}`
+                      : formattedTodayDate}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {pastDailyClosings.length > 0 && (
+                  <Select
+                    value={selectedPastClosure ? selectedPastClosure.id : 'active'}
+                    onValueChange={(val) => {
+                      if (val === 'active') {
+                        setSelectedPastClosure(null);
+                      } else {
+                        const found = pastDailyClosings.find(c => c.id === val);
+                        setSelectedPastClosure(found || null);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-52 h-9 text-xs font-bold rounded-xl">
+                      <SelectValue placeholder="Ver Cierre Anterior" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active" className="text-xs font-bold text-emerald-500">
+                        ⚡ Jornada Activa (Hoy)
+                      </SelectItem>
+                      {pastDailyClosings.map(c => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">
+                          📜 Cierre {c.date} ($${((c.physical_cash_found || 0) - (c.cash_float || 0)).toFixed(2)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <Button variant="outline" size="sm" className="h-9 rounded-xl text-xs font-bold gap-1.5" onClick={handleSaveArqueoDraft}>
+                  <Save size={13} /> Guardar Borrador
+                </Button>
+                <Button variant="outline" size="sm" className="h-9 rounded-xl text-xs font-bold gap-1.5" onClick={handlePrintReport}>
+                  <Printer size={13} /> Imprimir
+                </Button>
+                <Button variant="outline" size="sm" className="h-9 rounded-xl text-xs font-bold text-rose-500 hover:text-rose-600 gap-1.5" onClick={handleResetArqueo}>
+                  <RotateCcw size={13} /> Limpiar
+                </Button>
+              </div>
+            </div>
+
+            {selectedPastClosure && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex justify-between items-center text-amber-600 dark:text-amber-300 text-xs font-bold">
+                <span>📜 Estás viendo el cierre guardado del {selectedPastClosure.date}.</span>
+                <Button size="sm" variant="outline" onClick={() => setSelectedPastClosure(null)} className="h-7 text-[11px] rounded-xl">
+                  <X size={12} className="mr-1" /> Volver a Hoy
+                </Button>
+              </div>
+            )}
+
+            {/* FLUJO LÓGICO EN 4 PASOS CLAROS */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+              {/* COLUMNA IZQUIERDA (PASOS 1 Y 2) */}
+              <div className="lg:col-span-6 space-y-5">
+
+                {/* PASO 1: CONTAR DINERO EN CAJA PARA EL FONDO BASE */}
+                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center shrink-0">1</span>
+                      <div>
+                        <h4 className="text-sm font-black text-foreground">Fondo Base en Caja</h4>
+                        <p className="text-[11px] text-muted-foreground">Dinero que se queda en caja para abrir mañana.</p>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 font-bold text-xs px-3 py-1">
-                      Total: ${totalPhysicalCash.toFixed(2)}
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-mono font-black px-2.5 py-1 ${
+                        countedBaseFloat > 0 && Math.abs(baseFloatDifference) < 0.01
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : 'border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                      }`}
+                    >
+                      Contado: ${countedBaseFloat.toFixed(2)}
                     </Badge>
                   </div>
-                  <div className="p-5 space-y-6">
-                    {/* Billetes */}
-                    <div className="space-y-3">
-                      <h4 className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Billetes Registrados
-                      </h4>
-                      <div className="grid grid-cols-1 gap-2.5">
-                        {['100.00', '50.00', '20.00', '10.00', '5.00'].map(den => {
-                          const qty = cashDenominations[den] || 0;
-                          const subtotal = parseFloat(den) * qty;
-                          return (
-                            <div key={den} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/50 dark:bg-muted/10 border border-slate-100 dark:border-border/60 hover:border-emerald-100 dark:hover:border-emerald-900/30 transition-all">
-                              <div className="flex items-center gap-3">
-                                <div className="h-8 w-14 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-center text-[11px] font-black text-emerald-600 dark:text-emerald-400">
-                                  ${parseInt(den)}
-                                </div>
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground">Billetes</span>
-                              </div>
-                              
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center bg-white dark:bg-muted/60 rounded-xl p-0.5 border dark:border-border/40 shadow-sm">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-muted font-bold"
-                                    onClick={() => adjustDenomination(den, -1)}
-                                  >
-                                    -
-                                  </Button>
-                                  <Input 
-                                    type="number" 
-                                    className="h-6 w-10 text-center font-black text-xs p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-slate-800 dark:text-foreground" 
-                                    value={qty || ''} 
-                                    placeholder="0"
-                                    onFocus={e => e.target.select()}
-                                    onChange={e => setCashDenominations({...cashDenominations, [den]: parseInt(e.target.value) || 0})}
-                                  />
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-muted font-bold"
-                                    onClick={() => adjustDenomination(den, 1)}
-                                  >
-                                    +
-                                  </Button>
-                                </div>
-                                <div className="text-right w-20">
-                                  <span className="text-xs font-black text-slate-700 dark:text-slate-200">${subtotal.toFixed(2)}</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+
+                  <div className="p-4 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase text-muted-foreground block">Fondo Base Configurado</span>
+                        <span className="text-lg font-black font-mono text-indigo-600 dark:text-indigo-400">
+                          ${(cashConfig?.cashFloat || 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="relative w-32">
+                          <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={baseFloatDirectAmount !== '' ? baseFloatDirectAmount : (baseFloatFromDenoms > 0 ? baseFloatFromDenoms.toFixed(2) : '')}
+                            onFocus={e => e.target.select()}
+                            onChange={e => setBaseFloatDirectAmount(e.target.value)}
+                            className="h-9 pl-7 pr-2 text-right font-mono font-black text-sm rounded-xl"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            const target = cashConfig?.cashFloat || 0;
+                            setBaseFloatDirectAmount(target.toFixed(2));
+                            setShowBaseDenoms(false);
+                          }}
+                          className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"
+                        >
+                          ✓ Fondo Completo (${(cashConfig?.cashFloat || 0).toFixed(2)})
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Monedas */}
-                    <div className="space-y-3 pt-2">
-                      <h4 className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Monedas Registradas
-                      </h4>
-                      <div className="grid grid-cols-1 gap-2.5">
-                        {['1.00', '0.25', '0.10', '0.05', '0.01'].map(den => {
-                          const qty = cashDenominations[den] || 0;
-                          const subtotal = parseFloat(den) * qty;
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setShowBaseDenoms(prev => !prev)}
+                        className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                      >
+                        <Coins size={13} />
+                        {showBaseDenoms ? 'Ocultar detalle por billetes/monedas' : 'Contar Fondo Base por billetes y monedas (opcional)'}
+                      </button>
+                      {countedBaseFloat > 0 && Math.abs(baseFloatDifference) >= 0.01 && (
+                        <span className={`text-[11px] font-bold ${baseFloatDifference < 0 ? 'text-rose-500' : 'text-blue-500'}`}>
+                          {baseFloatDifference > 0 ? `+$${baseFloatDifference.toFixed(2)} sobre base` : `-$${Math.abs(baseFloatDifference).toFixed(2)} bajo base`}
+                        </span>
+                      )}
+                    </div>
+
+                    {showBaseDenoms && (
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
+                        {['100.00', '50.00', '20.00', '10.00', '5.00', '1.00', '0.25', '0.10', '0.05', '0.01'].map(den => {
+                          const qty = baseFloatDenominations[den] || 0;
                           return (
-                            <div key={den} className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/50 dark:bg-muted/10 border border-slate-100 dark:border-border/60 hover:border-amber-100 dark:hover:border-amber-900/30 transition-all">
-                              <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/30 flex items-center justify-center text-[10px] font-black text-amber-600 dark:text-amber-400">
-                                  ¢{parseFloat(den) < 1 ? parseInt(String(parseFloat(den) * 100)) : '1.00'}
-                                </div>
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground">Moneda {parseFloat(den) >= 1 ? '$1.00' : `¢${parseInt(String(parseFloat(den) * 100))}`}</span>
-                              </div>
-                              
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center bg-white dark:bg-muted/60 rounded-xl p-0.5 border dark:border-border/40 shadow-sm">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-muted font-bold"
-                                    onClick={() => adjustDenomination(den, -1)}
-                                  >
-                                    -
-                                  </Button>
-                                  <Input 
-                                    type="number" 
-                                    className="h-6 w-10 text-center font-black text-xs p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-slate-800 dark:text-foreground" 
-                                    value={qty || ''} 
-                                    placeholder="0"
-                                    onFocus={e => e.target.select()}
-                                    onChange={e => setCashDenominations({...cashDenominations, [den]: parseInt(e.target.value) || 0})}
-                                  />
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-muted font-bold"
-                                    onClick={() => adjustDenomination(den, 1)}
-                                  >
-                                    +
-                                  </Button>
-                                </div>
-                                <div className="text-right w-20">
-                                  <span className="text-xs font-black text-slate-700 dark:text-slate-200">${subtotal.toFixed(2)}</span>
-                                </div>
+                            <div key={`base-${den}`} className="p-2 rounded-xl bg-muted/40 border border-border flex flex-col items-center gap-1">
+                              <span className="text-[10px] font-black text-foreground">
+                                {parseFloat(den) >= 1 ? `$${parseInt(den)}` : `¢${Math.round(parseFloat(den) * 100)}`}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => adjustBaseDenomination(den, -1)} className="w-5 h-5 rounded bg-background border text-xs font-bold">-</button>
+                                <Input
+                                  type="number"
+                                  value={qty || ''}
+                                  placeholder="0"
+                                  onFocus={e => e.target.select()}
+                                  onChange={e => {
+                                    setBaseFloatDirectAmount('');
+                                    setBaseFloatDenominations({ ...baseFloatDenominations, [den]: Math.max(0, parseInt(e.target.value) || 0) });
+                                  }}
+                                  className="h-6 w-10 text-center font-bold text-xs p-0 rounded-md"
+                                />
+                                <button type="button" onClick={() => adjustBaseDenomination(den, 1)} className="w-5 h-5 rounded bg-background border text-xs font-bold">+</button>
                               </div>
                             </div>
                           );
                         })}
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* PASO 2: VERIFICAR TARJETAS Y DEMÁS FORMAS DE PAGO */}
+                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-black flex items-center justify-center shrink-0">2</span>
+                      <div>
+                        <h4 className="text-sm font-black text-foreground">Tarjetas y Demás Formas de Pago</h4>
+                        <p className="text-[11px] text-muted-foreground">Verifica tus vouchers de POS, transferencias, cheques y créditos.</p>
+                      </div>
                     </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAiBmsAutoSync}
+                      className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl gap-1"
+                    >
+                      <CheckCircle2 size={13} /> Verificar Todo Exacto
+                    </Button>
+                  </div>
+
+                  <div className="p-0">
+                    <Table>
+                      <TableHeader className="bg-muted/30">
+                        <TableRow>
+                          <TableHead className="text-[10px] uppercase font-black px-4 py-2.5">Forma de Pago</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black py-2.5">Sistema</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black w-32 py-2.5">Verificado ($)</TableHead>
+                          <TableHead className="text-right text-[10px] uppercase font-black px-4 py-2.5">Estado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[
+                          { label: 'Tarjeta (POS)', icon: <CardIcon size={14} className="text-blue-500" />, sys: systemCardSales, val: physicalCard, set: setPhysicalCard, diff: cardDifference },
+                          { label: 'Transferencia', icon: <Landmark size={14} className="text-amber-500" />, sys: systemTransferSales, val: physicalTransfer, set: setPhysicalTransfer, diff: transferDifference },
+                          { label: 'Cheque', icon: <FileText size={14} className="text-purple-500" />, sys: systemCheckSales, val: physicalCheck, set: setPhysicalCheck, diff: checkDifference },
+                          { label: 'Crédito', icon: <Receipt size={14} className="text-teal-500" />, sys: systemCreditSales, val: physicalCredit, set: setPhysicalCredit, diff: creditDifference },
+                        ].map((row) => (
+                          <TableRow key={row.label} className="border-b border-border/60">
+                            <TableCell className="font-bold text-xs px-4 py-2.5">
+                              <div className="flex items-center gap-2">
+                                {row.icon}
+                                <span>{row.label}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-bold text-xs text-muted-foreground">
+                              ${row.sys.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-right py-2">
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  className="h-8 w-24 text-right font-mono font-bold text-xs rounded-lg"
+                                  value={row.val || ''}
+                                  placeholder="0.00"
+                                  onFocus={e => e.target.select()}
+                                  onChange={e => row.set(parseFloat(e.target.value) || 0)}
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  title="Confirmar igual al sistema"
+                                  onClick={() => row.set(row.sys)}
+                                  className="h-8 px-1.5 text-[10px] font-black text-emerald-600 hover:bg-emerald-500/10 rounded-lg"
+                                >
+                                  ✓
+                                </Button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right px-4">
+                              <span className={`font-mono font-black text-xs ${Math.abs(row.diff) < 0.01 ? 'text-emerald-600 dark:text-emerald-400' : row.diff < 0 ? 'text-rose-500' : 'text-blue-500'}`}>
+                                {Math.abs(row.diff) < 0.01 ? '✓ OK' : `${row.diff > 0 ? '+' : ''}$${row.diff.toFixed(2)}`}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Gastos Menores Opcional (Colapsable) */}
+                  <div className="p-3 border-t border-border bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setShowExpensesBox(prev => !prev)}
+                        className="text-xs font-bold text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+                      >
+                        <TrendingDown size={14} className="text-rose-500" />
+                        Gastos Menores de Caja ({expenses.length}){totalExpenses > 0 ? ` · -$${totalExpenses.toFixed(2)}` : ' · Opcional'}
+                      </button>
+                      <span className="text-[10px] text-muted-foreground">{showExpensesBox ? 'Ocultar ▲' : 'Agregar ▼'}</span>
+                    </div>
+
+                    {showExpensesBox && (
+                      <div className="mt-3 space-y-2.5">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Ej: Compra de agua, combustible..."
+                            value={expenseDesc}
+                            onChange={e => setExpenseDesc(e.target.value)}
+                            className="h-9 text-xs rounded-xl"
+                          />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={expenseAmount}
+                            onChange={e => setExpenseAmount(e.target.value)}
+                            className="h-9 w-24 text-xs font-mono font-bold text-rose-500 rounded-xl"
+                          />
+                          <Button type="button" onClick={addExpense} size="sm" className="h-9 rounded-xl font-bold text-xs">
+                            <Plus size={14} />
+                          </Button>
+                        </div>
+                        {expenses.length > 0 && (
+                          <div className="space-y-1">
+                            {expenses.map((exp, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs px-2.5 py-1.5 rounded-lg bg-background border border-border">
+                                <span className="font-semibold">{exp.description}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-black text-rose-500">-${exp.amount.toFixed(2)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpenses(prev => prev.filter((_, i) => i !== idx))}
+                                    className="text-muted-foreground hover:text-rose-500"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Conciliación y Gastos */}
-              <div className="lg:col-span-7 space-y-6">
-                
-                {/* Banner de Fecha del Día Actual, Selector de Cierres Anteriores y Estado */}
-                <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 flex justify-between items-center flex-wrap gap-3 shadow-md">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400">
-                      <Clock size={18} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider">
-                        {selectedPastClosure ? `Cierre del ${selectedPastClosure.date}` : 'Jornada Activa de Caja'}
-                      </h4>
-                      <p className="text-[11px] font-bold text-slate-200 capitalize">
-                        {selectedPastClosure ? `Fecha de Cierre: ${selectedPastClosure.date} | Por: ${selectedPastClosure.closed_by || 'Cajero'}` : formattedTodayDate}
-                      </p>
-                    </div>
-                  </div>
+              {/* COLUMNA DERECHA (PASOS 3 Y 4) */}
+              <div className="lg:col-span-6 space-y-5">
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {pastDailyClosings.length > 0 && (
-                      <Select
-                        value={selectedPastClosure ? selectedPastClosure.id : 'active'}
-                        onValueChange={(val) => {
-                          if (val === 'active') {
-                            setSelectedPastClosure(null);
-                          } else {
-                            const found = pastDailyClosings.find(c => c.id === val);
-                            setSelectedPastClosure(found || null);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-52 h-8 text-xs font-bold bg-black/60 border-indigo-500/40 text-amber-300 rounded-xl">
-                          <SelectValue placeholder="Ver Arqueo Anterior" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="active" className="text-xs font-bold text-emerald-400">
-                            ⚡ Jornada Activa (En Curso)
-                          </SelectItem>
-                          {pastDailyClosings.map(c => (
-                            <SelectItem key={c.id} value={c.id} className="text-xs">
-                              📜 Cierre {c.date} (${((c.physical_cash_found || 0) - (c.cash_float || 0)).toFixed(2)})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-
-                    <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-3 py-1">
-                      {selectedPastClosure 
-                        ? `📜 Cierre Guardado` 
-                        : (systemCashSales + systemCardSales + systemTransferSales === 0 ? '✓ Cierre Limpio (Sin Ventas / Solo Fondo Base)' : '⚡ Jornada con Ventas Activas')}
+                {/* PASO 3: CONTAR DINERO PARA LA ENTREGA DE EFECTIVO */}
+                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-black flex items-center justify-center shrink-0">3</span>
+                      <div>
+                        <h4 className="text-sm font-black text-foreground">Dinero para Entrega de Efectivo</h4>
+                        <p className="text-[11px] text-muted-foreground">Cuenta los billetes y monedas que vas a entregar (aparte del fondo base).</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-black text-xs px-2.5 py-1">
+                      Entrega: ${countedDeliveryCash.toFixed(2)}
                     </Badge>
                   </div>
+
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Billetes */}
+                    <div className="space-y-2">
+                      <h5 className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">Billetes</h5>
+                      {['100.00', '50.00', '20.00', '10.00', '5.00'].map(den => {
+                        const qty = cashDenominations[den] || 0;
+                        const subtotal = parseFloat(den) * qty;
+                        return (
+                          <div key={den} className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-muted/30 border border-border">
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 w-10">${parseInt(den)}</span>
+                            <div className="flex items-center gap-1">
+                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 rounded-md font-bold" onClick={() => adjustDenomination(den, -1)}>-</Button>
+                              <Input
+                                type="number"
+                                className="h-7 w-12 text-center font-mono font-black text-xs p-0 rounded-lg"
+                                value={qty || ''}
+                                placeholder="0"
+                                onFocus={e => e.target.select()}
+                                onChange={e => setCashDenominations({ ...cashDenominations, [den]: Math.max(0, parseInt(e.target.value) || 0) })}
+                              />
+                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 rounded-md font-bold" onClick={() => adjustDenomination(den, 1)}>+</Button>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-right w-16">${subtotal.toFixed(2)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Monedas */}
+                    <div className="space-y-2">
+                      <h5 className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">Monedas</h5>
+                      {['1.00', '0.25', '0.10', '0.05', '0.01'].map(den => {
+                        const qty = cashDenominations[den] || 0;
+                        const subtotal = parseFloat(den) * qty;
+                        return (
+                          <div key={den} className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-muted/30 border border-border">
+                            <span className="text-xs font-black text-amber-600 dark:text-amber-400 w-10">
+                              {parseFloat(den) >= 1 ? '$1' : `¢${Math.round(parseFloat(den) * 100)}`}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 rounded-md font-bold" onClick={() => adjustDenomination(den, -1)}>-</Button>
+                              <Input
+                                type="number"
+                                className="h-7 w-12 text-center font-mono font-black text-xs p-0 rounded-lg"
+                                value={qty || ''}
+                                placeholder="0"
+                                onFocus={e => e.target.select()}
+                                onChange={e => setCashDenominations({ ...cashDenominations, [den]: Math.max(0, parseInt(e.target.value) || 0) })}
+                              />
+                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 rounded-md font-bold" onClick={() => adjustDenomination(den, 1)}>+</Button>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-right w-16">${subtotal.toFixed(2)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Resumen de Entrega */}
+                  <div className="px-4 py-3 border-t border-border bg-muted/30 grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Esperado Sistema</span>
+                      <span className="text-sm font-mono font-black text-foreground">${expectedDeliveryCash.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Contado Entrega</span>
+                      <span className="text-sm font-mono font-black text-emerald-600 dark:text-emerald-400">${countedDeliveryCash.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Diferencia</span>
+                      <span className={`text-sm font-mono font-black ${
+                        Math.abs(deliveryCashDifference) < 0.01
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : deliveryCashDifference > 0
+                          ? 'text-blue-600 dark:text-blue-400'
+                          : 'text-rose-500'
+                      }`}>
+                        {Math.abs(deliveryCashDifference) < 0.01
+                          ? '✓ $0.00'
+                          : `${deliveryCashDifference > 0 ? '+' : '-'}$${Math.abs(deliveryCashDifference).toFixed(2)}`}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                {selectedPastClosure && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex justify-between items-center text-amber-300 text-xs font-bold shadow-sm">
-                    <span>📜 VISTA DE AUDITORÍA HISTÓRICA: Cierre del {selectedPastClosure.date} (Recaudación Física: ${((selectedPastClosure.physical_cash_found || 0) - (selectedPastClosure.cash_float || 0)).toFixed(2)})</span>
-                    <Button size="sm" variant="outline" onClick={() => setSelectedPastClosure(null)} className="h-7 text-[10px] border-amber-500/40 text-amber-300 hover:bg-amber-500/20 rounded-xl">
-                      <X size={12} className="mr-1" /> Volver a Jornada Activa
-                    </Button>
-                  </div>
-                )}
-
-                {/* Ingreso de Monto Total de Venta Reportado Manualmente */}
-                <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 shadow-md space-y-2">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                      <Label className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
-                        <DollarSign size={14} /> Monto Total de Venta Reportado por Caja ($)
-                      </Label>
-                      <p className="text-[10px] text-slate-300">Ingresa el total bruto de ventas reportado manualmente para el cierre de jornada.</p>
+                {/* PASO 4: VALIDAR CUADRE Y CERRAR EL DÍA */}
+                <div className="bg-card border-2 border-indigo-500/30 rounded-2xl overflow-hidden shadow-md">
+                  <div className="p-4 border-b border-border bg-indigo-500/5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-full bg-amber-500 text-slate-950 text-xs font-black flex items-center justify-center shrink-0">4</span>
+                      <div>
+                        <h4 className="text-sm font-black text-foreground">Validar Cuadre y Cerrar el Día</h4>
+                        <p className="text-[11px] text-muted-foreground">Revisa el resultado final, anota si hay sobrante/faltante y cierra.</p>
+                      </div>
                     </div>
-                    <div className="relative w-44">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  </div>
+
+                  <div className="p-4 space-y-4">
+                    {/* Resumen Consolidado */}
+                    <div className="grid grid-cols-3 gap-2.5 text-xs">
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
+                        <span className="text-[10px] text-muted-foreground block">1. Fondo Base</span>
+                        <span className="font-mono font-black text-sm">${countedBaseFloat.toFixed(2)}</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
+                        <span className="text-[10px] text-muted-foreground block">2. Tarjetas / Otros</span>
+                        <span className="font-mono font-black text-sm">${(physicalCard + physicalTransfer + physicalCheck + physicalCredit).toFixed(2)}</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-300 block">3. Entrega Efectivo</span>
+                        <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">${countedDeliveryCash.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    {/* Estado del Cuadre (Bueno / Sobrante / Faltante) */}
+                    <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
+                      Math.abs(cashDifference) < 0.01 && Math.abs(cardDifference) < 0.01 && Math.abs(transferDifference) < 0.01 && Math.abs(checkDifference) < 0.01
+                        ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                        : cashDifference > 0
+                        ? 'bg-blue-500/10 border-blue-500/40 text-blue-700 dark:text-blue-300'
+                        : 'bg-rose-500/10 border-rose-500/40 text-rose-700 dark:text-rose-300'
+                    }`}>
+                      <div className="flex items-center gap-2.5">
+                        {Math.abs(cashDifference) < 0.01 ? (
+                          <CheckCircle2 size={20} className="shrink-0" />
+                        ) : (
+                          <AlertTriangle size={20} className="shrink-0" />
+                        )}
+                        <div>
+                          <div className="text-xs font-black uppercase">
+                            {Math.abs(cashDifference) < 0.01
+                              ? 'Cuadre Bueno — Caja Exacta'
+                              : cashDifference > 0
+                              ? `Sobrante de Efectivo: +$${cashDifference.toFixed(2)}`
+                              : `Faltante de Efectivo: -$${Math.abs(cashDifference).toFixed(2)}`}
+                          </div>
+                          <div className="text-[11px] opacity-85">
+                            Total Físico en Caja + Entrega: ${totalPhysicalCash.toFixed(2)} vs Esperado: ${((cashConfig?.cashFloat || 0) + systemCashSales - totalExpenses).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Campo directo para registrar sobrante / faltante / nota */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold text-muted-foreground">
+                        {Math.abs(cashDifference) < 0.01
+                          ? 'Observación de Cierre (Opcional)'
+                          : cashDifference > 0
+                          ? `Detalle del Sobrante (+$${cashDifference.toFixed(2)})`
+                          : `Motivo del Faltante (-$${Math.abs(cashDifference).toFixed(2)})`}
+                      </Label>
                       <Input
-                        type="number"
-                        placeholder="0.00"
-                        value={reportedSalesAmount}
-                        onChange={e => setReportedSalesAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                        className="h-10 pl-8 pr-3 text-right font-black text-sm bg-black/60 border-indigo-400/50 text-emerald-400 rounded-xl focus:border-emerald-400"
+                        placeholder={
+                          Math.abs(cashDifference) < 0.01
+                            ? 'Ej: Caja cuadrada sin novedades...'
+                            : cashDifference > 0
+                            ? 'Ej: Sobrante registrado en caja por cambio...'
+                            : 'Ej: Faltante pendiente de verificar...'
+                        }
+                        value={closingDifferenceNote}
+                        onChange={e => setClosingDifferenceNote(e.target.value)}
+                        className="h-10 text-xs rounded-xl"
                       />
                     </div>
-                  </div>
-                </div>
 
-                {/* Modern KPI summary cards con Conteo Neto */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  <div className="p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
-                    <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Fondo Base</p>
-                    {role === 'admin' ? (
-                      <p className="text-base font-bold text-blue-600 dark:text-[#7c7fff] mt-1">${(cashConfig?.cashFloat || 0).toFixed(2)}</p>
-                    ) : (
-                      <p className="text-[10px] font-bold text-slate-400 mt-2">🔒 Configurado</p>
-                    )}
-                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Fondo inicial en caja</span>
-                  </div>
-                  
-                  <div className="p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
-                    <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Conteo Físico Total</p>
-                    <p className="text-base font-bold text-slate-800 dark:text-white mt-1">${totalPhysicalCash.toFixed(2)}</p>
-                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Conteo en billetera</span>
-                  </div>
-
-                  <div className="p-3.5 bg-indigo-500/10 dark:bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 rounded-[13px] shadow-sm">
-                    <p className="text-[9px] font-black uppercase text-indigo-700 dark:text-indigo-300 tracking-wider">Dinero Neto a Cuadrar</p>
-                    <p className="text-base font-black text-indigo-600 dark:text-indigo-400 mt-1">${netPhysicalCash.toFixed(2)}</p>
-                    <span className="text-[9px] text-indigo-500/80 dark:text-indigo-300/80 block mt-0.5">Físico - Fondo Base</span>
-                  </div>
-
-                  <div className="p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none">
-                    <p className="text-[9px] font-medium uppercase text-slate-500 dark:text-white/40 tracking-wider">Ventas Sistema (Efectivo)</p>
-                    {role === 'admin' ? (
-                      <p className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-1">${systemCashSales.toFixed(2)}</p>
-                    ) : (
-                      <p className="text-[10px] font-bold text-slate-400 mt-2">🔒 Auditoría</p>
-                    )}
-                    <span className="text-[9px] text-slate-400 dark:text-white/30 block mt-0.5">Ventas efectivas</span>
-                  </div>
-
-                  <div className={`p-3.5 bg-white/40 dark:bg-white/5 backdrop-blur-md border rounded-[13px] transition-all duration-300 ${
-                    role !== 'admin'
-                      ? 'border-white/50 dark:border-white/10 text-slate-500'
-                      : cashDifference === 0 
-                      ? 'border-emerald-500/30 text-emerald-900 dark:text-emerald-400' 
-                      : cashDifference < 0 
-                      ? 'border-rose-500/30 text-rose-900 dark:text-rose-400' 
-                      : 'border-blue-500/30 text-blue-900 dark:text-blue-400'
-                  }`}>
-                    <p className="text-[9px] font-medium uppercase tracking-wider opacity-70">Diferencia Efectivo</p>
-                    {role === 'admin' ? (
-                      <>
-                        <p className="text-base font-bold mt-1">
-                          {cashDifference > 0 ? '+' : ''}${cashDifference.toFixed(2)}
-                        </p>
-                        <span className="text-[9px] font-medium block mt-0.5">
-                          {cashDifference === 0 ? '✓ Cuadre OK' : cashDifference < 0 ? '⚠ Faltante' : '💡 Sobrante'}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-[10px] font-bold text-slate-400 mt-2">🔒 Ciego</p>
-                        <span className="text-[9px] font-medium block mt-0.5 text-slate-400">Auditoría</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Conciliación de Otros Medios de Pago */}
-                <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                  <div className="bg-card text-foreground p-4 border-b border-border flex justify-between items-center flex-wrap gap-2">
-                    <h3 className="text-sm font-bold flex items-center gap-2">
-                      <CardIcon size={18} className="text-blue-400" /> Conciliación de Medios Electrónicos y Crédito
-                    </h3>
+                    {/* Botón Único de Cierre del Día */}
                     <Button
-                      size="sm"
-                      onClick={handleAiBmsAutoSync}
-                      className="h-8 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm border-none"
+                      type="button"
+                      onClick={handleDayClosing}
+                      disabled={isProcessing}
+                      className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-black text-sm shadow-lg shadow-emerald-600/20 gap-2"
                     >
-                      <Sparkles size={13} /> 🤖 Sincronizar Salidas con BMS
+                      {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={18} />}
+                      {Math.abs(cashDifference) < 0.01
+                        ? 'Validar de Bueno y Cerrar el Día'
+                        : cashDifference > 0
+                        ? `Registrar Sobrante (+$${cashDifference.toFixed(2)}) y Cerrar el Día`
+                        : `Registrar Faltante (-$${Math.abs(cashDifference).toFixed(2)}) y Cerrar el Día`}
                     </Button>
-                  </div>
-                  <div className="p-0">
-                    <Table>
-                      <TableHeader className="bg-background border-input/40">
-                        <TableRow className="border-b dark:border-border">
-                          <TableHead className="text-[10px] uppercase font-black px-6 py-3 text-slate-400">Medio de Pago</TableHead>
-                          {role === 'admin' && <TableHead className="text-right text-[10px] uppercase font-black py-3 text-slate-400">Ventas Sistema</TableHead>}
-                          <TableHead className="text-right text-[10px] uppercase font-black w-36 py-3 text-slate-400">Físico / Vales</TableHead>
-                          {role === 'admin' && <TableHead className="text-right text-[10px] uppercase font-black px-6 py-3 text-slate-400">Diferencia</TableHead>}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
-                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
-                            <CardIcon size={14} className="text-blue-500" /> Tarjeta
-                          </TableCell>
-                          {role === 'admin' && <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCardSales.toFixed(2)}</TableCell>}
-                          <TableCell className="text-right py-2">
-                            <Input 
-                              type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-background border-input border-slate-200 dark:border-border" 
-                              value={physicalCard || ''} 
-                              placeholder="0.00"
-                              onFocus={e => e.target.select()}
-                              onChange={e => setPhysicalCard(parseFloat(e.target.value) || 0)} 
-                            />
-                          </TableCell>
-                          {role === 'admin' && (
-                            <TableCell className={`text-right font-black text-xs px-6 ${cardDifference === 0 ? 'text-emerald-600' : cardDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                              {cardDifference > 0 ? '+' : ''}${cardDifference.toFixed(2)}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                        
-                        <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
-                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
-                            <FileText size={14} className="text-purple-500" /> Cheque
-                          </TableCell>
-                          {role === 'admin' && <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCheckSales.toFixed(2)}</TableCell>}
-                          <TableCell className="text-right py-2">
-                            <Input 
-                              type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-background border-input border-slate-200 dark:border-border" 
-                              value={physicalCheck || ''} 
-                              placeholder="0.00"
-                              onFocus={e => e.target.select()}
-                              onChange={e => setPhysicalCheck(parseFloat(e.target.value) || 0)} 
-                            />
-                          </TableCell>
-                          {role === 'admin' && (
-                            <TableCell className={`text-right font-black text-xs px-6 ${checkDifference === 0 ? 'text-emerald-600' : checkDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                              {checkDifference > 0 ? '+' : ''}${checkDifference.toFixed(2)}
-                            </TableCell>
-                          )}
-                        </TableRow>
-
-                        <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-b dark:border-border">
-                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
-                            <Landmark size={14} className="text-amber-500" /> Transferencia
-                          </TableCell>
-                          {role === 'admin' && <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemTransferSales.toFixed(2)}</TableCell>}
-                          <TableCell className="text-right py-2">
-                            <Input 
-                              type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-background border-input border-slate-200 dark:border-border" 
-                              value={physicalTransfer || ''} 
-                              placeholder="0.00"
-                              onFocus={e => e.target.select()}
-                              onChange={e => setPhysicalTransfer(parseFloat(e.target.value) || 0)} 
-                            />
-                          </TableCell>
-                          {role === 'admin' && (
-                            <TableCell className={`text-right font-black text-xs px-6 ${transferDifference === 0 ? 'text-emerald-600' : transferDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                              {transferDifference > 0 ? '+' : ''}${transferDifference.toFixed(2)}
-                            </TableCell>
-                          )}
-                        </TableRow>
-
-                        <TableRow className="hover:bg-slate-50/50 dark:hover:bg-muted/10 border-0">
-                          <TableCell className="font-bold text-xs px-6 py-3 flex items-center gap-2.5 text-white">
-                            <Receipt size={14} className="text-teal-500" /> Crédito
-                          </TableCell>
-                          {role === 'admin' && <TableCell className="text-right font-black text-xs text-slate-800 dark:text-foreground">${systemCreditSales.toFixed(2)}</TableCell>}
-                          <TableCell className="text-right py-2">
-                            <Input 
-                              type="number" 
-                              className="h-8 w-24 text-right font-bold text-xs ml-auto rounded-xl bg-background border-input border-slate-200 dark:border-border" 
-                              value={physicalCredit || ''} 
-                              placeholder="0.00"
-                              onFocus={e => e.target.select()}
-                              onChange={e => setPhysicalCredit(parseFloat(e.target.value) || 0)} 
-                            />
-                          </TableCell>
-                          {role === 'admin' && (
-                            <TableCell className={`text-right font-black text-xs px-6 ${creditDifference === 0 ? 'text-emerald-600' : creditDifference < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
-                              {creditDifference > 0 ? '+' : ''}${creditDifference.toFixed(2)}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-
-                {/* Gastos de caja chica y acciones finales */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                  {/* Gastos de Caja */}
-                  <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                    <div className="p-5 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-transparent flex flex-row items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-rose-500/10 flex items-center justify-center">
-                        <TrendingDown size={16} className="text-rose-500" /> 
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-white/80">Gastos Menores / Egresos</h3>
-                        <p className="text-[10px] text-slate-500 dark:text-white/40">Egresos rápidos del día autorizados por caja.</p>
-                      </div>
-                    </div>
-                    <div className="p-5 space-y-4">
-                      <div className="flex gap-2">
-                        <Input placeholder="Descripción..." value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)} className="h-10 text-xs bg-background border-input border-slate-100 dark:border-border rounded-xl text-foreground" />
-                        <Input type="number" placeholder="0.00" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="h-10 w-20 text-xs bg-background border-input border-slate-100 dark:border-border rounded-xl font-black text-rose-500" />
-                        <Button onClick={addExpense} variant="secondary" size="icon" className="h-10 w-10 rounded-xl bg-card border-border shadow-sm dark:text-foreground hover:bg-slate-200 border-none flex-shrink-0"><Plus size={16}/></Button>
-                      </div>
-                      <ScrollArea className="h-40 pr-1">
-                        {expenses.length === 0 ? (
-                          <div className="text-center py-10 text-[11px] text-slate-400 italic">No hay egresos registrados.</div>
-                        ) : expenses.map((exp, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-2 hover:bg-white/10 border-b border-white/5 border-b border-slate-50 dark:border-border/30 last:border-0 rounded-lg">
-                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{exp.description}</span>
-                            <span className="text-xs font-black text-rose-500">-${exp.amount.toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </ScrollArea>
-                    </div>
-                  </div>
-
-                  {/* Acciones de Arqueo y Auditoría BMS / IA */}
-                  <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] shadow-sm dark:shadow-none p-5 flex flex-col justify-between space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-slate-800 dark:text-white/80 uppercase tracking-wider">Auditoría BMS e IA</h4>
-                        <Badge className={`text-[9px] font-black uppercase px-2 py-0.5 border ${bmsReconciliationStatus.badgeColor}`}>
-                          {bmsReconciliationStatus.statusLabel}
-                        </Badge>
-                      </div>
-
-                      {/* Tarjeta de Sugerencia Inteligente IA */}
-                      <div className="p-3 rounded-xl bg-slate-900/90 dark:bg-black/50 border border-slate-700/50 text-slate-200 space-y-1">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400">
-                          <Sparkles size={13} /> Asistente de Cierre IA-BMS
-                        </div>
-                        <p className="text-[11px] font-medium leading-relaxed text-slate-300">
-                          {bmsReconciliationStatus.suggestion}
-                        </p>
-                      </div>
-
-                      {/* Casilla Visto Bueno del Cajero */}
-                      <div 
-                        onClick={() => setCashierVistoBueno(!cashierVistoBueno)}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                          cashierVistoBueno 
-                            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-700 dark:text-emerald-300' 
-                            : 'bg-white/50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-indigo-400'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center ${cashierVistoBueno ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-400'}`}>
-                            {cashierVistoBueno && <CheckCircle2 size={12} />}
-                          </div>
-                          <span className="text-xs font-bold uppercase tracking-tight">Visto Bueno del Cajero (Conformidad)</span>
-                        </div>
-                        <Badge variant="outline" className="text-[8px] font-bold">{cashierVistoBueno ? 'Aprobado ✅' : 'Pendiente'}</Badge>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2.5 pt-2">
-                      <Button className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-black shadow-lg transition-all text-xs" onClick={() => setIsCloseShiftOpen(true)}>
-                        <Lock className="mr-2" size={14} />
-                        CERRAR TURNO (CONTEO FÍSICO)
-                      </Button>
-                      
-                      <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black shadow-lg shadow-blue-500/20 transition-all text-xs" onClick={() => setIsDayClosingConfirmOpen(true)} disabled={isProcessing}>
-                        {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
-                        [ 💾 ENVIAR Y AUDITAR JORNADA ]
-                      </Button>
-                      
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button variant="outline" className="h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] hover:bg-emerald-500/20" onClick={handleSaveArqueoDraft}>
-                          <Save size={12} className="mr-1.5" />
-                          GUARDAR CONTEO
-                        </Button>
-                        <Button variant="outline" className="h-10 rounded-xl bg-white/50 dark:bg-white/5 border-slate-200 dark:border-white/10 font-bold text-slate-700 dark:text-white/70 text-[10px] hover:bg-slate-100 dark:hover:bg-white/10" onClick={handlePrintReport}>
-                          <Printer size={12} className="mr-1.5" />
-                          IMPRIMIR
-                        </Button>
-                        <Button variant="outline" className="h-10 rounded-xl border border-rose-200 dark:border-rose-950/60 hover:bg-rose-50 dark:hover:bg-rose-950/20 font-bold text-rose-600 dark:text-rose-400 text-[10px]" onClick={handleResetArqueo}>
-                          <RotateCcw size={12} className="mr-1.5" />
-                          LIMPIAR
-                        </Button>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
-
-            <Dialog open={isDayClosingConfirmOpen} onOpenChange={setIsDayClosingConfirmOpen}>
-              <DialogContent className="max-w-lg rounded-3xl border shadow-2xl p-6 bg-card overflow-hidden">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2 text-rose-600 dark:text-rose-400">
-                    <ShieldCheck size={22} /> Cierre Único de Día & Relevo de Turno
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground mt-1">
-                    Esta acción formalizará el cierre de caja, registrará el asiento contable y reiniciará los valores a $0.00 para la nueva jornada.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="py-4 space-y-4">
-                  {/* Sección Relevo de Personal / Cajeros */}
-                  <div className="p-4 bg-slate-900/90 text-white rounded-2xl border border-indigo-500/30 space-y-3 shadow-md">
-                    <h4 className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-2">
-                      <Users size={16} /> Relevo de Personal (Cajeros)
-                    </h4>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold text-slate-300 uppercase">Cajero que Entrega (Sale)</Label>
-                        <Select value={outgoingCashierEmail} onValueChange={setOutgoingCashierEmail}>
-                          <SelectTrigger className="h-9 text-xs font-bold bg-black/60 border-indigo-400/40 text-white rounded-xl">
-                            <SelectValue placeholder="Seleccionar Cajero Saliente" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {appUsersList.map(u => (
-                              <SelectItem key={u.id || u.email} value={u.email} className="text-xs">
-                                {u.name || u.email} ({u.role || 'Cajero'})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold text-slate-300 uppercase">Cajero que Recibe (Entra)</Label>
-                        <Select value={incomingCashierEmail} onValueChange={setIncomingCashierEmail}>
-                          <SelectTrigger className="h-9 text-xs font-bold bg-black/60 border-indigo-400/40 text-emerald-300 rounded-xl">
-                            <SelectValue placeholder="Seleccionar Cajero Entrante" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="SIN_RELEVO" className="text-xs font-bold text-amber-400">
-                              🌙 Cierre de Jornada (Sin Relevo Inmediato)
-                            </SelectItem>
-                            {appUsersList.map(u => (
-                              <SelectItem key={`inc-${u.id || u.email}`} value={u.email} className="text-xs">
-                                {u.name || u.email} ({u.role || 'Cajero'})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Resumen Contable */}
-                  <div className="p-3 bg-muted/30 rounded-2xl border space-y-2 text-xs">
-                    <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
-                      <span>Fondo Base en Caja:</span>
-                      <span>${(cashConfig?.cashFloat || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-emerald-600 dark:text-emerald-400">
-                      <span>Recaudación Efectivo Neta:</span>
-                      <span>${netPhysicalCash.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-slate-600 dark:text-slate-400">
-                      <span>Venta Reportada por Caja:</span>
-                      <span>${(Number(reportedSalesAmount) || systemCashSales).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <DialogFooter className="flex gap-2">
-                  <Button variant="outline" className="rounded-xl flex-1" onClick={() => setIsDayClosingConfirmOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button className="rounded-xl flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs" onClick={handleDayClosing} disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="animate-spin mr-2" size={14} /> : <CheckCircle2 className="mr-2" size={14} />}
-                    Confirmar Cierre y Relevo
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </TabsContent>
 
           {/* TAB CRÉDITOS / ABONOS */}
