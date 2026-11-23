@@ -31,7 +31,10 @@ import {
   Layers,
   ExternalLink,
   Warehouse as WarehouseIcon,
-  Tag
+  Tag,
+  Command,
+  BrainCircuit,
+  Bot
 } from 'lucide-react';
 import Link from 'next/link';
 import {  useUser, ROLE_PERMISSIONS  } from '@/supabase/compat';
@@ -291,7 +294,45 @@ description: 'Movimiento entre bodegas',
               Centro de operaciones NexWay
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => window.dispatchEvent(new CustomEvent('nexway:open-commands'))}
+              title="Abrir paleta de comandos rápidos (Ctrl + K)"
+              className="h-9 px-3 bg-card/80 border-border text-foreground hover:bg-accent font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
+            >
+              <Command size={14} className="text-indigo-500" />
+              <span className="hidden md:inline">Comandos</span>
+              <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[10px] rounded bg-muted border border-border font-mono text-muted-foreground">
+                Ctrl+K
+              </kbd>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => window.dispatchEvent(new CustomEvent('nexway:open-tutor'))}
+              title="Abrir Auditor & Tutor IA"
+              className="h-9 px-3 bg-card/80 border-indigo-500/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/10 font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
+            >
+              <BrainCircuit size={14} className="text-amber-500 dark:text-amber-300" />
+              <span className="hidden sm:inline">Auditor & Tutor IA</span>
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => window.dispatchEvent(new CustomEvent('nexway:open-nexbot'))}
+              title="Abrir asistente NexBot"
+              className="h-9 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
+            >
+              <Bot size={15} />
+              <span>NexBot</span>
+            </Button>
+
             <PwaInstallButton />
             <ModeToggle />
             {/* Perfil del Usuario Activo (Solo Iniciales en Móvil) */}

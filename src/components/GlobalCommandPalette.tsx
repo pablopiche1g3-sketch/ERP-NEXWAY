@@ -210,24 +210,17 @@ export function GlobalCommandPalette() {
 
   const categories = Array.from(new Set(filteredCommands.map(c => c.category)));
 
+  useEffect(() => {
+    const handleCustomOpen = () => setOpen(prev => !prev);
+    window.addEventListener('nexway:open-commands', handleCustomOpen);
+    return () => window.removeEventListener('nexway:open-commands', handleCustomOpen);
+  }, []);
+
   if (pathname === '/login') return null;
 
   return (
     <>
-      {/* Botón Flotante / Acceso Rápido en Esquina Inferior */}
-      <div 
-        onClick={() => setOpen(true)}
-        className="fixed bottom-4 left-4 z-40 hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 text-slate-300 hover:text-white border border-slate-700/80 shadow-lg backdrop-blur-md cursor-pointer transition-all hover:scale-105 group text-xs"
-        title="Presiona Ctrl+K para buscar en cualquier momento"
-      >
-        <Command className="h-3.5 w-3.5 text-indigo-400 group-hover:text-indigo-300" />
-        <span className="font-medium">Comandos</span>
-        <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-slate-800 border border-slate-700 font-mono text-slate-400">
-          Ctrl + K
-        </kbd>
-      </div>
-
-      {/* Modal Command Palette */}
+      {/* Modal Command Palette (se abre con Ctrl+K o desde el botón en la barra superior) */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden bg-slate-950 border-slate-800 shadow-2xl">
           <div className="p-3 border-b border-slate-800 flex items-center gap-3 bg-slate-900/60">

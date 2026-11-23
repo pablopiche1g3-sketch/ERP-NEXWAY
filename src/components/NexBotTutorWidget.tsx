@@ -278,6 +278,15 @@ export function NexBotTutorWidget() {
     return i.category === auditorFilter;
   });
 
+  useEffect(() => {
+    const handleToggleTutor = () => {
+      setIsHidden(false);
+      setIsOpen(prev => !prev);
+    };
+    window.addEventListener('nexway:open-tutor', handleToggleTutor);
+    return () => window.removeEventListener('nexway:open-tutor', handleToggleTutor);
+  }, []);
+
   const posClasses = 
     position === 'bottom-left' ? 'bottom-4 left-4' :
     position === 'top-left' ? 'top-20 left-5' :
@@ -285,26 +294,12 @@ export function NexBotTutorWidget() {
 
   if (pathname === '/login') return null;
 
-  if (isHidden) {
-    return (
-      <div className={`fixed ${posClasses} z-40 animate-in fade-in duration-300 print:hidden`}>
-        <Button
-          size="sm"
-          onClick={() => toggleHidden()}
-          title="Mostrar Tutoría & Auditoría IA"
-          className="bg-slate-900/90 hover:bg-slate-900 text-indigo-300 font-bold text-[10px] h-8 px-2.5 rounded-full shadow-lg border border-indigo-500/40 flex items-center gap-1.5 backdrop-blur-md"
-        >
-          <BrainCircuit size={14} className="text-amber-300 animate-pulse" />
-          <span>Auditor & Tutor IA</span>
-          <Eye size={12} className="ml-0.5 text-indigo-400" />
-        </Button>
-      </div>
-    );
-  }
+  // El botón disparador ahora vive en la barra superior junto a Instalar App en PC
+  if (!isOpen) return null;
 
   return (
     <div className={`fixed ${posClasses} z-40 animate-in fade-in duration-300 print:hidden`}>
-      {!isOpen ? (
+      {false ? (
         isMinimized ? (
           <Button
             onClick={() => setIsOpen(true)}

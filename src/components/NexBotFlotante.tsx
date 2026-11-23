@@ -236,22 +236,17 @@ export function NexBotFlotante() {
     setInputValue(question);
   };
 
+  useEffect(() => {
+    const handleToggleNexbot = () => setIsOpen(prev => !prev);
+    window.addEventListener('nexway:open-nexbot', handleToggleNexbot);
+    return () => window.removeEventListener('nexway:open-nexbot', handleToggleNexbot);
+  }, []);
+
   if (pathname === '/login') return null;
 
   return (
     <>
-      {/* Botón en dock inferior derecho para desplegar/abrir NexBot */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-4 right-16 z-40 h-9 px-3.5 rounded-full shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-400/30 flex items-center gap-2 transition-all active:scale-95 ${
-          isGuideActive ? 'animate-pulse ring-4 ring-indigo-500/50' : ''
-        }`}
-      >
-        <Bot size={16} />
-        <span className="text-[11px] font-bold uppercase tracking-wider hidden md:inline">NexBot</span>
-      </button>
-
-      {/* VENTANA FLOTANTE Y ARRASTRABLE (SIN OVERLAY NI DESENFOQUE DE PANTALLA) */}
+      {/* VENTANA FLOTANTE Y ARRASTRABLE (SE ABRE DESDE EL BOTÓN NEXBOT EN LA BARRA SUPERIOR) */}
       {isOpen && (
         <div 
           className="fixed z-[100] w-[360px] md:w-[390px] h-[520px] max-h-[85vh] flex flex-col bg-card shadow-2xl rounded-3xl border border-indigo-500/30 overflow-hidden transition-shadow duration-200"
