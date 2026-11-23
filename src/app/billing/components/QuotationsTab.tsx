@@ -37,6 +37,7 @@ interface QuoteItem {
   sku: string;
   price: number;
   quantity: number;
+  availableStock?: number | null;
 }
 
 interface QuotationsTabProps {
@@ -155,12 +156,26 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
         .or(`sku.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
         .limit(50);
       if (error) throw error;
+
+      const skus = (data || []).map((p: any) => p.sku).filter(Boolean);
+      const stockBySku: Record<string, number> = {};
+      if (skus.length > 0) {
+        const { data: stockRows } = await supabase
+          .from('inventory_stock')
+          .select('sku, quantity')
+          .in('sku', skus);
+        (stockRows || []).forEach((st: any) => {
+          stockBySku[st.sku] = (stockBySku[st.sku] || 0) + (Number(st.quantity) || 0);
+        });
+      }
+
       setInventory((data || []).map(p => ({
         id: p.sku,
         sku: p.sku,
         name: p.name,
         category: p.category,
-        price: parseFloat(p.price) || 0
+        price: parseFloat(p.price) || 0,
+        stock: Number((stockBySku[p.sku] ?? 0).toFixed(2))
       })));
     } catch (e) {
       console.error(e);
@@ -185,7 +200,8 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
           name: product.name,
           sku: product.sku,
           price: product.price || 0,
-          quantity: 1
+          quantity: 1,
+          availableStock: typeof product.stock === 'number' ? product.stock : null
         }
       ];
     });
@@ -622,9 +638,20 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
                       >
                         <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                           <span className="text-xs font-bold text-slate-800 dark:text-white/80 truncate">{p.name}</span>
-                          <span className="text-[9.5px] text-slate-500 dark:text-white/40 font-mono">
-                            SKU: {p.sku} {p.category ? `• ${p.category}` : ''}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[9.5px] text-slate-500 dark:text-white/40 font-mono">
+                              SKU: {p.sku} {p.category ? `• ${p.category}` : ''}
+                            </span>
+                            {p.stock > 0 ? (
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                                ✓ En existencia ({p.stock})
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
+                                ✕ Sin existencia (0)
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <span className="text-xs font-bold text-blue-600 dark:text-[#7c7fff] font-mono shrink-0">
                           ${p.price.toFixed(2)}
@@ -695,7 +722,26 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
                           </TableCell>
                           <TableCell className="py-2.5">
                             <div className="font-bold text-xs text-slate-800 dark:text-white/90">{item.name}</div>
-                            <div className="text-[10px] font-mono text-slate-400">{item.sku}</div>
+                            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                              <span className="text-[10px] font-mono text-slate-400">{item.sku}</span>
+                              {item.availableStock === null || item.availableStock === undefined ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-500 dark:text-slate-400">
+                                  Especial
+                                </span>
+                              ) : item.availableStock <= 0 ? (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
+                                  ✕ Sin existencia (0)
+                                </span>
+                              ) : item.availableStock < item.quantity ? (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                                  ⚠ Hay {item.availableStock} en stock
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                                  ✓ En existencia ({item.availableStock})
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right py-2.5">
                             <div className="inline-flex items-center gap-1">
