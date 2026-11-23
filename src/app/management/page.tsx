@@ -44,6 +44,7 @@ import { DashboardComercialKPI } from '@/components/DashboardComercialKPI';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import DocumentsTab from './components/DocumentsTab';
+import CloudStorageSettingsCard from './components/CloudStorageSettingsCard';
 import PrintDesignerTab from './components/PrintDesignerTab';
 import PerformanceThemesTab from './components/PerformanceThemesTab';
 import UserAccessManagementTab from './components/UserAccessManagementTab';
@@ -1627,6 +1628,8 @@ export default function ManagementPage() {
                 </Button>
               </CardContent>
             </Card>
+
+            <CloudStorageSettingsCard />
           </TabsContent>
 
           {/* pestaña 1: CONFIGURACIÓN GLOBAL */}
