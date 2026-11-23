@@ -31,6 +31,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/supabase/client';
 import { useUser } from '@/supabase/use-user';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
+import {
+  buildQuotationDocumentHtml,
+  loadPrintBranding,
+  printHtmlDocument
+} from '@/lib/print-engine';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -354,10 +359,23 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
       const refCode = inserted?.id ? `PRE-${String(inserted.id).slice(0, 6).toUpperCase()}` : quoteNumber;
 
       if (shouldPrint) {
-        toast({ title: `Pre-Factura ${refCode} Guardada`, description: 'Disponible en Caja (Facturación). Abriendo impresión...' });
-        setTimeout(() => {
-          window.print();
-        }, 400);
+        toast({ title: `Pre-Factura ${refCode} Guardada`, description: 'Disponible en Caja (Facturación). Generando documento de imprenta...' });
+        const matchedSeller = appUsersList.find((u) => u.email === selectedSellerEmail);
+        const branding = await loadPrintBranding('quotations');
+        const html = buildQuotationDocumentHtml({
+          branding,
+          quoteNumber: refCode,
+          customerName: customerName.trim() || 'Cliente de Mostrador',
+          customerNit: customerNit.trim() || undefined,
+          customerNrc: customerNrc.trim() || undefined,
+          sellerName: matchedSeller?.full_name || selectedSellerEmail || undefined,
+          taxMode,
+          subtotal,
+          iva,
+          total,
+          items: quoteItems
+        });
+        printHtmlDocument(html, `Cotizacion ${refCode}`);
       } else {
         toast({
           title: `Pre-Factura ${refCode} Enviada a Caja 📋`,

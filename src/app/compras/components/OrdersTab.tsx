@@ -33,6 +33,11 @@ import {
   Boxes
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  buildPurchaseOrderDocumentHtml,
+  loadPrintBranding,
+  printHtmlDocument
+} from '@/lib/print-engine';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -2224,10 +2229,33 @@ export default function OrdersTab() {
                 </>
               )}
               <Button 
-                onClick={() => {
-                  window.print();
+                onClick={async () => {
+                  const ord = selectedOrderForPreview;
+                  if (!ord) return;
+                  const branding = await loadPrintBranding('purchases');
+                  const rawItems = Array.isArray(ord.items) ? ord.items : [];
+                  const itemsNorm = rawItems.map((it: any) => ({
+                    sku: it.sku || it.code || '',
+                    name: it.name || it.description || it.sku || 'Producto',
+                    quantity: Number(it.quantity || it.qty || 1),
+                    unitCost: Number(it.cost || it.unit_cost || it.price || 0)
+                  }));
+                  const totalOrd =
+                    Number(ord.total || ord.total_amount || 0) ||
+                    itemsNorm.reduce((acc: number, i: any) => acc + i.quantity * i.unitCost, 0);
+                  const html = buildPurchaseOrderDocumentHtml({
+                    branding,
+                    orderNumber: ord.order_number || ord.correlative || `OC-${String(ord.id || '').slice(0, 6).toUpperCase()}`,
+                    supplierName: ord.supplier_name || ord.supplier || ord.destination_warehouse || 'Proveedor / Bodega',
+                    warehouseName: ord.warehouse_name || ord.destination_warehouse || 'Bodega Principal',
+                    expectedDate: ord.expected_date || ord.delivery_date || '',
+                    notes: ord.notes || '',
+                    items: itemsNorm,
+                    total: totalOrd
+                  });
+                  printHtmlDocument(html, `Orden ${ord.order_number || ''}`);
                 }}
-                className="h-10 bg-violet-600 hover:bg-violet-755 text-white font-bold text-xs rounded-xl"
+                className="h-10 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl"
               >
                 <Printer size={14} className="mr-1.5" /> Imprimir Documento
               </Button>

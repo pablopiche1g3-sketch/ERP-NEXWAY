@@ -36,6 +36,7 @@ import { useUser } from '@/supabase/use-user';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { printHtmlDocument } from '@/lib/print-engine';
 
 interface InvoiceItem {
   number: string;
@@ -202,16 +203,10 @@ function printOfficialQuedan(q: QuedanRecord, companyProfile: any) {
         <div class="sig-line"><strong>Recibido por (Contabilidad / Tesorería)</strong><br/>${q.meta.receivedBy || 'Nombre, Firma y Sello'}</div>
       </div>
     </div>
-    <script>window.onload = function(){ window.print(); };</script>
   </body>
   </html>`;
 
-  const win = window.open('', '_blank', 'width=920,height=780');
-  if (win) {
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-  }
+  printHtmlDocument(html, `Quedan ${q.meta.quedanNumber}`);
 }
 
 export default function QuedanTab() {

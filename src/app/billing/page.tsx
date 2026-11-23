@@ -66,6 +66,12 @@ import {
   calculateIvaRetention1Percent
 } from '@/lib/hacienda-sv-catalogs';
 import {
+  buildCashClosingDocumentHtml,
+  buildInvoiceDocumentHtml,
+  loadPrintBranding,
+  printHtmlDocument
+} from '@/lib/print-engine';
+import {
   cacheOfflineCatalog,
   getOfflineCatalog,
   getOfflineSalesQueue,
@@ -2922,8 +2928,27 @@ export default function BillingPage() {
     }
   };
 
-  const handlePrintReport = () => {
-    window.print();
+  const handlePrintReport = async () => {
+    const branding = await loadPrintBranding('billing');
+    const html = buildCashClosingDocumentHtml({
+      branding,
+      stationName: activeStation?.name || 'Caja Principal',
+      dateStr: new Date().toLocaleString('es-SV'),
+      outgoingCashier: outgoingCashierEmail || user?.email || 'Cajero POS',
+      incomingCashier: incomingCashierEmail && incomingCashierEmail !== 'SIN_RELEVO' ? incomingCashierEmail : undefined,
+      salesCash: systemCashSales || 0,
+      salesCard: systemCardSales || 0,
+      salesTransfer: systemTransferSales || 0,
+      salesCredit: systemCreditSales || 0,
+      salesCheck: systemCheckSales || 0,
+      totalSales: (systemCashSales || 0) + (systemCardSales || 0) + (systemTransferSales || 0) + (systemCreditSales || 0) + (systemCheckSales || 0),
+      baseFloat: countedBaseFloat || 0,
+      physicalCash: countedDeliveryCash || 0,
+      expensesTotal: totalExpenses || 0,
+      difference: cashDifference || 0,
+      notes: closingDifferenceNote || undefined
+    });
+    printHtmlDocument(html, `Arqueo ${activeStation?.name || 'Caja'}`);
   };
 
   return (
@@ -5374,48 +5399,63 @@ export default function BillingPage() {
             </div>
 
             <DialogFooter className="flex flex-col gap-2">
-              <Button
-                onClick={() => {
-                  const printWin = window.open('', '_blank');
-                  if (printWin) {
-                    printWin.document.write(`
-                      <html>
-                        <head>
-                          <title>DTE ${completedSaleData.correlative}</title>
-                          <style>
-                            body { font-family: monospace; padding: 10px; width: 280px; font-size: 12px; }
-                            .center { text-align: center; }
-                            .right { text-align: right; }
-                            .row { display: flex; justify-content: space-between; margin: 4px 0; }
-                            hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
-                          </style>
-                        </head>
-                        <body>
-                          <h2 class="center" style="margin:0;">NEXWAY ERP</h2>
-                          <p class="center" style="margin:2px 0;">SISTEMA DE EMISION DTE</p>
-                          <hr/>
-                          <p style="margin:2px 0;"><strong>Doc:</strong> ${completedSaleData.docType}</p>
-                          <p style="margin:2px 0;"><strong>DTE:</strong> ${completedSaleData.correlative}</p>
-                          <p style="margin:2px 0;"><strong>Cliente:</strong> ${completedSaleData.customerName}</p>
-                          <hr/>
-                          ${completedSaleData.items.map(i => `<div class="row"><span>${i.quantity}x ${i.name}</span><span>$${(i.quantity * i.price).toFixed(2)}</span></div>`).join('')}
-                          <hr/>
-                          <h3 class="right" style="margin:4px 0;">TOTAL: $${completedSaleData.total.toFixed(2)}</h3>
-                          <div class="row"><span>Efectivo:</span><span>$${completedSaleData.cashReceived.toFixed(2)}</span></div>
-                          <div class="row"><span>Vuelto:</span><span>$${completedSaleData.change.toFixed(2)}</span></div>
-                          <hr/>
-                          <p class="center" style="font-size: 10px; margin-top: 10px;">¡Gracias por su compra en NexWay!</p>
-                          <script>window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); };</script>
-                        </body>
-                      </html>
-                    `);
-                    printWin.document.close();
-                  }
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 font-bold text-xs h-11 rounded-xl text-white"
-              >
-                <Printer size={16} className="mr-1.5" /> IMPRIMIR TICKET DTE (80mm)
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
+                <Button
+                  onClick={async () => {
+                    const branding = await loadPrintBranding('billing');
+                    const html = buildInvoiceDocumentHtml({
+                      branding,
+                      paperSize: '80mm',
+                      correlative: completedSaleData.correlative,
+                      docType: completedSaleData.docType,
+                      customerName: completedSaleData.customerName,
+                      customerNit: selectedCustomer?.nit,
+                      customerNrc: selectedCustomer?.nrc,
+                      customerGiro: selectedCustomer?.giro,
+                      customerAddress: selectedCustomer?.address,
+                      sellerName: appUsersList.find((u) => u.email === selectedSellerEmail)?.full_name || selectedSellerEmail,
+                      paymentMethod,
+                      items: completedSaleData.items,
+                      total: completedSaleData.total,
+                      ivaRetention1,
+                      cashReceived: completedSaleData.cashReceived,
+                      change: completedSaleData.change
+                    });
+                    printHtmlDocument(html, `Ticket ${completedSaleData.correlative}`);
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 font-bold text-xs h-11 rounded-xl text-white"
+                >
+                  <Printer size={15} className="mr-1.5" /> TICKET (80mm)
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    const branding = await loadPrintBranding('billing');
+                    const html = buildInvoiceDocumentHtml({
+                      branding,
+                      paperSize: 'letter',
+                      correlative: completedSaleData.correlative,
+                      docType: completedSaleData.docType,
+                      customerName: completedSaleData.customerName,
+                      customerNit: selectedCustomer?.nit,
+                      customerNrc: selectedCustomer?.nrc,
+                      customerGiro: selectedCustomer?.giro,
+                      customerAddress: selectedCustomer?.address,
+                      sellerName: appUsersList.find((u) => u.email === selectedSellerEmail)?.full_name || selectedSellerEmail,
+                      paymentMethod,
+                      items: completedSaleData.items,
+                      total: completedSaleData.total,
+                      ivaRetention1,
+                      cashReceived: completedSaleData.cashReceived,
+                      change: completedSaleData.change
+                    });
+                    printHtmlDocument(html, `Factura ${completedSaleData.correlative}`);
+                  }}
+                  className="w-full font-bold text-xs h-11 rounded-xl"
+                >
+                  <FileText size={15} className="mr-1.5" /> HOJA CARTA / PDF
+                </Button>
+              </div>
 
               <Button
                 onClick={() => {
