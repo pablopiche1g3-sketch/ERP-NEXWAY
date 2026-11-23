@@ -1025,6 +1025,11 @@ export default function ManagementPage() {
         { id: 'config', label: 'Bodegas' },
       ]
     },
+    { id: 'directorio', label: 'Directorio Comercial', desc: 'Clientes contribuyentes, proveedores y listas de precios' },
+    { id: 'logistica', label: 'Logística de Stock', desc: 'Inventario, bodegas, cajas, fraccionamiento y traslados' },
+    { id: 'compras', label: 'Abastecimiento y Compras', desc: 'Registro de compras, órdenes y correo Gmail' },
+    { id: 'finanzas', label: 'Finanzas y Créditos', desc: 'CXC, CXP, Quedan, bancos, flujo de caja y nómina' },
+    { id: 'crm', label: 'CRM Comercial y Rutas GPS', desc: 'Oportunidades, clientes y mapa de rutas' },
     { id: 'purchases', label: 'Registro de Compras', desc: 'Ingreso de mercadería al stock' },
     { id: 'suppliers', label: 'Directorio de Proveedores', desc: 'Gestión de suministrantes' },
     { id: 'quedan', label: 'Gestión de Quedan', desc: 'Programación de pagos' },
@@ -3308,15 +3313,20 @@ DO ${'$'}${'$'} BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.suppl
                 const moduleEnabled = userPermsModules.includes(m.id);
                 return (
                   <div key={m.id} className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="space-y-0.5">
                         <Label className="text-sm font-bold text-slate-800 dark:text-slate-200">{m.label}</Label>
                         <p className="text-[10px] text-muted-foreground">{m.desc}</p>
                       </div>
-                      <Switch 
-                        checked={moduleEnabled} 
-                        onCheckedChange={(val) => handleTogglePermsModule(m.id, val)}
-                      />
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <span className={`text-[10px] font-bold uppercase ${moduleEnabled ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'}`}>
+                          {moduleEnabled ? 'Activo' : 'Inactivo'}
+                        </span>
+                        <Switch 
+                          checked={moduleEnabled} 
+                          onCheckedChange={(val) => handleTogglePermsModule(m.id, val)}
+                        />
+                      </div>
                     </div>
 
                     {moduleEnabled && m.tabs && (
