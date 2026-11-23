@@ -153,7 +153,7 @@ export function NexBotTutorWidget() {
     lastScanTime, 
     runAudit, 
     executeAutoFix 
-  } = useNexbotAuditor();
+  } = useNexbotAuditor(isOpen);
 
   // Estados de Control de Posición, Ocultar y Minimizar
   const [isMinimized, setIsMinimized] = useState(true);

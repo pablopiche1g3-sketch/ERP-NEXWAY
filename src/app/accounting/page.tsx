@@ -122,7 +122,7 @@ export default function AccountingPage() {
   const [loadingJournal, setLoadingJournal] = useState(true);
   const [loadingPurchases, setLoadingPurchases] = useState(true);
 
-  // Función para cargar de forma segura los datos de Contabilidad desde Supabase
+  // Función para cargar de forma segura los datos de Contabilidad desde Supabase en paralelo
   const loadAccountingData = async () => {
     try {
       setLoadingSales(true);
@@ -130,19 +130,34 @@ export default function AccountingPage() {
       setLoadingJournal(true);
       setLoadingPurchases(true);
 
-      // 0. Cargar Clientes y Proveedores para enriquecer ventas y compras
-      const { data: custData } = await supabase.from('customers').select('id, name, nit, nrc');
-      const { data: suppData } = await supabase.from('suppliers').select('id, name, nit, nrc');
+      const [
+        custRes,
+        suppRes,
+        salesRes,
+        purchasesRes,
+        invRes,
+        journalRes,
+        linesRes,
+        bRes,
+        cRes
+      ] = await Promise.all([
+        supabase.from('customers').select('id, name, nit, nrc'),
+        supabase.from('suppliers').select('id, name, nit, nrc'),
+        supabase.from('sales').select('*').order('created_at', { ascending: false }).limit(500),
+        supabase.from('purchases').select('*').order('created_at', { ascending: false }).limit(500),
+        supabase.from('inventory').select('sku, name, category, price'),
+        supabase.from('journal').select('*').order('created_at', { ascending: false }).limit(500),
+        supabase.from('journal_lines').select('*').limit(1000),
+        supabase.from('branches').select('*'),
+        supabase.from('cost_centers').select('*')
+      ]);
 
-      // 1. Cargar Ventas
-      const { data: salesData, error: salesErr } = await supabase
-        .from('sales')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (!salesErr) {
-        setSales((salesData || []).map(s => {
-          const cust = (custData || []).find(c => c.id === s.customer_id);
+      const custData = custRes.data || [];
+      const suppData = suppRes.data || [];
+
+      if (!salesRes.error) {
+        setSales((salesRes.data || []).map(s => {
+          const cust = custData.find(c => c.id === s.customer_id);
           return {
             id: s.id,
             correlative: s.correlative,
@@ -161,15 +176,9 @@ export default function AccountingPage() {
         }));
       }
 
-      // 2. Cargar Compras
-      const { data: purchasesData, error: purchasesErr } = await supabase
-        .from('purchases')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (!purchasesErr) {
-        setPurchases((purchasesData || []).map(p => {
-          const supp = (suppData || []).find(sp => sp.id === p.supplier_id);
+      if (!purchasesRes.error) {
+        setPurchases((purchasesRes.data || []).map(p => {
+          const supp = suppData.find(sp => sp.id === p.supplier_id);
           return {
             id: p.id,
             orderId: p.order_id,
@@ -190,13 +199,8 @@ export default function AccountingPage() {
         }));
       }
 
-      // 3. Cargar Inventario
-      const { data: invData, error: invErr } = await supabase
-        .from('inventory')
-        .select('*');
-      
-      if (!invErr) {
-        setInventory((invData || []).map(item => ({
+      if (!invRes.error) {
+        setInventory((invRes.data || []).map(item => ({
           sku: item.sku,
           name: item.name,
           category: item.category,
@@ -204,20 +208,11 @@ export default function AccountingPage() {
         })));
       }
 
-      // 4. Cargar Libro Diario Contable y sus Líneas Dobles
-      const { data: journalData, error: journalErr } = await supabase
-        .from('journal')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      const { data: linesData, error: linesErr } = await supabase
-        .from('journal_lines')
-        .select('*');
-
-      if (!journalErr) {
-        const mappedJournal = (journalData || []).map(j => {
-          const jLines = !linesErr 
-            ? (linesData || []).filter(l => l.journal_id === j.id).map(l => {
+      if (!journalRes.error) {
+        const linesData = linesRes.data || [];
+        const mappedJournal = (journalRes.data || []).map(j => {
+          const jLines = !linesRes.error
+            ? linesData.filter(l => l.journal_id === j.id).map(l => {
                 const acc = DEFAULT_CATALOG.find(a => a.code === l.account_code);
                 return {
                   accountCode: l.account_code,
@@ -239,22 +234,15 @@ export default function AccountingPage() {
         });
 
         setJournal(mappedJournal);
-
-        // Los gastos simples de Caja Chica los derivamos reactivamente de los asientos simples marcados como 'Egreso'
-        const derivedExpenses = mappedJournal.filter(j => j.type === 'Egreso');
-        setExpenses(derivedExpenses);
+        setExpenses(mappedJournal.filter(j => j.type === 'Egreso'));
       }
 
-      // Secciones institucionales vacías para iniciar sin dependencias de Firestore
       setInstSales([]);
       setInstPurchases([]);
       setInstProjects([]);
 
-      // 5. Cargar Sucursales y Centros de Costo
-      const { data: bData } = await supabase.from('branches').select('*');
-      setBranches(bData || []);
-      const { data: cData } = await supabase.from('cost_centers').select('*');
-      setCostCenters(cData || []);
+      setBranches(bRes.data || []);
+      setCostCenters(cRes.data || []);
 
     } catch (err: any) {
       console.error('Error al cargar datos contables de Supabase:', err);

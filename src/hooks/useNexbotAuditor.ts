@@ -27,7 +27,7 @@ export interface AuditIssue {
   fixType?: 'clear_orphans' | 'balance_journal' | 'cancel_stale_prefactura' | 'clean_localstorage';
 }
 
-export function useNexbotAuditor() {
+export function useNexbotAuditor(enabled = false) {
   const { toast } = useToast();
   const [issues, setIssues] = useState<AuditIssue[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -41,11 +41,7 @@ export function useNexbotAuditor() {
       // ─── 1. AUDITORÍA DE LIMPIEZA & OPTIMIZACIÓN RESIDUAL ─────────
       if (typeof window !== 'undefined') {
         const legacyKeys = ['nexway_draft_sales_list', 'established_station_mode', 'pos_station_mode'];
-        let hasLegacyKeys = false;
-        legacyKeys.forEach(k => {
-          if (localStorage.getItem(k)) hasLegacyKeys = true;
-        });
-
+        const hasLegacyKeys = legacyKeys.some(k => Boolean(localStorage.getItem(k)));
         if (hasLegacyKeys) {
           discoveredIssues.push({
             id: 'legacy-storage-cleanup',
@@ -60,17 +56,29 @@ export function useNexbotAuditor() {
         }
       }
 
-      // ─── 2. AUDITORÍA DE FACTURACIÓN & PRE-FACTURAS (/billing) ────
-      const { data: stalePreFacturas } = await supabase
-        .from('sales')
-        .select('*')
-        .eq('status', 'PENDIENTE_COBRO')
-        .order('created_at', { ascending: true });
+      // Ejecutar TODAS las consultas de auditoría en paralelo (en lugar de 7 llamadas secuenciales)
+      const [
+        preFacturasRes,
+        journalRes,
+        negativeStocksRes,
+        pendingPurchasesRes,
+        creditSalesRes,
+        pendingTransfersRes,
+        companyConfigRes
+      ] = await Promise.all([
+        supabase.from('sales').select('id, correlative, created_at').eq('status', 'PENDIENTE_COBRO').order('created_at', { ascending: true }).limit(25),
+        supabase.from('journal').select('id, lines').order('created_at', { ascending: false }).limit(40),
+        supabase.from('inventory_stock').select('sku, quantity').lt('quantity', 0).limit(10),
+        supabase.from('purchase_orders').select('id, correlative, created_at').eq('status', 'PENDIENTE').limit(10),
+        supabase.from('sales').select('id, customer_name, created_at').eq('payment_method', 'Credito').eq('status', 'PENDIENTE').limit(20),
+        supabase.from('transfers').select('id').eq('status', 'PENDIENTE').limit(10),
+        supabase.from('system_config').select('value').eq('key', 'company_profile').maybeSingle()
+      ]);
 
+      const stalePreFacturas = preFacturasRes.data;
       if (stalePreFacturas && stalePreFacturas.length > 0) {
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
         const overdue = stalePreFacturas.filter(s => s.created_at < oneHourAgo);
-
         if (overdue.length > 0) {
           discoveredIssues.push({
             id: 'stale-prefacturas',
@@ -85,25 +93,16 @@ export function useNexbotAuditor() {
         }
       }
 
-      // ─── 3. AUDITORÍA CONTABLE (/accounting) ──────────────────────
-      const { data: journalEntries } = await supabase
-        .from('journal')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(40);
-
+      const journalEntries = journalRes.data;
       if (journalEntries && journalEntries.length > 0) {
         let unbalancedCount = 0;
-        journalEntries.forEach(entry => {
+        journalEntries.forEach((entry: any) => {
           if (Array.isArray(entry.lines)) {
             const debits = entry.lines.reduce((acc: number, l: any) => acc + (Number(l.debit) || 0), 0);
             const credits = entry.lines.reduce((acc: number, l: any) => acc + (Number(l.credit) || 0), 0);
-            if (Math.abs(debits - credits) > 0.01) {
-              unbalancedCount++;
-            }
+            if (Math.abs(debits - credits) > 0.01) unbalancedCount++;
           }
         });
-
         if (unbalancedCount > 0) {
           discoveredIssues.push({
             id: 'unbalanced-journal-entries',
@@ -117,13 +116,7 @@ export function useNexbotAuditor() {
         }
       }
 
-      // ─── 4. AUDITORÍA DE INVENTARIO & KARDEX (/inventory) ─────────
-      const { data: negativeStocks } = await supabase
-        .from('inventory_stock')
-        .select('*')
-        .lt('quantity', 0)
-        .limit(10);
-
+      const negativeStocks = negativeStocksRes.data;
       if (negativeStocks && negativeStocks.length > 0) {
         discoveredIssues.push({
           id: 'negative-inventory-stock',
@@ -136,62 +129,41 @@ export function useNexbotAuditor() {
         });
       }
 
-      // ─── 5. AUDITORÍA DE COMPRAS & PROVEEDORES (/compras) ─────────
-      const { data: pendingPurchases } = await supabase
-        .from('purchase_orders')
-        .select('*')
-        .eq('status', 'PENDIENTE')
-        .limit(10);
-
+      const pendingPurchases = pendingPurchasesRes.data;
       if (pendingPurchases && pendingPurchases.length > 0) {
         const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
         const oldPurchases = pendingPurchases.filter(p => p.created_at < threeDaysAgo);
-
         if (oldPurchases.length > 0) {
           discoveredIssues.push({
             id: 'stale-purchase-orders',
             category: 'compras',
             severity: 'advertencia',
             title: `${oldPurchases.length} Órdenes de compra pendientes (+3 días)`,
-            description: `Existen órdenes de compra sin recepción confirmada en bodega: ${oldPurchases.map(p => p.correlative || p.id?.slice(0, 6)).join(', ')}.`,
+            description: `Existen órdenes de compra sin recepción confirmada en bodega: ${oldPurchases.map((p: any) => p.correlative || p.id?.slice(0, 6)).join(', ')}.`,
             recommendation: 'Confirmar la recepción de mercadería o cancelar las órdenes no despachadas por el proveedor.',
             canAutoFix: false
           });
         }
       }
 
-      // ─── 6. AUDITORÍA DE FINANZAS & CRÉDITOS (/finanzas) ──────────
-      const { data: creditSales } = await supabase
-        .from('sales')
-        .select('*')
-        .eq('payment_method', 'Credito')
-        .eq('status', 'PENDIENTE')
-        .limit(20);
-
+      const creditSales = creditSalesRes.data;
       if (creditSales && creditSales.length > 0) {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const overdueCredits = creditSales.filter(c => c.created_at < thirtyDaysAgo);
-
         if (overdueCredits.length > 0) {
           discoveredIssues.push({
             id: 'overdue-credit-sales',
             category: 'finanzas',
             severity: 'advertencia',
             title: `${overdueCredits.length} Facturas al crédito con saldo vencido (+30 días)`,
-            description: `Se registran cuentas por cobrar vencidas de clientes: ${overdueCredits.map(c => c.customer_name).slice(0, 3).join(', ')}.`,
+            description: `Se registran cuentas por cobrar vencidas de clientes: ${overdueCredits.map((c: any) => c.customer_name).slice(0, 3).join(', ')}.`,
             recommendation: 'Gestionar la cobranza o registrar los abonos pendientes en el módulo de Cuentas por Cobrar.',
             canAutoFix: false
           });
         }
       }
 
-      // ─── 7. AUDITORÍA DE TRASLADOS Y LOGÍSTICA (/logistica) ───────
-      const { data: pendingTransfers } = await supabase
-        .from('transfers')
-        .select('*')
-        .eq('status', 'PENDIENTE')
-        .limit(10);
-
+      const pendingTransfers = pendingTransfersRes.data;
       if (pendingTransfers && pendingTransfers.length > 0) {
         discoveredIssues.push({
           id: 'pending-stock-transfers',
@@ -204,14 +176,7 @@ export function useNexbotAuditor() {
         });
       }
 
-      // ─── 8. AUDITORÍA DE CONFIGURACIÓN FISCAL (/management) ───────
-      const { data: companyConfig } = await supabase
-        .from('system_config')
-        .select('value')
-        .eq('key', 'company_profile')
-        .maybeSingle();
-
-      const profile = companyConfig?.value || {};
+      const profile = companyConfigRes.data?.value || {};
       if (!profile.nit || !profile.nrc || !profile.razonSocial) {
         discoveredIssues.push({
           id: 'missing-tax-profile',
@@ -223,7 +188,6 @@ export function useNexbotAuditor() {
           canAutoFix: false
         });
       }
-
     } catch (err) {
       console.error('Error durante auditoría Nexbot:', err);
     } finally {
@@ -234,10 +198,10 @@ export function useNexbotAuditor() {
   }, []);
 
   useEffect(() => {
-    runAudit();
-    const interval = setInterval(runAudit, 45000);
-    return () => clearInterval(interval);
-  }, [runAudit]);
+    if (enabled && !lastScanTime) {
+      runAudit();
+    }
+  }, [enabled, lastScanTime, runAudit]);
 
   const executeAutoFix = async (issue: AuditIssue) => {
     try {

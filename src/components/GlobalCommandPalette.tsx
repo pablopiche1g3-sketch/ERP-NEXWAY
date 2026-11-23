@@ -222,24 +222,24 @@ export function GlobalCommandPalette() {
     <>
       {/* Modal Command Palette (se abre con Ctrl+K o desde el botón en la barra superior) */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden bg-slate-950 border-slate-800 shadow-2xl">
-          <div className="p-3 border-b border-slate-800 flex items-center gap-3 bg-slate-900/60">
+        <DialogContent className="max-w-2xl p-0 overflow-hidden bg-popover text-popover-foreground border-border shadow-2xl">
+          <div className="p-3 border-b border-border flex items-center gap-3 bg-muted/40">
             <Search className="h-4 w-4 text-slate-400 shrink-0" />
             <Input 
               value={search}
               onChange={e => { setSearch(e.target.value); setSelectedIndex(0); }}
               placeholder="Escribe para buscar un módulo, acción rápida o función..."
-              className="h-9 border-none bg-transparent focus-visible:ring-0 text-sm text-slate-100 placeholder:text-slate-500"
+              className="h-9 border-none bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground"
               autoFocus
             />
-            <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] rounded bg-slate-800 border border-slate-700 font-mono text-slate-400">
+            <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] rounded bg-muted border border-border font-mono text-muted-foreground">
               ESC
             </kbd>
           </div>
 
           <div className="max-h-[60vh] overflow-y-auto p-2 space-y-4">
             {filteredCommands.length === 0 ? (
-              <div className="py-10 text-center text-xs text-slate-500">
+              <div className="py-10 text-center text-xs text-muted-foreground">
                 No se encontraron comandos ni módulos para "{search}".
               </div>
             ) : (
@@ -247,7 +247,7 @@ export function GlobalCommandPalette() {
                 const items = filteredCommands.filter(c => c.category === cat);
                 return (
                   <div key={cat} className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 py-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
                       {cat}
                     </div>
                     <div className="space-y-1">
@@ -257,24 +257,24 @@ export function GlobalCommandPalette() {
                           <div 
                             key={item.id}
                             onClick={() => handleSelect(item)}
-                            className="p-2.5 rounded-lg border border-transparent hover:border-indigo-500/40 hover:bg-slate-900/80 cursor-pointer flex items-center justify-between transition-all group"
+                            className="p-2.5 rounded-lg border border-transparent hover:border-indigo-500/40 hover:bg-accent cursor-pointer flex items-center justify-between transition-all group"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-md bg-slate-900 text-slate-400 group-hover:bg-indigo-500/10 group-hover:text-indigo-400 border border-slate-800 transition-colors">
+                              <div className="p-2 rounded-md bg-muted text-muted-foreground group-hover:bg-indigo-500/10 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 border border-border transition-colors">
                                 <Icon className="h-4 w-4" />
                               </div>
                               <div>
-                                <div className="text-xs font-semibold text-slate-200 group-hover:text-indigo-300">
+                                <div className="text-xs font-semibold text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-300">
                                   {item.title}
                                 </div>
-                                <div className="text-[11px] text-slate-400">
+                                <div className="text-[11px] text-muted-foreground">
                                   {item.description}
                                 </div>
                               </div>
                             </div>
 
                             {item.shortcut && (
-                              <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-slate-900 border border-slate-800 font-mono text-slate-400">
+                              <kbd className="px-1.5 py-0.5 text-[10px] rounded bg-muted border border-border font-mono text-muted-foreground">
                                 {item.shortcut}
                               </kbd>
                             )}
@@ -288,7 +288,7 @@ export function GlobalCommandPalette() {
             )}
           </div>
 
-          <div className="p-2 border-t border-slate-800/80 bg-slate-900/30 flex items-center justify-between text-[11px] text-slate-500 px-3">
+          <div className="p-2 border-t border-border bg-muted/30 flex items-center justify-between text-[11px] text-muted-foreground px-3">
             <div className="flex items-center gap-2">
               <Sparkles className="h-3 w-3 text-indigo-400" />
               <span>NEXWAY ERP Global Navigation</span>

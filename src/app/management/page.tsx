@@ -1484,9 +1484,9 @@ export default function ManagementPage() {
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
-      <div className="w-full max-w-[1920px] mx-auto flex items-center justify-between mb-8 gap-4 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
+      <div className="w-full max-w-[1920px] mx-auto flex items-center justify-between mb-8 gap-4 bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 rounded-2xl p-4 md:p-5 shadow-sm relative z-10">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10" onClick={() => router.push('/')}>
+          <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl bg-muted/50 dark:bg-white/5 border border-border dark:border-white/10 hover:bg-accent dark:hover:bg-white/10" onClick={() => router.push('/')}>
             <ArrowLeft className="text-foreground" size={20} />
           </Button>
           <div>
@@ -1992,7 +1992,7 @@ export default function ManagementPage() {
                           placeholder="Nombre de usuario (ej: carlos)" 
                           value={preAssignEmail}
                           onChange={(e) => setPreAssignEmail(e.target.value)}
-                          className="h-10 pl-10 text-xs font-bold bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl"
+                          className="h-10 pl-10 text-xs font-bold bg-background dark:bg-white/5 backdrop-blur-md border border-input dark:border-white/10 rounded-xl"
                         />
                       </div>
                     </div>
@@ -2006,7 +2006,7 @@ export default function ManagementPage() {
                           placeholder="Contraseña (mín. 5 caracteres)" 
                           value={preAssignPassword}
                           onChange={(e) => setPreAssignPassword(e.target.value)}
-                          className="h-10 pl-10 text-xs font-bold bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl"
+                          className="h-10 pl-10 text-xs font-bold bg-background dark:bg-white/5 backdrop-blur-md border border-input dark:border-white/10 rounded-xl"
                         />
                       </div>
                     </div>
@@ -2395,7 +2395,7 @@ export default function ManagementPage() {
               <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Medidas de Ubicación y Dispersión (Matemática Tradicional)</h3>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                 {/* 1. Media Aritmética */}
-                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                <Card className="border bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-xl shadow-sm">
                   <CardContent className="p-4 flex flex-col justify-between h-24">
                     <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Media Aritmética</p>
                     <div>
@@ -2408,7 +2408,7 @@ export default function ManagementPage() {
                 </Card>
 
                 {/* 2. Mediana */}
-                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                <Card className="border bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-xl shadow-sm">
                   <CardContent className="p-4 flex flex-col justify-between h-24">
                     <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Mediana de Ventas</p>
                     <div>
@@ -2421,7 +2421,7 @@ export default function ManagementPage() {
                 </Card>
 
                 {/* 3. Media Ponderada */}
-                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                <Card className="border bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-xl shadow-sm">
                   <CardContent className="p-4 flex flex-col justify-between h-24">
                     <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Media Ponderada</p>
                     <div>
@@ -2434,7 +2434,7 @@ export default function ManagementPage() {
                 </Card>
 
                 {/* 4. Desviación Media */}
-                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                <Card className="border bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-xl shadow-sm">
                   <CardContent className="p-4 flex flex-col justify-between h-24">
                     <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Desviación Media</p>
                     <div>
@@ -2447,7 +2447,7 @@ export default function ManagementPage() {
                 </Card>
 
                 {/* 5. Rango Dinámico */}
-                <Card className="border bg-[#0f172a]/30 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl shadow-sm">
+                <Card className="border bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-xl shadow-sm">
                   <CardContent className="p-4 flex flex-col justify-between h-24">
                     <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider">Rango de Ventas</p>
                     <div>
@@ -2811,7 +2811,7 @@ export default function ManagementPage() {
       </div>
 
       <Dialog open={isSqlModalOpen} onOpenChange={setIsSqlModalOpen}>
-        <DialogContent className="max-w-2xl bg-slate-950 text-slate-100 border-slate-800 rounded-2xl overflow-hidden p-6 max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-2xl bg-card text-foreground border-border rounded-2xl overflow-hidden p-6 max-h-[85vh] flex flex-col">
           <DialogHeader className="pb-4 border-b border-white/10 border-slate-800">
             <DialogTitle className="flex items-center gap-2 text-white text-lg font-black uppercase tracking-tight">
               <Terminal className="text-emerald-400" size={20} />

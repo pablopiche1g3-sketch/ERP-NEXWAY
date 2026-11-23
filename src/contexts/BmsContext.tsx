@@ -279,10 +279,38 @@ export function BmsProvider({ children }: { children: ReactNode }) {
   const auditSystem = async () => {
     setLoading(true);
     try {
-      // Obtener usuario activo para filtrar tareas personalizadas
-      const { data: { user } } = await supabase.auth.getUser();
+      const todayStr = new Date().toISOString().split('T')[0];
+      const limitDate = new Date();
+      limitDate.setDate(limitDate.getDate() - 30);
 
-      // 0. Auditar tareas pendientes del CRM para el usuario activo
+      // Ejecutar usuario + todas las consultas de lectura del BMS EN PARALELO (en vez de 12+ secuenciales)
+      const [
+        authRes,
+        branchesRes,
+        invRes,
+        stockRes,
+        supRes,
+        ordersRes,
+        salesTodayRes,
+        closingTodayRes,
+        sales30dRes,
+        transfersRes,
+        customersRes
+      ] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('branches').select('id, name'),
+        supabase.from('inventory').select('id, sku, name, cost, price, reorder_point, min_stock, max_stock, is_service'),
+        supabase.from('inventory_stock').select('sku, quantity'),
+        supabase.from('suppliers').select('name').limit(1),
+        supabase.from('supplier_orders').select('*').eq('status', 'PENDIENTE').order('created_at', { ascending: false }).limit(25),
+        supabase.from('sales').select('id, total').neq('status', 'CANCELADA').gte('created_at', todayStr),
+        supabase.from('daily_closings').select('id').gte('date', todayStr).limit(1),
+        supabase.from('sales').select('items').neq('status', 'CANCELADA').gte('created_at', limitDate.toISOString()).limit(500),
+        supabase.from('traslados_circuito').select('estado'),
+        supabase.from('customers').select('id, name, credit_limit').order('created_at', { ascending: false }).limit(20)
+      ]);
+
+      const user = authRes.data?.user;
       let pendingCrmTasks = 0;
       if (user?.email) {
         const { count } = await supabase
@@ -293,49 +321,17 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         pendingCrmTasks = count || 0;
       }
 
-      // 1. Auditar sucursales
-      const { count: branchesCount } = await supabase
-        .from('branches')
-        .select('*', { count: 'exact', head: true });
-
-      // 2. Auditar catálogo de productos
-      const { count: productsCount } = await supabase
-        .from('inventory')
-        .select('*', { count: 'exact', head: true });
-
-      // 2.5 Precio automático: Auditar y corregir productos con precio 0 pero costo > 0 (30% margen)
-      try {
-        const { data: noPriceItems } = await supabase
-          .from('inventory')
-          .select('id, cost, price')
-          .gt('cost', 0)
-          .or('price.eq.0,price.is.null');
-
-        if (noPriceItems && noPriceItems.length > 0) {
-          console.log(`BMS: Encontrados ${noPriceItems.length} productos sin precio. Actualizando con margen del 30%...`);
-          for (const item of noPriceItems) {
-            await supabase
-              .from('inventory')
-              .update({ price: (item.cost * 1.3).toFixed(2) })
-              .eq('id', item.id);
-          }
-        }
-      } catch (priceErr) {
-        console.error('Error auto-asignando precios:', priceErr);
-      }
-
-      // 3. Auditar catálogo maestro, stock por bodega y órdenes a proveedor (sin columnas inexistentes)
-      const [invRes, stockRes, supRes, ordersRes] = await Promise.all([
-        supabase.from('inventory').select('*'),
-        supabase.from('inventory_stock').select('sku, quantity'),
-        supabase.from('suppliers').select('name').limit(1),
-        supabase.from('supplier_orders').select('*').eq('status', 'PENDIENTE').order('created_at', { ascending: false })
-      ]);
-
+      const realBranches = branchesRes.data || [];
+      const branchesCount = realBranches.length;
       const allInventory = invRes.data || [];
+      const productsCount = allInventory.length;
       const allStockRows = stockRes.data || [];
       const fallbackSupplierName = supRes.data?.[0]?.name || 'PROVEEDOR PRINCIPAL';
       const pendingOrdersRaw = ordersRes.data || [];
+      const salesToday = salesTodayRes.data || [];
+      const closingToday = closingTodayRes.data || [];
+      const sales30d = sales30dRes.data || [];
+      const realCustomers = customersRes.data || [];
 
       // Consolidar existencias por SKU
       const skuStockMap: Record<string, number> = {};
@@ -406,36 +402,11 @@ export function BmsProvider({ children }: { children: ReactNode }) {
 
       let pendingOrdersCount = pendingOrdersDetails.length;
 
-      // 4. Auditar ventas de hoy
-      const todayStr = new Date().toISOString().split('T')[0];
-      const { data: salesToday } = await supabase
-        .from('sales')
-        .select('id, total')
-        .neq('status', 'CANCELADA')
-        .gte('created_at', todayStr);
-
-      const todaySalesCount = (salesToday || []).length;
-      const todaySalesTotal = (salesToday || []).reduce((acc, s: any) => acc + (parseFloat(s.total) || 0), 0);
-
-      // 5. Auditar cierre de caja de hoy
-      const { data: closingToday } = await supabase
-        .from('daily_closings')
-        .select('id')
-        .gte('date', todayStr)
-        .limit(1);
-
-      // 6. Auditar productos estancados con valorización real (30 días)
-      const limitDate = new Date();
-      limitDate.setDate(limitDate.getDate() - 30);
-
-      const { data: sales30d } = await supabase
-        .from('sales')
-        .select('items')
-        .neq('status', 'CANCELADA')
-        .gte('created_at', limitDate.toISOString());
+      const todaySalesCount = salesToday.length;
+      const todaySalesTotal = salesToday.reduce((acc, s: any) => acc + (parseFloat(s.total) || 0), 0);
 
       const soldSkuSet = new Set<string>();
-      (sales30d || []).forEach((sale: any) => {
+      sales30d.forEach((sale: any) => {
         if (sale.items && Array.isArray(sale.items)) {
           sale.items.forEach((item: any) => {
             if (item.sku) soldSkuSet.add(item.sku);
@@ -466,16 +437,14 @@ export function BmsProvider({ children }: { children: ReactNode }) {
       const stagnantCount = stagnantProductsList.length;
       const stagnantCapitalTotal = stagnantProductsList.reduce((acc, it) => acc + it.tiedCapital, 0);
 
-      // 6.5 Auditar traslados de circuito (solicitados y en tránsito)
+      // 6.5 Auditar traslados de circuito (reutilizando resultado en paralelo)
       let pendingTransfers = 0;
       let inTransitTransfers = 0;
       try {
-        const { data: trData } = await supabase
-          .from('traslados_circuito')
-          .select('estado');
+        const trData = transfersRes?.data;
         if (trData && trData.length > 0) {
-          pendingTransfers = trData.filter(t => t.estado === 'SOLICITADO' || t.estado === 'EN_PICKING').length;
-          inTransitTransfers = trData.filter(t => t.estado === 'DESPACHADO').length;
+          pendingTransfers = trData.filter((t: any) => t.estado === 'SOLICITADO' || t.estado === 'EN_PICKING').length;
+          inTransitTransfers = trData.filter((t: any) => t.estado === 'DESPACHADO').length;
         } else if (typeof window !== 'undefined') {
           const localTr = localStorage.getItem('nexway_circuit_transfers');
           if (localTr) {
@@ -484,16 +453,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
             inTransitTransfers = (parsed || []).filter((t: any) => t.estado === 'DESPACHADO').length;
           }
         }
-      } catch {
-        if (typeof window !== 'undefined') {
-          const localTr = localStorage.getItem('nexway_circuit_transfers');
-          if (localTr) {
-            const parsed = JSON.parse(localTr);
-            pendingTransfers = (parsed || []).filter((t: any) => t.estado === 'SOLICITADO' || t.estado === 'EN_PICKING').length;
-            inTransitTransfers = (parsed || []).filter((t: any) => t.estado === 'DESPACHADO').length;
-          }
-        }
-      }
+      } catch {}
 
       setStats({
         branchesCount: branchesCount || 0,
@@ -506,7 +466,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         todaySalesCount,
         todaySalesTotal: parseFloat(todaySalesTotal.toFixed(2)),
         hasSalesToday: todaySalesCount > 0,
-        hasClosingToday: (closingToday || []).length > 0,
+        hasClosingToday: closingToday.length > 0,
         crmTasksCount: pendingCrmTasks,
         pendingOrdersCount: pendingOrdersCount,
         pendingTransfersCount: pendingTransfers,
@@ -516,10 +476,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         pendingOrdersDetails
       });
 
-      // 7. Mapear clientes y sucursales reales en el Mapa Logístico
-      const { data: realBranches } = await supabase.from('branches').select('id, name');
-      const { data: realCustomers } = await supabase.from('customers').select('id, name, credit_limit').order('created_at', { ascending: false }).limit(20);
-
+      // 7. Mapear clientes y sucursales reales (ya cargados en paralelo)
       const newLocations: MapLocation[] = [];
       (realBranches || []).forEach((b, idx) => {
         newLocations.push({
@@ -563,8 +520,10 @@ export function BmsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     auditSystem();
     const interval = setInterval(() => {
-      auditSystem();
-    }, 5 * 60 * 1000);
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        auditSystem();
+      }
+    }, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 

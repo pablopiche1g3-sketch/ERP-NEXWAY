@@ -1472,17 +1472,17 @@ export default function PurchasesTab() {
 
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-7xl mx-auto space-y-6 relative z-10">
-        <TabsList className="bg-transparent p-0 border-b border-white/10 w-full justify-start h-auto rounded-none gap-2">
-          <TabsTrigger value="registro" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
+        <TabsList className="bg-transparent p-0 border-b border-border dark:border-white/10 w-full justify-start h-auto rounded-none gap-2">
+          <TabsTrigger value="registro" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-transparent">
             <ClipboardList size={14} className="mr-2" /> Registro de Compra
           </TabsTrigger>
-          <TabsTrigger value="historial" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
+          <TabsTrigger value="historial" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-transparent">
             <Calendar size={14} className="mr-2" /> Historial de Ingresos
           </TabsTrigger>
-          <TabsTrigger value="vinculacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
+          <TabsTrigger value="vinculacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-transparent">
             <Link2 size={14} className="mr-2" /> Vinculación de Códigos
           </TabsTrigger>
-          <TabsTrigger value="credito" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-white/10ransparent">
+          <TabsTrigger value="credito" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-transparent">
             <FileText size={14} className="mr-2" /> Notas de Crédito
           </TabsTrigger>
         </TabsList>
@@ -1493,27 +1493,27 @@ export default function PurchasesTab() {
             <div className="lg:col-span-4 space-y-6">
               <div className="flex flex-col gap-2.5">
                 <div className="rounded-t-[11px] p-[13px_16px] flex items-center justify-between bg-indigo-500/25 border border-indigo-500/35 border-b-0">
-                  <div className="flex items-center gap-2 text-[13px] font-semibold text-[#a5a8ff]">
+                  <div className="flex items-center gap-2 text-[13px] font-semibold text-indigo-700 dark:text-[#a5a8ff]">
                     <ClipboardList size={15} /> Control de Pedido
                   </div>
-                  <span className="text-[10px] text-white/40 font-mono tracking-[0.5px] bg-white/5 px-2 py-0.5 rounded border border-white/10">{pedidoId}</span>
+                  <span className="text-[10px] text-muted-foreground dark:text-white/40 font-mono tracking-[0.5px] bg-card dark:bg-white/5 px-2 py-0.5 rounded border border-border dark:border-white/10">{pedidoId}</span>
                 </div>
                 
-                <div className="rounded-b-[11px] p-4 flex flex-col gap-3.5 bg-white/5 backdrop-blur-md border border-white/10 mt-[-10px]">
+                <div className="rounded-b-[11px] p-4 flex flex-col gap-3.5 bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 mt-[-10px]">
                   {pendingDtes.length > 0 && (
                     <div className="mb-1 p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/25">
                       <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.7px] text-indigo-400 mb-1.5">
                         <span className="flex items-center gap-1.5"><FileJson size={12} /> Importar Catálogo DTE</span>
-                        <Badge variant="outline" className="text-[8px] h-4 bg-indigo-500/20 border-indigo-500/40 text-indigo-300 font-mono">
+                        <Badge variant="outline" className="text-[8px] h-4 bg-indigo-500/20 border-indigo-500/40 text-indigo-700 dark:text-indigo-300 font-mono">
                           {pendingDtes.length} pendientes
                         </Badge>
                       </div>
                       <Select value={selectedDteId} onValueChange={handleSelectDte}>
-                        <SelectTrigger className="flex items-center justify-between bg-black/40 border border-indigo-500/30 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-indigo-200 shadow-none">
+                        <SelectTrigger className="flex items-center justify-between bg-background dark:bg-black/40 border border-indigo-500/30 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-indigo-700 dark:text-indigo-200 shadow-none">
                           <SelectValue placeholder="Seleccione un DTE para autocompletar..." />
                         </SelectTrigger>
-                        <SelectContent className="border-white/10 bg-[#0a0a14] text-white max-h-60">
-                          <SelectItem value="none" className="text-white/40 italic">Ninguno (Ingreso Manual)</SelectItem>
+                        <SelectContent className="border-border dark:border-white/10 bg-popover text-popover-foreground text-foreground dark:text-white max-h-60">
+                          <SelectItem value="none" className="text-muted-foreground dark:text-white/40 italic">Ninguno (Ingreso Manual)</SelectItem>
                           {pendingDtes.map((dte) => (
                             <SelectItem key={dte.id} value={dte.id}>
                               {dte.documento_numero} - {dte.proveedor_nombre}
@@ -1526,48 +1526,48 @@ export default function PurchasesTab() {
 
                   {/* PROVEEDOR */}
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5 flex items-center justify-between">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5 flex items-center justify-between">
                       <span>Proveedor</span>
                       {supplierName && <span className="text-[9px] text-emerald-400 font-mono">✓ Seleccionado</span>}
                     </div>
                     <div className="flex gap-2">
-                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] flex-1 relative focus-within:border-indigo-500/50">
-                        <Building2 size={14} className="text-white/30 shrink-0" />
+                      <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] flex-1 relative focus-within:border-indigo-500/50">
+                        <Building2 size={14} className="text-muted-foreground/80 dark:text-white/30 shrink-0" />
                         <Input 
                           placeholder="Seleccione o busque proveedor..." 
                           value={supplierName}
                           onChange={e => setSupplierName(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12.5px] text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20 font-medium"
+                          className="h-full bg-transparent border-none text-[12.5px] text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25 font-medium"
                         />
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-white/5 border border-white/10 text-white/30 hover:bg-white/10 hover:text-white/70">
+                          <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/30 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70">
                             <Search size={14} />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0 border-white/10 bg-[#0a0a14] shadow-2xl" align="end">
-                          <div className="p-3 border-b border-white/10">
+                        <PopoverContent className="w-80 p-0 border-border dark:border-white/10 bg-popover text-popover-foreground shadow-2xl" align="end">
+                          <div className="p-3 border-b border-border dark:border-white/10">
                             <Input 
                               placeholder="Buscar proveedor por nombre o NIT..." 
                               value={supplierSearch} 
                               onChange={e => setSupplierSearch(e.target.value)} 
-                              className="h-8 text-xs bg-white/5 border border-white/10 text-white placeholder:text-white/30" 
+                              className="h-8 text-xs bg-card dark:bg-white/5 border border-border dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25" 
                             />
                           </div>
                           <ScrollArea className="h-60">
                             <div className="p-1.5 space-y-1">
                               {filteredSuppliers.length === 0 ? (
-                                <div className="p-4 text-center text-white/30 text-[11px] italic">No se encontraron proveedores</div>
+                                <div className="p-4 text-center text-muted-foreground/80 dark:text-white/30 text-[11px] italic">No se encontraron proveedores</div>
                               ) : filteredSuppliers.map((s: any) => (
                                 <div 
                                   key={s.id} 
                                   onClick={() => selectSupplier(s)} 
-                                  className="p-2.5 hover:bg-white/10 cursor-pointer rounded-lg transition-colors group flex items-center justify-between"
+                                  className="p-2.5 hover:bg-accent dark:hover:bg-white/10 cursor-pointer rounded-lg transition-colors group flex items-center justify-between"
                                 >
                                   <div>
-                                    <span className="text-[11.5px] font-bold text-white group-hover:text-indigo-400 block">{s.name}</span>
-                                    <span className="text-[9.5px] text-white/40 font-mono">{s.nit ? `NIT: ${s.nit}` : 'Sin NIT'}</span>
+                                    <span className="text-[11.5px] font-bold text-foreground dark:text-white group-hover:text-indigo-400 block">{s.name}</span>
+                                    <span className="text-[9.5px] text-muted-foreground dark:text-white/40 font-mono">{s.nit ? `NIT: ${s.nit}` : 'Sin NIT'}</span>
                                   </div>
                                   {supplierName === s.name && <Check size={14} className="text-emerald-400" />}
                                 </div>
@@ -1581,39 +1581,39 @@ export default function PurchasesTab() {
 
                   {/* ENCARGADO DE INGRESO (USUARIO DEL SISTEMA) */}
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5 flex items-center justify-between">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5 flex items-center justify-between">
                       <span>Encargado de ingreso</span>
                       <span className="text-[9px] text-indigo-400 font-mono">Usuario Sistema</span>
                     </div>
                     <div className="flex gap-2">
-                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] flex-1 relative focus-within:border-indigo-500/50">
-                        <User size={14} className="text-white/30 shrink-0" />
+                      <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] flex-1 relative focus-within:border-indigo-500/50">
+                        <User size={14} className="text-muted-foreground/80 dark:text-white/30 shrink-0" />
                         <Input 
                           placeholder="Nombre del encargado..." 
                           value={enteredBy}
                           onChange={e => setEnteredBy(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12.5px] text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20 font-medium"
+                          className="h-full bg-transparent border-none text-[12.5px] text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25 font-medium"
                         />
                       </div>
                       <Popover open={isUserPopoverOpen} onOpenChange={setIsUserPopoverOpen}>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-white/5 border border-white/10 text-white/30 hover:bg-white/10 hover:text-white/70" title="Seleccionar usuario del sistema">
+                          <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/30 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70" title="Seleccionar usuario del sistema">
                             <Users size={14} />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0 border-white/10 bg-[#0a0a14] shadow-2xl" align="end">
-                          <div className="p-3 border-b border-white/10">
+                        <PopoverContent className="w-80 p-0 border-border dark:border-white/10 bg-popover text-popover-foreground shadow-2xl" align="end">
+                          <div className="p-3 border-b border-border dark:border-white/10">
                             <Input 
                               placeholder="Buscar usuario por nombre o correo..." 
                               value={userSearch} 
                               onChange={e => setUserSearch(e.target.value)} 
-                              className="h-8 text-xs bg-white/5 border border-white/10 text-white placeholder:text-white/30" 
+                              className="h-8 text-xs bg-card dark:bg-white/5 border border-border dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25" 
                             />
                           </div>
                           <ScrollArea className="h-60">
                             <div className="p-1.5 space-y-1">
                               {filteredUsers.length === 0 ? (
-                                <div className="p-4 text-center text-white/30 text-[11px] italic">No se encontraron usuarios</div>
+                                <div className="p-4 text-center text-muted-foreground/80 dark:text-white/30 text-[11px] italic">No se encontraron usuarios</div>
                               ) : filteredUsers.map((u) => (
                                 <div 
                                   key={u.id || u.email} 
@@ -1621,16 +1621,16 @@ export default function PurchasesTab() {
                                     setEnteredBy(u.full_name || u.email);
                                     setIsUserPopoverOpen(false);
                                   }} 
-                                  className="p-2.5 hover:bg-white/10 cursor-pointer rounded-lg transition-colors group flex items-center justify-between"
+                                  className="p-2.5 hover:bg-accent dark:hover:bg-white/10 cursor-pointer rounded-lg transition-colors group flex items-center justify-between"
                                 >
                                   <div className="flex-1 mr-2">
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-[11.5px] font-bold text-white group-hover:text-indigo-400">{u.full_name || u.email}</span>
-                                      <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 uppercase border-white/15 text-white/50">
+                                      <span className="text-[11.5px] font-bold text-foreground dark:text-white group-hover:text-indigo-400">{u.full_name || u.email}</span>
+                                      <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 uppercase border-border dark:border-white/15 text-muted-foreground dark:text-white/50">
                                         {u.role || 'usuario'}
                                       </Badge>
                                     </div>
-                                    <span className="text-[9.5px] text-white/40 font-mono block truncate">{u.email}</span>
+                                    <span className="text-[9.5px] text-muted-foreground dark:text-white/40 font-mono block truncate">{u.email}</span>
                                   </div>
                                   {enteredBy === (u.full_name || u.email) && <Check size={14} className="text-emerald-400 shrink-0" />}
                                 </div>
@@ -1645,24 +1645,24 @@ export default function PurchasesTab() {
                   {/* TIPO DE DOCUMENTO Y BODEGA */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5">Tipo documento</div>
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5">Tipo documento</div>
                       <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                        <SelectTrigger className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-white/80 shadow-none font-medium">
+                        <SelectTrigger className="flex items-center justify-between bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-foreground dark:text-white/80 shadow-none font-medium">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="border-white/10 bg-[#0a0a14] text-white">
+                        <SelectContent className="border-border dark:border-white/10 bg-popover text-popover-foreground text-foreground dark:text-white">
                           <SelectItem value="FACTURA">FACTURA (01)</SelectItem>
                           <SelectItem value="CCF">CCF (03)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5">Bodega destino</div>
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5">Bodega destino</div>
                       <Select value={warehouse} onValueChange={setWarehouse}>
-                        <SelectTrigger className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-white/80 shadow-none font-medium">
+                        <SelectTrigger className="flex items-center justify-between bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-foreground dark:text-white/80 shadow-none font-medium">
                           <SelectValue placeholder="Seleccione..." />
                         </SelectTrigger>
-                        <SelectContent className="border-white/10 bg-[#0a0a14] text-white">
+                        <SelectContent className="border-border dark:border-white/10 bg-popover text-popover-foreground text-foreground dark:text-white">
                           {warehouses?.map((wh: any) => (
                             <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
                           ))}
@@ -1672,167 +1672,167 @@ export default function PurchasesTab() {
                   </div>
 
                   {/* CAMPOS SEPARADOS: N° DTE Y CODIGO DE GENERACION */}
-                  <div className="grid grid-cols-1 gap-2.5 pt-1 border-t border-white/5">
+                  <div className="grid grid-cols-1 gap-2.5 pt-1 border-t border-border/60 dark:border-white/5">
                     <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5 flex items-center justify-between">
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5 flex items-center justify-between">
                         <span>N° Factura / Control DTE</span>
                         <span className="text-[8.5px] text-indigo-400/80 font-mono">DTE Control</span>
                       </div>
-                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] focus-within:border-indigo-500/50">
-                        <FileText size={14} className="text-white/30 shrink-0" />
+                      <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] focus-within:border-indigo-500/50">
+                        <FileText size={14} className="text-muted-foreground/80 dark:text-white/30 shrink-0" />
                         <Input 
                           placeholder="DTE-03-M001P001-000000000000123" 
                           value={docNumber}
                           onChange={e => setDocNumber(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12px] font-mono text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
+                          className="h-full bg-transparent border-none text-[12px] font-mono text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5 flex items-center justify-between">
+                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5 flex items-center justify-between">
                         <span>Código de Generación</span>
-                        <span className="text-[8.5px] text-white/30 font-mono">UUID v4</span>
+                        <span className="text-[8.5px] text-muted-foreground/80 dark:text-white/30 font-mono">UUID v4</span>
                       </div>
-                      <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px] focus-within:border-indigo-500/50">
-                        <FileCode size={14} className="text-white/30 shrink-0" />
+                      <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] focus-within:border-indigo-500/50">
+                        <FileCode size={14} className="text-muted-foreground/80 dark:text-white/30 shrink-0" />
                         <Input 
                           placeholder="36C4A2D8-724B-4D3C-856E-85F0E9C7BA9A" 
                           value={generationCode}
                           onChange={e => setGenerationCode(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12px] font-mono text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20"
+                          className="h-full bg-transparent border-none text-[12px] font-mono text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="h-[1px] bg-white/5" />
+                  <div className="h-[1px] bg-card dark:bg-white/5" />
 
                   {/* FORMA DE PAGO */}
                   <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40 mb-1.5">Forma de pago</div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5">Forma de pago</div>
                     <div className="flex gap-1.5">
-                      <button onClick={() => setPaymentMethod('Efectivo')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Efectivo' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#a5a8ff] shadow-sm' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10 hover:text-white/70'}`}>
+                      <button onClick={() => setPaymentMethod('Efectivo')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Efectivo' ? 'bg-indigo-500/20 border border-indigo-500/50 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/45 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70'}`}>
                         <Wallet size={12} /> Efectivo
                       </button>
-                      <button onClick={() => setPaymentMethod('Transferencia')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Transferencia' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#a5a8ff] shadow-sm' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10 hover:text-white/70'}`}>
+                      <button onClick={() => setPaymentMethod('Transferencia')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Transferencia' ? 'bg-indigo-500/20 border border-indigo-500/50 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/45 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70'}`}>
                         <Landmark size={12} /> Transf.
                       </button>
-                      <button onClick={() => setPaymentMethod('Credito')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Credito' ? 'bg-indigo-500/25 border border-indigo-500/50 text-[#a5a8ff] shadow-sm' : 'bg-white/5 border border-white/10 text-white/45 hover:bg-white/10 hover:text-white/70'}`}>
+                      <button onClick={() => setPaymentMethod('Credito')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Credito' ? 'bg-indigo-500/20 border border-indigo-500/50 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/45 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70'}`}>
                         <CreditCard size={12} /> Crédito
                       </button>
                     </div>
                     {paymentMethod === 'Credito' && (
-                       <div className="mt-2.5 p-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-2 animate-in fade-in">
+                       <div className="mt-2.5 p-2 rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 flex items-center gap-2 animate-in fade-in">
                          <div className="text-[10px] font-semibold uppercase tracking-[0.7px] text-indigo-400">Plazo Crédito:</div>
-                         <Input type="number" value={creditDays} onFocus={e => e.target.select()} onChange={e => setCreditDays(e.target.value)} className="h-[28px] w-20 bg-black/40 border-white/10 text-[11.5px] text-white text-center font-bold" placeholder="30" />
-                         <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/40">Días</div>
+                         <Input type="number" value={creditDays} onFocus={e => e.target.select()} onChange={e => setCreditDays(e.target.value)} className="h-[28px] w-20 bg-background dark:bg-black/40 border-border dark:border-white/10 text-[11.5px] text-foreground dark:text-white text-center font-bold" placeholder="30" />
+                         <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40">Días</div>
                        </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-[11px] p-[14px_16px] bg-white/5 backdrop-blur-md border border-white/10">
+              <div className="rounded-[11px] p-[14px_16px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10">
                 <div className="flex items-center justify-between mb-2.5">
-                  <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">Cargar DTE V3</div>
+                  <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground/80 dark:text-white/30">Cargar DTE V3</div>
                   <Popover>
-                    <PopoverTrigger asChild><Info size={14} className="text-white/20 hover:text-white/40 cursor-pointer" /></PopoverTrigger>
-                    <PopoverContent className="w-64 text-[10px] space-y-2 border-white/10 bg-[#0a0a14] text-white">
+                    <PopoverTrigger asChild><Info size={14} className="text-muted-foreground dark:text-white/20 hover:text-foreground dark:hover:text-white/40 cursor-pointer" /></PopoverTrigger>
+                    <PopoverContent className="w-64 text-[10px] space-y-2 border-border dark:border-white/10 bg-popover text-popover-foreground text-foreground dark:text-white">
                        <p className="font-bold text-indigo-400">Hacienda El Salvador V3:</p>
-                       <p className="text-white/60">Extrae automáticamente proveedor, códigos de productos, cantidades y precios directamente desde el archivo oficial del Ministerio.</p>
+                       <p className="text-muted-foreground dark:text-white/60">Extrae automáticamente proveedor, códigos de productos, cantidades y precios directamente desde el archivo oficial del Ministerio.</p>
                     </PopoverContent>
                   </Popover>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".json" />
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full p-[11px] rounded-xl bg-white/5 border border-white/10 text-white/65 hover:bg-white/10 text-[12.5px] font-semibold flex items-center justify-center gap-2 tracking-[0.3px] transition-all"
+                  className="w-full p-[11px] rounded-xl bg-card dark:bg-white/5 border border-border dark:border-white/10 text-foreground/85 dark:text-white/65 hover:bg-accent dark:hover:bg-white/10 text-[12.5px] font-semibold flex items-center justify-center gap-2 tracking-[0.3px] transition-all"
                 >
                   <FileJson size={15} className="text-[#7c7fff]" />
                   <div className="text-center">
                     <div>IMPORTAR DTE V3 (JSON)</div>
-                    <span className="block text-[10px] font-normal text-white/30 mt-0.5">Soporta Ministerio de Hacienda SV</span>
+                    <span className="block text-[10px] font-normal text-muted-foreground/80 dark:text-white/30 mt-0.5">Soporta Ministerio de Hacienda SV</span>
                   </div>
                 </button>
                 
-                <div className="h-[1px] bg-white/5 my-3" />
+                <div className="h-[1px] bg-card dark:bg-white/5 my-3" />
                 
-                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30 mb-2.5">Agregar manualmente</div>
+                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground/80 dark:text-white/30 mb-2.5">Agregar manualmente</div>
                 <div className="grid grid-cols-[1fr_60px_80px] gap-1.5 mb-2">
-                  <Input placeholder="SKU..." value={skuSearch} onChange={e => setSkuSearch(e.target.value.toUpperCase())} className="bg-white/5 border-white/10 rounded-lg p-[8px_10px] text-[12px] text-white/70 h-[36px]" />
-                  <Input type="number" value={manualQty} onFocus={e => e.target.select()} onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} className="bg-white/5 border-white/10 rounded-lg p-[8px_10px] text-[12px] text-white/70 text-center h-[36px]" />
-                  <Input type="number" placeholder="0.00" value={manualPrice} onFocus={e => e.target.select()} onChange={e => setManualPrice(e.target.value)} className="bg-white/5 border-white/10 rounded-lg p-[8px_10px] text-[12px] text-emerald-400 text-right h-[36px]" />
+                  <Input placeholder="SKU..." value={skuSearch} onChange={e => setSkuSearch(e.target.value.toUpperCase())} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-foreground/90 dark:text-white/70 h-[36px]" />
+                  <Input type="number" value={manualQty} onFocus={e => e.target.select()} onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-foreground/90 dark:text-white/70 text-center h-[36px]" />
+                  <Input type="number" placeholder="0.00" value={manualPrice} onFocus={e => e.target.select()} onChange={e => setManualPrice(e.target.value)} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-emerald-400 text-right h-[36px]" />
                 </div>
                 <div className="grid grid-cols-[60px_60px_1fr] gap-1.5 mb-2.5 px-1">
-                  <div className="text-[9px] text-white/25 uppercase tracking-[0.5px]">SKU</div>
-                  <div className="text-[9px] text-white/25 uppercase tracking-[0.5px]">Cant.</div>
-                  <div className="text-[9px] text-white/25 uppercase tracking-[0.5px]">Costo</div>
+                  <div className="text-[9px] text-muted-foreground/80 dark:text-white/25 uppercase tracking-[0.5px]">SKU</div>
+                  <div className="text-[9px] text-muted-foreground/80 dark:text-white/25 uppercase tracking-[0.5px]">Cant.</div>
+                  <div className="text-[9px] text-muted-foreground/80 dark:text-white/25 uppercase tracking-[0.5px]">Costo</div>
                 </div>
-                <button onClick={handleAddItem} className="w-full p-[9px] rounded-lg bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/70 text-[12px] font-medium flex items-center justify-center gap-1.5 transition-all">
-                  <Plus size={14} className="text-white/30" /> Añadir a la Lista
+                <button onClick={handleAddItem} className="w-full p-[9px] rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/50 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70 text-[12px] font-medium flex items-center justify-center gap-1.5 transition-all">
+                  <Plus size={14} className="text-muted-foreground/80 dark:text-white/30" /> Añadir a la Lista
                 </button>
               </div>
         </div>
 
         <div className="lg:col-span-8 flex flex-col gap-2.5">
-          <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between p-[12px_18px] gap-4">
-            <div className="flex items-center gap-3 text-white">
+          <div className="rounded-[11px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between p-[12px_18px] gap-4">
+            <div className="flex items-center gap-3 text-foreground dark:text-white">
               <div className="text-[13px] font-semibold">Ítems del Pedido</div>
-              <span className="bg-indigo-500/20 text-[#a5a8ff] text-[10px] font-mono p-[2px_8px] rounded-full border border-indigo-500/30">{purchaseItems.length} ítems</span>
+              <span className="bg-indigo-500/20 text-indigo-700 dark:text-[#a5a8ff] text-[10px] font-mono p-[2px_8px] rounded-full border border-indigo-500/30">{purchaseItems.length} ítems</span>
             </div>
             
             <div className="flex gap-6 text-right">
               <div>
-                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-white/40 mb-0.5">Subtotal</div>
-                <div className="text-[12.5px] font-bold text-white/90">${subtotalPurchase.toFixed(2)}</div>
+                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-muted-foreground dark:text-white/40 mb-0.5">Subtotal</div>
+                <div className="text-[12.5px] font-bold text-foreground dark:text-white/90">${subtotalPurchase.toFixed(2)}</div>
               </div>
               <div>
-                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-white/40 mb-0.5">IVA (13%)</div>
-                <div className="text-[12.5px] font-bold text-white/90">${ivaPurchase.toFixed(2)}</div>
+                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-muted-foreground dark:text-white/40 mb-0.5">IVA (13%)</div>
+                <div className="text-[12.5px] font-bold text-foreground dark:text-white/90">${ivaPurchase.toFixed(2)}</div>
               </div>
               <div>
-                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-white/40 mb-0.5">Total Neto</div>
-                <div className="text-[16px] font-black text-[#63e2b7] tracking-[0.5px]">${totalPurchase.toFixed(2)}</div>
+                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-muted-foreground dark:text-white/40 mb-0.5">Total Neto</div>
+                <div className="text-[16px] font-black text-emerald-700 dark:text-[#63e2b7] tracking-[0.5px]">${totalPurchase.toFixed(2)}</div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 h-[450px] flex flex-col overflow-hidden">
+          <div className="rounded-[11px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 h-[450px] flex flex-col overflow-hidden">
             <ScrollArea className="flex-1">
               <Table>
-                <TableHeader className="sticky top-0 bg-[#161430]/90 backdrop-blur-sm z-10">
-                  <TableRow className="border-b border-white/10 hover:bg-transparent">
-                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px] px-4">SKU</TableHead>
-                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px]">Producto</TableHead>
-                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px] text-center">Cant.</TableHead>
-                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px] text-right">Costo (S/C)</TableHead>
-                    <TableHead className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.5px] h-[36px] text-right">Subtotal</TableHead>
+                <TableHeader className="sticky top-0 bg-muted/90 dark:bg-[#161430]/90 backdrop-blur-sm z-10">
+                  <TableRow className="border-b border-border dark:border-white/10 hover:bg-transparent">
+                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px] px-4">SKU</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px]">Producto</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px] text-center">Cant.</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px] text-right">Costo (S/C)</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px] text-right">Subtotal</TableHead>
                     <TableHead className="w-[40px] h-[36px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {purchaseItems.length === 0 ? (
-                    <TableRow className="border-b border-white/5 hover:bg-transparent">
-                      <TableCell colSpan={6} className="text-center py-24 text-white/30 italic text-[11px]">
+                    <TableRow className="border-b border-border/60 dark:border-white/5 hover:bg-transparent">
+                      <TableCell colSpan={6} className="text-center py-24 text-muted-foreground/80 dark:text-white/30 italic text-[11px]">
                         No hay productos seleccionados. Importe un DTE V3 o agréguelos manualmente.
                       </TableCell>
                     </TableRow>
                   ) : purchaseItems.map((item) => (
-                    <TableRow key={item.sku} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                      <TableCell className="px-4 font-mono font-bold text-white/40 text-[11px]">{item.sku}</TableCell>
-                      <TableCell className="font-bold text-white/80 text-[12px]">{item.name}</TableCell>
-                      <TableCell className="text-center font-bold text-white/80 text-[12px]">{item.quantity}</TableCell>
-                      <TableCell className="text-right font-medium text-white/60 text-[11.5px]">
-                        <span className="text-white/90">${item.cost.toFixed(2)}</span>
-                        <span className="text-[9.5px] text-white/30 ml-1">/ ${(item.cost * 1.13).toFixed(2)}</span>
+                    <TableRow key={item.sku} className="border-b border-border/60 dark:border-white/5 hover:bg-card dark:bg-white/5 transition-colors">
+                      <TableCell className="px-4 font-mono font-bold text-muted-foreground dark:text-white/40 text-[11px]">{item.sku}</TableCell>
+                      <TableCell className="font-bold text-foreground dark:text-white/80 text-[12px]">{item.name}</TableCell>
+                      <TableCell className="text-center font-bold text-foreground dark:text-white/80 text-[12px]">{item.quantity}</TableCell>
+                      <TableCell className="text-right font-medium text-muted-foreground dark:text-white/60 text-[11.5px]">
+                        <span className="text-foreground dark:text-white/90">${item.cost.toFixed(2)}</span>
+                        <span className="text-[9.5px] text-muted-foreground/80 dark:text-white/30 ml-1">/ ${(item.cost * 1.13).toFixed(2)}</span>
                       </TableCell>
-                      <TableCell className="text-right font-black text-white/90 text-[12.5px]">
+                      <TableCell className="text-right font-black text-foreground dark:text-white/90 text-[12.5px]">
                         <span>${(item.cost * item.quantity).toFixed(2)}</span>
-                        <span className="text-[9.5px] text-white/30 font-medium ml-1">/ ${((item.cost * item.quantity) * 1.13).toFixed(2)}</span>
+                        <span className="text-[9.5px] text-muted-foreground/80 dark:text-white/30 font-medium ml-1">/ ${((item.cost * item.quantity) * 1.13).toFixed(2)}</span>
                       </TableCell>
                       <TableCell>
-                        <button onClick={() => removeItem(item.sku)} className="h-7 w-7 rounded-md flex items-center justify-center text-white/20 hover:text-[#ff5c5c] hover:bg-[#ff5c5c]/10 transition-all">
+                        <button onClick={() => removeItem(item.sku)} className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground/70 dark:text-white/20 hover:text-[#ff5c5c] hover:bg-[#ff5c5c]/10 transition-all">
                           <Trash2 size={13} />
                         </button>
                       </TableCell>
@@ -1845,7 +1845,7 @@ export default function PurchasesTab() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
             <button 
-              className="h-[46px] rounded-xl flex items-center justify-center gap-2 bg-white/5 border border-white/10 text-[13px] font-bold text-white/50 hover:bg-white/10 hover:text-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-[46px] rounded-xl flex items-center justify-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 text-[13px] font-bold text-foreground/80 dark:text-white/50 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || purchaseItems.length === 0}
               onClick={() => savePurchase('PENDIENTE')}
             >
@@ -1853,7 +1853,7 @@ export default function PurchasesTab() {
               Borrador Pendiente
             </button>
             <button 
-              className="h-[46px] rounded-xl flex items-center justify-center gap-2 bg-emerald-500/30 border border-emerald-500/40 text-[13px] font-bold text-[#63e2b7] hover:bg-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+              className="h-[46px] rounded-xl flex items-center justify-center gap-2 bg-emerald-500/30 border border-emerald-500/40 text-[13px] font-bold text-emerald-700 dark:text-[#63e2b7] hover:bg-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
               disabled={loading || purchaseItems.length === 0}
               onClick={() => savePurchase('CERRADA')}
             >
@@ -1874,48 +1874,48 @@ export default function PurchasesTab() {
     </TabsContent>
 
     <TabsContent value="historial" className="space-y-6 outline-none">
-      <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 flex flex-col overflow-hidden">
-        <div className="p-[18px_24px] border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="rounded-[11px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 flex flex-col overflow-hidden">
+        <div className="p-[18px_24px] border-b border-border dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="text-[13px] font-bold text-white flex items-center gap-2">
+            <div className="text-[13px] font-bold text-foreground dark:text-white flex items-center gap-2">
               <Calendar className="text-indigo-400" size={16} />
               Historial de Ingresos de Compra
             </div>
-            <div className="text-[11px] text-white/50 mt-1">Consulte los ingresos históricos de productos y compras operativas.</div>
+            <div className="text-[11px] text-muted-foreground dark:text-white/50 mt-1">Consulte los ingresos históricos de productos y compras operativas.</div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 p-1 rounded-[10px]">
-              <button onClick={() => setHistoryStatusFilter('TODOS')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'TODOS' ? 'bg-indigo-500/30 text-[#a5a8ff] shadow-sm' : 'text-white/50 hover:text-white/80'}`}>TODOS</button>
-              <button onClick={() => setHistoryStatusFilter('PENDIENTE')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'PENDIENTE' ? 'bg-indigo-500/30 text-[#a5a8ff] shadow-sm' : 'text-white/50 hover:text-white/80'}`}>BORRADOR</button>
-              <button onClick={() => setHistoryStatusFilter('CERRADA')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'CERRADA' ? 'bg-indigo-500/30 text-[#a5a8ff] shadow-sm' : 'text-white/50 hover:text-white/80'}`}>INGRESADA</button>
+            <div className="flex items-center gap-1.5 bg-muted dark:bg-white/5 border border-border dark:border-white/10 p-1 rounded-[10px]">
+              <button onClick={() => setHistoryStatusFilter('TODOS')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'TODOS' ? 'bg-indigo-500/20 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80'}`}>TODOS</button>
+              <button onClick={() => setHistoryStatusFilter('PENDIENTE')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'PENDIENTE' ? 'bg-indigo-500/20 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80'}`}>BORRADOR</button>
+              <button onClick={() => setHistoryStatusFilter('CERRADA')} className={`text-[10.5px] font-bold rounded-lg px-3 py-1.5 transition-all ${historyStatusFilter === 'CERRADA' ? 'bg-indigo-500/20 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white/80'}`}>INGRESADA</button>
             </div>
           </div>
         </div>
 
-        <div className="p-4 border-b border-white/5 flex items-center gap-3 bg-white/5">
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[8px_12px] w-full md:max-w-md">
-            <Search size={14} className="text-white/30" />
+        <div className="p-4 border-b border-border/60 dark:border-white/5 flex items-center gap-3 bg-card dark:bg-white/5">
+          <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[8px_12px] w-full md:max-w-md">
+            <Search size={14} className="text-muted-foreground/80 dark:text-white/30" />
             <Input 
               placeholder="Buscar por ID de Pedido, Proveedor o Encargado..." 
               value={historySearch}
               onChange={(e) => setHistorySearch(e.target.value)}
-              className="h-auto bg-transparent border-none text-[12px] text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/30"
+              className="h-auto bg-transparent border-none text-[12px] text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto min-h-[400px]">
           <Table>
-            <TableHeader className="bg-[#161430]/90 backdrop-blur-sm">
-              <TableRow className="border-b border-white/10 hover:bg-transparent">
-                <TableHead className="text-[10px] font-semibold text-white/40 uppercase px-6 h-[40px]">ID Pedido</TableHead>
-                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Proveedor</TableHead>
-                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Encargado</TableHead>
-                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Bodega</TableHead>
-                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Método Pago</TableHead>
-                <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Monto Total</TableHead>
-                <TableHead className="text-[10px] font-semibold text-white/40 uppercase text-center h-[40px]">Estado</TableHead>
-                <TableHead className="text-[10px] font-semibold text-white/40 uppercase text-center h-[40px]">Fecha de Creación</TableHead>
+            <TableHeader className="bg-muted/90 dark:bg-[#161430]/90 backdrop-blur-sm">
+              <TableRow className="border-b border-border dark:border-white/10 hover:bg-transparent">
+                <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase px-6 h-[40px]">ID Pedido</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase h-[40px]">Proveedor</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase h-[40px]">Encargado</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase h-[40px]">Bodega</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase h-[40px]">Método Pago</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase h-[40px]">Monto Total</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase text-center h-[40px]">Estado</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase text-center h-[40px]">Fecha de Creación</TableHead>
                 <TableHead className="w-24 px-6 h-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -1936,8 +1936,8 @@ export default function PurchasesTab() {
                 }
                 if (list.length === 0) {
                   return (
-                    <TableRow className="border-b border-white/5 hover:bg-transparent">
-                      <TableCell colSpan={9} className="text-center py-20 text-white/30 italic text-[11px]">
+                    <TableRow className="border-b border-border/60 dark:border-white/5 hover:bg-transparent">
+                      <TableCell colSpan={9} className="text-center py-20 text-muted-foreground/80 dark:text-white/30 italic text-[11px]">
                         No se encontraron registros de compra.
                       </TableCell>
                     </TableRow>
@@ -1948,17 +1948,17 @@ export default function PurchasesTab() {
                   const provName = p.suppliers?.name || p.supplier_name || 'Sin Proveedor';
                   const dateStr = p.created_at ? new Date(p.created_at).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' }) : 'N/A';
                   return (
-                    <TableRow key={p.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                      <TableCell className="px-6 font-mono font-bold text-[11px] text-white/80">{p.order_id}</TableCell>
-                      <TableCell className="font-bold text-[11.5px] text-white/90">{provName}</TableCell>
-                      <TableCell className="text-[11px] text-white/50">{p.entered_by || 'N/A'}</TableCell>
-                      <TableCell className="text-[11px] text-indigo-300 font-medium">{whName}</TableCell>
-                      <TableCell className="text-[11px] text-white/50">{p.payment_method} {p.credit_days ? `(${p.credit_days}d)` : ''}</TableCell>
-                      <TableCell className="text-[12.5px] font-black text-[#63e2b7]">${parseFloat(p.total).toFixed(2)}</TableCell>
+                    <TableRow key={p.id} className="border-b border-border/60 dark:border-white/5 hover:bg-card dark:bg-white/5 transition-colors">
+                      <TableCell className="px-6 font-mono font-bold text-[11px] text-foreground dark:text-white/80">{p.order_id}</TableCell>
+                      <TableCell className="font-bold text-[11.5px] text-foreground dark:text-white/90">{provName}</TableCell>
+                      <TableCell className="text-[11px] text-muted-foreground dark:text-white/50">{p.entered_by || 'N/A'}</TableCell>
+                      <TableCell className="text-[11px] text-indigo-700 dark:text-indigo-300 font-medium">{whName}</TableCell>
+                      <TableCell className="text-[11px] text-muted-foreground dark:text-white/50">{p.payment_method} {p.credit_days ? `(${p.credit_days}d)` : ''}</TableCell>
+                      <TableCell className="text-[12.5px] font-black text-emerald-700 dark:text-[#63e2b7]">${parseFloat(p.total).toFixed(2)}</TableCell>
                       <TableCell className="text-center">
                         <span className={`px-[8px] py-[3px] rounded-md text-[9px] font-bold uppercase tracking-[0.5px] ${
                           p.status === 'CERRADA' 
-                            ? 'bg-emerald-500/20 text-[#63e2b7] border border-emerald-500/30' 
+                            ? 'bg-emerald-500/20 text-emerald-700 dark:text-[#63e2b7] border border-emerald-500/30' 
                             : p.status === 'ANULADA'
                               ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                               : 'bg-[#d97706]/20 text-[#fbbf24] border border-[#d97706]/30'
@@ -1966,7 +1966,7 @@ export default function PurchasesTab() {
                           {p.status === 'CERRADA' ? 'INGRESADA' : p.status === 'ANULADA' ? 'ANULADA' : 'BORRADOR'}
                         </span>
                       </TableCell>
-                      <TableCell className="text-center text-[10.5px] text-white/40">{dateStr}</TableCell>
+                      <TableCell className="text-center text-[10.5px] text-muted-foreground dark:text-white/40">{dateStr}</TableCell>
                       <TableCell className="text-right px-6">
                         <div className="flex justify-end gap-1.5">
                           {p.status === 'PENDIENTE' && (
@@ -1982,7 +1982,7 @@ export default function PurchasesTab() {
                               setSelectedPurchase(p);
                               setIsDetailsDialogOpen(true);
                             }}
-                            className="px-2 py-1.5 text-[9.5px] font-bold rounded-lg bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/90 transition-colors uppercase tracking-[0.5px]"
+                            className="px-2 py-1.5 text-[9.5px] font-bold rounded-lg bg-muted dark:bg-white/5 border border-border dark:border-white/10 text-foreground/80 dark:text-white/60 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/90 transition-colors uppercase tracking-[0.5px]"
                           >
                             Detalle
                           </button>
@@ -2011,41 +2011,41 @@ export default function PurchasesTab() {
         
         {/* FORMULARIO MANUAL (IZQUIERDA) */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 overflow-hidden">
-            <div className="p-4 border-b border-white/10 bg-indigo-500/10">
-              <div className="text-[13px] font-bold text-white flex items-center gap-2">
+          <div className="rounded-[11px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 overflow-hidden">
+            <div className="p-4 border-b border-border dark:border-white/10 bg-indigo-500/10">
+              <div className="text-[13px] font-bold text-foreground dark:text-white flex items-center gap-2">
                 <Link2 className="text-indigo-400" size={16} />
                 Vincular Código Manualmente
               </div>
-              <div className="text-[11px] text-white/50 mt-1">
+              <div className="text-[11px] text-muted-foreground dark:text-white/50 mt-1">
                 Asocie un código de proveedor con un SKU interno.
               </div>
             </div>
             <div className="p-4 space-y-4">
               <div className="space-y-1.5">
-                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">Código de Proveedor / DTE</div>
-                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px]">
+                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground/80 dark:text-white/30">Código de Proveedor / DTE</div>
+                <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px]">
                   <Input 
                     placeholder="Ej: COD-PROV-123" 
                     value={supplierCodeInput} 
                     onChange={(e) => setSupplierCodeInput(e.target.value)}
-                    className="h-full bg-transparent border-none text-[12.5px] font-bold text-white/90 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20 uppercase"
+                    className="h-full bg-transparent border-none text-[12.5px] font-bold text-foreground dark:text-white/90 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25 uppercase"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5 relative">
-                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">SKU Interno de Destino</div>
-                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[9px_12px]">
+                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground/80 dark:text-white/30">SKU Interno de Destino</div>
+                <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px]">
                   <Input 
                     placeholder="Buscar por SKU o Nombre..." 
                     value={internalSkuInput} 
                     onChange={(e) => setInternalSkuInput(e.target.value)}
-                    className="h-full bg-transparent border-none text-[12.5px] font-bold text-white/90 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/20 uppercase"
+                    className="h-full bg-transparent border-none text-[12.5px] font-bold text-foreground dark:text-white/90 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25 uppercase"
                   />
                 </div>
                 {internalSkuInput && !inventory.some(p => p.sku === internalSkuInput.trim().toUpperCase()) && (
-                  <div className="absolute z-50 left-0 right-0 top-[100%] mt-1 bg-[#161430] border border-white/10 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1 divide-y divide-white/5">
+                  <div className="absolute z-50 left-0 right-0 top-[100%] mt-1 bg-popover dark:bg-[#161430] border border-border dark:border-white/10 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1 divide-y divide-border/60 dark:divide-white/5">
                     {inventory
                       .filter(p => 
                         p.sku.toLowerCase().includes(internalSkuInput.toLowerCase()) || 
@@ -2057,23 +2057,23 @@ export default function PurchasesTab() {
                           key={p.sku}
                           type="button"
                           onClick={() => setInternalSkuInput(p.sku)}
-                          className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 rounded-lg flex justify-between font-bold text-white"
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-card dark:bg-white/5 rounded-lg flex justify-between font-bold text-foreground dark:text-white"
                         >
-                          <span className="text-indigo-300">{p.sku}</span>
-                          <span className="text-[10px] text-white/40 font-normal truncate max-w-[150px]">{p.name}</span>
+                          <span className="text-indigo-700 dark:text-indigo-300">{p.sku}</span>
+                          <span className="text-[10px] text-muted-foreground dark:text-white/40 font-normal truncate max-w-[150px]">{p.name}</span>
                         </button>
                       ))}
                     {inventory.filter(p => 
                       p.sku.toLowerCase().includes(internalSkuInput.toLowerCase()) || 
                       p.name.toLowerCase().includes(internalSkuInput.toLowerCase())
                     ).length === 0 && (
-                      <div className="p-3 text-center text-[10px] text-white/30 italic">No se encontraron productos</div>
+                      <div className="p-3 text-center text-[10px] text-muted-foreground/80 dark:text-white/30 italic">No se encontraron productos</div>
                     )}
                   </div>
                 )}
                 
                 {internalSkuInput && inventory.some(p => p.sku === internalSkuInput.trim().toUpperCase()) && (
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] font-bold text-[#63e2b7] animate-in fade-in">
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] font-bold text-emerald-700 dark:text-[#63e2b7] animate-in fade-in">
                     Producto Seleccionado: {inventory.find(p => p.sku === internalSkuInput.trim().toUpperCase())?.name}
                   </div>
                 )}
@@ -2093,44 +2093,44 @@ export default function PurchasesTab() {
 
         {/* LISTA & JSON EDITOR (DERECHA) */}
         <div className="lg:col-span-8">
-          <div className="rounded-[11px] bg-white/5 backdrop-blur-md border border-white/10 overflow-hidden flex flex-col h-full">
+          <div className="rounded-[11px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 overflow-hidden flex flex-col h-full">
             <Tabs defaultValue="tabla" className="w-full flex flex-col h-full">
-              <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-transparent">
+              <div className="p-4 border-b border-border dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-transparent">
                 <div>
-                  <div className="text-[13px] font-bold text-white flex items-center gap-2">
+                  <div className="text-[13px] font-bold text-foreground dark:text-white flex items-center gap-2">
                     <Link2 className="text-indigo-400" size={16} />
                     Equivalencias de Catálogo
                   </div>
-                  <div className="text-[11px] text-white/50 mt-1">Consulte y administre el mapeo masivo de SKU.</div>
+                  <div className="text-[11px] text-muted-foreground dark:text-white/50 mt-1">Consulte y administre el mapeo masivo de SKU.</div>
                 </div>
-                <TabsList className="bg-white/5 p-1 rounded-[10px] border border-white/10 flex">
-                  <TabsTrigger value="tabla" className="text-[10px] font-bold px-3 py-1.5 rounded-md data-[state=active]:bg-indigo-500/30 data-[state=active]:text-[#a5a8ff] text-white/50">Lista de Vínculos</TabsTrigger>
-                  <TabsTrigger value="json" className="text-[10px] font-bold px-3 py-1.5 rounded-md data-[state=active]:bg-indigo-500/30 data-[state=active]:text-[#a5a8ff] text-white/50">Editor JSON</TabsTrigger>
+                <TabsList className="bg-card dark:bg-white/5 p-1 rounded-[10px] border border-border dark:border-white/10 flex">
+                  <TabsTrigger value="tabla" className="text-[10px] font-bold px-3 py-1.5 rounded-md data-[state=active]:bg-indigo-500/30 data-[state=active]:text-indigo-700 dark:text-[#a5a8ff] text-muted-foreground dark:text-white/50">Lista de Vínculos</TabsTrigger>
+                  <TabsTrigger value="json" className="text-[10px] font-bold px-3 py-1.5 rounded-md data-[state=active]:bg-indigo-500/30 data-[state=active]:text-indigo-700 dark:text-[#a5a8ff] text-muted-foreground dark:text-white/50">Editor JSON</TabsTrigger>
                 </TabsList>
               </div>
               
               {/* SUBTAB TABLA DE EQUIVALENCIAS */}
               <TabsContent value="tabla" className="m-0 outline-none flex-1 flex flex-col">
-                <div className="p-4 border-b border-white/5 flex items-center gap-3 bg-white/5">
-                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-[8px_12px] w-full md:max-w-md">
-                    <Search size={14} className="text-white/30" />
+                <div className="p-4 border-b border-border/60 dark:border-white/5 flex items-center gap-3 bg-card dark:bg-white/5">
+                  <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[8px_12px] w-full md:max-w-md">
+                    <Search size={14} className="text-muted-foreground/80 dark:text-white/30" />
                     <Input 
                       placeholder="Buscar por código de proveedor o SKU interno..." 
                       value={mappingSearch}
                       onChange={(e) => setMappingSearch(e.target.value)}
-                      className="h-auto bg-transparent border-none text-[12px] text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-white/30"
+                      className="h-auto bg-transparent border-none text-[12px] text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25"
                     />
                   </div>
                 </div>
                 
                 <div className="overflow-x-auto min-h-[300px]">
                   <Table>
-                    <TableHeader className="bg-[#161430]/90 backdrop-blur-sm">
-                      <TableRow className="border-b border-white/10 hover:bg-transparent">
-                        <TableHead className="text-[10px] font-semibold text-white/40 uppercase px-6 h-[40px]">Código Proveedor</TableHead>
-                        <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">SKU Interno</TableHead>
-                        <TableHead className="text-[10px] font-semibold text-white/40 uppercase h-[40px]">Producto Maestro</TableHead>
-                        <TableHead className="text-right text-[10px] font-semibold text-white/40 uppercase px-6 h-[40px]">Acción</TableHead>
+                    <TableHeader className="bg-muted/90 dark:bg-[#161430]/90 backdrop-blur-sm">
+                      <TableRow className="border-b border-border dark:border-white/10 hover:bg-transparent">
+                        <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase px-6 h-[40px]">Código Proveedor</TableHead>
+                        <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase h-[40px]">SKU Interno</TableHead>
+                        <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase h-[40px]">Producto Maestro</TableHead>
+                        <TableHead className="text-right text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase px-6 h-[40px]">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2142,8 +2142,8 @@ export default function PurchasesTab() {
                         );
                         if (list.length === 0) {
                           return (
-                            <TableRow className="border-b border-white/5 hover:bg-transparent">
-                              <TableCell colSpan={4} className="text-center py-16 text-white/30 italic text-[11px]">
+                            <TableRow className="border-b border-border/60 dark:border-white/5 hover:bg-transparent">
+                              <TableCell colSpan={4} className="text-center py-16 text-muted-foreground/80 dark:text-white/30 italic text-[11px]">
                                 {s ? 'No se encontraron vinculaciones coincidentes.' : 'No hay equivalencias de proveedores registradas.'}
                               </TableCell>
                             </TableRow>
@@ -2152,14 +2152,14 @@ export default function PurchasesTab() {
                         return list.map((m: any) => {
                           const prod = inventory.find(p => p.sku === m.internalSku);
                           return (
-                            <TableRow key={m.supplierCode} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <TableRow key={m.supplierCode} className="border-b border-border/60 dark:border-white/5 hover:bg-card dark:bg-white/5 transition-colors">
                               <TableCell className="px-6 font-mono font-bold text-[11px] text-indigo-400">{m.supplierCode}</TableCell>
-                              <TableCell className="font-mono font-bold text-[11px] text-white/90">{m.internalSku}</TableCell>
-                              <TableCell className="text-[11px] font-medium text-white/50 max-w-[200px] truncate">{prod?.name || 'Desconocido'}</TableCell>
+                              <TableCell className="font-mono font-bold text-[11px] text-foreground dark:text-white/90">{m.internalSku}</TableCell>
+                              <TableCell className="text-[11px] font-medium text-muted-foreground dark:text-white/50 max-w-[200px] truncate">{prod?.name || 'Desconocido'}</TableCell>
                               <TableCell className="text-right px-6">
                                 <button 
                                   onClick={() => handleDeleteMapping(m.supplierCode)}
-                                  className="h-7 w-7 rounded-md inline-flex items-center justify-center text-white/20 hover:text-[#ff5c5c] hover:bg-[#ff5c5c]/10 transition-all"
+                                  className="h-7 w-7 rounded-md inline-flex items-center justify-center text-muted-foreground/70 dark:text-white/20 hover:text-[#ff5c5c] hover:bg-[#ff5c5c]/10 transition-all"
                                 >
                                   <Trash2 size={13} />
                                 </button>
@@ -2176,22 +2176,22 @@ export default function PurchasesTab() {
               {/* SUBTAB EDITOR JSON */}
               <TabsContent value="json" className="m-0 outline-none p-6 space-y-4">
                 <div className="space-y-1.5">
-                  <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-white/30">Estructura JSON Mappings</div>
-                  <p className="text-[10.5px] text-white/50 leading-normal mb-2">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground/80 dark:text-white/30">Estructura JSON Mappings</div>
+                  <p className="text-[10.5px] text-muted-foreground dark:text-white/50 leading-normal mb-2">
                     Edite o cargue masivamente vinculaciones en formato JSON. El formato debe ser un arreglo de objetos con las propiedades <code>"supplier_code"</code> e <code>"internal_sku"</code>.
                   </p>
                   <textarea 
                     rows={12}
                     value={jsonMappingsInput}
                     onChange={(e) => setJsonMappingsInput(e.target.value)}
-                    className="w-full font-mono text-[11px] p-4 border rounded-xl bg-black/40 border-white/10 text-white/80 placeholder:text-white/20 outline-none resize-none"
+                    className="w-full font-mono text-[11px] p-4 border rounded-xl bg-background dark:bg-black/40 border-border dark:border-white/10 text-foreground dark:text-white/80 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25 outline-none resize-none"
                   />
                 </div>
 
                 <button 
                   onClick={handleSaveJsonMappings}
                   disabled={savingJsonMappings || !jsonMappingsInput.trim()}
-                  className="h-10 px-6 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-lg shadow-lg active:scale-95 transition-all w-full md:w-auto flex items-center justify-center gap-2 text-[12px] disabled:opacity-50"
+                  className="h-10 px-6 bg-muted hover:bg-accent dark:bg-white/10 dark:hover:bg-white/20 border border-border dark:border-white/20 text-foreground dark:text-white font-bold rounded-lg shadow-sm active:scale-95 transition-all w-full md:w-auto flex items-center justify-center gap-2 text-[12px] disabled:opacity-50"
                 >
                   {savingJsonMappings ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                   IMPORTAR & GUARDAR JSON
@@ -2209,16 +2209,16 @@ export default function PurchasesTab() {
         
         {/* COLUMNA IZQUIERDA: IMPORTADOR DTE JSON INTELIGENTE */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-xl">
-            <CardHeader className="p-0 pb-4 border-b border-white/10 mb-4">
-              <CardTitle className="text-sm font-black flex items-center gap-2 text-white">
+          <Card className="bg-card dark:bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-xl">
+            <CardHeader className="p-0 pb-4 border-b border-border dark:border-white/10 mb-4">
+              <CardTitle className="text-sm font-black flex items-center gap-2 text-foreground dark:text-white">
                 <FileJson className="text-indigo-400" size={18} /> Importador DTE-05 (Nota de Crédito)
               </CardTitle>
-              <CardDescription className="text-[11px] text-white/60">
+              <CardDescription className="text-[11px] text-muted-foreground dark:text-white/60">
                 Arrastra el archivo JSON del Ministerio de Hacienda para vincularlo a la factura de compra original y generar el asiento contable.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-0 space-y-4 text-white">
+            <CardContent className="p-0 space-y-4 text-foreground dark:text-white">
               {/* ZONA DE ARRASTRE DRAG & DROP */}
               <div 
                 className="space-y-2"
@@ -2236,13 +2236,13 @@ export default function PurchasesTab() {
                   }
                 }}
               >
-                <Label className="text-[10px] font-black uppercase text-white/40 tracking-wider">Cargar archivo JSON (DTE-05)</Label>
+                <Label className="text-[10px] font-black uppercase text-muted-foreground dark:text-white/40 tracking-wider">Cargar archivo JSON (DTE-05)</Label>
                 <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-2xl cursor-pointer bg-black/25 hover:bg-black/40 border-white/15 hover:border-indigo-400 transition-all group">
+                  <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-2xl cursor-pointer bg-muted/30 dark:bg-black/25 hover:bg-background dark:bg-black/40 border-border dark:border-white/15 hover:border-indigo-400 transition-all group">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
                       <FileJson className="w-10 h-10 mb-2 text-indigo-400 group-hover:scale-110 transition-transform" />
-                      <p className="text-xs text-white/80 font-black">Arrastre su JSON aquí o haga clic</p>
-                      <p className="text-[10px] text-white/40 mt-0.5">DTE-05 Nota de Crédito de Proveedor (.json)</p>
+                      <p className="text-xs text-foreground dark:text-white/80 font-black">Arrastre su JSON aquí o haga clic</p>
+                      <p className="text-[10px] text-muted-foreground dark:text-white/40 mt-0.5">DTE-05 Nota de Crédito de Proveedor (.json)</p>
                     </div>
                     <input 
                       type="file" 
@@ -2259,31 +2259,31 @@ export default function PurchasesTab() {
               {parsedCreditNote && (
                 <div className="p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-3">
                   <div className="flex justify-between items-center border-b border-indigo-500/20 pb-2">
-                    <h3 className="text-xs font-black text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <h3 className="text-xs font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
                       <Sparkles size={14} className="text-indigo-400" /> Aplicación de Nota de Crédito
                     </h3>
-                    <Badge className="bg-indigo-500/20 text-indigo-300 font-mono text-[10px] font-black border-0">
+                    <Badge className="bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 font-mono text-[10px] font-black border-0">
                       ${parsedCreditNote.total.toFixed(2)}
                     </Badge>
                   </div>
                   
                   {/* Info Proveedor y DTE */}
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-black/30 rounded-xl border border-white/5 text-xs">
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-muted/40 dark:bg-black/30 rounded-xl border border-border/60 dark:border-white/5 text-xs">
                     <div>
-                      <span className="text-[9px] font-black uppercase text-white/40 block">Proveedor</span>
-                      <strong className="text-white truncate block">{parsedCreditNote.supplierName}</strong>
-                      <span className="text-[9px] text-white/50 font-mono">NIT: {parsedCreditNote.supplierNit}</span>
+                      <span className="text-[9px] font-black uppercase text-muted-foreground dark:text-white/40 block">Proveedor</span>
+                      <strong className="text-foreground dark:text-white truncate block">{parsedCreditNote.supplierName}</strong>
+                      <span className="text-[9px] text-muted-foreground dark:text-white/50 font-mono">NIT: {parsedCreditNote.supplierNit}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-black uppercase text-white/40 block">N. Comprobante NC</span>
-                      <strong className="text-indigo-300 font-mono truncate block">{parsedCreditNote.documentNumber}</strong>
-                      <span className="text-[9px] text-white/50 block">DTE-05 Hacienda</span>
+                      <span className="text-[9px] font-black uppercase text-muted-foreground dark:text-white/40 block">N. Comprobante NC</span>
+                      <strong className="text-indigo-700 dark:text-indigo-300 font-mono truncate block">{parsedCreditNote.documentNumber}</strong>
+                      <span className="text-[9px] text-muted-foreground dark:text-white/50 block">DTE-05 Hacienda</span>
                     </div>
                   </div>
 
                   {/* Factura / CCF de Compra Afectada */}
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-white/50">Factura de Compra Relacionada (CCF)</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground dark:text-white/50">Factura de Compra Relacionada (CCF)</Label>
                     <Select 
                       value={parsedCreditNote.matchedPurchaseId || 'manual'} 
                       onValueChange={(val) => {
@@ -2295,7 +2295,7 @@ export default function PurchasesTab() {
                         }));
                       }}
                     >
-                      <SelectTrigger className="h-10 bg-slate-900/60 border-white/10 text-xs font-bold rounded-xl text-white">
+                      <SelectTrigger className="h-10 bg-background dark:bg-slate-900/60 border-border dark:border-white/10 text-xs font-bold rounded-xl text-foreground dark:text-white">
                         <SelectValue placeholder="Seleccione factura a afectar..." />
                       </SelectTrigger>
                       <SelectContent className="max-h-56">
@@ -2306,7 +2306,7 @@ export default function PurchasesTab() {
                               CCF: {p.doc_number || p.order_number} • Total: ${parseFloat(p.total).toFixed(2)} ({new Date(p.created_at).toLocaleDateString()})
                             </SelectItem>
                           ))}
-                        <SelectItem value="manual" className="text-xs font-bold italic text-indigo-300">
+                        <SelectItem value="manual" className="text-xs font-bold italic text-indigo-700 dark:text-indigo-300">
                           {parsedCreditNote.relatedDocNumber ? `Ref. DTE: ${parsedCreditNote.relatedDocNumber}` : 'Aplicar a Saldo General de Proveedor'}
                         </SelectItem>
                       </SelectContent>
@@ -2314,20 +2314,20 @@ export default function PurchasesTab() {
                   </div>
 
                   {/* Selector de Modalidad (Lógica Visual FoxPro) */}
-                  <div className="space-y-2 p-3 bg-black/30 rounded-xl border border-white/5">
-                    <Label className="text-[10px] font-black uppercase text-white/40 block">Modalidad de Aplicación</Label>
+                  <div className="space-y-2 p-3 bg-muted/40 dark:bg-black/30 rounded-xl border border-border/60 dark:border-white/5">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground dark:text-white/40 block">Modalidad de Aplicación</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setParsedCreditNote((prev: any) => ({ ...prev, applicationMode: 'AUTOMATICO_FINANCIERO' }))}
                         className={`p-2.5 rounded-xl text-left border text-xs font-bold transition-all ${
                           parsedCreditNote.applicationMode === 'AUTOMATICO_FINANCIERO'
-                            ? 'bg-indigo-600/30 border-indigo-500 text-white font-black'
-                            : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                            ? 'bg-indigo-600/30 border-indigo-500 text-foreground dark:text-white font-black'
+                            : 'bg-card dark:bg-white/5 border-border dark:border-white/10 text-muted-foreground dark:text-white/60 hover:bg-accent dark:hover:bg-white/10'
                         }`}
                       >
                         <p className="text-[11px]">⚡ Abono a Saldo</p>
-                        <span className="text-[9px] text-white/40 font-normal">Rebaja cuenta por pagar</span>
+                        <span className="text-[9px] text-muted-foreground dark:text-white/40 font-normal">Rebaja cuenta por pagar</span>
                       </button>
 
                       <button
@@ -2335,12 +2335,12 @@ export default function PurchasesTab() {
                         onClick={() => setParsedCreditNote((prev: any) => ({ ...prev, applicationMode: 'PRODUCTO_ESPECIFICO' }))}
                         className={`p-2.5 rounded-xl text-left border text-xs font-bold transition-all ${
                           parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO'
-                            ? 'bg-indigo-600/30 border-indigo-500 text-white font-black'
-                            : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                            ? 'bg-indigo-600/30 border-indigo-500 text-foreground dark:text-white font-black'
+                            : 'bg-card dark:bg-white/5 border-border dark:border-white/10 text-muted-foreground dark:text-white/60 hover:bg-accent dark:hover:bg-white/10'
                         }`}
                       >
                         <p className="text-[11px]">📦 Devolución Física</p>
-                        <span className="text-[9px] text-white/40 font-normal">Descarga en Kardex</span>
+                        <span className="text-[9px] text-muted-foreground dark:text-white/40 font-normal">Descarga en Kardex</span>
                       </button>
                     </div>
                   </div>
@@ -2349,12 +2349,12 @@ export default function PurchasesTab() {
                   {parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' && (
                     <div className="space-y-3 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/20 text-xs">
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase text-indigo-300">Bodega de Salida (Kardex)</Label>
+                        <Label className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-300">Bodega de Salida (Kardex)</Label>
                         <Select 
                           value={parsedCreditNote.targetWarehouseId} 
                           onValueChange={(val) => setParsedCreditNote((prev: any) => ({ ...prev, targetWarehouseId: val }))}
                         >
-                          <SelectTrigger className="h-9 bg-slate-900/60 border-white/10 text-xs font-bold rounded-xl text-white">
+                          <SelectTrigger className="h-9 bg-background dark:bg-slate-900/60 border-border dark:border-white/10 text-xs font-bold rounded-xl text-foreground dark:text-white">
                             <SelectValue placeholder="Seleccione bodega..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -2366,16 +2366,16 @@ export default function PurchasesTab() {
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase text-indigo-300">Productos del DTE a Devolver</Label>
+                        <Label className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-300">Productos del DTE a Devolver</Label>
                         <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                           {parsedCreditNote.items.map((item: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center bg-black/40 p-2 rounded-lg border border-white/5 text-[11px]">
+                            <div key={idx} className="flex justify-between items-center bg-background dark:bg-black/40 p-2 rounded-lg border border-border/60 dark:border-white/5 text-[11px]">
                               <div className="truncate pr-2">
-                                <strong className="text-white block truncate">{item.name}</strong>
-                                <span className="text-[9px] text-white/40 font-mono">{item.sku}</span>
+                                <strong className="text-foreground dark:text-white block truncate">{item.name}</strong>
+                                <span className="text-[9px] text-muted-foreground dark:text-white/40 font-mono">{item.sku}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-indigo-300 font-black">{item.quantity} und</span>
+                                <span className="font-mono text-indigo-700 dark:text-indigo-300 font-black">{item.quantity} und</span>
                               </div>
                             </div>
                           ))}
@@ -2385,8 +2385,8 @@ export default function PurchasesTab() {
                   )}
 
                   {/* Previsualización de Partida Contable */}
-                  <div className="p-3 bg-black/40 rounded-xl border border-white/5 text-[11px] space-y-1.5 font-mono">
-                    <p className="text-[9px] font-black uppercase text-white/40 tracking-wider">Asiento Contable Automático (Journal)</p>
+                  <div className="p-3 bg-background dark:bg-black/40 rounded-xl border border-border/60 dark:border-white/5 text-[11px] space-y-1.5 font-mono">
+                    <p className="text-[9px] font-black uppercase text-muted-foreground dark:text-white/40 tracking-wider">Asiento Contable Automático (Journal)</p>
                     <div className="flex justify-between text-emerald-400">
                       <span>[2101] Cuentas por Pagar Proveedores</span>
                       <span>+${parsedCreditNote.total.toFixed(2)} (D)</span>
@@ -2414,7 +2414,7 @@ export default function PurchasesTab() {
                     <Button 
                       variant="ghost" 
                       onClick={() => setParsedCreditNote(null)}
-                      className="h-11 px-4 border border-white/10 text-white hover:bg-white/5 rounded-xl text-xs font-bold"
+                      className="h-11 px-4 border border-border dark:border-white/10 text-foreground dark:text-white hover:bg-card dark:bg-white/5 rounded-xl text-xs font-bold"
                     >
                       CANCELAR
                     </Button>
@@ -2427,55 +2427,55 @@ export default function PurchasesTab() {
 
         {/* COLUMNA DERECHA: HISTORIAL DE NOTAS DE CRÉDITO */}
         <div className="lg:col-span-8">
-          <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden">
-            <CardHeader className="p-6 border-b border-white/10 flex flex-row items-center justify-between">
+          <Card className="bg-card dark:bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden">
+            <CardHeader className="p-6 border-b border-border dark:border-white/10 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-bold text-white">Notas de Crédito Recibidas</CardTitle>
-                <CardDescription className="text-xs text-white/50">Listado de notas de crédito aplicadas a la sucursal activa.</CardDescription>
+                <CardTitle className="text-sm font-bold text-foreground dark:text-white">Notas de Crédito Recibidas</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground dark:text-white/50">Listado de notas de crédito aplicadas a la sucursal activa.</CardDescription>
               </div>
               <div className="w-64 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={14} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-white/40" size={14} />
                 <Input 
                   placeholder="Buscar por N. Documento..."
                   value={creditNoteSearch}
                   onChange={e => setCreditNoteSearch(e.target.value)}
-                  className="pl-8 h-8 bg-black/20 border-white/10 text-xs text-white rounded-lg placeholder:text-white/30"
+                  className="pl-8 h-8 bg-background dark:bg-black/20 border-border dark:border-white/10 text-xs text-foreground dark:text-white rounded-lg placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25"
                 />
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader className="bg-white/5 border-b border-white/10">
+                <TableHeader className="bg-card dark:bg-white/5 border-b border-border dark:border-white/10">
                   <TableRow>
-                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider pl-6">Fecha</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider">N. Documento</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider">Proveedor</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider">Motivo / Tipo</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-white/50 tracking-wider text-right pr-6">Total</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-muted-foreground dark:text-white/50 tracking-wider pl-6">Fecha</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-muted-foreground dark:text-white/50 tracking-wider">N. Documento</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-muted-foreground dark:text-white/50 tracking-wider">Proveedor</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-muted-foreground dark:text-white/50 tracking-wider">Motivo / Tipo</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-muted-foreground dark:text-white/50 tracking-wider text-right pr-6">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loadingCreditNotes ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-white/50 italic text-xs">
+                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground dark:text-white/50 italic text-xs">
                         Cargando notas de crédito...
                       </TableCell>
                     </TableRow>
                   ) : creditNotes.filter(cn => cn.document_number.toLowerCase().includes(creditNoteSearch.toLowerCase())).length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-white/50 italic text-xs">
+                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground dark:text-white/50 italic text-xs">
                         No hay notas de crédito registradas para esta sucursal.
                       </TableCell>
                     </TableRow>
                   ) : creditNotes.filter(cn => cn.document_number.toLowerCase().includes(creditNoteSearch.toLowerCase())).map((cn: any) => (
-                    <TableRow key={cn.id} className="hover:bg-white/5 border-b border-white/5">
-                      <TableCell className="pl-6 text-xs text-white/70">
+                    <TableRow key={cn.id} className="hover:bg-card dark:bg-white/5 border-b border-border/60 dark:border-white/5">
+                      <TableCell className="pl-6 text-xs text-foreground/90 dark:text-white/70">
                         {new Date(cn.created_at).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="text-xs font-mono font-bold text-white">
+                      <TableCell className="text-xs font-mono font-bold text-foreground dark:text-white">
                         {cn.document_number}
                       </TableCell>
-                      <TableCell className="text-xs text-white font-semibold">
+                      <TableCell className="text-xs text-foreground dark:text-white font-semibold">
                         {cn.suppliers?.name || 'Proveedor Desconocido'}
                       </TableCell>
                       <TableCell>
@@ -2487,7 +2487,7 @@ export default function PurchasesTab() {
                           {cn.type === 'DEVOLUCION' ? 'Devolución de Producto' : 'Ajuste de Precio'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs text-right font-mono font-black text-indigo-300 pr-6">
+                      <TableCell className="text-xs text-right font-mono font-black text-indigo-700 dark:text-indigo-300 pr-6">
                         ${parseFloat(cn.total).toFixed(2)}
                       </TableCell>
                     </TableRow>

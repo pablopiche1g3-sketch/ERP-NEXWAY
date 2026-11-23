@@ -201,26 +201,32 @@ export default function CRMPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 0. Vendedores reales y rutas guardadas
-      const [usersList, routesCfgRes] = await Promise.all([
+      const limit30d = new Date();
+      limit30d.setDate(limit30d.getDate() - 30);
+
+      // Ejecutar todas las consultas del CRM en paralelo
+      const [
+        usersList,
+        routesCfgRes,
+        oppsRes,
+        custsRes,
+        invRes,
+        stocksRes,
+        salesRes
+      ] = await Promise.all([
         fetchSystemAppUsers(),
-        supabase.from('system_config').select('value').eq('key', 'crm_seller_routes').maybeSingle()
+        supabase.from('system_config').select('value').eq('key', 'crm_seller_routes').maybeSingle(),
+        supabase.from('crm_opportunities').select('*').order('created_at', { ascending: false }).limit(200),
+        supabase.from('customers').select('id, name, email, phone, address, credit_limit').order('name').limit(300),
+        supabase.from('inventory').select('sku, name, price'),
+        supabase.from('inventory_stock').select('sku, quantity'),
+        supabase.from('sales').select('items').neq('status', 'CANCELADA').gte('created_at', limit30d.toISOString()).limit(500)
       ]);
+
       setCrmSellers(usersList.map(u => ({ id: u.id, full_name: u.full_name, email: u.email })));
-
-      // 1. Oportunidades
-      const { data: opps } = await supabase
-        .from('crm_opportunities')
-        .select('*')
-        .order('created_at', { ascending: false });
-      setOpportunities(opps || []);
-
-      // 2. Clientes
-      const { data: custs } = await supabase
-        .from('customers')
-        .select('id, name, email, phone, address, credit_limit')
-        .order('name');
-      setCustomers(custs || []);
+      setOpportunities(oppsRes.data || []);
+      const custs = custsRes.data || [];
+      setCustomers(custs);
 
       // Cargar rutas persistidas o inicializar desde clientes reales
       let savedStops: SellerRouteStop[] = [];
@@ -233,8 +239,8 @@ export default function CRMPage() {
         } catch {}
       }
 
-      if (savedStops.length === 0 && (custs || []).length > 0) {
-        savedStops = (custs || []).slice(0, 8).map((c: any, idx: number) => ({
+      if (savedStops.length === 0 && custs.length > 0) {
+        savedStops = custs.slice(0, 8).map((c: any, idx: number) => ({
           id: `cust-stop-${c.id}`,
           customerId: c.id,
           name: c.name,
@@ -251,26 +257,11 @@ export default function CRMPage() {
       }
       setSellerRouteStops(savedStops);
 
-      // 3. Catálogo e inventario crítico/estancado
-      const { data: inv } = await supabase
-        .from('inventory')
-        .select('sku, name, price');
-      setInventory(inv || []);
-
-      // 4. Calcular Focos de Venta (Productos estancados) directamente
-      // Seleccionamos productos que tienen existencias pero 0 ventas en 30 días
-      const { data: stocks } = await supabase.from('inventory_stock').select('sku, quantity');
-      const limit30d = new Date();
-      limit30d.setDate(limit30d.getDate() - 30);
-
-      const { data: sales } = await supabase
-        .from('sales')
-        .select('items')
-        .neq('status', 'CANCELADA')
-        .gte('created_at', limit30d.toISOString());
+      const inv = invRes.data || [];
+      setInventory(inv);
 
       const soldSkuSet = new Set<string>();
-      (sales || []).forEach(s => {
+      (salesRes.data || []).forEach(s => {
         if (s.items && Array.isArray(s.items)) {
           s.items.forEach((item: any) => {
             if (item.sku) soldSkuSet.add(item.sku);
@@ -279,16 +270,15 @@ export default function CRMPage() {
       });
 
       const stockMap: Record<string, number> = {};
-      (stocks || []).forEach(st => {
+      (stocksRes.data || []).forEach(st => {
         stockMap[st.sku] = (stockMap[st.sku] || 0) + (parseFloat(st.quantity) || 0);
       });
 
-      const stagnant = (inv || [])
+      const stagnant = inv
         .filter(p => (stockMap[p.sku] || 0) > 10 && !soldSkuSet.has(p.sku))
         .map(p => ({ ...p, stock: stockMap[p.sku] }));
-      
-      setStagnantProducts(stagnant);
 
+      setStagnantProducts(stagnant);
     } catch (error) {
       console.error('Error al cargar CRM:', error);
     } finally {
@@ -646,16 +636,16 @@ export default function CRMPage() {
             <CardHeader className="p-4 bg-amber-500/10 border-b border-amber-500/20 flex flex-row items-center gap-3">
               <AlertTriangle className="text-amber-400 animate-bounce shrink-0" size={18} />
               <div>
-                <CardTitle className="text-xs font-black uppercase text-amber-300 tracking-wider">Oportunidades de Rotación Urgente Detectadas</CardTitle>
-                <CardDescription className="text-[10px] text-amber-200/70">Productos sin ventas en 30 días con alto volumen físico. Haz clic para crearles una oportunidad comercial.</CardDescription>
+                <CardTitle className="text-xs font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider">Oportunidades de Rotación Urgente Detectadas</CardTitle>
+                <CardDescription className="text-[10px] text-amber-700/80 dark:text-amber-200/70">Productos sin ventas en 30 días con alto volumen físico. Haz clic para crearles una oportunidad comercial.</CardDescription>
               </div>
             </CardHeader>
             <CardContent className="p-4 flex gap-3 overflow-x-auto">
               {stagnantProducts.slice(0, 4).map(prod => (
-                <div key={prod.sku} className="bg-slate-950/60 p-3 rounded-xl border border-white/5 min-w-[240px] flex flex-col justify-between shrink-0">
+                <div key={prod.sku} className="bg-card p-3 rounded-xl border border-border min-w-[240px] flex flex-col justify-between shrink-0">
                   <div>
                     <span className="text-[8.5px] font-black uppercase font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/10">Estancado ({prod.stock} uds)</span>
-                    <h4 className="text-xs font-bold text-white mt-2 truncate">{prod.name}</h4>
+                    <h4 className="text-xs font-bold text-foreground mt-2 truncate">{prod.name}</h4>
                     <p className="text-[9.5px] text-muted-foreground font-mono mt-0.5">SKU: {prod.sku} · Prom. ${prod.price}</p>
                   </div>
                   <Button 
@@ -685,7 +675,7 @@ export default function CRMPage() {
         )}
 
         {/* Filtros e Historial */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full bg-slate-950/40 p-4 rounded-xl border border-white/5">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full bg-card p-4 rounded-xl border border-border shadow-sm">
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-3.5 h-3.5" />
             <Input 
@@ -698,10 +688,10 @@ export default function CRMPage() {
           </div>
           <div className="flex gap-2 w-full sm:w-auto shrink-0">
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="h-9 w-36 bg-slate-900 border-white/5 rounded-lg text-xs font-bold">
+              <SelectTrigger className="h-9 w-36 bg-background border-input rounded-lg text-xs font-bold">
                 <SelectValue placeholder="Prioridad" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/10 text-xs">
+              <SelectContent className="bg-popover border-border text-xs">
                 <SelectItem value="all">Todas las prioridades</SelectItem>
                 <SelectItem value="ALTA">Prioridad Alta 🔥</SelectItem>
                 <SelectItem value="MEDIA">Prioridad Media ⚡</SelectItem>
@@ -863,7 +853,7 @@ export default function CRMPage() {
                           </div>
                         )}
 
-                        <div className="flex justify-between items-center pt-2 border-t border-white/5 text-[10px]">
+                        <div className="flex justify-between items-center pt-2 border-t border-border/60 text-[10px]">
                           <span className="font-mono font-black text-emerald-400">${opp.estimated_value?.toLocaleString()}</span>
                           
                           {/* Controles de movimiento rápido en el Kanban */}
@@ -888,7 +878,7 @@ export default function CRMPage() {
                         </div>
 
                         {/* Botones de flujo rápido de etapa */}
-                        <div className="grid grid-cols-2 gap-1 mt-2 pt-1 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                        <div className="grid grid-cols-2 gap-1 mt-2 pt-1 border-t border-border/60 opacity-0 group-hover:opacity-100 transition-all duration-300">
                           {opp.stage !== 'GANADA' && (
                             <Button 
                               onClick={(e) => { e.stopPropagation(); handleMoveStage(opp.id, 'GANADA'); }}
@@ -909,7 +899,7 @@ export default function CRMPage() {
                       </div>
                     ))}
                     {oppsInStage.length === 0 && (
-                      <div className="py-8 text-center text-[10px] text-muted-foreground border border-dashed border-white/5 rounded-xl">Sin prospectos.</div>
+                      <div className="py-8 text-center text-[10px] text-muted-foreground border border-dashed border-border/60 rounded-xl">Sin prospectos.</div>
                     )}
                   </div>
                 </div>
@@ -1218,17 +1208,17 @@ export default function CRMPage() {
 
         {/* DIALOGO / MODAL: CREAR Y EDITAR OPORTUNIDAD */}
         <Dialog open={isOppModalOpen} onOpenChange={setIsOppModalOpen}>
-          <DialogContent className="bg-[#09090b] border-white/10 text-slate-100 max-w-md rounded-2xl">
+          <DialogContent className="bg-card border-border text-foreground max-w-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+              <DialogTitle className="text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
                 <Sparkles className="text-amber-400" size={16} /> {oppForm.id ? 'Modificar Negocio' : 'Abrir Oportunidad Comercial'}
               </DialogTitle>
-              <DialogDescription className="text-[10px] text-slate-400">Ingresa los datos para clasificar y cotizar este prospecto.</DialogDescription>
+              <DialogDescription className="text-[10px] text-muted-foreground">Ingresa los datos para clasificar y cotizar este prospecto.</DialogDescription>
             </DialogHeader>
             
             <form onSubmit={handleSaveOpportunity} className="space-y-4 text-xs">
               <div className="space-y-1.5">
-                <label className="font-bold text-slate-300">Título del Negocio *</label>
+                <label className="font-bold text-foreground">Título del Negocio *</label>
                 <Input 
                   value={oppForm.title}
                   onChange={e => setOppForm({...oppForm, title: e.target.value})}
@@ -1240,15 +1230,15 @@ export default function CRMPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-slate-300">Cliente Asociado</label>
+                  <label className="font-bold text-foreground">Cliente Asociado</label>
                   <Select 
                     value={oppForm.customer_id} 
                     onValueChange={val => setOppForm({...oppForm, customer_id: val})}
                   >
-                    <SelectTrigger className="h-10 bg-slate-900 border-white/5 rounded-xl text-xs text-slate-200">
+                    <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs text-foreground">
                       <SelectValue placeholder="Vincular cliente..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-xs text-slate-200">
+                    <SelectContent className="bg-popover border-border text-xs text-popover-foreground">
                       <SelectItem value="none">Sin registrar (Prospecto)</SelectItem>
                       {customers.map(c => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -1257,7 +1247,7 @@ export default function CRMPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-bold text-slate-300">Contacto Directo</label>
+                  <label className="font-bold text-foreground">Contacto Directo</label>
                   <Input 
                     value={oppForm.contact_name}
                     onChange={e => setOppForm({...oppForm, contact_name: e.target.value})}
@@ -1269,7 +1259,7 @@ export default function CRMPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-slate-300">Valor Estimado ($ USD)</label>
+                  <label className="font-bold text-foreground">Valor Estimado ($ USD)</label>
                   <Input 
                     type="number"
                     value={oppForm.estimated_value}
@@ -1279,15 +1269,15 @@ export default function CRMPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-bold text-slate-300">SKU de Stock a Rotar</label>
+                  <label className="font-bold text-foreground">SKU de Stock a Rotar</label>
                   <Select 
                     value={oppForm.suggested_sku} 
                     onValueChange={val => setOppForm({...oppForm, suggested_sku: val})}
                   >
-                    <SelectTrigger className="h-10 bg-slate-900 border-white/5 rounded-xl text-xs text-slate-200">
+                    <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs text-foreground">
                       <SelectValue placeholder="Vincular Stock..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-xs text-slate-200">
+                    <SelectContent className="bg-popover border-border text-xs text-popover-foreground">
                       <SelectItem value="none">Ninguno</SelectItem>
                       {inventory.map(p => (
                         <SelectItem key={p.sku} value={p.sku}>{p.name} (${p.price})</SelectItem>
@@ -1299,15 +1289,15 @@ export default function CRMPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-slate-300">Etapa Comercial</label>
+                  <label className="font-bold text-foreground">Etapa Comercial</label>
                   <Select 
                     value={oppForm.stage} 
                     onValueChange={val => setOppForm({...oppForm, stage: val})}
                   >
-                    <SelectTrigger className="h-10 bg-slate-900 border-white/5 rounded-xl text-xs text-slate-200">
+                    <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-xs text-slate-200">
+                    <SelectContent className="bg-popover border-border text-xs text-popover-foreground">
                       {STAGES.map(s => (
                         <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
                       ))}
@@ -1315,15 +1305,15 @@ export default function CRMPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-bold text-slate-300">Prioridad</label>
+                  <label className="font-bold text-foreground">Prioridad</label>
                   <Select 
                     value={oppForm.priority} 
                     onValueChange={val => setOppForm({...oppForm, priority: val})}
                   >
-                    <SelectTrigger className="h-10 bg-slate-900 border-white/5 rounded-xl text-xs text-slate-200">
+                    <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-xs text-slate-200">
+                    <SelectContent className="bg-popover border-border text-xs text-popover-foreground">
                       <SelectItem value="BAJA">Baja 💤</SelectItem>
                       <SelectItem value="MEDIA">Media ⚡</SelectItem>
                       <SelectItem value="ALTA">Alta 🔥</SelectItem>
@@ -1333,16 +1323,16 @@ export default function CRMPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-slate-300">Notas Adicionales</label>
+                <label className="font-bold text-foreground">Notas Adicionales</label>
                 <Textarea 
                   value={oppForm.notes}
                   onChange={e => setOppForm({...oppForm, notes: e.target.value})}
                   placeholder="Detalla acuerdos, necesidades o comentarios del negocio..."
-                  className="bg-slate-900 border-white/5 rounded-xl text-xs min-h-[80px]"
+                  className="bg-background border-input rounded-xl text-xs min-h-[80px] text-foreground"
                 />
               </div>
 
-              <DialogFooter className="pt-4 border-t border-white/5">
+              <DialogFooter className="pt-4 border-t border-border/60">
                 <Button type="button" variant="ghost" onClick={() => setIsOppModalOpen(false)} className="rounded-xl text-xs h-10 font-bold">Cancelar</Button>
                 <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs h-10 font-black" disabled={savingOpp}>
                   {savingOpp ? <Loader2 className="animate-spin" size={14} /> : 'Guardar Negocio'}
@@ -1354,26 +1344,26 @@ export default function CRMPage() {
 
         {/* DIALOGO / MODAL: FICHA DE CLIENTE 360° Y DETALLES */}
         <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-          <DialogContent className="bg-[#09090b] border-white/10 text-slate-100 max-w-4xl rounded-2xl overflow-hidden p-0">
+          <DialogContent className="bg-card border-border text-foreground max-w-4xl rounded-2xl overflow-hidden p-0">
             {selectedOpp && (
               <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/10">
                 
                 {/* Columna Izquierda: Ficha 360° del Contacto */}
-                <div className="p-6 space-y-6 bg-slate-950/40">
+                <div className="p-6 space-y-6 bg-muted/30">
                   <div>
                     <Badge className="bg-amber-500 text-slate-950 font-black text-[9px] uppercase tracking-wider mb-2.5">Oportunidad Activa</Badge>
-                    <h3 className="text-base font-black text-white font-headline leading-snug">{selectedOpp.title}</h3>
+                    <h3 className="text-base font-black text-foreground font-headline leading-snug">{selectedOpp.title}</h3>
                     <p className="text-[10px] text-slate-400 mt-1 font-mono uppercase">ID: {selectedOpp.id.slice(0,8)}</p>
                   </div>
 
                   {/* Ficha 360° Cliente */}
-                  <div className="space-y-4 pt-4 border-t border-white/5">
+                  <div className="space-y-4 pt-4 border-t border-border/60">
                     <h4 className="text-[9.5px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1"><Users size={12} className="text-indigo-400" /> Perfil Comercial 360°</h4>
                     
                     <div className="space-y-2.5 text-xs">
                       <div>
                         <span className="text-[9px] font-bold text-muted-foreground block uppercase">Contacto / Cliente</span>
-                        <span className="font-bold text-white">{selectedOpp.contact_name || 'Prospecto sin registrar'}</span>
+                        <span className="font-bold text-foreground">{selectedOpp.contact_name || 'Prospecto sin registrar'}</span>
                       </div>
 
                       {selectedOpp.customer_id && (
@@ -1385,12 +1375,12 @@ export default function CRMPage() {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2 mt-4 text-slate-300 font-medium">
+                      <div className="flex items-center gap-2 mt-4 text-foreground/80 font-medium">
                         <Phone size={12} className="text-slate-500 shrink-0" />
                         <span>{customers.find(c => c.id === selectedOpp.customer_id)?.phone || 'No registrado'}</span>
                       </div>
 
-                      <div className="flex items-center gap-2 text-slate-300 font-medium truncate">
+                      <div className="flex items-center gap-2 text-foreground/80 font-medium truncate">
                         <Mail size={12} className="text-slate-500 shrink-0" />
                         <span>{customers.find(c => c.id === selectedOpp.customer_id)?.email || 'No registrado'}</span>
                       </div>
@@ -1398,7 +1388,7 @@ export default function CRMPage() {
                   </div>
 
                   {/* KPIs de Oportunidad */}
-                  <div className="space-y-3 pt-4 border-t border-white/5 text-xs">
+                  <div className="space-y-3 pt-4 border-t border-border/60 text-xs">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground font-bold">Valor de Cierre:</span>
                       <span className="font-black text-emerald-400 font-mono">${selectedOpp.estimated_value?.toLocaleString()}</span>
@@ -1417,7 +1407,7 @@ export default function CRMPage() {
                     )}
 
                     {/* Botón Acción ERP */}
-                    <div className="pt-4 border-t border-white/5">
+                    <div className="pt-4 border-t border-border/60">
                       <Button
                         onClick={handleCreateQuotationERP}
                         disabled={isCreatingQuotation}
@@ -1440,17 +1430,17 @@ export default function CRMPage() {
                 {/* Columna Centro: Historial de Interacciones */}
                 <div className="p-6 space-y-6 md:col-span-2 flex flex-col h-[75vh]">
                   <div className="flex-1 flex flex-col min-h-0 space-y-5">
-                    <div className="border-b border-white/5 pb-3 flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
+                    <div className="border-b border-border/60 pb-3 flex justify-between items-center">
+                      <h4 className="text-xs font-black uppercase text-foreground tracking-wider flex items-center gap-2">
                         <MessageSquare size={14} className="text-indigo-400" /> Bitácora de Acciones
                       </h4>
-                      <Badge className="bg-slate-900 border-white/5 text-slate-400 font-bold text-[9px]">{interactions.length} INTERACCIONES</Badge>
+                      <Badge className="bg-muted border-border text-muted-foreground font-bold text-[9px]">{interactions.length} INTERACCIONES</Badge>
                     </div>
 
                     {/* Lista de Acciones */}
                     <div className="flex-1 overflow-y-auto space-y-3.5 pr-2">
                       {interactions.map(item => (
-                        <div key={item.id} className="p-3.5 rounded-xl bg-slate-950/60 border border-white/5 flex gap-3 items-start">
+                        <div key={item.id} className="p-3.5 rounded-xl bg-muted/30 border border-border/60 flex gap-3 items-start">
                           <div className={`p-1.5 rounded-lg text-xs ${
                             item.interaction_type === 'LLAMADA' ? 'bg-blue-500/10 text-blue-400' : item.interaction_type === 'REUNION' ? 'bg-orange-500/10 text-orange-400' : 'bg-slate-500/10 text-slate-400'
                           }`}>
@@ -1458,7 +1448,7 @@ export default function CRMPage() {
                           </div>
                           <div className="text-xs space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-black text-white">{item.summary}</span>
+                              <span className="font-black text-foreground">{item.summary}</span>
                               <span className="text-[9px] text-muted-foreground font-mono">{new Date(item.created_at).toLocaleString()}</span>
                             </div>
                             <p className="text-[10px] text-slate-400 leading-relaxed">{item.detail}</p>
@@ -1472,17 +1462,17 @@ export default function CRMPage() {
                     </div>
 
                     {/* Agregar Interacción Form */}
-                    <form onSubmit={handleAddInteraction} className="bg-slate-950/60 p-4 rounded-xl border border-white/5 space-y-3 shrink-0 text-xs">
+                    <form onSubmit={handleAddInteraction} className="bg-muted/40 p-4 rounded-xl border border-border/60 space-y-3 shrink-0 text-xs">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="font-black text-white uppercase tracking-wider text-[9.5px]">Añadir Nueva Acción</span>
+                        <span className="font-black text-foreground uppercase tracking-wider text-[9.5px]">Añadir Nueva Acción</span>
                         <Select 
                           value={newInteraction.interaction_type} 
                           onValueChange={val => setNewInteraction({...newInteraction, interaction_type: val})}
                         >
-                          <SelectTrigger className="h-7 w-28 bg-slate-900 border-white/5 text-[10px] rounded-lg">
+                          <SelectTrigger className="h-7 w-28 bg-background border-input text-[10px] rounded-lg">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-slate-900 border-white/10 text-[10px] text-slate-200">
+                          <SelectContent className="bg-popover border-border text-[10px] text-popover-foreground">
                             <SelectItem value="LLAMADA">Llamada 📞</SelectItem>
                             <SelectItem value="REUNION">Reunión 🤝</SelectItem>
                             <SelectItem value="CORREO">Correo ✉️</SelectItem>
@@ -1503,7 +1493,7 @@ export default function CRMPage() {
                           value={newInteraction.detail}
                           onChange={e => setNewInteraction({...newInteraction, detail: e.target.value})}
                           placeholder="Detalle o acuerdos alcanzados durante el contacto..."
-                          className="bg-slate-900 border-white/5 rounded-lg text-[10.5px] min-h-[45px] p-2"
+                          className="bg-background border-input rounded-lg text-[10.5px] min-h-[45px] p-2 text-foreground"
                         />
                       </div>
 
@@ -1516,8 +1506,8 @@ export default function CRMPage() {
                   </div>
 
                   {/* Sub-Sección: Agenda de Tareas */}
-                  <div className="border-t border-white/5 pt-5 space-y-4 shrink-0">
-                    <h4 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
+                  <div className="border-t border-border/60 pt-5 space-y-4 shrink-0">
+                    <h4 className="text-xs font-black uppercase text-foreground tracking-wider flex items-center gap-2">
                       <CheckSquare size={14} className="text-amber-400" /> Tareas Pendientes y Agenda
                     </h4>
 
@@ -1525,7 +1515,7 @@ export default function CRMPage() {
                     <div className="max-h-[160px] overflow-y-auto space-y-2.5 pr-1">
                       {tasks.map(tsk => (
                         <div key={tsk.id} className={`p-3 rounded-lg border flex items-center justify-between gap-3 text-xs ${
-                          tsk.status === 'COMPLETADA' ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' : 'bg-slate-950/60 border-white/5'
+                          tsk.status === 'COMPLETADA' ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' : 'bg-muted/30 border-border/60'
                         }`}>
                           <div className="flex items-center gap-2.5">
                             {tsk.status === 'COMPLETADA' ? (
@@ -1555,7 +1545,7 @@ export default function CRMPage() {
                     </div>
 
                     {/* Programar Tarea Form */}
-                    <form onSubmit={handleAddTask} className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-950/60 p-3.5 rounded-xl border border-white/5 text-xs items-end">
+                    <form onSubmit={handleAddTask} className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-950/60 p-3.5 rounded-xl border border-border/60 text-xs items-end">
                       <div className="space-y-1 sm:col-span-2">
                         <span className="text-[9px] font-black text-slate-400 uppercase">Nueva Tarea Comercial</span>
                         <Input 

@@ -1155,13 +1155,13 @@ export default function OrdersTab() {
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
 {/* HEADER PRINCIPAL */}
-      <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 rounded-2xl shadow-sm p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           {!isStandalone && isAdmin && (
             <Button 
               variant="ghost" 
               size="icon" 
-              className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-white/10 hover:bg-white/10 dark:hover:bg-white/10" 
+              className="w-10 h-10 rounded-xl bg-muted/50 dark:bg-white/5 border border-border dark:border-white/10 hover:bg-accent dark:hover:bg-white/10" 
               onClick={() => router.push('/')}
             >
               <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
@@ -1765,7 +1765,7 @@ export default function OrdersTab() {
                       </div>
                     </div>
 
-                    <div className="p-4 bg-white/5 border-b border-white/10 border rounded-2xl text-xs space-y-2 text-slate-600 dark:text-slate-350">
+                    <div className="p-4 bg-muted/40 rounded-2xl border border-border text-xs space-y-2 text-muted-foreground">
                       <h4 className="font-black text-slate-700 dark:text-foreground text-[10px] uppercase tracking-wider flex items-center gap-1">
                         <Info size={12} className="text-violet-500" /> Formato sugerido de columnas:
                       </h4>
@@ -1913,7 +1913,7 @@ export default function OrdersTab() {
                 </div>
 
                 {/* Tabla de Historial Combinado */}
-                <div className="rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden bg-white/5">
+                <div className="rounded-xl border border-border overflow-hidden bg-card">
                   <ScrollArea className="h-[480px]">
                     <Table>
                       <TableHeader className="bg-slate-100 dark:bg-white/5 sticky top-0 z-10 backdrop-blur-md">
@@ -2075,7 +2075,7 @@ export default function OrdersTab() {
                 </div>
 
                 {/* Detalles de Ruta / Sujeto */}
-                <div className="grid grid-cols-2 gap-6 bg-white/5 border-b border-white/10 p-4 rounded-2xl border">
+                <div className="grid grid-cols-2 gap-6 bg-muted/40 p-4 rounded-2xl border border-border">
                   {previewType === 'interno' ? (
                     <>
                       <div>
@@ -2158,7 +2158,7 @@ export default function OrdersTab() {
                 {/* Total en Orden de Compra */}
                 {previewType === 'externo' && (
                   <div className="flex justify-end pt-4">
-                    <div className="w-64 bg-white/5 border-b border-white/10 p-4 rounded-2xl border text-right">
+                    <div className="w-64 bg-muted/40 p-4 rounded-2xl border border-border text-right">
                       <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Total de Inversión</span>
                       <p className="text-2xl font-black text-emerald-600 mt-1">${selectedOrderForPreview.total?.toFixed(2)}</p>
                       <p className="text-[8px] text-slate-400 mt-1 font-semibold">Sujeto a percepción de IVA del 1% si aplica</p>

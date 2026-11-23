@@ -44,7 +44,7 @@ function BarcodePreview({ sku }: { sku: string }) {
   });
 
   return (
-    <div className="bg-white/5 border-b border-white/10 p-4 rounded-2xl border shadow-inner flex flex-col items-center gap-2 mt-4 animate-in fade-in slide-in-from-top-2 border-slate-200 dark:border-slate-800">
+    <div className="bg-muted/40 p-4 rounded-2xl border shadow-inner flex flex-col items-center gap-2 mt-4 animate-in fade-in slide-in-from-top-2 border-slate-200 dark:border-slate-800">
       <div className="flex h-12 items-end justify-center gap-[1.5px] w-full px-4 bg-white p-2 rounded-lg">
         {bars.map((bar, idx) => (
           bar === 0 ? (
@@ -1621,7 +1621,7 @@ export default function InventoryTab() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
                   <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
-                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
+                    <CardHeader className="border-b border-border text-foreground bg-muted/30 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Plus className="text-blue-400" size={18} /> Registro de Códigos Autorizados
                       </CardTitle>
@@ -1779,7 +1779,7 @@ export default function InventoryTab() {
                                   {item.sku}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="font-bold text-white text-xs">{item.name}</TableCell>
+                              <TableCell className="font-bold text-foreground text-xs">{item.name}</TableCell>
                               <TableCell><Badge variant="secondary" className="text-[8px] font-bold uppercase">{item.category}</Badge></TableCell>
                               <TableCell className="px-4">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-rose-500" onClick={() => handleDeleteProduct(item.id)}>
@@ -1799,7 +1799,7 @@ export default function InventoryTab() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-4 space-y-6">
                   <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
-                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
+                    <CardHeader className="border-b border-border text-foreground bg-muted/30 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Link2 className="text-blue-400" size={18} /> Mapeo de Código por Empresa
                       </CardTitle>
@@ -1905,7 +1905,7 @@ export default function InventoryTab() {
                               <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
                                 {map.masterSku}
                               </TableCell>
-                              <TableCell className="font-bold text-white text-xs">{map.productName}</TableCell>
+                              <TableCell className="font-bold text-foreground text-xs">{map.productName}</TableCell>
                               <TableCell className="font-semibold text-xs text-slate-700 dark:text-foreground">{map.companyName}</TableCell>
                               <TableCell>
                                 <Badge className="bg-blue-50 text-blue-700 border border-blue-150 font-mono font-black text-[10px]">
@@ -1933,7 +1933,7 @@ export default function InventoryTab() {
               {/* Formulario Izquierdo: Editor de Producto */}
               <div className="lg:col-span-7 space-y-6">
                 <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
-                  <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
+                  <CardHeader className="border-b border-border text-foreground bg-muted/30 p-5">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Tag className="text-emerald-400" size={18} /> Editor de Producto
                     </CardTitle>
@@ -2156,7 +2156,7 @@ export default function InventoryTab() {
                             <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
                               {item.sku}
                             </TableCell>
-                            <TableCell className="font-bold text-white text-xs">
+                            <TableCell className="font-bold text-foreground text-xs">
                               {item.name}
                             </TableCell>
                             <TableCell>
@@ -2183,7 +2183,7 @@ export default function InventoryTab() {
                 {/* Panel Izquierdo: Carga y Progreso */}
                 <div className="lg:col-span-5 space-y-6">
                   <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
-                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
+                    <CardHeader className="border-b border-border text-foreground bg-muted/30 p-5">
                       <div className="flex justify-between items-center">
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
                           <Upload className="text-blue-400" size={18} /> Carga Masiva (SKU + Desc)
@@ -2275,7 +2275,7 @@ export default function InventoryTab() {
 
                   {/* NUEVO CARD: LIMPIEZA DE CATÁLOGO EXISTENTE */}
                   <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
-                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
+                    <CardHeader className="border-b border-border text-foreground bg-muted/30 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Trash2 size={18} className="text-rose-455 dark:text-rose-400" /> Limpieza de Catálogo
                       </CardTitle>
@@ -2437,7 +2437,7 @@ export default function InventoryTab() {
                 {/* Panel Izquierdo: Formulario de Vinculación */}
                 <div className="lg:col-span-4 space-y-6">
                   <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
-                    <CardHeader className="border-b border-white/10 text-white bg-white/5 p-5">
+                    <CardHeader className="border-b border-border text-foreground bg-muted/30 p-5">
                       <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <Link2 className="text-amber-400 drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]" size={18} /> Vinculación de Catálogo
                       </CardTitle>
@@ -2548,7 +2548,7 @@ export default function InventoryTab() {
                                     <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-400">
                                       {map.internalSku}
                                     </TableCell>
-                                    <TableCell className="font-bold text-white text-xs">{productName}</TableCell>
+                                    <TableCell className="font-bold text-foreground text-xs">{productName}</TableCell>
                                     <TableCell>
                                       <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono font-black text-[10px]">
                                         {map.supplierCode}
@@ -2576,7 +2576,7 @@ export default function InventoryTab() {
 
           <TabsContent value="auditoria" className="space-y-4 outline-none">
             <Tabs defaultValue="toma-fisica" className="w-full space-y-4">
-              <TabsList className="bg-white/5 border border-white/10 rounded-xl p-1 mb-4 flex w-fit overflow-x-auto">
+              <TabsList className="bg-muted border border-border rounded-xl p-1 mb-4 flex w-fit overflow-x-auto">
                 <TabsTrigger value="toma-fisica" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Toma Física</TabsTrigger>
                 <TabsTrigger value="config" className="rounded-lg text-xs font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white">Mapeo de Bodegas</TabsTrigger>
               </TabsList>
@@ -2997,7 +2997,7 @@ export default function InventoryTab() {
                          {warehouses?.length === 0 ? (
                            <p className="text-[9px] text-slate-400 italic">No hay bodegas configuradas.</p>
                          ) : warehouses?.map((wh: any) => (
-                           <div key={wh.id} className="flex justify-between items-center bg-white/5 border-b border-white/10 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                           <div key={wh.id} className="flex justify-between items-center bg-muted/40 p-2 rounded-lg border border-border">
                              <div className="flex flex-col">
                                <span className="text-[11px] font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
                                <span className="text-[9px] text-slate-400">
@@ -3129,7 +3129,7 @@ export default function InventoryTab() {
                                <TableCell className="px-6 py-4 font-mono font-bold text-xs text-slate-600 dark:text-muted-foreground">
                                  {item.sku}
                                </TableCell>
-                               <TableCell className="font-bold text-white text-xs">{item.name}</TableCell>
+                               <TableCell className="font-bold text-foreground text-xs">{item.name}</TableCell>
                                <TableCell className="text-center">
                                  <Badge className={`font-black text-[10px] h-6 ${qtyInWh <= 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`} variant="outline">
                                    {qtyInWh} un.

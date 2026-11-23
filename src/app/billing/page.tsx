@@ -1163,32 +1163,48 @@ export default function BillingPage() {
   };
 
 
-  // Función para cargar todos los datos requeridos de forma reactiva
+  // Función para cargar todos los datos requeridos en paralelo (rápida inicialización POS)
   const loadBillingData = async () => {
     try {
       setLoadingData(true);
 
-      // Cargar clientes
-      const { data: custData } = await supabase.from('customers').select('*').order('name');
-      setCustomers(custData || []);
-
-      // Cargar bodegas
       let whQuery = supabase.from('warehouses').select('*');
       if (activeBranchId) {
         whQuery = whQuery.eq('branch_id', activeBranchId);
       }
-      const { data: whData } = await whQuery.order('name');
-      setWarehouses(whData || []);
 
-      // Cargar ventas realizadas
       let salesQuery = supabase.from('sales').select('*');
       if (activeBranchId) {
         salesQuery = salesQuery.eq('branch_id', activeBranchId);
       }
-      const { data: salesData } = await salesQuery
-        .order('created_at', { ascending: false });
-      
-      setSalesAll((salesData || []).map(s => ({
+
+      const [
+        custRes,
+        whRes,
+        salesRes,
+        closingsRes,
+        journalRes,
+        cashConfRes,
+        pendingTrRes,
+        initInvRes
+      ] = await Promise.all([
+        supabase.from('customers').select('*').order('name').limit(300),
+        whQuery.order('name'),
+        salesQuery.order('created_at', { ascending: false }).limit(300),
+        supabase.from('daily_closings').select('*').order('created_at', { ascending: false }).limit(60),
+        supabase.from('journal').select('*').eq('type', 'Ingreso').order('created_at', { ascending: false }).limit(200),
+        supabase.from('system_config').select('value').eq('key', 'cash_config').maybeSingle(),
+        supabase.from('transfers').select('*').in('status', ['PETICION', 'ENVIADO']).limit(50),
+        supabase.from('inventory').select('*').limit(50)
+      ]);
+
+      setCustomers(custRes.data || []);
+
+      const whData = whRes.data || [];
+      setWarehouses(whData);
+
+      const salesData = salesRes.data || [];
+      setSalesAll(salesData.map(s => ({
         id: s.id,
         correlative: s.correlative,
         docType: s.doc_type,
@@ -1201,47 +1217,25 @@ export default function BillingPage() {
         customer: s.customer_name || 'Consumidor Final'
       })));
 
-      // Cargar cierres formalizados de jornada pasados
-      const { data: closingsData } = await supabase
-        .from('daily_closings')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      setPastDailyClosings(closingsData || []);
-
-      if (closingsData && closingsData.length > 0) {
+      const closingsData = closingsRes.data || [];
+      setPastDailyClosings(closingsData);
+      if (closingsData.length > 0) {
         setLastClosingTimestamp(closingsData[0].created_at || closingsData[0].date);
       } else {
         setLastClosingTimestamp(null);
       }
 
-      // Cargar abonos realizados registrados en el diario contable
-      const { data: jData } = await supabase
-        .from('journal')
-        .select('*')
-        .eq('type', 'Ingreso')
-      setJournalPayments(jData || []);
+      setJournalPayments(journalRes.data || []);
 
-      // Cargar cash_config desde system_config
-      const { data: cashConfData } = await supabase
-        .from('system_config')
-        .select('value')
-        .eq('key', 'cash_config')
-        .maybeSingle();
-      if (cashConfData?.value) {
-        setCashConfig(cashConfData.value);
+      if (cashConfRes.data?.value) {
+        setCashConfig(cashConfRes.data.value);
       }
 
-      // Cargar pre-traslados / traslados en tránsito
-      const { data: pendingTransfers } = await supabase
-        .from('transfers')
-        .select('*')
-        .in('status', ['PETICION', 'ENVIADO']);
-      
+      const pendingTransfers = pendingTrRes.data || [];
       const incomingMap: Record<string, number> = {};
       const activeWhName = activeWarehouse?.name || activeStation?.warehouse_name;
       if (activeWhName) {
-        (pendingTransfers || []).forEach((t: any) => {
+        pendingTransfers.forEach((t: any) => {
           if (t.destination === activeWhName) {
             (t.items || []).forEach((item: any) => {
               incomingMap[item.sku] = (incomingMap[item.sku] || 0) + (parseFloat(item.quantity) || 0);
@@ -1249,21 +1243,17 @@ export default function BillingPage() {
           }
         });
       }
-      // Cargar catálogo de productos inicial
-      const { data: initInvData } = await supabase
-        .from('inventory')
-        .select('*')
-        .limit(50);
 
-      if (initInvData && initInvData.length > 0) {
+      const initInvData = initInvRes.data || [];
+      if (initInvData.length > 0) {
         const initSkus = initInvData.map(item => item.sku);
         const { data: initStData } = await supabase
           .from('inventory_stock')
-          .select('*')
+          .select('sku, warehouse_id, quantity')
           .in('sku', initSkus);
 
         const whMap: Record<string, string> = {};
-        (warehouses || []).forEach((w: any) => { whMap[w.id] = w.name; });
+        whData.forEach((w: any) => { whMap[w.id] = w.name; });
 
         const mappedInit = initInvData.map(item => {
           const itemStocks = (initStData || []).filter(s => s.sku === item.sku);
@@ -1286,7 +1276,6 @@ export default function BillingPage() {
           };
         });
         setInventory(mappedInit);
-        // Cachear catálogo localmente para contingencia offline
         try {
           const sMap: Record<string, number> = {};
           mappedInit.forEach(p => { sMap[p.sku] = p.quantity; });
@@ -4801,13 +4790,13 @@ export default function BillingPage() {
 
           {isUserAdmin && (
             <TabsContent value="foco_venta" className="space-y-6 outline-none">
-              <Card className="bg-white/5 border-white/10 rounded-2xl p-6">
+              <Card className="bg-card border-border rounded-2xl p-6 shadow-sm">
                 <div className="mb-4">
-                  <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
                     <Sparkles className="text-[#a5a8ff] drop-shadow-[0_0_6px_rgba(165,168,255,0.8)]" size={16} />
                     Foco de Venta (Alerta de Stock)
                   </h3>
-                  <p className="text-xs text-white/45">KPIs de analítica comercial y prioridad de ventas diaria.</p>
+                  <p className="text-xs text-muted-foreground">KPIs de analítica comercial y prioridad de ventas diaria.</p>
                 </div>
                 <FocoVentaKPI />
               </Card>
@@ -5333,7 +5322,7 @@ export default function BillingPage() {
           return (
             <DialogContent className="rounded-2xl max-w-md p-6 bg-card border shadow-2xl border-slate-100 dark:border-border">
               <DialogHeader>
-                <DialogTitle className="text-xl font-black flex items-center gap-2 text-white">
+                <DialogTitle className="text-xl font-black flex items-center gap-2 text-foreground">
                   <Coins size={20} className="text-indigo-600 dark:text-indigo-400" /> Registrar Abono a Crédito
                 </DialogTitle>
                 <DialogDescription className="text-xs dark:text-muted-foreground">
