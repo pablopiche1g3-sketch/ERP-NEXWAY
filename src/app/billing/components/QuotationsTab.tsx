@@ -1,37 +1,35 @@
-
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { 
-  Calculator, 
-  Search, 
-  Plus, 
-  Trash2, 
-  ArrowLeft, 
-  Package, 
-  FileText, 
-  Users, 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Calculator,
+  Search,
+  Plus,
+  Trash2,
+  Package,
+  FileText,
+  Users,
   Send,
   Loader2,
   Hash,
-  User,
-  BadgeInfo,
   Printer,
-  ChevronRight,
-  LogOut
+  ShoppingCart,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
-import { ModeToggle } from '@/components/mode-toggle';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 interface QuoteItem {
   id: string;
@@ -46,18 +44,22 @@ interface QuotationsTabProps {
 }
 
 export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps = {}) {
-  const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
   const [savedQuotes, setSavedQuotes] = useState<any[]>([]);
   const [loadingSavedQuotes, setLoadingSavedQuotes] = useState(false);
-  
+
+  // Cliente Receptor (mismo patrón que Facturación)
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [customerSearch, setCustomerSearch] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerNit, setCustomerNit] = useState('');
   const [customerNrc, setCustomerNrc] = useState('');
-  
+
   const [taxMode, setTaxMode] = useState<'con-iva' | 'sin-iva'>('con-iva');
+  const [showCustomProductForm, setShowCustomProductForm] = useState(false);
+
   const [printConfig, setPrintConfig] = useState<any>({
     companyName: 'ERP NEXWAY',
     slogan: 'Soluciones de Inventario y Facturación',
@@ -68,13 +70,27 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
     nrc: '288301-4',
     logoUrl: '',
     logoPosition: 'left',
-    termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Inmediato según stock, o coordinado con su respectivo gestor de cuenta.`,
+    termsConditions: `1. Los precios indicados en este documento están expresados en USD y {iva_detail}.\n2. Esta cotización/pre-factura representa un presupuesto informativo y no reserva existencias físicas en bodega.\n3. Los pagos pueden ser procesados mediante transferencia bancaria o efectivo en nuestras sucursales.\n4. Tiempo de entrega: Inmediato según stock, o coordinado con su respectivo gestor de cuenta.`,
     extraNotes: '',
     showSignatureFields: true,
     showLogo: false,
-    accentColor: '#ea580c',
+    accentColor: '#4f46e5',
     fontSize: 'medium'
   });
+
+  // Catálogo maestro para buscador instantáneo
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [loadingInv, setLoadingInv] = useState(false);
+
+  // Producto especial / sin existencia
+  const [customName, setCustomName] = useState('');
+  const [customSku, setCustomSku] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
+  const [customQty, setCustomQty] = useState('1');
+
+  const [quoteSeq, setQuoteSeq] = useState(() => Math.floor(100000 + Math.random() * 900000));
+  const quoteNumber = `PRE-${quoteSeq}`;
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchSavedQuotes = async () => {
     setLoadingSavedQuotes(true);
@@ -96,33 +112,34 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
   };
 
   useEffect(() => {
-    const fetchPrintConfig = async () => {
+    const fetchInitialData = async () => {
       try {
-        const { data } = await supabase
-          .from('system_config')
-          .select('*')
-          .eq('key', 'print_config')
-          .maybeSingle();
-        if (data && data.value && data.value.quotations) {
-          setPrintConfig(data.value.quotations);
+        const [printRes, custRes] = await Promise.all([
+          supabase.from('system_config').select('*').eq('key', 'print_config').maybeSingle(),
+          supabase.from('customers').select('id, name, email, nit, nrc').order('name').limit(200)
+        ]);
+        if (printRes.data?.value?.quotations) {
+          setPrintConfig(printRes.data.value.quotations);
+        }
+        if (custRes.data) {
+          setCustomers(custRes.data);
         }
       } catch (err) {
-        console.error('Error fetching print config:', err);
+        console.error('Error loading quotation defaults:', err);
       }
     };
-    fetchPrintConfig();
+    fetchInitialData();
     fetchSavedQuotes();
   }, []);
 
-  // Sincronización de catálogo maestro desde Supabase  
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [loadingInv, setLoadingInv] = useState(false);
-
-  // Estados para productos personalizados / sin existencia
-  const [customName, setCustomName] = useState('');
-  const [customSku, setCustomSku] = useState('');
-  const [customPrice, setCustomPrice] = useState('');
-  const [customQty, setCustomQty] = useState('1');
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch.trim()) return customers.slice(0, 30);
+    const q = customerSearch.toLowerCase();
+    return customers.filter(c =>
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.nit || '').toLowerCase().includes(q)
+    ).slice(0, 30);
+  }, [customers, customerSearch]);
 
   const handleSearchInventory = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -147,31 +164,34 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
       })));
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo realizar la búsqueda de productos." });
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo realizar la búsqueda de productos.' });
     } finally {
       setLoadingInv(false);
     }
   };
 
-  const filteredProducts = inventory;
-
   const addToQuote = (product: any) => {
     setQuoteItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => 
+        return prev.map(item =>
           item.id === product.id ? { ...item, quantity: Number(item.quantity || 0) + 1 } : item
         );
       }
-      return [...prev, { 
-        id: product.id, 
-        name: product.name, 
-        sku: product.sku, 
-        price: product.price || 0, 
-        quantity: 1 
-      }];
+      return [
+        ...prev,
+        {
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          price: product.price || 0,
+          quantity: 1
+        }
+      ];
     });
-    toast({ title: "Agregado", description: `${product.name} listo en cotización.` });
+    setSearchTerm('');
+    setInventory([]);
+    toast({ title: 'Agregado', description: `${product.name} añadido a la pre-factura.` });
   };
 
   const removeFromQuote = (id: string) => {
@@ -180,21 +200,17 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
 
   const updateQuantity = (id: string, qty: number) => {
     if (qty < 1) return;
-    setQuoteItems(prev => prev.map(item => 
-      item.id === id ? { ...item, quantity: qty } : item
-    ));
+    setQuoteItems(prev => prev.map(item => (item.id === id ? { ...item, quantity: qty } : item)));
   };
 
   const updatePrice = (id: string, price: number) => {
     if (price < 0) return;
-    setQuoteItems(prev => prev.map(item => 
-      item.id === id ? { ...item, price: price } : item
-    ));
+    setQuoteItems(prev => prev.map(item => (item.id === id ? { ...item, price } : item)));
   };
 
   const addCustomProduct = () => {
     if (!customName.trim()) {
-      toast({ variant: "destructive", title: "Nombre Requerido", description: "El nombre del producto es obligatorio." });
+      toast({ variant: 'destructive', title: 'Nombre Requerido', description: 'El nombre del producto es obligatorio.' });
       return;
     }
     const priceNum = parseFloat(customPrice) || 0;
@@ -210,27 +226,20 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
     };
 
     setQuoteItems(prev => [...prev, newItem]);
-    toast({ title: "Agregado", description: `Producto temporal "${customName}" agregado.` });
-
-    // Limpiar campos
+    toast({ title: 'Agregado', description: `Producto especial "${customName}" añadido.` });
     setCustomName('');
     setCustomSku('');
     setCustomPrice('');
     setCustomQty('1');
   };
 
-  const total = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const subtotal = taxMode === 'con-iva' ? (total / 1.13) : total;
-  const iva = taxMode === 'con-iva' ? (total - subtotal) : 0;
-
-  const [quoteSeq, setQuoteSeq] = useState(() => Math.floor(100000 + Math.random() * 900000));
-  const quoteNumber = `PRE-${quoteSeq}`;
-
-  const [isSaving, setIsSaving] = useState(false);
+  const total = quoteItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const subtotal = taxMode === 'con-iva' ? total / 1.13 : total;
+  const iva = taxMode === 'con-iva' ? total - subtotal : 0;
 
   const handleSavePreInvoice = async (shouldPrint: boolean) => {
     if (quoteItems.length === 0) {
-      toast({ variant: "destructive", title: "Pre-Factura Vacía", description: "Debe agregar al menos un producto." });
+      toast({ variant: 'destructive', title: 'Pre-Factura Vacía', description: 'Debe agregar al menos un producto.' });
       return;
     }
 
@@ -250,21 +259,19 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
         .select('*')
         .single();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       const refCode = inserted?.id ? `PRE-${String(inserted.id).slice(0, 6).toUpperCase()}` : quoteNumber;
 
       if (shouldPrint) {
-        toast({ title: `Pre-Factura ${refCode} Guardada`, description: "Ya está disponible en Caja (Facturación). Abriendo impresión..." });
+        toast({ title: `Pre-Factura ${refCode} Guardada`, description: 'Disponible en Caja (Facturación). Abriendo impresión...' });
         setTimeout(() => {
           window.print();
         }, 400);
       } else {
         toast({
           title: `Pre-Factura ${refCode} Enviada a Caja 📋`,
-          description: "Disponible en el botón 'Cotizaciones' de Facturación. El inventario no se ha modificado."
+          description: 'Ya aparece en Facturación → botón "Cotizaciones / Pre-Facturas". El inventario no fue alterado.'
         });
         setQuoteItems([]);
         setCustomerName('');
@@ -278,9 +285,9 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
     } catch (err: any) {
       console.error('Error al guardar pre-factura:', err);
       toast({
-        variant: "destructive",
-        title: "Error al Guardar Pre-Factura",
-        description: err?.message || "No se pudo guardar en la base de datos."
+        variant: 'destructive',
+        title: 'Error al Guardar Pre-Factura',
+        description: err?.message || 'No se pudo guardar en la base de datos.'
       });
     } finally {
       setIsSaving(false);
@@ -293,413 +300,533 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
       if (error) throw error;
       setSavedQuotes(prev => prev.filter(q => q.id !== id));
       onQuotationSaved?.();
-      toast({ title: "Pre-Factura Eliminada", description: "Se removió de la lista pendiente de caja." });
+      toast({ title: 'Pre-Factura Eliminada', description: 'Se removió de la cola pendiente de caja.' });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err?.message || "No se pudo eliminar." });
+      toast({ variant: 'destructive', title: 'Error', description: err?.message || 'No se pudo eliminar.' });
     }
   };
 
   return (
     <>
-      {/* VISTA EN PANTALLA (OCULTA AL IMPRIMIR) */}
-      <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden print:hidden">
-<div className="max-w-7xl mx-auto flex items-center justify-between mb-6 bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl p-4 md:p-5 relative z-10">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="w-10 h-10 rounded-xl bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10" 
-              onClick={() => router.push('/')}
-            >
-              <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
-            </Button>
-            <div>
-              <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Cotizaciones y Pre-Facturas</h1>
-              <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Crea pre-facturas para el cajero sin alterar el inventario físico</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <ModeToggle />
-          </div>
-        </div>
+      {/* VISTA EN PANTALLA — MISMO DISEÑO POS QUE FACTURACIÓN */}
+      <div className="space-y-6 print:hidden animate-in fade-in duration-300">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 print:hidden">
-          {/* Panel Izquierdo: Resumen y Totales */}
-          <div className="lg:col-span-4 space-y-4">
-            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-              <CardHeader className="bg-orange-600 text-white p-5">
-                <div className="flex justify-between items-center mb-2">
-                  <CardTitle className="text-base font-bold">Resumen del Cliente</CardTitle>
-                  <Badge variant="outline" className="text-[10px] text-orange-100 border-orange-400 uppercase">
-                    Cotización No Válida como Factura
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-end">
-                  <div>
-                    <p className="text-[9px] uppercase font-bold text-orange-200">Total Presupuestado</p>
-                    <p className="text-3xl font-black text-white">${total.toFixed(2)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold">{quoteItems.length} Líneas</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[400px]">
-                  <Table>
-                    <TableHeader className="bg-slate-50 dark:bg-white/5">
-                      <TableRow>
-                        <TableHead className="w-[40px] text-[10px] font-bold px-3 text-center">CANT</TableHead>
-                        <TableHead className="text-[10px] font-bold">DESCRIPCIÓN</TableHead>
-                        <TableHead className="text-right text-[10px] font-bold">SUBTOTAL</TableHead>
-                        <TableHead className="w-[30px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {quoteItems.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-12 text-slate-400 italic text-xs">
-                            Agregue códigos del catálogo maestro o agregue uno manual
-                          </TableCell>
-                        </TableRow>
-                      ) : quoteItems.map((item) => (
-                        <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-b border-slate-50 dark:border-white/5">
-                          <TableCell className="px-3">
-                            <Input 
-                              type="number" 
-                              value={item.quantity} 
-                              onFocus={e => e.target.select()}
-                              onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                              className="w-12 h-7 text-center font-black text-orange-600 p-0 text-xs bg-transparent border-none shadow-none focus-visible:ring-0"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <span className="font-bold text-slate-900 dark:text-white text-[11px] leading-tight">{item.name}</span>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[9px] font-mono text-slate-400">{item.sku}</span>
-                                <span className="text-[9px] text-slate-500 font-medium">P. Unit: $</span>
-                                <input 
-                                  type="number" 
-                                  step="0.01"
-                                  value={item.price} 
-                                  onFocus={e => e.target.select()}
-                                  onChange={e => updatePrice(item.id, parseFloat(e.target.value) || 0)}
-                                  className="w-16 h-5 px-1 py-0 text-center font-bold text-slate-900 dark:text-white text-[10px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded focus:border-orange-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-slate-900 dark:text-white text-[11px]">${(item.price * item.quantity).toFixed(2)}</TableCell>
-                          <TableCell className="px-2 text-center">
-                            <Button variant="ghost" size="icon" onClick={() => removeFromQuote(item.id)} className="h-6 w-6 text-slate-300 hover:text-rose-500">
-                              <Trash2 size={12} />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-
-                <div className="p-4 border-t border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-black/20 space-y-2">
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/10 mb-2">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Impuesto IVA:</span>
-                    <div className="flex gap-1 bg-slate-100 dark:bg-white/5 p-0.5 rounded-lg border border-slate-200 dark:border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => setTaxMode('con-iva')}
-                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
-                          taxMode === 'con-iva'
-                            ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-extrabold shadow-sm'
-                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                        }`}
-                      >
-                        Con IVA
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTaxMode('sin-iva')}
-                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
-                          taxMode === 'sin-iva'
-                            ? 'bg-slate-500/20 border border-slate-500/30 text-slate-600 dark:text-slate-400 font-extrabold shadow-sm'
-                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                        }`}
-                      >
-                        Sin IVA
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>Subtotal Gravado:</span>
-                    <span className="font-bold text-slate-900 dark:text-white">${subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>IVA (13%):</span>
-                    <span className="font-bold text-slate-900 dark:text-white">${iva.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-black text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-white/10">
-                    <span>VALIDEZ: 15 DÍAS</span>
-                    <span className="text-orange-600">${total.toFixed(2)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <div className="space-y-2.5">
-              <Button 
-                className="w-full h-13 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow-lg shadow-emerald-600/20"
-                disabled={quoteItems.length === 0 || isSaving}
-                onClick={() => handleSavePreInvoice(false)}
-              >
-                {isSaving ? <Loader2 className="mr-2 animate-spin" size={18} /> : <Send className="mr-2" size={18} />}
-                {isSaving ? "Guardando..." : "Guardar Pre-Factura (Enviar a Caja)"}
-              </Button>
-              <Button 
-                variant="outline"
-                className="w-full h-11 rounded-2xl font-bold text-xs border-slate-300 dark:border-white/15"
-                disabled={quoteItems.length === 0 || isSaving}
-                onClick={() => handleSavePreInvoice(true)}
-              >
-                {isSaving ? <Loader2 className="mr-2 animate-spin" size={16} /> : <Printer className="mr-2" size={16} />}
-                Guardar e Imprimir Cotización
-              </Button>
-            </div>
-          </div>
-
-          {/* Panel Derecho: Información, Producto Sin Existencia y Catálogo Maestro */}
-          <div className="lg:col-span-8 space-y-4">
-            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-              <div className="bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 px-4 py-2 flex items-center justify-between">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Información del Solicitante</span>
-                <FileText size={14} className="text-slate-300" />
+          {/* COLUMNA IZQUIERDA (5/12): RESUMEN DE PRE-FACTURA / CARRITO (IDÉNTICO A FACTURACIÓN) */}
+          <div className="lg:col-span-5 space-y-3.5">
+            <div className="bg-white/40 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 rounded-[13px] p-5 flex flex-col gap-3 shadow-sm dark:shadow-none">
+              <div className="flex justify-between items-start gap-2">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-white/30">
+                  Resumen de Pre-Factura / Cotización
+                </span>
+                <span className="bg-blue-500/10 dark:bg-[#5b5ef4]/20 text-blue-700 dark:text-[#7c7fff] border border-blue-200 dark:border-[#5b5ef4]/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                  {quoteNumber}
+                </span>
               </div>
-              <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                    <User size={10} /> Nombre del Cliente
-                  </Label>
-                  <Input 
-                    placeholder="Ej. Comercial Los Robles..." 
+
+              <div className="flex items-end justify-between">
+                <div className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  <span className="text-lg text-slate-400 dark:text-white/50">$</span>
+                  {total.toFixed(2)}
+                </div>
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <ShieldCheck size={13} /> Sin alterar inventario
+                </span>
+              </div>
+
+              <div className="h-[1px] bg-slate-200 dark:bg-white/10 my-1" />
+
+              {/* Lista del Carrito */}
+              <ScrollArea className="h-[260px]">
+                <div className="space-y-2.5 pr-2">
+                  {quoteItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2">
+                      <ShoppingCart className="text-slate-300 dark:text-white/10" size={32} />
+                      <p className="text-[11px] text-slate-400 dark:text-white/20 text-center leading-relaxed">
+                        Busque productos en el catálogo<br />para armar la pre-factura
+                      </p>
+                    </div>
+                  ) : (
+                    quoteItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5 gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{item.name}</h4>
+                          <p className="text-[9.5px] text-muted-foreground font-mono mt-0.5">
+                            {item.sku} • ${item.price.toFixed(2)} c/u
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-bold text-slate-800 dark:text-white/70 bg-slate-200 dark:bg-white/10 px-2 py-1 rounded-lg">
+                            {item.quantity}x
+                          </span>
+                          <span className="text-xs font-bold text-blue-600 dark:text-[#7c7fff] min-w-[54px] text-right font-mono">
+                            ${(item.price * item.quantity).toFixed(2)}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFromQuote(item.id)}
+                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl h-7 w-7"
+                          >
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+
+              <div className="h-[1px] bg-slate-200 dark:bg-white/10 my-1" />
+
+              {/* Impuesto IVA y Totales */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">Impuesto IVA</span>
+                  <div className="flex gap-1 bg-slate-100 dark:bg-white/5 p-0.5 rounded-lg border border-slate-200 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setTaxMode('con-iva')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                        taxMode === 'con-iva'
+                          ? 'bg-blue-500/15 dark:bg-[#5b5ef4]/30 text-blue-700 dark:text-[#7c7fff]'
+                          : 'text-slate-400 hover:text-slate-600 dark:hover:text-white/70'
+                      }`}
+                    >
+                      Con IVA (13%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTaxMode('sin-iva')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                        taxMode === 'sin-iva'
+                          ? 'bg-blue-500/15 dark:bg-[#5b5ef4]/30 text-blue-700 dark:text-[#7c7fff]'
+                          : 'text-slate-400 hover:text-slate-600 dark:hover:text-white/70'
+                      }`}
+                    >
+                      Sin IVA
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-between text-xs text-slate-500 dark:text-white/50">
+                  <span>Subtotal Gravado:</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-white">${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500 dark:text-white/50">
+                  <span>IVA (13%):</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-white">${iva.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones de Acción (mismo estilo que Facturación) */}
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => handleSavePreInvoice(false)}
+                disabled={quoteItems.length === 0 || isSaving}
+                className="w-full rounded-[11px] p-[15px] text-[13px] font-bold text-white text-center cursor-pointer bg-blue-600/90 hover:bg-blue-600 dark:bg-[#5b5ef4]/35 dark:border dark:border-[#5b5ef4]/50 hover:dark:bg-[#5b5ef4]/50 tracking-[0.3px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                {isSaving ? 'GUARDANDO PRE-FACTURA...' : 'GUARDAR PRE-FACTURA (ENVIAR A CAJA)'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSavePreInvoice(true)}
+                disabled={quoteItems.length === 0 || isSaving}
+                className="w-full rounded-[11px] p-[11px] text-[12px] font-bold text-slate-700 dark:text-white/70 bg-white/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Printer size={14} /> Guardar e Imprimir Cotización
+              </button>
+            </div>
+          </div>
+
+          {/* COLUMNA DERECHA (7/12): CLIENTE, BUSCADOR Y DETALLE (IDÉNTICO A FACTURACIÓN) */}
+          <div className="lg:col-span-7 space-y-5">
+            <div className="flex justify-between items-center flex-wrap gap-2">
+              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                Pre-Facturación y Cotizaciones
+              </h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCustomProductForm(prev => !prev)}
+                  className="h-9 text-xs font-bold bg-white/50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl gap-1.5"
+                >
+                  <Calculator size={14} className="text-indigo-500" />
+                  Producto Especial
+                  {showCustomProductForm ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Tarjeta Cliente Receptor (mismo diseño que Facturación) */}
+            <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 p-4 rounded-[13px] flex flex-col sm:flex-row gap-3 shadow-sm dark:shadow-none">
+              <div className="flex-1 space-y-1.5">
+                <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">
+                  Cliente Receptor
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Buscar cliente o ingrese nombre..."
                     value={customerName}
                     onChange={e => setCustomerName(e.target.value)}
-                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
+                    className="h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-xl text-xs font-medium text-slate-800 dark:text-white/80"
                   />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 w-10 shrink-0 border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl px-0 flex items-center justify-center"
+                        title="Seleccionar cliente registrado"
+                      >
+                        <Users size={16} className="text-slate-500 dark:text-white/40" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-80 p-0 rounded-2xl overflow-hidden bg-white dark:bg-[#0a0a14] border-slate-200 dark:border-white/10 shadow-lg"
+                      align="end"
+                    >
+                      <div className="p-3 border-b border-slate-100 dark:border-white/5">
+                        <Input
+                          placeholder="Buscar cliente..."
+                          value={customerSearch}
+                          onChange={e => setCustomerSearch(e.target.value)}
+                          className="h-8 text-xs bg-slate-50 dark:bg-white/5 border-none rounded-lg"
+                        />
+                      </div>
+                      <ScrollArea className="h-48">
+                        {filteredCustomers.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-muted-foreground">Sin coincidencias</div>
+                        ) : (
+                          filteredCustomers.map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setCustomerName(c.name || '');
+                                setCustomerNit(c.nit || '');
+                                setCustomerNrc(c.nrc || '');
+                              }}
+                              className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer border-b border-slate-100 dark:border-white/5 transition-colors"
+                            >
+                              <p className="text-[11px] font-bold text-slate-800 dark:text-white/80">{c.name}</p>
+                              <p className="text-[9px] text-slate-400 mt-0.5">{c.email || c.nit || 'Cliente registrado'}</p>
+                            </div>
+                          ))
+                        )}
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                    <Hash size={10} /> NIT / DUI
-                  </Label>
-                  <Input 
-                    placeholder="0000-000000-000-0" 
-                    value={customerNit}
-                    onChange={e => setCustomerNit(e.target.value)}
-                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs font-mono text-slate-800 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                    <BadgeInfo size={10} /> NRC
-                  </Label>
-                  <Input 
-                    placeholder="Registro Contribuyente" 
-                    value={customerNrc}
-                    onChange={e => setCustomerNrc(e.target.value)}
-                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs font-mono text-slate-800 dark:text-white"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* SECCIÓN: PRODUCTO SIN EXISTENCIA / PERSONALIZADO */}
-            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm border-l-4 border-l-orange-500">
-              <div className="bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 px-4 py-2.5 flex items-center justify-between">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                  <Calculator size={12} className="text-orange-500" />
-                  Agregar Producto Sin Existencia / Especial
-                </span>
-                <span className="text-[9px] text-slate-400 font-bold">Ideal para cotizar pedidos especiales</span>
               </div>
-              <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-                <div className="sm:col-span-5 space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre del Producto</Label>
-                  <Input 
-                    placeholder="Ej. Abrazadera especial 1/2 pulgada..." 
+
+              <div className="w-full sm:w-36 space-y-1.5">
+                <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">
+                  NIT / DUI
+                </Label>
+                <Input
+                  placeholder="Opcional"
+                  value={customerNit}
+                  onChange={e => setCustomerNit(e.target.value)}
+                  className="h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono"
+                />
+              </div>
+
+              <div className="w-full sm:w-28 space-y-1.5">
+                <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">
+                  NRC
+                </Label>
+                <Input
+                  placeholder="Opcional"
+                  value={customerNrc}
+                  onChange={e => setCustomerNrc(e.target.value)}
+                  className="h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Producto Especial / Sin Existencia (Colapsable para no saturar) */}
+            {showCustomProductForm && (
+              <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-indigo-500/30 p-4 rounded-[13px] grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <div className="sm:col-span-5 space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-white/40">Nombre del Producto Especial</Label>
+                  <Input
+                    placeholder="Ej. Pedido especial..."
                     value={customName}
                     onChange={e => setCustomName(e.target.value)}
-                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs text-slate-800 dark:text-white"
+                    className="h-9 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-xl text-xs"
                   />
                 </div>
-                <div className="sm:col-span-3 space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">SKU / Código Temporal</Label>
-                  <Input 
-                    placeholder="Ej. TEMP-8839 (Opcional)" 
+                <div className="sm:col-span-3 space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-white/40">SKU (Opcional)</Label>
+                  <Input
+                    placeholder="TEMP-001"
                     value={customSku}
                     onChange={e => setCustomSku(e.target.value)}
-                    className="h-10 bg-slate-50 border-slate-100 rounded-xl text-xs font-mono"
+                    className="h-9 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono"
                   />
                 </div>
-                <div className="sm:col-span-2 space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">Precio Unitario ($)</Label>
-                  <Input 
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-white/40">Precio ($)</Label>
+                  <Input
                     type="number"
                     step="0.01"
-                    placeholder="0.00" 
+                    placeholder="0.00"
                     value={customPrice}
                     onChange={e => setCustomPrice(e.target.value)}
-                    className="h-10 bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
+                    className="h-9 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <Button 
+                  <Button
+                    type="button"
                     onClick={addCustomProduct}
-                    className="w-full h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
+                    className="w-full h-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold gap-1"
                   >
                     <Plus size={14} /> Agregar
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-2">
-              <h2 className="text-sm font-bold text-slate-700 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                <Package size={16} className="text-blue-500" />
-                Catálogo de Códigos Autorizados
-              </h2>
-              <form onSubmit={handleSearchInventory} className="relative w-full md:w-80 flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <Input 
-                    placeholder="Buscar por SKU o nombre (Presiona Enter)..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-xl text-sm font-medium text-slate-800 dark:text-white"
-                  />
-                </div>
-                <Button type="submit" className="h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-4 font-bold shrink-0">
-                  Buscar
-                </Button>
-              </form>
-            </div>
-
-            <ScrollArea className="h-[400px]">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {loadingInv ? (
-                  <div className="col-span-full py-12 text-center text-slate-400 flex flex-col items-center gap-2">
-                    <Loader2 className="animate-spin text-blue-500" />
-                    Sincronizando maestro...
-                  </div>
-                ) : filteredProducts.length === 0 ? (
-                  <div className="col-span-full py-12 text-center text-slate-400">
-                     No se encontraron códigos con ese nombre.
-                  </div>
-                ) : filteredProducts.map((product: any) => (
-                  <div 
-                    key={product.id}
-                    onClick={() => addToQuote(product)}
-                    className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 p-3 rounded-2xl hover:border-orange-400 dark:hover:border-orange-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between min-h-[145px] h-auto gap-2"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50 text-blue-500 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
-                        <Hash size={16} />
-                      </div>
-                      <Badge className="text-[8px] font-black px-1.5 h-4 bg-slate-50 text-slate-400 border-slate-200" variant="outline">
-                        SKU: {product.sku}
-                      </Badge>
-                    </div>
-                    
-                    <div className="mt-2 flex-1">
-                      <h3 className="text-[11px] font-bold text-slate-900 leading-tight line-clamp-2">{product.name}</h3>
-                      <p className="text-[9px] font-bold text-blue-500 mt-1 uppercase">Código Maestro</p>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10 border-slate-50">
-                      <span className="text-sm font-black text-slate-900">${(product.price || 0).toFixed(2)}</span>
-                      <div className="w-6 h-6 bg-slate-100 text-slate-400 rounded-lg flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-all">
-                        <Plus size={12} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
-            </ScrollArea>
+            )}
+
+            {/* Buscador de Productos (IDÉNTICO A FACTURACIÓN) */}
+            <form onSubmit={handleSearchInventory} className="flex gap-3 relative">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30" size={16} />
+                <Input
+                  placeholder="Buscar por SKU, código o nombre (Presione Enter)..."
+                  value={searchTerm}
+                  onChange={e => {
+                    setSearchTerm(e.target.value);
+                    if (!e.target.value) setInventory([]);
+                  }}
+                  className="pl-11 h-[48px] bg-white/40 dark:bg-white/5 backdrop-blur-md border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none rounded-[10px] text-xs md:text-sm font-medium focus-visible:ring-blue-500 text-slate-800 dark:text-white/70"
+                />
+
+                {/* Dropdown de resultados igual a Facturación */}
+                {inventory.length > 0 && searchTerm.trim() !== '' && (
+                  <Card className="absolute left-0 right-0 mt-2 bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-white/10 shadow-2xl z-50 max-h-64 overflow-y-auto no-scrollbar rounded-2xl p-1">
+                    {inventory.map(p => (
+                      <div
+                        key={p.id}
+                        onClick={() => addToQuote(p)}
+                        className="p-3 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl border-b last:border-none border-slate-100 dark:border-white/5 flex justify-between items-center gap-3 cursor-pointer transition-colors"
+                      >
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                          <span className="text-xs font-bold text-slate-800 dark:text-white/80 truncate">{p.name}</span>
+                          <span className="text-[9.5px] text-slate-500 dark:text-white/40 font-mono">
+                            SKU: {p.sku} {p.category ? `• ${p.category}` : ''}
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold text-blue-600 dark:text-[#7c7fff] font-mono shrink-0">
+                          ${p.price.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </Card>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={loadingInv}
+                className="h-[48px] bg-blue-500/10 dark:bg-[#5b5ef4]/35 hover:bg-blue-500/20 dark:hover:bg-[#5b5ef4]/50 border border-blue-500/30 dark:border-[#5b5ef4]/50 text-blue-700 dark:text-[#a5a8ff] font-semibold rounded-[10px] shadow-none px-6 transition-colors flex items-center gap-2 whitespace-nowrap text-[13px]"
+              >
+                {loadingInv ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+                Buscar
+              </button>
+            </form>
+
+            {/* Tabla Detalle de Productos en Pre-Factura (mismo formato que Facturación) */}
+            <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] flex flex-col overflow-hidden shadow-sm dark:shadow-none">
+              <div className="overflow-x-auto no-scrollbar">
+                <Table>
+                  <TableHeader className="bg-slate-50/50 dark:bg-transparent border-b border-slate-200 dark:border-white/5">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="text-[10px] uppercase font-bold text-slate-500 dark:text-white/40 w-24 text-center">Cant.</TableHead>
+                      <TableHead className="text-[10px] uppercase font-bold text-slate-500 dark:text-white/40">Producto / SKU</TableHead>
+                      <TableHead className="text-[10px] uppercase font-bold text-slate-500 dark:text-white/40 text-right w-28">Precio Unit.</TableHead>
+                      <TableHead className="text-[10px] uppercase font-bold text-slate-500 dark:text-white/40 text-right w-24">Subtotal</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {quoteItems.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-12 text-xs text-slate-400 dark:text-white/30">
+                          <Package className="mx-auto mb-2 opacity-40" size={24} />
+                          No hay productos en la pre-factura. Busca arriba por SKU o nombre para agregar.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      quoteItems.map(item => (
+                        <TableRow key={item.id} className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50/60 dark:hover:bg-white/5">
+                          <TableCell className="text-center py-2.5">
+                            <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-white/10 rounded-lg px-1 py-0.5">
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                className="w-5 h-5 text-xs font-bold hover:text-blue-500"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                value={item.quantity}
+                                onFocus={e => e.target.select()}
+                                onChange={e => updateQuantity(item.id, parseInt(e.target.value) || 1)}
+                                className="w-9 text-center text-xs font-black bg-transparent focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                className="w-5 h-5 text-xs font-bold hover:text-blue-500"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <div className="font-bold text-xs text-slate-800 dark:text-white/90">{item.name}</div>
+                            <div className="text-[10px] font-mono text-slate-400">{item.sku}</div>
+                          </TableCell>
+                          <TableCell className="text-right py-2.5">
+                            <div className="inline-flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.price}
+                                onFocus={e => e.target.select()}
+                                onChange={e => updatePrice(item.id, parseFloat(e.target.value) || 0)}
+                                className="w-20 h-7 px-2 text-right font-mono font-bold text-xs bg-white/60 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-xs text-blue-600 dark:text-[#7c7fff] py-2.5">
+                            ${(item.price * item.quantity).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-center py-2.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeFromQuote(item.id)}
+                              className="h-7 w-7 text-slate-400 hover:text-rose-500 rounded-lg"
+                            >
+                              <Trash2 size={13} />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* LISTADO DE PRE-FACTURAS / COTIZACIONES PENDIENTES EN CAJA */}
-        <div className="max-w-7xl mx-auto mt-6 relative z-10 print:hidden">
-          <Card className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-            <CardHeader className="p-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-black text-foreground flex items-center gap-2">
-                  <FileText size={16} className="text-orange-500" />
-                  Pre-Facturas / Cotizaciones Pendientes en Caja ({savedQuotes.length})
-                </CardTitle>
-                <CardDescription className="text-[11px] text-muted-foreground">
-                  Todas estas pre-facturas aparecen automáticamente para el cajero en Facturación → botón &quot;Cotizaciones&quot;. Ninguna descuenta inventario hasta facturarse.
-                </CardDescription>
-              </div>
-              <Button type="button" size="sm" variant="outline" onClick={fetchSavedQuotes} disabled={loadingSavedQuotes} className="h-8 text-xs font-bold rounded-xl">
-                {loadingSavedQuotes ? <Loader2 size={13} className="animate-spin" /> : '↺ Actualizar'}
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              {savedQuotes.length === 0 ? (
-                <div className="p-8 text-center text-xs text-muted-foreground">
-                  No hay pre-facturas pendientes enviadas a caja todavía.
-                </div>
-              ) : (
-                <div className="divide-y divide-border/60">
-                  {savedQuotes.map((q) => {
-                    const refCode = `PRE-${String(q.id).slice(0, 6).toUpperCase()}`;
-                    const itemsCount = Array.isArray(q.items) ? q.items.length : 0;
-                    return (
-                      <div key={q.id} className="p-3.5 px-4 flex flex-wrap items-center justify-between gap-3 hover:bg-muted/20 transition-colors">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-black text-xs px-2 py-0.5 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
-                              {refCode}
-                            </span>
-                            <span className="font-bold text-xs text-foreground">{q.customer_name || 'Cliente de Mostrador'}</span>
-                            <Badge variant="outline" className="text-[9px] font-bold uppercase text-amber-600 border-amber-500/30">
-                              {itemsCount} {itemsCount === 1 ? 'producto' : 'productos'}
-                            </Badge>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground">
-                            Creada: {new Date(q.created_at).toLocaleString()} · Sin alterar inventario
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono font-black text-sm text-foreground">${Number(q.total || 0).toFixed(2)}</span>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteSavedQuote(q.id)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-500 rounded-lg"
-                            title="Eliminar pre-factura"
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        </div>
+        {/* LISTADO DE PRE-FACTURAS / COTIZACIONES ENVIADAS A CAJA */}
+        <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
+          <div className="px-5 py-3.5 border-b border-slate-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-white/80 flex items-center gap-2">
+                <FileText size={15} className="text-blue-500 dark:text-[#7c7fff]" />
+                Pre-Facturas Pendientes en Caja ({savedQuotes.length})
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-white/40">
+                Listas para que el cajero las cargue desde Facturación → botón &quot;Cotizaciones / Pre-Facturas&quot;.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={fetchSavedQuotes}
+              disabled={loadingSavedQuotes}
+              className="h-8 text-xs font-bold rounded-xl gap-1.5"
+            >
+              <RefreshCw size={12} className={loadingSavedQuotes ? 'animate-spin' : ''} />
+              Actualizar
+            </Button>
+          </div>
+
+          {savedQuotes.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-400 dark:text-white/30">
+              No hay pre-facturas pendientes enviadas a caja todavía.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-white/5">
+              {savedQuotes.map(q => {
+                const refCode = `PRE-${String(q.id).slice(0, 6).toUpperCase()}`;
+                const itemsArr = Array.isArray(q.items) ? q.items : [];
+                return (
+                  <div
+                    key={q.id}
+                    className="px-5 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-black text-[11px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-[#7c7fff] border border-blue-500/20">
+                          {refCode}
+                        </span>
+                        <span className="font-bold text-xs text-slate-800 dark:text-white/90">
+                          {q.customer_name || 'Cliente de Mostrador'}
+                        </span>
+                        <Badge variant="outline" className="text-[9px] font-bold uppercase text-amber-600 border-amber-500/30">
+                          {itemsArr.length} {itemsArr.length === 1 ? 'producto' : 'productos'}
+                        </Badge>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      <p className="text-[10px] text-slate-400">
+                        {new Date(q.created_at).toLocaleString()}
+                        {itemsArr.length > 0 ? ` · ${itemsArr.slice(0, 2).map((i: any) => `${i.quantity}x ${i.name}`).join(', ')}${itemsArr.length > 2 ? '...' : ''}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-mono font-black text-sm text-slate-800 dark:text-white">
+                        ${Number(q.total || 0).toFixed(2)}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteSavedQuote(q.id)}
+                        className="h-8 w-8 p-0 text-slate-400 hover:text-rose-500 rounded-lg"
+                        title="Eliminar pre-factura"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
       {/* PLANTILLA DE IMPRESIÓN CORPORATIVA PROFESIONAL (VISIBLE SOLO AL IMPRIMIR) */}
-      <div className={`hidden print:block w-full max-w-4xl mx-auto p-8 bg-white text-black font-sans leading-relaxed ${
-        printConfig.fontSize === 'small' ? 'text-[10px]' : printConfig.fontSize === 'large' ? 'text-sm' : 'text-xs'
-      }`}>
-        {/* ENCABEZADO CORPORATIVO */}
-        <div 
-          className={`flex ${printConfig.logoPosition === 'center' ? 'flex-col items-center text-center' : printConfig.logoPosition === 'right' ? 'flex-row-reverse justify-between items-start' : 'justify-between items-start'} border-b-2 pb-5 mb-6`}
+      <div
+        className={`hidden print:block w-full max-w-4xl mx-auto p-8 bg-white text-black font-sans leading-relaxed ${
+          printConfig.fontSize === 'small' ? 'text-[10px]' : printConfig.fontSize === 'large' ? 'text-sm' : 'text-xs'
+        }`}
+      >
+        <div
+          className={`flex ${
+            printConfig.logoPosition === 'center'
+              ? 'flex-col items-center text-center'
+              : printConfig.logoPosition === 'right'
+              ? 'flex-row-reverse justify-between items-start'
+              : 'justify-between items-start'
+          } border-b-2 pb-5 mb-6`}
           style={{ borderBottomColor: printConfig.accentColor || '#1e293b' }}
         >
           {printConfig.showLogo && printConfig.logoUrl && (
@@ -709,7 +836,9 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
           )}
           <div>
             <h1 className="text-3xl font-black tracking-tight text-slate-900">{printConfig.companyName}</h1>
-            {printConfig.slogan && <p className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mt-0.5">{printConfig.slogan}</p>}
+            {printConfig.slogan && (
+              <p className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mt-0.5">{printConfig.slogan}</p>
+            )}
             <div className="text-[10px] text-slate-600 mt-3 space-y-0.5">
               {printConfig.address && <p>{printConfig.address}</p>}
               {printConfig.phone && <p>Teléfono: {printConfig.phone}</p>}
@@ -721,22 +850,25 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
             </div>
           </div>
           <div className={printConfig.logoPosition === 'center' ? 'text-center mt-4' : 'text-right'}>
-            <div 
+            <div
               className="text-white px-4 py-2 rounded-lg inline-block"
               style={{ backgroundColor: printConfig.accentColor || '#0f172a' }}
             >
-              <p className="text-[8px] uppercase font-bold tracking-widest opacity-80">COTIZACIÓN DE PRECIOS</p>
+              <p className="text-[8px] uppercase font-bold tracking-widest opacity-80">PRE-FACTURA / COTIZACIÓN</p>
               <p className="text-lg font-mono font-bold">{quoteNumber}</p>
             </div>
             <div className="text-[10px] text-slate-600 mt-3 space-y-0.5">
-              <p><span className="font-bold text-slate-800">Fecha de Emisión:</span> {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p><span className="font-bold text-slate-800">Fecha de Vencimiento:</span> {new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p><span className="font-bold text-slate-800">Validez del Presupuesto:</span> 15 Días Calendario</p>
+              <p>
+                <span className="font-bold text-slate-800">Fecha de Emisión:</span>{' '}
+                {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+              <p>
+                <span className="font-bold text-slate-800">Validez:</span> 15 Días Calendario
+              </p>
             </div>
           </div>
         </div>
 
-        {/* INFORMACIÓN DEL CLIENTE */}
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 grid grid-cols-2 gap-4">
           <div className="space-y-1">
             <p className="text-[9px] uppercase font-black text-slate-400 tracking-wider">Cliente / Solicitante</p>
@@ -754,7 +886,6 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
           </div>
         </div>
 
-        {/* TABLA DE PRODUCTOS COTIZADOS */}
         <table className="w-full border-collapse mb-8 text-xs">
           <thead>
             <tr className="text-left text-white" style={{ backgroundColor: printConfig.accentColor || '#0f172a' }}>
@@ -780,17 +911,13 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
           </tbody>
         </table>
 
-        {/* RESUMEN DE TOTALES Y TÉRMINOS */}
         <div className="flex justify-between items-start gap-8 mt-6">
           <div className="text-[10px] text-slate-500 max-w-md space-y-1.5 whitespace-pre-line">
             <p className="font-bold text-slate-700 uppercase tracking-wider mb-1">Términos y Condiciones Generales</p>
             {printConfig.termsConditions
               ? printConfig.termsConditions.replace(/{iva_detail}/g, taxMode === 'con-iva' ? 'ya incluyen IVA (13%)' : 'no incluyen IVA')
-              : `1. Los precios indicados en este documento están expresados en USD y ya incluyen IVA (13%).\n2. Esta cotización representa un presupuesto informativo.`
-            }
-            {printConfig.extraNotes && (
-              <p className="mt-2 text-slate-400 italic font-medium">{printConfig.extraNotes}</p>
-            )}
+              : '1. Los precios indicados están expresados en USD.\n2. Este documento no descuenta inventario físico.'}
+            {printConfig.extraNotes && <p className="mt-2 text-slate-400 italic font-medium">{printConfig.extraNotes}</p>}
           </div>
           <div className="w-[280px] bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
             <div className="flex justify-between text-xs text-slate-600">
@@ -801,17 +928,18 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
               <span>IVA (13%):</span>
               <span className="font-semibold text-slate-800">${iva.toFixed(2)}</span>
             </div>
-            <div 
+            <div
               className="flex justify-between text-sm font-black pt-2 border-t"
               style={{ borderTopColor: printConfig.accentColor || '#e2e8f0' }}
             >
               <span>TOTAL NETO (USD):</span>
-              <span className="text-base font-black" style={{ color: printConfig.accentColor || '#0f172a' }}>${total.toFixed(2)}</span>
+              <span className="text-base font-black" style={{ color: printConfig.accentColor || '#0f172a' }}>
+                ${total.toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* SECCIÓN DE FIRMAS */}
         {printConfig.showSignatureFields && (
           <div className="grid grid-cols-2 gap-12 mt-20 pt-10 border-t border-slate-100 text-center text-xs">
             <div className="space-y-1.5">
