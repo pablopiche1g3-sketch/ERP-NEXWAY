@@ -62,6 +62,10 @@ import {
 } from '@/lib/product-fraction-rules';
 import { postDoubleEntryJournal } from '@/lib/accounting-journal';
 import {
+  validateContribuyenteMH,
+  calculateIvaRetention1Percent
+} from '@/lib/hacienda-sv-catalogs';
+import {
   cacheOfflineCatalog,
   getOfflineCatalog,
   getOfflineSalesQueue,
@@ -1180,6 +1184,7 @@ export default function BillingPage() {
 
       const [
         custRes,
+        custMetaRes,
         whRes,
         salesRes,
         closingsRes,
@@ -1189,6 +1194,7 @@ export default function BillingPage() {
         initInvRes
       ] = await Promise.all([
         supabase.from('customers').select('*').order('name').limit(300),
+        supabase.from('system_config').select('value').eq('key', 'customers_extended_metadata').maybeSingle(),
         whQuery.order('name'),
         salesQuery.order('created_at', { ascending: false }).limit(300),
         supabase.from('daily_closings').select('*').order('created_at', { ascending: false }).limit(60),
@@ -1198,7 +1204,24 @@ export default function BillingPage() {
         supabase.from('inventory').select('*').limit(50)
       ]);
 
-      setCustomers(custRes.data || []);
+      let localCustMeta: Record<string, any> = {};
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('nexway_customers_extended_meta');
+          if (raw) localCustMeta = JSON.parse(raw);
+        } catch {
+          // ignore
+        }
+      }
+      const remoteCustMeta: Record<string, any> =
+        custMetaRes.data?.value && typeof custMetaRes.data.value === 'object' ? custMetaRes.data.value : {};
+      const combinedCustMeta = { ...localCustMeta, ...remoteCustMeta };
+
+      const enrichedCustomers = (custRes.data || []).map((c: any) => ({
+        ...c,
+        ...(combinedCustMeta[c.id] || {})
+      }));
+      setCustomers(enrichedCustomers);
 
       const whData = whRes.data || [];
       setWarehouses(whData);
@@ -1598,6 +1621,20 @@ export default function BillingPage() {
 
   // Cart Functions
   const totalCart = useMemo(() => cart.reduce((acc, item) => acc + (item.price * (Number(item.quantity) || 0)), 0), [cart]);
+
+  // Validación Ministerio de Hacienda (CCF) y Retención 1% IVA (Gran Contribuyente)
+  const ccfMhValidation = useMemo(() => {
+    if (docType !== 'CCF' || !selectedCustomer) return null;
+    return validateContribuyenteMH({ ...selectedCustomer, category: 'Crédito Fiscal' });
+  }, [docType, selectedCustomer]);
+
+  const ivaRetention1 = useMemo(() => {
+    if (docType !== 'CCF' || !selectedCustomer?.is_gran_contribuyente) return 0;
+    const subtotalGravado = totalCart / 1.13;
+    return calculateIvaRetention1Percent(subtotalGravado, true, 'CCF');
+  }, [docType, selectedCustomer, totalCart]);
+
+  const netPayableTotal = Math.max(0, totalCart - ivaRetention1);
 
   // Split Payment Calculations
   const splitCashVal = parseFloat(splitAmounts.cash) || 0;
@@ -3226,6 +3263,72 @@ export default function BillingPage() {
                 </div>
               </div>
 
+              {/* Ficha Fiscal Hacienda (MH — CCF 03) */}
+              {docType === 'CCF' && selectedCustomer && (
+                <div className={`p-3 rounded-[13px] border text-xs space-y-1.5 ${
+                  ccfMhValidation && !ccfMhValidation.isReady
+                    ? 'bg-amber-500/10 border-amber-500/40'
+                    : 'bg-indigo-500/5 border-indigo-500/25'
+                }`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                        <ShieldCheck size={13} /> Ficha Fiscal MH (CCF)
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold text-foreground">
+                        NIT: {selectedCustomer.nit || '—'}
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold text-foreground">
+                        NRC: {selectedCustomer.nrc || '—'}
+                      </span>
+                      {selectedCustomer.is_gran_contribuyente && (
+                        <Badge className="bg-amber-500 text-white text-[9px] h-4 px-1.5 font-bold">
+                          Gran Contribuyente · Retención 1% IVA
+                        </Badge>
+                      )}
+                    </div>
+                    {ccfMhValidation?.isReady ? (
+                      <Badge variant="outline" className="text-[9px] h-5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-semibold">
+                        ✓ Listo para Hacienda
+                      </Badge>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/directorio')}
+                        className="h-6 text-[10px] px-2 border-amber-500/50 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20"
+                      >
+                        Completar en Directorio
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+                    <span>
+                      <strong className="text-foreground">Giro (CAT-019):</strong>{' '}
+                      {selectedCustomer.cod_actividad && (
+                        <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 mr-1">
+                          [{selectedCustomer.cod_actividad}]
+                        </span>
+                      )}
+                      {selectedCustomer.giro || 'No asignado'}
+                    </span>
+                    {(selectedCustomer.department || selectedCustomer.municipality) && (
+                      <span>
+                        <strong className="text-foreground">Ubicación:</strong>{' '}
+                        {[selectedCustomer.department, selectedCustomer.municipality].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                  </div>
+                  {ccfMhValidation && !ccfMhValidation.isReady && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300 pt-0.5">
+                      <AlertTriangle size={13} className="shrink-0" />
+                      Faltan datos obligatorios para CCF Hacienda: {ccfMhValidation.missing.join(', ')}.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Input Buscador con Filtros */}
               <form onSubmit={handleSearchInventory} className="flex gap-3 relative">
                 <div className="relative flex-1">
@@ -3390,18 +3493,29 @@ export default function BillingPage() {
                 </div>
                 
                 {/* Fila de Totales en el Pie de la Tabla */}
-                <div className="flex items-center justify-between p-[14px_16px] border-t border-white/10 border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-[14px_16px] border-t border-white/10 border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
                   <div className="flex flex-col gap-[3px]">
-                    <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-[.5px] font-medium">Subtotal</span>
+                    <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-[.5px] font-medium">
+                      {docType === 'CCF' ? 'Gravado + IVA (13%)' : 'Subtotal'}
+                    </span>
                     <span className="text-[14px] font-semibold text-slate-700 dark:text-white/70">${totalCart.toFixed(2)}</span>
                   </div>
-                  <div className="flex flex-col gap-[3px]">
-                    <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-[.5px] font-medium">Descuento</span>
-                    <span className="text-[14px] font-semibold text-slate-700 dark:text-white/70">$0.00</span>
-                  </div>
+                  {ivaRetention1 > 0 ? (
+                    <div className="flex flex-col gap-[3px]">
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-[.5px] font-bold">
+                        Retención 1% IVA (MH)
+                      </span>
+                      <span className="text-[14px] font-bold text-amber-600 dark:text-amber-400">-${ivaRetention1.toFixed(2)}</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-[3px]">
+                      <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-[.5px] font-medium">Descuento</span>
+                      <span className="text-[14px] font-semibold text-slate-700 dark:text-white/70">$0.00</span>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-[3px] text-right">
                     <span className="text-[10px] text-slate-400 dark:text-white/30 uppercase tracking-[.5px] font-medium">Total a pagar</span>
-                    <span className="text-[18px] font-bold text-blue-600 dark:text-[#7c7fff]">${totalCart.toFixed(2)}</span>
+                    <span className="text-[18px] font-bold text-blue-600 dark:text-[#7c7fff]">${netPayableTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>

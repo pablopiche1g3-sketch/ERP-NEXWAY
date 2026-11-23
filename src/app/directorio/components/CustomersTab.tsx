@@ -54,26 +54,14 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ModeToggle } from '@/components/mode-toggle';
 import { PriceListManager } from '@/components/PriceListManager';
+import { HaciendaGiroSelector } from '@/components/shared/HaciendaGiroSelector';
+import {
+  CAT_012_DEPARTAMENTOS,
+  findDepartmentCode,
+  findMunicipalityList,
+  validateContribuyenteMH
+} from '@/lib/hacienda-sv-catalogs';
 import * as XLSX from 'xlsx';
-
-const GIROS_AUTORIZADOS = [
-  "Venta de partes, piezas y accesorios para vehículos automotores",
-  "Mantenimiento y reparación de vehículos automotores",
-  "Venta al por menor de productos de ferretería, pinturas y vidrio",
-  "Construcción de edificios residenciales",
-  "Venta al por menor de productos farmacéuticos y medicinales",
-  "Venta al por mayor de materias primas agropecuarias",
-  "Transporte de carga por carretera",
-  "Servicios de consultoría en gestión y administración",
-  "Actividades de arquitectura e ingeniería",
-  "Venta al por menor de artículos de uso doméstico",
-  "Servicios de limpieza general de edificios",
-  "Venta de comidas y bebidas en restaurantes",
-  "Servicios de contabilidad, teneduría de libros y auditoría",
-  "Alquiler de bienes inmuebles",
-  "Servicios de publicidad y marketing",
-  "Otros servicios n.c.p."
-];
 
 export interface CustomerRecord {
   id: string;
@@ -82,11 +70,14 @@ export interface CustomerRecord {
   nit?: string;
   nrc?: string;
   giro?: string;
+  cod_actividad?: string;
   email?: string;
   phone?: string;
   address?: string;
   department?: string;
+  department_code?: string;
   municipality?: string;
+  municipality_code?: string;
   type?: string;
   category?: string;
   is_authorized_credit?: boolean;
@@ -118,11 +109,14 @@ export default function CustomersTab() {
     nit: '',
     nrc: '',
     giro: '',
+    cod_actividad: '',
     email: '',
     phone: '',
     address: '',
     department: 'San Salvador',
-    municipality: 'San Salvador Centro',
+    department_code: '06',
+    municipality: 'San Salvador Centro (San Salvador / Mejicanos / Cuscatancingo / Ayutuxtepeque)',
+    municipality_code: '23',
     is_authorized_credit: false,
     credit_limit: '0.00',
     credit_days: '30',
@@ -142,11 +136,14 @@ export default function CustomersTab() {
     nit: '',
     nrc: '',
     giro: '',
+    cod_actividad: '',
     email: '',
     phone: '',
     address: '',
     department: 'San Salvador',
-    municipality: 'San Salvador Centro',
+    department_code: '06',
+    municipality: 'San Salvador Centro (San Salvador / Mejicanos / Cuscatancingo / Ayutuxtepeque)',
+    municipality_code: '23',
     type: 'Individual',
     category: 'Consumidor Final',
     is_authorized_credit: false,
@@ -363,8 +360,11 @@ export default function CustomersTab() {
       if (insertedCust?.id) {
         await saveCustomerExtendedMetadata(insertedCust.id, {
           commercial_name: form.commercial_name.trim() || null,
+          cod_actividad: form.cod_actividad.trim() || null,
           department: form.department || 'San Salvador',
-          municipality: form.municipality || 'San Salvador Centro',
+          department_code: form.department_code || findDepartmentCode(form.department),
+          municipality: form.municipality || 'San Salvador Centro (San Salvador / Mejicanos / Cuscatancingo / Ayutuxtepeque)',
+          municipality_code: form.municipality_code || '23',
           is_gran_contribuyente: form.is_gran_contribuyente,
           notes: form.notes.trim() || null
         });
@@ -381,11 +381,14 @@ export default function CustomersTab() {
         nit: '',
         nrc: '',
         giro: '',
+        cod_actividad: '',
         email: '',
         phone: '',
         address: '',
         department: 'San Salvador',
-        municipality: 'San Salvador Centro',
+        department_code: '06',
+        municipality: 'San Salvador Centro (San Salvador / Mejicanos / Cuscatancingo / Ayutuxtepeque)',
+        municipality_code: '23',
         is_authorized_credit: false,
         credit_limit: '0.00',
         credit_days: '30',
@@ -439,8 +442,11 @@ export default function CustomersTab() {
 
       await saveCustomerExtendedMetadata(editForm.id, {
         commercial_name: editForm.commercial_name.trim() || null,
+        cod_actividad: editForm.cod_actividad.trim() || null,
         department: editForm.department || 'San Salvador',
-        municipality: editForm.municipality || 'San Salvador Centro',
+        department_code: editForm.department_code || findDepartmentCode(editForm.department),
+        municipality: editForm.municipality || 'San Salvador Centro (San Salvador / Mejicanos / Cuscatancingo / Ayutuxtepeque)',
+        municipality_code: editForm.municipality_code || '23',
         is_gran_contribuyente: editForm.is_gran_contribuyente,
         notes: editForm.notes.trim() || null
       });
@@ -483,6 +489,7 @@ export default function CustomersTab() {
       "Tipo": c.type || 'Individual',
       "NIT": c.nit || '',
       "NRC": c.nrc || '',
+      "Código Actividad (CAT-019)": c.cod_actividad || '',
       "Giro Comercial": c.giro || '',
       "Gran Contribuyente": c.is_gran_contribuyente ? 'SÍ' : 'NO',
       "Teléfono": c.phone || '',
@@ -704,20 +711,98 @@ export default function CustomersTab() {
                       )}
 
                       {activeFormTab === 'ccf' && (
+                        <div className="space-y-2.5">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                              Actividad Económica / Giro Oficial (CAT-019 MH) *
+                            </Label>
+                            <HaciendaGiroSelector
+                              compact
+                              codActividad={form.cod_actividad}
+                              descActividad={form.giro}
+                              onSelect={(cod, desc) => setForm({ ...form, cod_actividad: cod, giro: desc })}
+                            />
+                          </div>
+
+                          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                                <ShieldCheck size={13} /> Gran Contribuyente (MH)
+                              </div>
+                              <p className="text-[10px] text-amber-800/80 dark:text-amber-200/80">
+                                Aplica retención 1% IVA en CCF ≥ $100
+                              </p>
+                            </div>
+                            <Switch
+                              checked={form.is_gran_contribuyente}
+                              onCheckedChange={(val) => setForm({ ...form, is_gran_contribuyente: val })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2.5">
                         <div className="space-y-1">
-                          <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Giro Comercial Oficial</Label>
-                          <Select value={form.giro} onValueChange={(val) => setForm({...form, giro: val})}>
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                            Depto. (CAT-012) {activeFormTab === 'ccf' && '*'}
+                          </Label>
+                          <Select
+                            value={form.department_code}
+                            onValueChange={(deptCode) => {
+                              const dept = CAT_012_DEPARTAMENTOS.find((d) => d.codigo === deptCode);
+                              const munis = findMunicipalityList(deptCode);
+                              const firstMuni = munis[0];
+                              setForm({
+                                ...form,
+                                department_code: deptCode,
+                                department: dept?.descripcion || 'San Salvador',
+                                municipality_code: firstMuni?.codigo || '',
+                                municipality: firstMuni?.descripcion || ''
+                              });
+                            }}
+                          >
                             <SelectTrigger className="h-8 text-xs font-medium">
-                              <SelectValue placeholder="Seleccione giro del contribuyente..." />
+                              <SelectValue placeholder="Departamento..." />
                             </SelectTrigger>
-                            <SelectContent className="max-w-[340px]">
-                              {GIROS_AUTORIZADOS.map((giro, idx) => (
-                                <SelectItem key={idx} value={giro} className="text-xs py-2">{giro}</SelectItem>
+                            <SelectContent>
+                              {CAT_012_DEPARTAMENTOS.map((d) => (
+                                <SelectItem key={d.codigo} value={d.codigo} className="text-xs">
+                                  [{d.codigo}] {d.descripcion}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
-                      )}
+
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                            Municipio (CAT-013) {activeFormTab === 'ccf' && '*'}
+                          </Label>
+                          <Select
+                            value={form.municipality_code}
+                            onValueChange={(muniCode) => {
+                              const munis = findMunicipalityList(form.department_code);
+                              const muni = munis.find((m) => m.codigo === muniCode);
+                              setForm({
+                                ...form,
+                                municipality_code: muniCode,
+                                municipality: muni?.descripcion || ''
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs font-medium">
+                              <SelectValue placeholder="Municipio..." />
+                            </SelectTrigger>
+                            <SelectContent className="max-w-[300px]">
+                              {findMunicipalityList(form.department_code).map((m) => (
+                                <SelectItem key={m.codigo} value={m.codigo} className="text-xs">
+                                  [{m.codigo}] {m.descripcion}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
                       <div className="grid grid-cols-2 gap-2.5">
                         <div className="space-y-1">
@@ -930,22 +1015,52 @@ export default function CustomersTab() {
 
                             {/* 2. Datos Fiscales DTE */}
                             <TableCell className="py-3">
-                              <div className="space-y-0.5 font-mono text-[10px]">
-                                {customer.nit && (
-                                  <div className="text-foreground font-semibold">NIT: {customer.nit}</div>
-                                )}
-                                {customer.nrc && (
-                                  <div className="text-muted-foreground">NRC: {customer.nrc}</div>
-                                )}
-                                {customer.giro && (
-                                  <div className="text-[9px] font-sans text-muted-foreground truncate max-w-[180px]" title={customer.giro}>
-                                    {customer.giro}
+                              {(() => {
+                                const mhStatus = validateContribuyenteMH(customer);
+                                return (
+                                  <div className="space-y-1 font-mono text-[10px]">
+                                    {customer.nit && (
+                                      <div className="text-foreground font-semibold">NIT: {customer.nit}</div>
+                                    )}
+                                    {customer.nrc && (
+                                      <div className="text-muted-foreground">NRC: {customer.nrc}</div>
+                                    )}
+                                    {(customer.cod_actividad || customer.giro) && (
+                                      <div
+                                        className="text-[9px] font-sans text-muted-foreground truncate max-w-[200px]"
+                                        title={customer.cod_actividad ? `[${customer.cod_actividad}] ${customer.giro || ''}` : customer.giro}
+                                      >
+                                        {customer.cod_actividad && (
+                                          <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 mr-1">
+                                            [{customer.cod_actividad}]
+                                          </span>
+                                        )}
+                                        {customer.giro}
+                                      </div>
+                                    )}
+                                    {mhStatus.isCcf && (
+                                      <div className="pt-0.5 font-sans">
+                                        {mhStatus.isReady ? (
+                                          <Badge variant="outline" className="text-[8px] h-4 px-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-semibold">
+                                            ✓ Listo MH (CCF)
+                                          </Badge>
+                                        ) : (
+                                          <Badge
+                                            variant="outline"
+                                            title={`Faltan campos MH: ${mhStatus.missing.join(', ')}`}
+                                            className="text-[8px] h-4 px-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 font-semibold"
+                                          >
+                                            ⚠ Falta: {mhStatus.missing.slice(0, 2).join(', ')}{mhStatus.missing.length > 2 ? ` +${mhStatus.missing.length - 2}` : ''}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    )}
+                                    {!customer.nit && !customer.nrc && (
+                                      <span className="text-muted-foreground font-sans italic text-[10px]">Sin Registro Tributario</span>
+                                    )}
                                   </div>
-                                )}
-                                {!customer.nit && !customer.nrc && (
-                                  <span className="text-muted-foreground font-sans italic text-[10px]">Sin Registro Tributario</span>
-                                )}
-                              </div>
+                                );
+                              })()}
                             </TableCell>
 
                             {/* 3. Contacto Rápido */}
@@ -1026,6 +1141,12 @@ export default function CustomersTab() {
                                   size="icon" 
                                   title="Editar Cliente"
                                   onClick={() => {
+                                    const deptCode = customer.department_code || findDepartmentCode(customer.department);
+                                    const munis = findMunicipalityList(deptCode);
+                                    const matchedMuni =
+                                      munis.find((m) => m.codigo === customer.municipality_code) ||
+                                      munis.find((m) => m.descripcion.toLowerCase() === (customer.municipality || '').toLowerCase()) ||
+                                      munis[0];
                                     setEditForm({
                                       id: customer.id,
                                       name: customer.name,
@@ -1033,11 +1154,14 @@ export default function CustomersTab() {
                                       nit: customer.nit || '',
                                       nrc: customer.nrc || '',
                                       giro: customer.giro || '',
+                                      cod_actividad: customer.cod_actividad || '',
                                       email: customer.email || '',
                                       phone: customer.phone || '',
                                       address: customer.address || '',
-                                      department: customer.department || 'San Salvador',
-                                      municipality: customer.municipality || 'San Salvador Centro',
+                                      department: customer.department || CAT_012_DEPARTAMENTOS.find((d) => d.codigo === deptCode)?.descripcion || 'San Salvador',
+                                      department_code: deptCode,
+                                      municipality: matchedMuni?.descripcion || customer.municipality || '',
+                                      municipality_code: matchedMuni?.codigo || customer.municipality_code || '',
                                       type: customer.type || 'Individual',
                                       category: customer.category || 'Consumidor Final',
                                       is_authorized_credit: !!customer.is_authorized_credit,
@@ -1126,11 +1250,28 @@ export default function CustomersTab() {
                 </div>
               </div>
 
-              {/* Giro y Dirección */}
-              {selectedCust360.giro && (
-                <div className="p-2.5 rounded-lg bg-card border border-border/50 text-[11px]">
-                  <span className="font-bold text-muted-foreground">Giro Económico: </span>
-                  <span className="text-foreground">{selectedCust360.giro}</span>
+              {/* Giro y Dirección Hacienda */}
+              {(selectedCust360.giro || selectedCust360.cod_actividad || selectedCust360.department) && (
+                <div className="p-2.5 rounded-lg bg-card border border-border/50 text-[11px] space-y-1">
+                  {(selectedCust360.cod_actividad || selectedCust360.giro) && (
+                    <div>
+                      <span className="font-bold text-muted-foreground">Giro Económico (CAT-019): </span>
+                      {selectedCust360.cod_actividad && (
+                        <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 mr-1">
+                          [{selectedCust360.cod_actividad}]
+                        </span>
+                      )}
+                      <span className="text-foreground">{selectedCust360.giro}</span>
+                    </div>
+                  )}
+                  {(selectedCust360.department || selectedCust360.municipality) && (
+                    <div>
+                      <span className="font-bold text-muted-foreground">Ubicación MH: </span>
+                      <span className="text-foreground">
+                        {[selectedCust360.department, selectedCust360.municipality].filter(Boolean).join(' · ')}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1224,7 +1365,7 @@ export default function CustomersTab() {
 
       {/* MODAL 2: EDICIÓN COMPLETA DE CLIENTE */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-xl bg-card border-border/60">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-card border-border/60">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <Pencil size={16} className="text-indigo-500" />
@@ -1271,25 +1412,113 @@ export default function CustomersTab() {
             </div>
 
             {editForm.category === 'Crédito Fiscal' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">NIT</Label>
+                    <Input 
+                      value={editForm.nit} 
+                      onChange={e => setEditForm({...editForm, nit: e.target.value})} 
+                      placeholder="0614-000000-000-0"
+                      className="h-8 text-xs font-mono font-semibold" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">NRC</Label>
+                    <Input 
+                      value={editForm.nrc} 
+                      onChange={e => setEditForm({...editForm, nrc: e.target.value})} 
+                      placeholder="Ej. 123456-7"
+                      className="h-8 text-xs font-mono font-semibold" 
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">NIT</Label>
-                  <Input 
-                    value={editForm.nit} 
-                    onChange={e => setEditForm({...editForm, nit: e.target.value})} 
-                    className="h-8 text-xs font-mono font-semibold" 
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">
+                    Actividad Económica / Giro Oficial (CAT-019 MH)
+                  </Label>
+                  <HaciendaGiroSelector
+                    codActividad={editForm.cod_actividad}
+                    descActividad={editForm.giro}
+                    onSelect={(cod, desc) => setEditForm({ ...editForm, cod_actividad: cod, giro: desc })}
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">NRC</Label>
-                  <Input 
-                    value={editForm.nrc} 
-                    onChange={e => setEditForm({...editForm, nrc: e.target.value})} 
-                    className="h-8 text-xs font-mono font-semibold" 
+
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                      <ShieldCheck size={14} /> Gran Contribuyente (MH)
+                    </div>
+                    <p className="text-[10px] text-amber-800/80 dark:text-amber-200/80">
+                      Aplica retención del 1% de IVA en CCF cuando el subtotal gravado sea ≥ $100.00
+                    </p>
+                  </div>
+                  <Switch
+                    checked={editForm.is_gran_contribuyente}
+                    onCheckedChange={(val) => setEditForm({ ...editForm, is_gran_contribuyente: val })}
                   />
                 </div>
               </div>
             )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Departamento (CAT-012)</Label>
+                <Select
+                  value={editForm.department_code}
+                  onValueChange={(deptCode) => {
+                    const dept = CAT_012_DEPARTAMENTOS.find((d) => d.codigo === deptCode);
+                    const munis = findMunicipalityList(deptCode);
+                    const firstMuni = munis[0];
+                    setEditForm({
+                      ...editForm,
+                      department_code: deptCode,
+                      department: dept?.descripcion || 'San Salvador',
+                      municipality_code: firstMuni?.codigo || '',
+                      municipality: firstMuni?.descripcion || ''
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Departamento..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CAT_012_DEPARTAMENTOS.map((d) => (
+                      <SelectItem key={d.codigo} value={d.codigo} className="text-xs">
+                        [{d.codigo}] {d.descripcion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Municipio (CAT-013)</Label>
+                <Select
+                  value={editForm.municipality_code}
+                  onValueChange={(muniCode) => {
+                    const munis = findMunicipalityList(editForm.department_code);
+                    const muni = munis.find((m) => m.codigo === muniCode);
+                    setEditForm({
+                      ...editForm,
+                      municipality_code: muniCode,
+                      municipality: muni?.descripcion || ''
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Municipio..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-[300px]">
+                    {findMunicipalityList(editForm.department_code).map((m) => (
+                      <SelectItem key={m.codigo} value={m.codigo} className="text-xs">
+                        [{m.codigo}] {m.descripcion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
