@@ -41,11 +41,17 @@ interface QuoteItem {
   quantity: number;
 }
 
-export default function QuotationsTab() {
+interface QuotationsTabProps {
+  onQuotationSaved?: () => void;
+}
+
+export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+  const [savedQuotes, setSavedQuotes] = useState<any[]>([]);
+  const [loadingSavedQuotes, setLoadingSavedQuotes] = useState(false);
   
   const [customerName, setCustomerName] = useState('');
   const [customerNit, setCustomerNit] = useState('');
@@ -70,10 +76,29 @@ export default function QuotationsTab() {
     fontSize: 'medium'
   });
 
+  const fetchSavedQuotes = async () => {
+    setLoadingSavedQuotes(true);
+    try {
+      const { data, error } = await supabase
+        .from('quotations')
+        .select('*')
+        .in('status', ['PENDIENTE', 'EN_ESPERA'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!error && data) {
+        setSavedQuotes(data);
+      }
+    } catch (err) {
+      console.error('Error fetching saved quotations:', err);
+    } finally {
+      setLoadingSavedQuotes(false);
+    }
+  };
+
   useEffect(() => {
     const fetchPrintConfig = async () => {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('system_config')
           .select('*')
           .eq('key', 'print_config')
@@ -86,6 +111,7 @@ export default function QuotationsTab() {
       }
     };
     fetchPrintConfig();
+    fetchSavedQuotes();
   }, []);
 
   // Sincronización de catálogo maestro desde Supabase  
@@ -197,45 +223,79 @@ export default function QuotationsTab() {
   const subtotal = taxMode === 'con-iva' ? (total / 1.13) : total;
   const iva = taxMode === 'con-iva' ? (total - subtotal) : 0;
 
-  // Generamos un número de cotización estático para la sesión/impresión
-  const quoteNumber = useMemo(() => `COT-${Math.floor(100000 + Math.random() * 900000)}`, []);
+  const [quoteSeq, setQuoteSeq] = useState(() => Math.floor(100000 + Math.random() * 900000));
+  const quoteNumber = `PRE-${quoteSeq}`;
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleGenerateQuote = async () => {
+  const handleSavePreInvoice = async (shouldPrint: boolean) => {
     if (quoteItems.length === 0) {
-      toast({ variant: "destructive", title: "Cotización Vacía", description: "Debe agregar al menos un producto." });
+      toast({ variant: "destructive", title: "Pre-Factura Vacía", description: "Debe agregar al menos un producto." });
       return;
     }
 
     try {
       setIsSaving(true);
-      const { error } = await supabase
+      // Guardar únicamente columnas válidas en public.quotations (sin alterar inventario físico)
+      const { data: inserted, error } = await supabase
         .from('quotations')
         .insert({
-          quote_number: quoteNumber,
-          customer_name: customerName || 'Cliente de Mostrador',
+          customer_name: customerName.trim() || 'Cliente de Mostrador',
           items: quoteItems,
-          subtotal: subtotal,
-          iva: iva,
-          total: total,
+          subtotal: Number(subtotal.toFixed(2)),
+          iva: Number(iva.toFixed(2)),
+          total: Number(total.toFixed(2)),
           status: 'PENDIENTE'
-        });
-        
+        })
+        .select('*')
+        .single();
+
       if (error) {
-        console.error(error);
-        toast({ variant: "destructive", title: "Error al Guardar", description: "No se guardó la cotización en la base de datos." });
-        // Seguimos con la impresión aunque falle la BD, para no bloquear al usuario
+        throw error;
       }
 
-      toast({ title: "Documento Guardado", description: "Preparando impresión..." });
-      setTimeout(() => {
-        window.print();
-      }, 500);
+      const refCode = inserted?.id ? `PRE-${String(inserted.id).slice(0, 6).toUpperCase()}` : quoteNumber;
+
+      if (shouldPrint) {
+        toast({ title: `Pre-Factura ${refCode} Guardada`, description: "Ya está disponible en Caja (Facturación). Abriendo impresión..." });
+        setTimeout(() => {
+          window.print();
+        }, 400);
+      } else {
+        toast({
+          title: `Pre-Factura ${refCode} Enviada a Caja 📋`,
+          description: "Disponible en el botón 'Cotizaciones' de Facturación. El inventario no se ha modificado."
+        });
+        setQuoteItems([]);
+        setCustomerName('');
+        setCustomerNit('');
+        setCustomerNrc('');
+        setQuoteSeq(Math.floor(100000 + Math.random() * 900000));
+      }
+
+      await fetchSavedQuotes();
+      onQuotationSaved?.();
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: "Error inesperado al guardar la cotización." });
+      console.error('Error al guardar pre-factura:', err);
+      toast({
+        variant: "destructive",
+        title: "Error al Guardar Pre-Factura",
+        description: err?.message || "No se pudo guardar en la base de datos."
+      });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteSavedQuote = async (id: string) => {
+    try {
+      const { error } = await supabase.from('quotations').delete().eq('id', id);
+      if (error) throw error;
+      setSavedQuotes(prev => prev.filter(q => q.id !== id));
+      onQuotationSaved?.();
+      toast({ title: "Pre-Factura Eliminada", description: "Se removió de la lista pendiente de caja." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err?.message || "No se pudo eliminar." });
     }
   };
 
@@ -254,8 +314,8 @@ export default function QuotationsTab() {
               <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
             </Button>
             <div>
-              <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Presupuestos y Cotizaciones</h1>
-              <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Generación de precios sin afectar inventario físico</p>
+              <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Cotizaciones y Pre-Facturas</h1>
+              <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Crea pre-facturas para el cajero sin alterar el inventario físico</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -387,14 +447,25 @@ export default function QuotationsTab() {
               </CardContent>
             </Card>
             
-            <Button 
-              className="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-lg shadow-lg"
-              disabled={quoteItems.length === 0 || isSaving}
-              onClick={handleGenerateQuote}
-            >
-              {isSaving ? <Loader2 className="mr-2 animate-spin" size={20} /> : <Printer className="mr-2" size={20} />}
-              {isSaving ? "Guardando..." : "Guardar e Imprimir"}
-            </Button>
+            <div className="space-y-2.5">
+              <Button 
+                className="w-full h-13 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow-lg shadow-emerald-600/20"
+                disabled={quoteItems.length === 0 || isSaving}
+                onClick={() => handleSavePreInvoice(false)}
+              >
+                {isSaving ? <Loader2 className="mr-2 animate-spin" size={18} /> : <Send className="mr-2" size={18} />}
+                {isSaving ? "Guardando..." : "Guardar Pre-Factura (Enviar a Caja)"}
+              </Button>
+              <Button 
+                variant="outline"
+                className="w-full h-11 rounded-2xl font-bold text-xs border-slate-300 dark:border-white/15"
+                disabled={quoteItems.length === 0 || isSaving}
+                onClick={() => handleSavePreInvoice(true)}
+              >
+                {isSaving ? <Loader2 className="mr-2 animate-spin" size={16} /> : <Printer className="mr-2" size={16} />}
+                Guardar e Imprimir Cotización
+              </Button>
+            </div>
           </div>
 
           {/* Panel Derecho: Información, Producto Sin Existencia y Catálogo Maestro */}
@@ -554,6 +625,71 @@ export default function QuotationsTab() {
               </div>
             </ScrollArea>
           </div>
+        </div>
+
+        {/* LISTADO DE PRE-FACTURAS / COTIZACIONES PENDIENTES EN CAJA */}
+        <div className="max-w-7xl mx-auto mt-6 relative z-10 print:hidden">
+          <Card className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+            <CardHeader className="p-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-black text-foreground flex items-center gap-2">
+                  <FileText size={16} className="text-orange-500" />
+                  Pre-Facturas / Cotizaciones Pendientes en Caja ({savedQuotes.length})
+                </CardTitle>
+                <CardDescription className="text-[11px] text-muted-foreground">
+                  Todas estas pre-facturas aparecen automáticamente para el cajero en Facturación → botón &quot;Cotizaciones&quot;. Ninguna descuenta inventario hasta facturarse.
+                </CardDescription>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={fetchSavedQuotes} disabled={loadingSavedQuotes} className="h-8 text-xs font-bold rounded-xl">
+                {loadingSavedQuotes ? <Loader2 size={13} className="animate-spin" /> : '↺ Actualizar'}
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              {savedQuotes.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground">
+                  No hay pre-facturas pendientes enviadas a caja todavía.
+                </div>
+              ) : (
+                <div className="divide-y divide-border/60">
+                  {savedQuotes.map((q) => {
+                    const refCode = `PRE-${String(q.id).slice(0, 6).toUpperCase()}`;
+                    const itemsCount = Array.isArray(q.items) ? q.items.length : 0;
+                    return (
+                      <div key={q.id} className="p-3.5 px-4 flex flex-wrap items-center justify-between gap-3 hover:bg-muted/20 transition-colors">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-xs px-2 py-0.5 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
+                              {refCode}
+                            </span>
+                            <span className="font-bold text-xs text-foreground">{q.customer_name || 'Cliente de Mostrador'}</span>
+                            <Badge variant="outline" className="text-[9px] font-bold uppercase text-amber-600 border-amber-500/30">
+                              {itemsCount} {itemsCount === 1 ? 'producto' : 'productos'}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            Creada: {new Date(q.created_at).toLocaleString()} · Sin alterar inventario
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-black text-sm text-foreground">${Number(q.total || 0).toFixed(2)}</span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteSavedQuote(q.id)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-500 rounded-lg"
+                            title="Eliminar pre-factura"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 

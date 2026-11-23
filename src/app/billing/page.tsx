@@ -241,22 +241,73 @@ export default function BillingPage() {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [selectedPendingSaleId, setSelectedPendingSaleId] = useState<string | null>(null);
 
+  const [quoteSearchTerm, setQuoteSearchTerm] = useState('');
+
   const fetchQuotations = async () => {
     setLoadingQuotes(true);
     try {
-      const { data, error } = await supabase
+      const { data: quotesData, error } = await supabase
         .from('quotations')
         .select('*')
-        .eq('status', 'PENDIENTE')
+        .in('status', ['PENDIENTE', 'EN_ESPERA'])
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setQuotationsList(data || []);
+
+      const normalizedQuotes = (quotesData || []).map((q: any) => ({
+        ...q,
+        quote_number: q.quote_number || `PRE-${String(q.id).slice(0, 6).toUpperCase()}`,
+        isPreFacturaSale: false
+      }));
+
+      // También incluir cualquier pre-factura legacy que hubiera quedado en sales (PENDIENTE_COBRO)
+      let legacyPreFacturas: any[] = [];
+      try {
+        const { data: preSales } = await supabase
+          .from('sales')
+          .select('*')
+          .eq('status', 'PENDIENTE_COBRO')
+          .order('created_at', { ascending: false });
+        if (preSales && preSales.length > 0) {
+          const saleIds = preSales.map((s: any) => s.id);
+          const { data: dbItems } = await supabase
+            .from('sales_items')
+            .select('*')
+            .in('sale_id', saleIds);
+          const itemsBySale: Record<string, any[]> = {};
+          (dbItems || []).forEach((it: any) => {
+            if (!itemsBySale[it.sale_id]) itemsBySale[it.sale_id] = [];
+            itemsBySale[it.sale_id].push({
+              id: it.id,
+              sku: it.sku,
+              name: it.sku,
+              price: Number(it.price) || 0,
+              quantity: Number(it.quantity) || 0
+            });
+          });
+          legacyPreFacturas = preSales.map((pf: any) => ({
+            id: pf.id,
+            quote_number: pf.correlative || `PRE-${String(pf.id).slice(0, 6).toUpperCase()}`,
+            customer_name: pf.customer_name || 'Consumidor Final',
+            total: Number(pf.total) || 0,
+            status: 'PENDIENTE',
+            created_at: pf.created_at,
+            items: itemsBySale[pf.id] || [],
+            isPreFacturaSale: true
+          }));
+        }
+      } catch {}
+
+      setQuotationsList([...normalizedQuotes, ...legacyPreFacturas]);
     } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las cotizaciones' });
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las cotizaciones / pre-facturas' });
     } finally {
       setLoadingQuotes(false);
     }
   };
+
+  useEffect(() => {
+    fetchQuotations();
+  }, []);
 
   const fetchPendingDrafts = async () => {
     setLoadingQuotes(true);
@@ -332,12 +383,42 @@ export default function BillingPage() {
   };
 
   const loadQuotationToCart = (quote: any) => {
-    setCart(quote.items || []);
-    setCustomerName(quote.customer_name);
-    setSelectedQuoteId(quote.id);
-    setSelectedPendingSaleId(null);
+    const normalizedItems = (quote.items || []).map((it: any) => ({
+      id: it.id || it.sku || `item-${Date.now()}`,
+      sku: it.sku || it.id || 'ITEM',
+      name: it.name || it.sku || 'Producto',
+      price: Number(it.price) || 0,
+      quantity: Number(it.quantity) || 1
+    }));
+    setCart(normalizedItems);
+    setCustomerName(quote.customer_name || '');
+    if (quote.isPreFacturaSale) {
+      setSelectedPendingSaleId(quote.id);
+      setSelectedQuoteId(null);
+    } else {
+      setSelectedQuoteId(quote.id);
+      setSelectedPendingSaleId(null);
+    }
     setShowQuotationsDialog(false);
-    toast({ title: 'Cotización Cargada', description: `Se cargó el presupuesto ${quote.quote_number}` });
+    toast({
+      title: 'Pre-Factura Cargada en Caja 📋',
+      description: `Se cargó ${quote.quote_number || 'la cotización'} lista para cobrar y facturar.`
+    });
+  };
+
+  const deleteQuotationFromModal = async (quote: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (quote.isPreFacturaSale) {
+        await supabase.from('sales').update({ status: 'CANCELADA' }).eq('id', quote.id);
+      } else {
+        await supabase.from('quotations').delete().eq('id', quote.id);
+      }
+      setQuotationsList(prev => prev.filter(q => q.id !== quote.id));
+      toast({ title: 'Pre-Factura Eliminada', description: `Se removió ${quote.quote_number}.` });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err?.message || 'No se pudo eliminar.' });
+    }
   };
 
   const loadDraftToCart = (draft: any) => {
@@ -2412,12 +2493,14 @@ export default function BillingPage() {
         }
       }
 
-      // Marcar cotización como FACTURADA si se usó una
+      // Marcar cotización / pre-factura como FACTURADA si se usó una
       if (selectedQuoteId) {
         await supabase
           .from('quotations')
           .update({ status: 'FACTURADA' })
           .eq('id', selectedQuoteId);
+        setSelectedQuoteId(null);
+        fetchQuotations();
       }
 
       // Send DTE Email
@@ -3047,18 +3130,11 @@ export default function BillingPage() {
 
               <div className="flex gap-3">
                 <button 
-                  onClick={handleSaveDraft} 
-                  disabled={cart.length === 0 || isProcessing}
-                  className="flex-1 rounded-[11px] p-[15px] text-[13px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <Save size={16} /> GUARDAR EN ESPERA
-                </button>
-                <button 
                   onClick={handleOpenCheckout} 
                   disabled={cart.length === 0 || isProcessing}
-                  className="flex-1 rounded-[11px] p-[15px] text-[13px] font-bold text-white text-center cursor-pointer bg-blue-600/90 hover:bg-blue-600 dark:bg-[#5b5ef4]/35 dark:border dark:border-[#5b5ef4]/50 hover:dark:bg-[#5b5ef4]/50 tracking-[0.3px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full rounded-[11px] p-[15px] text-[13px] font-bold text-white text-center cursor-pointer bg-blue-600/90 hover:bg-blue-600 dark:bg-[#5b5ef4]/35 dark:border dark:border-[#5b5ef4]/50 hover:dark:bg-[#5b5ef4]/50 tracking-[0.3px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  <CheckCircle2 size={16} /> FINALIZAR
+                  <CheckCircle2 size={16} /> FINALIZAR COBRO Y FACTURAR
                 </button>
               </div>
             </div>
@@ -3066,24 +3142,21 @@ export default function BillingPage() {
             {/* Columna Derecha: Catálogo POS (Ancho: 7/12) */}
             <div className="lg:col-span-7 space-y-6">
               
-              <div className="flex justify-between items-center">
-                 <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Facturación Rápida</h2>
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                 <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Facturación Rápida (Caja)</h2>
                  <div className="flex gap-2">
                    <Button 
                      variant="outline" 
                      onClick={() => { fetchQuotations(); setShowQuotationsDialog(true); }}
-                     className="h-9 text-xs font-bold bg-white/50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors"
+                     className="h-9 text-xs font-bold bg-indigo-500/10 dark:bg-indigo-500/20 border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20 dark:hover:bg-indigo-500/30 rounded-xl transition-colors gap-2"
                    >
-                     <FileText size={14} className="mr-2" />
-                     Cotización
-                   </Button>
-                   <Button 
-                     variant="outline" 
-                     onClick={() => { fetchPendingDrafts(); setShowPendingDraftsDialog(true); }}
-                     className="h-9 text-xs font-bold bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 dark:hover:bg-amber-500/30 rounded-xl transition-colors"
-                   >
-                     <Clock size={14} className="mr-2" />
-                     Pendientes
+                     <FileText size={14} />
+                     Cotizaciones / Pre-Facturas
+                     {quotationsList.length > 0 && (
+                       <Badge className="bg-indigo-600 text-white text-[10px] font-black px-1.5 py-0 h-5 rounded-full">
+                         {quotationsList.length}
+                       </Badge>
+                     )}
                    </Button>
                  </div>
               </div>
@@ -4742,7 +4815,7 @@ export default function BillingPage() {
           )}
 
           <TabsContent value="cotizacion" className="space-y-6 outline-none">
-            <QuotationsTab />
+            <QuotationsTab onQuotationSaved={fetchQuotations} />
           </TabsContent>
         </Tabs>
       </div>
@@ -5340,45 +5413,105 @@ export default function BillingPage() {
         })()}
       </Dialog>
 
-      {/* Diálogo de Importar Cotización */}
+      {/* Diálogo de Importar Cotización / Pre-Factura */}
       <Dialog open={showQuotationsDialog} onOpenChange={setShowQuotationsDialog}>
         <DialogContent className="max-w-2xl bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 rounded-2xl p-6">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-800 dark:text-slate-200 font-headline flex items-center gap-2">
               <FileText size={20} className="text-indigo-500" />
-              Importar Cotización
+              Pre-Facturas y Cotizaciones Pendientes ({quotationsList.length})
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-400">
-              Seleccione un presupuesto pendiente para convertirlo en factura inmediatamente.
+              Selecciona una pre-factura creada desde Cotización para cargarla a caja y emitir la factura. El inventario solo se descuenta al cobrar.
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="h-[300px] mt-4">
+          <div className="relative mt-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <Input
+              placeholder="Buscar por cliente o código PRE-..."
+              value={quoteSearchTerm}
+              onChange={(e) => setQuoteSearchTerm(e.target.value)}
+              className="pl-9 h-9 text-xs rounded-xl"
+            />
+          </div>
+
+          <ScrollArea className="h-[340px] mt-3">
             {loadingQuotes ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2 py-12">
                 <Loader2 className="animate-spin" />
-                <p className="text-xs font-bold">Cargando cotizaciones...</p>
+                <p className="text-xs font-bold">Cargando pre-facturas...</p>
               </div>
-            ) : quotationsList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+            ) : quotationsList.filter(q =>
+                !quoteSearchTerm.trim() ||
+                (q.customer_name || '').toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
+                (q.quote_number || '').toLowerCase().includes(quoteSearchTerm.toLowerCase())
+              ).length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2 py-12">
                 <FileText size={32} className="opacity-50" />
-                <p className="text-xs font-bold">No hay cotizaciones pendientes</p>
+                <p className="text-xs font-bold">No hay pre-facturas / cotizaciones pendientes</p>
+                <p className="text-[11px] text-slate-500">Crea una desde la pestaña &quot;Cotización&quot; para enviarla a caja.</p>
               </div>
             ) : (
               <div className="space-y-3 pr-4">
-                {quotationsList.map(q => (
-                  <div key={q.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer transition-colors" onClick={() => loadQuotationToCart(q)}>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{q.quote_number}</h4>
-                      <p className="text-xs text-slate-400 mt-0.5"><Users size={12} className="inline mr-1"/>{q.customer_name}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">{new Date(q.created_at).toLocaleString()}</p>
-                    </div>
-                    <div className="mt-3 sm:mt-0 text-right">
-                      <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">${Number(q.total).toFixed(2)}</p>
-                      <Badge variant="outline" className="text-[9px] uppercase mt-1 bg-amber-500/10 text-amber-600 border-amber-500/20">{q.status}</Badge>
-                    </div>
-                  </div>
-                ))}
+                {quotationsList
+                  .filter(q =>
+                    !quoteSearchTerm.trim() ||
+                    (q.customer_name || '').toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
+                    (q.quote_number || '').toLowerCase().includes(quoteSearchTerm.toLowerCase())
+                  )
+                  .map(q => {
+                    const itemsArr = Array.isArray(q.items) ? q.items : [];
+                    return (
+                      <div
+                        key={q.id}
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl hover:border-indigo-400 dark:hover:border-indigo-600 transition-colors"
+                      >
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                              {q.quote_number}
+                            </span>
+                            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                              {q.customer_name || 'Cliente de Mostrador'}
+                            </h4>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            {itemsArr.length} {itemsArr.length === 1 ? 'producto' : 'productos'}
+                            {itemsArr.length > 0 ? `: ${itemsArr.slice(0, 2).map((i: any) => `${i.quantity}x ${i.name}`).join(', ')}${itemsArr.length > 2 ? '...' : ''}` : ''}
+                          </p>
+                          <p className="text-[10px] text-slate-400">{new Date(q.created_at).toLocaleString()}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+                          <div className="text-right mr-1">
+                            <p className="text-base font-mono font-black text-indigo-600 dark:text-indigo-400">${Number(q.total || 0).toFixed(2)}</p>
+                            <Badge variant="outline" className="text-[9px] uppercase bg-amber-500/10 text-amber-600 border-amber-500/20">
+                              Pre-Factura
+                            </Badge>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => loadQuotationToCart(q)}
+                            className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl gap-1.5"
+                          >
+                            <ShoppingCart size={13} /> Cargar a Caja
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => deleteQuotationFromModal(q, e)}
+                            className="h-9 w-9 text-slate-400 hover:text-rose-500 rounded-xl"
+                            title="Eliminar pre-factura"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </ScrollArea>
