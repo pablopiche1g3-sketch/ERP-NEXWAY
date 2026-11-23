@@ -45,6 +45,7 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import DocumentsTab from './components/DocumentsTab';
 import CloudStorageSettingsCard from './components/CloudStorageSettingsCard';
+import WarehousesAndRegistersTab from '@/app/logistica/components/WarehousesAndRegistersTab';
 import PrintDesignerTab from './components/PrintDesignerTab';
 import PerformanceThemesTab from './components/PerformanceThemesTab';
 import UserAccessManagementTab from './components/UserAccessManagementTab';
@@ -2738,69 +2739,9 @@ export default function ManagementPage() {
             )}
           </TabsContent>
 
-          {/* ═══════════ pestaña 6: SUCURSALES ═══════════════ */}
+          {/* ═══════════ pestaña 6: SUCURSALES, BODEGAS Y CAJAS (UNIFICADO) ═══════════════ */}
           <TabsContent value="branches" className="outline-none space-y-6">
-            <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
-              <CardHeader className="bg-slate-900 text-white p-6 dark:bg-slate-950">
-                <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
-                  <Building className="text-blue-400" size={20} />
-                  Gestión de Sucursales
-                </CardTitle>
-                <CardDescription className="text-slate-400 text-xs">Crea y administra las sucursales físicas de la empresa.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                <form onSubmit={handleCreateBranch} className="flex gap-4 items-end bg-slate-100 dark:bg-white/5 p-4 rounded-xl border border-slate-200 dark:border-white/10">
-                  <div className="flex-1 space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Nombre de la Sucursal</Label>
-                    <Input 
-                      placeholder="Ej. Sucursal Santa Tecla"
-                      value={newBranchName}
-                      onChange={e => setNewBranchName(e.target.value)}
-                      className="h-10 bg-white dark:bg-zinc-900 border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold"
-                    />
-                  </div>
-                  <Button type="submit" disabled={isSavingBranch || !newBranchName.trim()} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 rounded-xl">
-                    {isSavingBranch ? 'Creando...' : 'Crear Sucursal'}
-                  </Button>
-                </form>
-
-                <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-                  <Table>
-                    <TableHeader className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
-                      <TableRow>
-                        <TableHead className="text-[10px] font-black uppercase px-6">Nombre de la Sucursal</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase text-center w-24">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {branches.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={2} className="text-center py-8 text-xs text-muted-foreground">
-                            No hay sucursales registradas.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        branches.map((b: any) => (
-                          <TableRow key={b.id} className="hover:bg-slate-50 dark:hover:bg-white/5 border-b border-slate-200 dark:border-white/10">
-                            <TableCell className="px-6 py-4 font-bold text-xs">{b.name}</TableCell>
-                            <TableCell className="text-center">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleDeleteBranch(b.id)}
-                                className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-xl"
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+            <WarehousesAndRegistersTab />
           </TabsContent>
 
           {/* pestaña 7: DISEÑO DE IMPRESIÓN MODULAR (HTML/CSS TO PDF) */}

@@ -18,7 +18,8 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/supabase/client';
+import { useUser } from '@/supabase/use-user';
+import { fetchSystemAppUsers } from '@/lib/session-operator';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -46,10 +50,16 @@ interface QuotationsTabProps {
 
 export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps = {}) {
   const { toast } = useToast();
+  const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState('');
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
   const [savedQuotes, setSavedQuotes] = useState<any[]>([]);
   const [loadingSavedQuotes, setLoadingSavedQuotes] = useState(false);
+
+  // Vendedor / Asesor (mismo patrón que Facturación)
+  const [appUsersList, setAppUsersList] = useState<Array<{ id: string; email: string; full_name: string }>>([]);
+  const [selectedSellerEmail, setSelectedSellerEmail] = useState<string>('');
+  const [quoteSellerMeta, setQuoteSellerMeta] = useState<Record<string, { sellerEmail: string; sellerName: string }>>({});
 
   // Cliente Receptor (mismo patrón que Facturación)
   const [customers, setCustomers] = useState<any[]>([]);
@@ -96,12 +106,31 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
   const fetchSavedQuotes = async () => {
     setLoadingSavedQuotes(true);
     try {
-      const { data, error } = await supabase
-        .from('quotations')
-        .select('*')
-        .in('status', ['PENDIENTE', 'EN_ESPERA'])
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const [{ data, error }, { data: sellerMetaRow }] = await Promise.all([
+        supabase
+          .from('quotations')
+          .select('*')
+          .in('status', ['PENDIENTE', 'EN_ESPERA'])
+          .order('created_at', { ascending: false })
+          .limit(50),
+        supabase
+          .from('system_config')
+          .select('value')
+          .eq('key', 'quotations_seller_metadata')
+          .maybeSingle()
+      ]);
+
+      let localMeta: Record<string, { sellerEmail: string; sellerName: string }> = {};
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('nexway_quotations_seller_meta');
+          if (raw) localMeta = JSON.parse(raw);
+        } catch {}
+      }
+      const remoteMeta =
+        sellerMetaRow?.value && typeof sellerMetaRow.value === 'object' ? sellerMetaRow.value : {};
+      setQuoteSellerMeta({ ...localMeta, ...remoteMeta });
+
       if (!error && data) {
         setSavedQuotes(data);
       }
@@ -111,6 +140,24 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
       setLoadingSavedQuotes(false);
     }
   };
+
+  useEffect(() => {
+    fetchSystemAppUsers().then((users) => {
+      setAppUsersList(users);
+      if (users.length > 0) {
+        const loggedUser = users.find((u) => u.email?.toLowerCase() === user?.email?.toLowerCase());
+        if (loggedUser) {
+          setSelectedSellerEmail(loggedUser.email);
+        } else if (user?.email) {
+          setSelectedSellerEmail(user.email);
+        } else {
+          setSelectedSellerEmail(users[0].email);
+        }
+      } else if (user?.email) {
+        setSelectedSellerEmail(user.email);
+      }
+    });
+  }, [user]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -276,6 +323,32 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
         .single();
 
       if (error) throw error;
+
+      // Guardar vendedor/asesor asignado a la pre-factura (para atribución en Caja y Comisiones)
+      if (inserted?.id && selectedSellerEmail) {
+        const matchedSeller = appUsersList.find((u) => u.email === selectedSellerEmail);
+        const sellerEntry = {
+          sellerEmail: selectedSellerEmail,
+          sellerName: matchedSeller?.full_name || selectedSellerEmail
+        };
+        const nextMeta = { ...quoteSellerMeta, [inserted.id]: sellerEntry };
+        setQuoteSellerMeta(nextMeta);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('nexway_quotations_seller_meta', JSON.stringify(nextMeta));
+          } catch {}
+        }
+        try {
+          await supabase.from('system_config').upsert(
+            {
+              key: 'quotations_seller_metadata',
+              value: nextMeta,
+              updated_at: new Date().toISOString()
+            },
+            { onConflict: 'key' }
+          );
+        } catch {}
+      }
 
       const refCode = inserted?.id ? `PRE-${String(inserted.id).slice(0, 6).toUpperCase()}` : quoteNumber;
 
@@ -544,7 +617,25 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
                 </div>
               </div>
 
-              <div className="w-full sm:w-36 space-y-1.5">
+              <div className="w-full sm:w-48 space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-1">
+                  <UserCheck size={12} /> Vendedor / Asesor
+                </Label>
+                <Select value={selectedSellerEmail} onValueChange={setSelectedSellerEmail}>
+                  <SelectTrigger className="h-10 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 text-xs font-bold text-slate-800 dark:text-white">
+                    <SelectValue placeholder="Seleccionar Vendedor" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl dark:bg-[#0a0a14] dark:border-white/10">
+                    {appUsersList.map((u) => (
+                      <SelectItem key={u.id} value={u.email} className="text-xs">
+                        {u.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full sm:w-32 space-y-1.5">
                 <Label className="text-[10px] font-medium uppercase text-slate-500 dark:text-white/30 tracking-wider">
                   NIT / DUI
                 </Label>
@@ -814,6 +905,7 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
               {savedQuotes.map(q => {
                 const refCode = `PRE-${String(q.id).slice(0, 6).toUpperCase()}`;
                 const itemsArr = Array.isArray(q.items) ? q.items : [];
+                const sellerInfo = quoteSellerMeta[q.id];
                 return (
                   <div
                     key={q.id}
@@ -827,6 +919,11 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
                         <span className="font-bold text-xs text-slate-800 dark:text-white/90">
                           {q.customer_name || 'Cliente de Mostrador'}
                         </span>
+                        {sellerInfo?.sellerName && (
+                          <Badge variant="outline" className="text-[9px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/30 gap-1">
+                            <UserCheck size={10} /> {sellerInfo.sellerName}
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="text-[9px] font-bold uppercase text-amber-600 border-amber-500/30">
                           {itemsArr.length} {itemsArr.length === 1 ? 'producto' : 'productos'}
                         </Badge>

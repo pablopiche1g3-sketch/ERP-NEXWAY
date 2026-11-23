@@ -4,11 +4,12 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import InventoryTab from './components/InventoryTab';
+import WarehousesAndRegistersTab from './components/WarehousesAndRegistersTab';
 import TransfersTab from './components/TransfersTab';
 import KardexValuedTab from './components/KardexValuedTab';
 import ProductionTab from './components/ProductionTab';
 import FractionAndDischargesTab from './components/FractionAndDischargesTab';
-import { Package, Factory, Scissors, ArrowLeftRight, BarChart3 } from 'lucide-react';
+import { Package, Factory, Scissors, ArrowLeftRight, BarChart3, Warehouse } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 
 function LogisticaContent() {
@@ -49,33 +50,42 @@ function LogisticaContent() {
             <Package size={15} /> 1. Inventario & Catálogo
           </TabsTrigger>
           <TabsTrigger 
+            value="bodegas" 
+            className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
+          >
+            <Warehouse size={15} /> 2. Bodegas, Sucursales y Cajas
+          </TabsTrigger>
+          <TabsTrigger 
             value="fraccionamiento" 
             className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <Scissors size={15} /> 2. Fraccionamiento & Envasado
+            <Scissors size={15} /> 3. Fraccionamiento & Envasado
           </TabsTrigger>
           <TabsTrigger 
             value="produccion" 
             className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <Factory size={15} /> 3. Producción & Fórmulas
+            <Factory size={15} /> 4. Producción & Fórmulas
           </TabsTrigger>
           <TabsTrigger 
             value="traslados" 
             className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <ArrowLeftRight size={15} /> 4. Traslados entre Bodegas
+            <ArrowLeftRight size={15} /> 5. Traslados entre Bodegas
           </TabsTrigger>
           <TabsTrigger 
             value="kardex-valued" 
             className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5"
           >
-            <BarChart3 size={15} /> 5. Kardex Valorizado FIFO
+            <BarChart3 size={15} /> 6. Kardex Valorizado FIFO
           </TabsTrigger>
         </TabsList>
         
         <TabsContent value="inventario" className="outline-none">
           <InventoryTab />
+        </TabsContent>
+        <TabsContent value="bodegas" className="outline-none">
+          <WarehousesAndRegistersTab />
         </TabsContent>
         <TabsContent value="fraccionamiento" className="outline-none">
           <FractionAndDischargesTab />

@@ -2951,63 +2951,33 @@ export default function InventoryTab() {
                
                {/* Columna Izquierda: Crear Bodega y Vincular Producto */}
                <div className="lg:col-span-4 space-y-6">
-                 {/* Tarjeta 1: Crear Bodega */}
-                 <Card className="bg-card border-border shadow-sm rounded-2xl h-fit">
+                 {/* Tarjeta 1: Acceso Directo al Centro Unificado de Bodegas y Cajas */}
+                 <Card className="bg-card border-indigo-500/30 shadow-sm rounded-2xl h-fit">
                    <CardHeader className="p-5">
                      <CardTitle className="text-sm font-bold flex items-center gap-2">
-                       <Warehouse size={16} className="text-blue-600" /> Crear Almacén / Bodega
+                       <Warehouse size={16} className="text-indigo-500" /> Administración de Bodegas y Cajas
                      </CardTitle>
-                     <CardDescription className="text-xs">Configure puntos de almacenamiento físico.</CardDescription>
+                     <CardDescription className="text-xs">
+                       La creación, edición y vínculo de Sucursales, Bodegas y Cajas POS ahora está centralizada en la pestaña superior <strong>2. Bodegas, Sucursales y Cajas</strong>.
+                     </CardDescription>
                    </CardHeader>
-                   <CardContent className="p-5 pt-0 space-y-4">
-                     <div className="space-y-2">
-                       <Label className="text-[10px] font-bold uppercase text-slate-400">Nombre de la Bodega</Label>
-                       <Input 
-                         placeholder="Ej. Sucursal Santa Tecla..." 
-                         value={warehouseName}
-                         onChange={e => setWarehouseName(e.target.value)}
-                         className="bg-background border-input h-10 text-xs font-bold"
-                       />
-                     </div>
-                     
-                     <div className="space-y-2">
-                       <Label className="text-[10px] font-bold uppercase text-slate-400">Sucursal Asociada</Label>
-                       <Select 
-                         value={warehouseBranchId}
-                         onValueChange={setWarehouseBranchId}
-                       >
-                         <SelectTrigger className="h-10 bg-background border-input rounded-xl text-xs font-bold">
-                           <SelectValue placeholder="Seleccione sucursal..." />
-                         </SelectTrigger>
-                         <SelectContent>
-                           {branches?.map((b: any) => (
-                             <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
-                           ))}
-                         </SelectContent>
-                       </Select>
-                     </div>
-
-                     <Button onClick={handleCreateWarehouse} className="w-full bg-blue-600 font-bold rounded-xl text-xs text-white h-10">
-                       CREAR BODEGA
+                   <CardContent className="p-5 pt-0 space-y-3">
+                     <Button
+                       type="button"
+                       onClick={() => router.push('/logistica?tab=bodegas')}
+                       className="w-full bg-indigo-600 hover:bg-indigo-700 font-bold rounded-xl text-xs text-white h-10"
+                     >
+                       Ir a Bodegas, Sucursales y Cajas →
                      </Button>
-
-                     <div className="pt-2">
-                       <Label className="text-[9px] font-black uppercase text-slate-400 block mb-2">Bodegas Activas</Label>
-                       <div className="space-y-1">
-                         {warehouses?.length === 0 ? (
-                           <p className="text-[9px] text-slate-400 italic">No hay bodegas configuradas.</p>
-                         ) : warehouses?.map((wh: any) => (
-                           <div key={wh.id} className="flex justify-between items-center bg-muted/40 p-2 rounded-lg border border-border">
-                             <div className="flex flex-col">
-                               <span className="text-[11px] font-bold text-slate-700 dark:text-foreground">{wh.name}</span>
-                               <span className="text-[9px] text-slate-400">
-                                 {branches.find((b: any) => b.id === wh.branch_id)?.name || 'Sin Sucursal'}
-                               </span>
-                             </div>
-                             <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-rose-500 rounded-md" onClick={() => handleDeleteWarehouse(wh.id)}>
-                               <Trash2 size={12} />
-                             </Button>
-                           </div>
+                     <div className="pt-1">
+                       <Label className="text-[9px] font-black uppercase text-muted-foreground block mb-1.5">
+                         Bodegas Activas ({warehouses?.length || 0})
+                       </Label>
+                       <div className="flex flex-wrap gap-1.5">
+                         {warehouses?.map((wh: any) => (
+                           <Badge key={wh.id} variant="outline" className="text-[10px]">
+                             {wh.name}
+                           </Badge>
                          ))}
                        </div>
                      </div>

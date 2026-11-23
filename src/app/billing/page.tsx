@@ -250,16 +250,36 @@ export default function BillingPage() {
   const fetchQuotations = async () => {
     setLoadingQuotes(true);
     try {
-      const { data: quotesData, error } = await supabase
-        .from('quotations')
-        .select('*')
-        .in('status', ['PENDIENTE', 'EN_ESPERA'])
-        .order('created_at', { ascending: false });
+      const [{ data: quotesData, error }, { data: sellerMetaRow }] = await Promise.all([
+        supabase
+          .from('quotations')
+          .select('*')
+          .in('status', ['PENDIENTE', 'EN_ESPERA'])
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('system_config')
+          .select('value')
+          .eq('key', 'quotations_seller_metadata')
+          .maybeSingle()
+      ]);
       if (error) throw error;
+
+      let localSellerMeta: Record<string, { sellerEmail?: string; sellerName?: string }> = {};
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('nexway_quotations_seller_meta');
+          if (raw) localSellerMeta = JSON.parse(raw);
+        } catch {}
+      }
+      const remoteSellerMeta: Record<string, { sellerEmail?: string; sellerName?: string }> =
+        sellerMetaRow?.value && typeof sellerMetaRow.value === 'object' ? sellerMetaRow.value : {};
+      const combinedSellerMeta = { ...localSellerMeta, ...remoteSellerMeta };
 
       const normalizedQuotes = (quotesData || []).map((q: any) => ({
         ...q,
         quote_number: q.quote_number || `PRE-${String(q.id).slice(0, 6).toUpperCase()}`,
+        sellerEmail: combinedSellerMeta[q.id]?.sellerEmail || '',
+        sellerName: combinedSellerMeta[q.id]?.sellerName || '',
         isPreFacturaSale: false
       }));
 
@@ -396,6 +416,9 @@ export default function BillingPage() {
     }));
     setCart(normalizedItems);
     setCustomerName(quote.customer_name || '');
+    if (quote.sellerEmail) {
+      setSelectedSellerEmail(quote.sellerEmail);
+    }
     if (quote.isPreFacturaSale) {
       setSelectedPendingSaleId(quote.id);
       setSelectedQuoteId(null);
@@ -406,7 +429,7 @@ export default function BillingPage() {
     setShowQuotationsDialog(false);
     toast({
       title: 'Pre-Factura Cargada en Caja 📋',
-      description: `Se cargó ${quote.quote_number || 'la cotización'} lista para cobrar y facturar.`
+      description: `Se cargó ${quote.quote_number || 'la cotización'}${quote.sellerName ? ` (Vendedor: ${quote.sellerName})` : ''} lista para cobrar y facturar.`
     });
   };
 
@@ -5578,6 +5601,11 @@ export default function BillingPage() {
                             <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
                               {q.customer_name || 'Cliente de Mostrador'}
                             </h4>
+                            {q.sellerName && (
+                              <Badge variant="outline" className="text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/30 gap-1">
+                                <UserCheck size={10} /> {q.sellerName}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                             {itemsArr.length} {itemsArr.length === 1 ? 'producto' : 'productos'}
