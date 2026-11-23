@@ -59,7 +59,12 @@ interface PurchaseItem {
 
 type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Credito';
 
-export default function PurchasesTab() {
+interface PurchasesTabProps {
+  initialImportedDte?: any | null;
+  onConsumeImportedDte?: () => void;
+}
+
+export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte }: PurchasesTabProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -220,13 +225,31 @@ export default function PurchasesTab() {
         .order('created_at', { ascending: false });
       setPurchasesHistory(purchHistoryData || []);
 
-      // Cargar catálogo de DTEs pendientes
-      const { data: dteData } = await supabase
-        .from('facturas_proveedores_json')
-        .select('*')
-        .eq('estado', 'PENDIENTE_PROCESAR')
-        .order('created_at', { ascending: false });
-      setPendingDtes(dteData || []);
+      // Cargar catálogo de DTEs pendientes desde Gmail (system_config) y tabla legacy si existe
+      const mergedDtes: any[] = [];
+      try {
+        const { data: gmailDteCfg } = await supabase
+          .from('system_config')
+          .select('value')
+          .eq('key', 'gmail_pending_dtes')
+          .maybeSingle();
+        if (Array.isArray(gmailDteCfg?.value)) {
+          gmailDteCfg.value
+            .filter((d: any) => d && d.estado !== 'PROCESADO')
+            .forEach((d: any) => mergedDtes.push(d));
+        }
+      } catch {}
+
+      try {
+        const { data: dteData } = await supabase
+          .from('facturas_proveedores_json')
+          .select('*')
+          .eq('estado', 'PENDIENTE_PROCESAR')
+          .order('created_at', { ascending: false });
+        (dteData || []).forEach((d: any) => mergedDtes.push(d));
+      } catch {}
+
+      setPendingDtes(mergedDtes);
 
       // Cargar usuarios del sistema para selector de encargado
       const appUsers = await fetchSystemAppUsers();
@@ -264,11 +287,11 @@ export default function PurchasesTab() {
     }
   };
 
-  const handleSelectDte = (id: string) => {
+  const handleSelectDte = (id: string, explicitDte?: any) => {
     setSelectedDteId(id);
     if (id === 'none') return;
     
-    const dte = pendingDtes.find(d => d.id === id);
+    const dte = explicitDte || pendingDtes.find(d => d.id === id);
     if (!dte) return;
 
     const payload = dte.payload_json || {};
@@ -327,6 +350,18 @@ export default function PurchasesTab() {
       toast({ title: "Catálogo DTE Aplicado", description: "El formulario se ha rellenado con los datos del DTE. Por favor revise antes de guardar." });
     }
   };
+
+  useEffect(() => {
+    if (initialImportedDte && !loadingData) {
+      setPendingDtes(prev => {
+        if (prev.some(d => d.id === initialImportedDte.id)) return prev;
+        return [initialImportedDte, ...prev];
+      });
+      setActiveTab('registro');
+      handleSelectDte(initialImportedDte.id, initialImportedDte);
+      onConsumeImportedDte?.();
+    }
+  }, [initialImportedDte, loadingData]);
 
   const handleSaveManualMapping = async () => {
     if (!supplierCodeInput.trim() || !internalSkuInput.trim()) return;

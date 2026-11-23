@@ -1,622 +1,807 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Search, Paperclip, Clock, Star, Inbox, Send, File, 
-  Tag, MoreVertical, Plus, ChevronRight, ChevronLeft, Settings, 
-  HelpCircle, Grid, Image as ImageIcon, FileText,
-  AlertCircle, SlidersHorizontal, RotateCcw, Database, X, Reply, Check,
-  Trash2, ShieldCheck
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Search,
+  Paperclip,
+  Star,
+  Inbox,
+  Send,
+  FileJson,
+  FileText,
+  RefreshCw,
+  LogOut,
+  CheckCircle2,
+  Zap,
+  Mail,
+  X,
+  Reply,
+  Loader2,
+  Download,
+  ShieldCheck,
+  AlertTriangle,
+  Copy
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from "@/components/ui/button";
-import { logNexbotEvent } from '@/contexts/BmsContext';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
 
-interface Attachment {
-  name: string;
-  type: 'pdf' | 'image' | 'xml';
+export interface GmailAttachment {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  isDteJson: boolean;
 }
 
-interface EmailMessage {
+export interface GmailMessageItem {
   id: string;
+  threadId: string;
   sender: string;
-  body: string;
-  date: string;
-}
-
-interface EmailThread {
-  id: string;
-  sender: string;
+  to: string;
   subject: string;
   date: string;
+  internalDate: number;
+  snippet: string;
+  body: string;
   isRead: boolean;
   isStarred: boolean;
-  snippet: string;
-  folder?: 'recibidos' | 'enviados';
-  attachments?: Attachment[];
-  messages: EmailMessage[];
+  labelIds: string[];
+  attachments: GmailAttachment[];
+  hasDteJson: boolean;
 }
 
-const mockThreads: EmailThread[] = [
-  {
-    id: '1',
-    sender: 'Proveedor de Materiales <ventas@materiales.com>',
-    subject: 'Cotización solicitada para proyecto norte',
-    date: '10:30',
-    isRead: false,
-    isStarred: true,
-    folder: 'recibidos',
-    snippet: 'Adjunto la cotización para los insumos solicitados el día de ayer. Quedo atento a comentarios...',
-    attachments: [
-      { name: 'Cotizacion_01.pdf', type: 'pdf' }
-    ],
-    messages: [
-      {
-        id: 'm1',
-        sender: 'Proveedor de Materiales <ventas@materiales.com>',
-        body: 'Buenos días,\n\nAdjunto la cotización para los insumos solicitados el día de ayer. Quedo atento a sus comentarios para proceder con el despacho.\n\nSaludos.',
-        date: '10:30 AM'
-      }
-    ]
-  },
-  {
-    id: '2',
-    sender: 'Facturación Electrónica <facturas@proveedor.com>',
-    subject: 'Nueva Factura DTE-001923',
-    date: 'Ayer',
-    isRead: false,
-    isStarred: false,
-    folder: 'recibidos',
-    snippet: 'Se ha emitido un nuevo Comprobante de Crédito Fiscal a su nombre. Puede revisar los documentos adjuntos...',
-    attachments: [
-      { name: 'DTE-001923.pdf', type: 'pdf' },
-      { name: 'DTE-001923.xml', type: 'xml' }
-    ],
-    messages: [
-      {
-        id: 'm2',
-        sender: 'Facturación Electrónica <facturas@proveedor.com>',
-        body: 'Estimado cliente,\n\nSe ha emitido un nuevo Comprobante de Crédito Fiscal a su nombre. Puede revisar los documentos adjuntos (PDF y XML).\n\nAtentamente,\nDepartamento de Facturación',
-        date: 'Ayer 15:45'
-      }
-    ]
-  }
-];
+interface GmailClientProps {
+  context?: 'compras' | 'crm' | 'gerencia';
+  onImportDteToPurchase?: (dte: any) => void;
+}
 
-export default function GmailClient({ context = 'compras' }: { context?: 'compras' | 'crm' | 'gerencia' }) {
+export default function GmailClient({ context = 'compras', onImportDteToPurchase }: GmailClientProps) {
+  const { toast } = useToast();
+
+  // Estado de conexión OAuth
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [configured, setConfigured] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
+
+  // Bandeja y navegación
+  const [activeFolder, setActiveFolder] = useState<'dte' | 'recibidos' | 'destacados' | 'enviados'>(
+    context === 'compras' ? 'dte' : 'recibidos'
+  );
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFolder, setActiveFolder] = useState<'recibidos' | 'destacados' | 'enviados'>('recibidos');
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [threads, setThreads] = useState<EmailThread[]>(mockThreads);
-  
-  // Compose State
+  const [messages, setMessages] = useState<GmailMessageItem[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [selectedMsg, setSelectedMsg] = useState<GmailMessageItem | null>(null);
+
+  // DTEs ya importados a Compras
+  const [processedMessageIds, setProcessedMessageIds] = useState<Set<string>>(new Set());
+  const [importingId, setImportingId] = useState<string | null>(null);
+  const [syncingBatch, setSyncingBatch] = useState(false);
+
+  // Redactar / Responder
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [composeTo, setComposeTo] = useState('');
   const [composeSubject, setComposeSubject] = useState('');
   const [composeBody, setComposeBody] = useState('');
+  const [composeThreadId, setComposeThreadId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
 
-  // View State
-  const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
-
-  const { toast } = useToast();
-
-  // Cargar correos DTE enviados desde la simulación
-  const loadSentDteEmails = () => {
-    if (typeof window === 'undefined') return;
+  const loadProcessedDteIds = useCallback(async () => {
     try {
-      const sentLogs = JSON.parse(localStorage.getItem('nexway_sent_dte_emails') || '[]');
-      if (Array.isArray(sentLogs) && sentLogs.length > 0) {
-        const mappedSent: EmailThread[] = sentLogs.map((entry: any) => {
-          const dt = entry.sentAt ? new Date(entry.sentAt) : new Date();
-          return {
-            id: entry.id || `sent-${entry.correlative}`,
-            sender: `Para: ${entry.customerName} <${entry.recipientEmail}>`,
-            subject: `Factura Electrónica ${entry.correlative} (${entry.docType}) - $${Number(entry.total || 0).toFixed(2)}`,
-            date: dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isRead: true,
-            isStarred: false,
-            folder: 'enviados',
-            snippet: `DTE emitido y firmado electrónicamente. Cód. Generación: ${entry.codigoGeneracion || 'N/A'}`,
-            attachments: [
-              { name: `${entry.correlative}.pdf`, type: 'pdf' },
-              { name: `${entry.correlative}.json`, type: 'xml' }
-            ],
-            messages: [
-              {
-                id: `msg-${entry.id}`,
-                sender: `Facturación Electrónica NexWay <facturacion.dte@nexway.com.sv> -> ${entry.recipientEmail}`,
-                body: `Estimado(a) ${entry.customerName},\n\nSe ha emitido exitosamente su Documento Tributario Electrónico (${entry.docType}).\n\n• Número de Control: ${entry.correlative}\n• Código de Generación: ${entry.codigoGeneracion || 'N/A'}\n• Sello de Recepción MH: ${entry.selloRecepcion || 'N/A'}\n• Monto Total Facturado: $${Number(entry.total || 0).toFixed(2)} USD\n\nAdjunto encontrará la representación gráfica (PDF) y el archivo estructurado (JSON) verificados ante el Ministerio de Hacienda.\n\nAtentamente,\nNEXWAY ERP S.A. DE C.V.`,
-                date: dt.toLocaleString('es-SV')
-              }
-            ]
-          };
-        });
-
-        setThreads(prev => {
-          const inboxOnly = prev.filter(t => t.folder !== 'enviados');
-          return [...inboxOnly, ...mappedSent];
-        });
+      const { data } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'gmail_pending_dtes')
+        .maybeSingle();
+      if (Array.isArray(data?.value)) {
+        const ids = new Set<string>(
+          data.value.map((d: any) => d.gmail_message_id).filter(Boolean)
+        );
+        setProcessedMessageIds(ids);
       }
-    } catch (e) {
-      console.warn('Error leyendo nexway_sent_dte_emails:', e);
+    } catch {}
+  }, []);
+
+  const fetchMessages = useCallback(
+    async (folder = activeFolder, q = searchTerm) => {
+      setLoadingMessages(true);
+      try {
+        const params = new URLSearchParams({
+          folder,
+          maxResults: '25'
+        });
+        if (q.trim()) params.set('q', q.trim());
+
+        const res = await fetch(`/api/gmail/messages?${params.toString()}`);
+        if (res.status === 401) {
+          setConnected(false);
+          setMessages([]);
+          return;
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error cargando correos');
+        setMessages(data.messages || []);
+        if (data.email) setConnectedEmail(data.email);
+      } catch (err: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Error de Gmail',
+          description: err?.message || 'No se pudieron obtener los correos.'
+        });
+      } finally {
+        setLoadingMessages(false);
+      }
+    },
+    [activeFolder, searchTerm, toast]
+  );
+
+  const checkStatus = useCallback(async () => {
+    setCheckingStatus(true);
+    try {
+      const res = await fetch('/api/gmail/status');
+      const data = await res.json();
+      setConfigured(Boolean(data.configured));
+      setConnected(Boolean(data.connected));
+      setConnectedEmail(data.email || null);
+      if (data.connected) {
+        await Promise.all([fetchMessages(activeFolder, ''), loadProcessedDteIds()]);
+      }
+    } catch {
+      setConnected(false);
+    } finally {
+      setCheckingStatus(false);
     }
-  };
+  }, [activeFolder, fetchMessages, loadProcessedDteIds]);
 
   useEffect(() => {
-    loadSentDteEmails();
-  }, [activeFolder]);
+    checkStatus();
+  }, []);
 
-  const filteredThreads = useMemo(() => {
-    return threads.filter(thread => {
-      const folderMatch =
-        activeFolder === 'destacados'
-          ? thread.isStarred
-          : activeFolder === 'enviados'
-          ? thread.folder === 'enviados'
-          : thread.folder !== 'enviados';
-
-      if (!folderMatch) return false;
-
-      if (!searchTerm.trim()) return true;
-      const q = searchTerm.toLowerCase();
-      return (
-        thread.subject.toLowerCase().includes(q) ||
-        thread.sender.toLowerCase().includes(q) ||
-        thread.snippet.toLowerCase().includes(q)
-      );
-    });
-  }, [threads, activeFolder, searchTerm]);
-
-  const handleDeleteThread = (threadId: string, event?: React.MouseEvent) => {
-    if (event) event.stopPropagation();
-    setThreads(prev => prev.filter(t => t.id !== threadId));
-    if (selectedThread?.id === threadId) {
-      setSelectedThread(null);
+  // Notificar resultado tras regresar de Google OAuth
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gmail_connected') === '1') {
+      toast({
+        title: 'Gmail Conectado Exitosamente ✓',
+        description: 'Tu correo corporativo ya está listo para importar facturas DTE en 1 clic.'
+      });
+    } else if (params.get('gmail_error') === 'missing_config') {
+      toast({
+        variant: 'destructive',
+        title: 'Faltan credenciales de Google OAuth',
+        description: 'Agrega GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en tu archivo de entorno.'
+      });
     }
-    toast({ title: 'Correo eliminado', description: 'El correo ha sido eliminado.' });
+  }, [toast]);
+
+  const handleConnectGoogle = () => {
+    const returnPath = context === 'compras' ? '/compras?tab=gmail' : window.location.pathname;
+    window.location.href = `/api/gmail/auth?returnTo=${encodeURIComponent(returnPath)}`;
   };
 
-  const handleStoreInCatalog = async (thread: EmailThread, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setProcessingId(thread.id);
-    
+  const handleDisconnect = async () => {
+    await fetch('/api/gmail/status', { method: 'DELETE' });
+    setConnected(false);
+    setConnectedEmail(null);
+    setMessages([]);
+    setSelectedMsg(null);
+    toast({ title: 'Cuenta Desconectada', description: 'Se cerró la sesión de Gmail en el ERP.' });
+  };
+
+  const saveDteToQueue = async (dte: any) => {
+    const { data: existingCfg } = await supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', 'gmail_pending_dtes')
+      .maybeSingle();
+
+    const currentList: any[] = Array.isArray(existingCfg?.value) ? existingCfg.value : [];
+    const alreadyExists = currentList.some(
+      (item) =>
+        (dte.codigo_generacion && item.codigo_generacion === dte.codigo_generacion) ||
+        (dte.gmail_message_id && item.gmail_message_id === dte.gmail_message_id)
+    );
+
+    const nextList = alreadyExists ? currentList : [dte, ...currentList].slice(0, 100);
+
+    await supabase.from('system_config').upsert(
+      {
+        key: 'gmail_pending_dtes',
+        value: nextList,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'key' }
+    );
+
+    setProcessedMessageIds((prev) => new Set(prev).add(dte.gmail_message_id));
+    return { alreadyExists, dte };
+  };
+
+  const handleImportDteFromMessage = async (msg: GmailMessageItem, att: GmailAttachment, openInPurchases = true) => {
+    setImportingId(msg.id);
     try {
-      const mockPayload = {
-        identificacion: { numeroControl: `DTE-${Math.floor(Math.random() * 10000)}` },
-        emisor: { nombre: thread.sender.split('<')[0].trim(), nit: '0614-010101-101-1' },
-        cuerpoDocumento: [
-          { codigo: 'PROD-01', descripcion: 'Producto Simulado 1', cantidad: 10, precioUni: 25.50 },
-          { codigo: 'PROD-02', descripcion: 'Producto Simulado 2', cantidad: 5, precioUni: 12.00 }
-        ],
-        resumen: { totalPagar: 315.00 }
-      };
-
-      const { error } = await supabase.from('facturas_proveedores_json').insert({
-        proveedor_nit: mockPayload.emisor.nit,
-        proveedor_nombre: mockPayload.emisor.nombre,
-        documento_numero: mockPayload.identificacion.numeroControl,
-        payload_json: mockPayload,
-        estado: 'PENDIENTE_PROCESAR'
+      const params = new URLSearchParams({
+        messageId: msg.id,
+        attachmentId: att.attachmentId,
+        filename: att.filename,
+        parseDte: '1'
       });
+      const res = await fetch(`/api/gmail/attachments?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok || !data.dte) {
+        throw new Error(data.error || 'El archivo JSON no tiene un formato DTE válido.');
+      }
 
-      if (error) throw error;
+      const { alreadyExists, dte } = await saveDteToQueue(data.dte);
 
-      await logNexbotEvent(
-        'compras',
-        'DTE_CATALOGO',
-        { nit: mockPayload.emisor.nit, dte: mockPayload.identificacion.numeroControl },
-        `Se pre-cargó exitosamente el DTE ${mockPayload.identificacion.numeroControl} del proveedor ${mockPayload.emisor.nombre} desde la bandeja de Gmail hacia el Catálogo de Compras.`
-      );
+      // Marcar correo como leído en Gmail
+      fetch('/api/gmail/labels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: msg.id, removeLabelIds: ['UNREAD'] })
+      }).catch(() => {});
+
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, isRead: true } : m)));
 
       toast({
-        title: "DTE Almacenado",
-        description: `El documento ${mockPayload.identificacion.numeroControl} se ha enviado al Catálogo de Compras.`
+        title: alreadyExists ? 'DTE Ya Estaba en Cola — Cargando...' : '⚡ Factura DTE Importada a Compras',
+        description: `${dte.proveedor_nombre} · ${dte.documento_numero} ($${Number(dte.total || 0).toFixed(2)})`
       });
+
+      if (openInPurchases) {
+        if (onImportDteToPurchase) {
+          onImportDteToPurchase(dte);
+        } else if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('nexway:import-gmail-dte', { detail: dte }));
+        }
+      }
     } catch (err: any) {
-      console.error(err);
       toast({
-        variant: "destructive",
-        title: "Error al almacenar",
-        description: err.message || "No se pudo guardar el DTE en el catálogo."
+        variant: 'destructive',
+        title: 'No se pudo leer el DTE',
+        description: err?.message || 'Verifica que el adjunto JSON corresponda a una factura DTE.'
       });
     } finally {
-      setProcessingId(null);
+      setImportingId(null);
     }
   };
 
-  const toggleReadStatus = async (threadId: string, currentStatus: boolean, event?: React.MouseEvent) => {
-    if (event) event.stopPropagation();
-    
-    setThreads(prev => prev.map(t => t.id === threadId ? { ...t, isRead: !currentStatus } : t));
-    
+  const handleSyncAllDtes = async () => {
+    setSyncingBatch(true);
     try {
-      const token = localStorage.getItem('google_access_token');
-      if (token) {
-        await fetch('/api/gmail/labels', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            messageId: threadId,
-            addLabelIds: !currentStatus ? [] : ['UNREAD'],
-            removeLabelIds: !currentStatus ? ['UNREAD'] : []
-          })
-        });
+      const res = await fetch('/api/gmail/messages?folder=dte&maxResults=20');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error escaneando correos DTE');
+
+      const dteMessages: GmailMessageItem[] = (data.messages || []).filter((m: GmailMessageItem) => m.hasDteJson);
+      let importedCount = 0;
+
+      for (const msg of dteMessages) {
+        if (processedMessageIds.has(msg.id)) continue;
+        const jsonAtt = msg.attachments.find((a) => a.isDteJson);
+        if (!jsonAtt) continue;
+        try {
+          const attRes = await fetch(
+            `/api/gmail/attachments?messageId=${encodeURIComponent(msg.id)}&attachmentId=${encodeURIComponent(jsonAtt.attachmentId)}&filename=${encodeURIComponent(jsonAtt.filename)}&parseDte=1`
+          );
+          const attData = await attRes.json();
+          if (attRes.ok && attData.dte) {
+            const { alreadyExists } = await saveDteToQueue(attData.dte);
+            if (!alreadyExists) importedCount++;
+          }
+        } catch {}
       }
-    } catch (e) {
-      console.error("Error updating labels", e);
-      setThreads(prev => prev.map(t => t.id === threadId ? { ...t, isRead: currentStatus } : t));
+
+      await fetchMessages(activeFolder, searchTerm);
+      toast({
+        title: importedCount > 0 ? `⚡ ${importedCount} Factura(s) DTE Sincronizadas` : 'Bandeja DTE al Día ✓',
+        description:
+          importedCount > 0
+            ? 'Ya están disponibles en Compras → Registro de Compra → "Importar Catálogo DTE".'
+            : 'No se encontraron nuevas facturas DTE sin procesar.'
+      });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al sincronizar', description: err?.message });
+    } finally {
+      setSyncingBatch(false);
     }
   };
 
-  const toggleStarStatus = (threadId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setThreads(prev => prev.map(t => t.id === threadId ? { ...t, isStarred: !t.isStarred } : t));
-  };
-
-  const handleSendEmail = async () => {
-    if (!composeTo || !composeSubject || !composeBody) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Complete todos los campos.' });
-      return;
-    }
-
+  const handleSendEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!composeTo.trim() || !composeSubject.trim()) return;
     setSending(true);
     try {
-      const token = localStorage.getItem('google_access_token');
-      if (token) {
-        const res = await fetch('/api/gmail/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            to: composeTo,
-            subject: composeSubject,
-            message: composeBody
-          })
-        });
-        if (!res.ok) throw new Error('Error al enviar correo.');
-      }
+      const res = await fetch('/api/gmail/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: composeTo.trim(),
+          subject: composeSubject.trim(),
+          message: composeBody.replace(/\n/g, '<br/>'),
+          threadId: composeThreadId
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo enviar el correo');
 
-      // Agregar a la carpeta de enviados local
-      const newSentThread: EmailThread = {
-        id: `sent-${Date.now()}`,
-        sender: `Para: ${composeTo}`,
-        subject: composeSubject,
-        date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isRead: true,
-        isStarred: false,
-        folder: 'enviados',
-        snippet: composeBody.slice(0, 90),
-        messages: [
-          {
-            id: `m-${Date.now()}`,
-            sender: `Yo -> ${composeTo}`,
-            body: composeBody,
-            date: new Date().toLocaleString('es-SV')
-          }
-        ]
-      };
-      setThreads(prev => [newSentThread, ...prev]);
-      
-      toast({ title: 'Enviado', description: 'El mensaje ha sido enviado exitosamente.' });
+      toast({ title: 'Correo Enviado ✓', description: `Mensaje enviado a ${composeTo}.` });
       setIsComposeOpen(false);
       setComposeTo('');
       setComposeSubject('');
       setComposeBody('');
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error', description: e.message });
+      setComposeThreadId(undefined);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al enviar', description: err?.message });
     } finally {
       setSending(false);
     }
   };
 
-  const openReply = (thread: EmailThread) => {
-    const emailMatch = thread.sender.match(/<(.+)>/);
-    const replyTo = emailMatch ? emailMatch[1] : thread.sender;
-    
-    setComposeTo(replyTo);
-    setComposeSubject(thread.subject.startsWith('Re:') ? thread.subject : `Re: ${thread.subject}`);
-    setComposeBody('');
-    setIsComposeOpen(true);
+  const formatShortDate = (internalDate: number, fallback: string) => {
+    if (!internalDate) return fallback?.slice(0, 16) || '';
+    const d = new Date(internalDate);
+    const today = new Date();
+    const isToday = d.toDateString() === today.toDateString();
+    return isToday
+      ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString('es-SV', { day: '2-digit', month: 'short' });
   };
 
-  const renderComposeModal = () => {
-    if (!isComposeOpen) return null;
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tu-dominio.vercel.app';
+  const callbackUrl = `${origin}/api/gmail/callback`;
+
+  if (checkingStatus) {
     return (
-      <div className="absolute bottom-0 right-10 w-[400px] bg-white dark:bg-[#202124] rounded-t-xl shadow-2xl border border-slate-200 dark:border-white/10 z-50 flex flex-col overflow-hidden">
-        <div className="bg-[#f2f6fc] dark:bg-[#404040] p-3 flex justify-between items-center text-sm font-semibold">
-          <span>Mensaje Nuevo</span>
-          <X size={18} className="cursor-pointer hover:bg-black/10 rounded-full p-0.5" onClick={() => setIsComposeOpen(false)} />
+      <div className="bg-card border border-border rounded-2xl p-16 flex flex-col items-center justify-center gap-3">
+        <Loader2 className="animate-spin text-indigo-500" size={28} />
+        <p className="text-xs font-bold text-muted-foreground">Verificando conexión con Google Gmail...</p>
+      </div>
+    );
+  }
+
+  // PANTALLA DE INICIO DE SESIÓN CON GOOGLE (CUANDO NO ESTÁ CONECTADO)
+  if (!connected) {
+    return (
+      <div className="bg-card border border-border rounded-2xl p-6 md:p-10 shadow-sm max-w-3xl mx-auto space-y-6">
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center mx-auto">
+            <Mail size={32} />
+          </div>
+          <h3 className="text-xl font-black text-foreground">
+            Correo Interno ERP — Conectar con Google (Gmail)
+          </h3>
+          <p className="text-xs text-muted-foreground max-w-lg mx-auto leading-relaxed">
+            Inicia sesión con tu cuenta de Google para recibir facturas electrónicas (DTE JSON / PDF) de tus proveedores directamente en el ERP y pasarlas a <strong>Ingreso de Compra con 1 clic</strong>, sin descargar archivos manualmente.
+          </p>
         </div>
-        <div className="p-3 flex flex-col gap-2">
-          <Input 
-            placeholder="Para" 
-            value={composeTo} 
-            onChange={e => setComposeTo(e.target.value)} 
-            className="border-0 border-b border-slate-200 dark:border-white/10 rounded-none px-0 focus-visible:ring-0 shadow-none text-sm"
-          />
-          <Input 
-            placeholder="Asunto" 
-            value={composeSubject} 
-            onChange={e => setComposeSubject(e.target.value)} 
-            className="border-0 border-b border-slate-200 dark:border-white/10 rounded-none px-0 focus-visible:ring-0 shadow-none text-sm"
-          />
-          <Textarea 
-            placeholder="Escribe tu mensaje aquí..." 
-            value={composeBody} 
-            onChange={e => setComposeBody(e.target.value)} 
-            className="border-0 rounded-none px-0 focus-visible:ring-0 shadow-none text-sm min-h-[200px] resize-none"
-          />
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-1">
+            <div className="font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+              <FileJson size={14} /> 1. Detecta DTE Automático
+            </div>
+            <p className="text-[11px] text-muted-foreground">Identifica al instante correos con archivos .json de Hacienda El Salvador.</p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-1">
+            <div className="font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <Zap size={14} /> 2. Ingreso en 1 Clic
+            </div>
+            <p className="text-[11px] text-muted-foreground">Autocompleta proveedor, N° DTE, productos y costos en Compras sin errores.</p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-1">
+            <div className="font-black text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+              <Send size={14} /> 3. Responde y Envía
+            </div>
+            <p className="text-[11px] text-muted-foreground">Responde a proveedores y envía documentos desde tu correo real sin salir del ERP.</p>
+          </div>
         </div>
-        <div className="p-3 border-t border-slate-100 dark:border-white/5 flex justify-between items-center">
-          <Button onClick={handleSendEmail} disabled={sending} className="bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white rounded-full px-6">
-            {sending ? 'Enviando...' : 'Enviar'}
+
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <Button
+            type="button"
+            onClick={handleConnectGoogle}
+            className="h-12 px-7 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm shadow-lg shadow-indigo-600/20 gap-2.5"
+          >
+            <ShieldCheck size={18} />
+            Iniciar Sesión con Google (Gmail)
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsComposeOpen(false)}>
-            <Trash2 size={18} className="text-slate-500" />
-          </Button>
+          {!configured && (
+            <div className="w-full mt-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-left space-y-2.5">
+              <div className="flex items-center gap-2 text-xs font-black text-amber-700 dark:text-amber-300">
+                <AlertTriangle size={15} />
+                Configuración única requerida (Google Cloud Console)
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Para habilitar el inicio de sesión con Google en este servidor, agrega estas variables en <code>.env.local</code> (local) y en <strong>Vercel → Settings → Environment Variables</strong>:
+              </p>
+              <div className="p-3 rounded-lg bg-background border border-border font-mono text-[10.5px] text-foreground space-y-1 overflow-x-auto">
+                <div>GOOGLE_CLIENT_ID=tu-client-id.apps.googleusercontent.com</div>
+                <div>GOOGLE_CLIENT_SECRET=tu-client-secret</div>
+                <div>GOOGLE_REDIRECT_URI={callbackUrl}</div>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-[10.5px] text-muted-foreground">
+                  URI de redirección autorizada para pegar en Google Cloud:
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px] font-bold rounded-lg gap-1"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(callbackUrl);
+                    toast({ title: 'URL Copiada', description: callbackUrl });
+                  }}
+                >
+                  <Copy size={11} /> Copiar Callback URL
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
-  };
+  }
 
-  const renderThreadView = () => {
-    if (!selectedThread) return null;
-    return (
-      <div className="flex-1 flex flex-col bg-white dark:bg-[#1a1a24] m-2 rounded-2xl shadow-sm border border-slate-100 dark:border-transparent overflow-hidden">
-        {/* Top bar for thread view */}
-        <div className="h-[64px] min-h-[64px] flex items-center px-6 gap-4 border-b border-slate-100 dark:border-white/5">
-          <Button variant="ghost" size="icon" onClick={() => setSelectedThread(null)} className="rounded-full">
-            <ChevronLeft size={20} />
-          </Button>
-          <div className="flex flex-col">
-            <h2 className="text-base font-bold text-slate-800 dark:text-white truncate">{selectedThread.subject}</h2>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-sm uppercase text-[10px] font-bold">{selectedThread.folder || activeFolder}</span>
-            </div>
-          </div>
-          <div className="ml-auto flex gap-2">
-            <Button variant="ghost" size="icon" onClick={() => toggleReadStatus(selectedThread.id, selectedThread.isRead)} title="Marcar como no leído">
-              <Inbox size={18} />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleDeleteThread(selectedThread.id)} title="Eliminar correo" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-              <Trash2 size={18} />
-            </Button>
-          </div>
+  // BANDEJA REAL CONECTADA A GMAIL
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col min-h-[640px]">
+      {/* Barra Superior */}
+      <div className="p-3.5 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-bold px-2.5 py-1 gap-1.5">
+            <CheckCircle2 size={13} />
+            {connectedEmail || 'Gmail Conectado'}
+          </Badge>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              fetchMessages(activeFolder, searchTerm);
+            }}
+            className="relative w-64 sm:w-80"
+          >
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+            <Input
+              placeholder="Buscar correos, proveedores o DTE..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-9 text-xs rounded-xl bg-background border-input"
+            />
+          </form>
         </div>
 
-        {/* Thread Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {selectedThread.messages.map((msg, idx) => (
-            <div key={msg.id} className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-                {msg.sender.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="font-semibold text-sm">
-                    {msg.sender} <span className="text-xs text-slate-500 font-normal ml-2">{msg.date}</span>
-                  </div>
-                  {idx === selectedThread.messages.length - 1 && (
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => openReply(selectedThread)}>
-                        <Reply size={16} />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                <div className="text-sm text-slate-800 dark:text-white/90 whitespace-pre-wrap leading-relaxed bg-slate-50 dark:bg-white/5 p-4 rounded-xl border border-slate-100 dark:border-white/5">
-                  {msg.body}
-                </div>
-                
-                {/* Attachments for the last message */}
-                {idx === selectedThread.messages.length - 1 && selectedThread.attachments && selectedThread.attachments.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5">
-                    <p className="text-xs text-slate-500 mb-2">{selectedThread.attachments.length} archivos adjuntos verificados</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedThread.attachments.map((att, aIdx) => (
-                        <div key={aIdx} className="flex items-center gap-2 border border-slate-200 dark:border-white/10 rounded-lg p-2 w-[210px] hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer">
-                          <div className={`w-8 h-8 rounded flex items-center justify-center shrink-0 ${att.type === 'pdf' ? 'bg-red-100 text-red-600' : att.type === 'xml' ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
-                            {att.type === 'pdf' ? <FileText size={16}/> : att.type === 'xml' ? <File size={16}/> : <ImageIcon size={16}/>}
-                          </div>
-                          <span className="text-xs font-medium truncate">{att.name}</span>
-                        </div>
-                      ))}
-                      
-                      {context === 'compras' && selectedThread.folder !== 'enviados' && selectedThread.attachments.some(a => a.type === 'xml' || a.type === 'pdf') && (
-                        <Button 
-                          variant="outline" 
-                          onClick={(e) => handleStoreInCatalog(selectedThread, e)}
-                          disabled={processingId === selectedThread.id}
-                          className="h-[50px] ml-2 text-xs font-semibold text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:border-blue-900/50 dark:bg-blue-900/20 dark:hover:bg-blue-900/40"
-                        >
-                          {processingId === selectedThread.id ? <RotateCcw className="animate-spin mr-2 h-4 w-4" /> : <Database className="mr-2 h-4 w-4" />}
-                          Almacenar DTE en Catálogo
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSyncAllDtes}
+            disabled={syncingBatch}
+            className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl gap-1.5"
+          >
+            {syncingBatch ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+            Sincronizar DTEs del Día
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => fetchMessages(activeFolder, searchTerm)}
+            disabled={loadingMessages}
+            className="h-9 text-xs font-bold rounded-xl gap-1.5"
+          >
+            <RefreshCw size={13} className={loadingMessages ? 'animate-spin' : ''} />
+            Actualizar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              setComposeTo('');
+              setComposeSubject('');
+              setComposeBody('');
+              setComposeThreadId(undefined);
+              setIsComposeOpen(true);
+            }}
+            className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl gap-1.5"
+          >
+            <Send size={13} /> Redactar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={handleDisconnect}
+            className="h-9 text-xs font-bold text-muted-foreground hover:text-rose-500 rounded-xl gap-1"
+            title="Desconectar cuenta de Google"
+          >
+            <LogOut size={13} />
+          </Button>
+        </div>
+      </div>
+
+      {/* Cuerpo Dividido: Carpetas | Lista de Correos | Lector + Acción 1 Clic */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-[560px]">
+        {/* Carpetas */}
+        <div className="lg:col-span-2 border-b lg:border-b-0 lg:border-r border-border p-3 flex lg:flex-col gap-1.5 overflow-x-auto bg-muted/15">
+          {[
+            { id: 'dte', label: 'Facturas / DTE', icon: <FileJson size={15} className="text-emerald-500" /> },
+            { id: 'recibidos', label: 'Recibidos', icon: <Inbox size={15} className="text-indigo-500" /> },
+            { id: 'destacados', label: 'Destacados', icon: <Star size={15} className="text-amber-500" /> },
+            { id: 'enviados', label: 'Enviados', icon: <Send size={15} className="text-blue-500" /> }
+          ].map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => {
+                setActiveFolder(f.id as any);
+                setSelectedMsg(null);
+                fetchMessages(f.id as any, searchTerm);
+              }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+                activeFolder === f.id
+                  ? 'bg-indigo-600/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+              }`}
+            >
+              {f.icon}
+              <span>{f.label}</span>
+            </button>
           ))}
         </div>
 
-        {/* Quick Reply Box */}
-        <div className="p-4 border-t border-slate-100 dark:border-white/5 mx-6 mb-6 rounded-full border bg-slate-50 dark:bg-white/5 cursor-text flex items-center gap-4 text-slate-500" onClick={() => openReply(selectedThread)}>
-          <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-            Yo
-          </div>
-          <span className="text-sm">Responde o reenvía este correo...</span>
-        </div>
-      </div>
-    );
-  };
-
-  const sentCount = threads.filter(t => t.folder === 'enviados').length;
-  const unreadInboxCount = threads.filter(t => t.folder !== 'enviados' && !t.isRead).length;
-
-  return (
-    <div className="h-[calc(100vh-120px)] w-full flex bg-[#f6f8fc] dark:bg-[#1a1a24] overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 font-sans shadow-inner relative">
-      
-      {/* LEFT SIDEBAR */}
-      <div className="w-[250px] min-w-[250px] hidden md:flex flex-col bg-[#f6f8fc] dark:bg-[#1a1a24] h-full p-3 overflow-y-auto custom-scrollbar border-r border-slate-200 dark:border-white/5">
-        <Button onClick={() => { setComposeTo(''); setComposeSubject(''); setComposeBody(''); setIsComposeOpen(true); }} className="w-[150px] h-12 bg-[#c2e7ff] hover:bg-[#b0d8f3] dark:bg-[#c2e7ff]/20 dark:hover:bg-[#c2e7ff]/30 text-[#001d35] dark:text-[#c2e7ff] rounded-2xl shadow-sm mb-4 justify-start px-4 font-bold">
-          <Plus size={20} className="mr-3" /> Redactar
-        </Button>
-        <div className="flex flex-col gap-1">
-          <div 
-            className={`flex items-center gap-4 px-4 py-2 rounded-r-full cursor-pointer transition-colors ${activeFolder === 'recibidos' ? 'bg-[#d3e3fd] dark:bg-[#d3e3fd]/15 font-bold text-[#001d35] dark:text-[#d3e3fd]' : 'text-[#444746] dark:text-white/70 hover:bg-slate-200/50 dark:hover:bg-white/5'}`} 
-            onClick={() => { setSelectedThread(null); setActiveFolder('recibidos'); }}
-          >
-            <Inbox size={18} />
-            <span className="text-sm">Recibidos</span>
-            {unreadInboxCount > 0 && <span className="ml-auto text-xs font-bold">{unreadInboxCount}</span>}
-          </div>
-
-          <div 
-            className={`flex items-center gap-4 px-4 py-2 rounded-r-full cursor-pointer transition-colors ${activeFolder === 'destacados' ? 'bg-[#d3e3fd] dark:bg-[#d3e3fd]/15 font-bold text-[#001d35] dark:text-[#d3e3fd]' : 'text-[#444746] dark:text-white/70 hover:bg-slate-200/50 dark:hover:bg-white/5'}`}
-            onClick={() => { setSelectedThread(null); setActiveFolder('destacados'); }}
-          >
-            <Star size={18} />
-            <span className="text-sm">Destacados</span>
-          </div>
-
-          <div 
-            className={`flex items-center gap-4 px-4 py-2 rounded-r-full cursor-pointer transition-colors ${activeFolder === 'enviados' ? 'bg-[#d3e3fd] dark:bg-[#d3e3fd]/15 font-bold text-[#001d35] dark:text-[#d3e3fd]' : 'text-[#444746] dark:text-white/70 hover:bg-slate-200/50 dark:hover:bg-white/5'}`}
-            onClick={() => { setSelectedThread(null); setActiveFolder('enviados'); }}
-          >
-            <Send size={18} />
-            <span className="text-sm">Enviados (DTE)</span>
-            {sentCount > 0 && (
-              <span className="ml-auto text-[10px] font-bold bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 px-2 py-0.5 rounded-full">
-                {sentCount}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* MAIN CONTENT */}
-      {selectedThread ? (
-        renderThreadView()
-      ) : (
-        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#1a1a24] m-2 rounded-2xl shadow-sm border border-slate-100 dark:border-transparent overflow-hidden">
-          {/* Top Bar */}
-          <div className="h-[64px] min-h-[64px] flex items-center justify-between px-4 gap-4 bg-white dark:bg-[#1a1a24] border-b border-slate-100 dark:border-white/5">
-            <div className="flex-1 max-w-[620px] relative flex items-center">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-slate-500" />
+        {/* Lista de Correos */}
+        <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-border flex flex-col">
+          <ScrollArea className="h-[300px] lg:h-[560px]">
+            {loadingMessages ? (
+              <div className="py-16 flex flex-col items-center gap-2 text-muted-foreground">
+                <Loader2 className="animate-spin text-indigo-500" size={22} />
+                <span className="text-xs font-medium">Cargando bandeja de Gmail...</span>
               </div>
-              <Input 
-                placeholder={`Buscar en ${activeFolder}...`} 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 bg-[#eaf1fb] dark:bg-white/5 border-transparent focus-visible:bg-white dark:focus-visible:bg-white/10 focus-visible:shadow-md focus-visible:ring-0 rounded-full w-full text-xs"
-              />
-            </div>
-
-            <div className="flex md:hidden items-center gap-1">
-              <Button size="sm" variant={activeFolder === 'recibidos' ? 'default' : 'ghost'} onClick={() => setActiveFolder('recibidos')} className="text-xs h-8">Recibidos</Button>
-              <Button size="sm" variant={activeFolder === 'enviados' ? 'default' : 'ghost'} onClick={() => setActiveFolder('enviados')} className="text-xs h-8">Enviados ({sentCount})</Button>
-            </div>
-          </div>
-
-          {/* Email List Dense */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {filteredThreads.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-slate-400 text-xs gap-2">
-                <Send className="h-8 w-8 opacity-30" />
-                <p>No hay correos en la bandeja de <strong>{activeFolder}</strong>.</p>
+            ) : messages.length === 0 ? (
+              <div className="py-16 px-4 text-center text-xs text-muted-foreground space-y-1">
+                <Mail className="mx-auto opacity-40 mb-2" size={26} />
+                <p className="font-bold">No se encontraron correos en esta carpeta.</p>
+                <p className="text-[11px]">Prueba cambiar de carpeta o presionar Actualizar.</p>
               </div>
             ) : (
-              filteredThreads.map((thread) => (
-                <div 
-                  key={thread.id} 
-                  onClick={() => {
-                    setSelectedThread(thread);
-                    if (!thread.isRead) toggleReadStatus(thread.id, false);
-                  }}
-                  className={`group flex flex-col border-b border-slate-100 dark:border-white/5 cursor-pointer hover:shadow-md z-0 hover:z-10 relative
-                    ${!thread.isRead ? 'bg-white dark:bg-[#1a1a24]' : 'bg-[#f2f6fc] dark:bg-[#0a0a14]/60'}
-                  `}
-                >
-                  <div className="flex items-center px-4 py-2 gap-3 h-10">
-                    <div 
-                      className="flex items-center gap-2 shrink-0 text-slate-300 dark:text-white/30"
-                      onClick={(e) => toggleStarStatus(thread.id, e)}
+              <div className="divide-y divide-border/60">
+                {messages.map((msg) => {
+                  const isProcessed = processedMessageIds.has(msg.id);
+                  const isSelected = selectedMsg?.id === msg.id;
+                  return (
+                    <div
+                      key={msg.id}
+                      onClick={() => setSelectedMsg(msg)}
+                      className={`p-3.5 cursor-pointer transition-colors space-y-1.5 ${
+                        isSelected
+                          ? 'bg-indigo-500/10 border-l-4 border-l-indigo-600'
+                          : !msg.isRead
+                          ? 'bg-muted/30 hover:bg-muted/50'
+                          : 'hover:bg-muted/30'
+                      }`}
                     >
-                      <Star size={18} className={thread.isStarred ? 'text-yellow-400 fill-yellow-400' : 'hover:text-slate-500'} />
-                    </div>
-                    
-                    <div className={`w-[210px] shrink-0 truncate text-xs ${!thread.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-700 dark:text-white/80'}`}>
-                      {thread.sender.split('<')[0].trim()}
-                    </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-xs truncate ${!msg.isRead ? 'font-black text-foreground' : 'font-semibold text-foreground/85'}`}>
+                          {msg.sender.replace(/<.*>/, '').trim() || msg.sender}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {formatShortDate(msg.internalDate, msg.date)}
+                        </span>
+                      </div>
 
-                    <div className="flex-1 truncate text-xs min-w-0 flex items-center">
-                      <span className={`${!thread.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-700 dark:text-white/80'} mr-2 truncate shrink-0`}>
-                        {thread.subject}
-                      </span>
-                      <span className="text-slate-500 dark:text-white/50 truncate">- {thread.snippet}</span>
-                    </div>
+                      <div className={`text-xs truncate ${!msg.isRead ? 'font-bold text-foreground' : 'text-foreground/80'}`}>
+                        {msg.subject}
+                      </div>
 
-                    <div className={`w-[70px] text-right shrink-0 text-xs ${!thread.isRead ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-600 dark:text-white/60'}`}>
-                      {thread.date}
-                    </div>
-                    <div className="shrink-0 flex items-center ml-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => handleDeleteThread(thread.id, e)}
-                        title="Eliminar correo"
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-                  </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">{msg.snippet}</p>
 
-                  {thread.attachments && thread.attachments.length > 0 && (
-                    <div className="flex items-center px-12 md:px-[260px] pb-2 gap-2 overflow-x-auto custom-scrollbar">
-                      {thread.attachments.map((att, idx) => (
-                        <div key={idx} className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 dark:border-white/10 text-xs font-medium bg-white dark:bg-[#1a1a24] text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 shrink-0">
-                          {att.type === 'pdf' ? <FileText size={14} className="text-red-600"/> : att.type === 'xml' ? <File size={14} className="text-amber-500"/> : <ImageIcon size={14} className="text-green-500"/>}
-                          <span className="truncate max-w-[140px]">{att.name}</span>
+                      {(msg.hasDteJson || msg.attachments.length > 0 || isProcessed) && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          {msg.hasDteJson && (
+                            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-black px-1.5 py-0">
+                              📄 DTE JSON
+                            </Badge>
+                          )}
+                          {isProcessed && (
+                            <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30 text-[9px] font-black px-1.5 py-0">
+                              ✓ En Compras
+                            </Badge>
+                          )}
+                          {msg.attachments.length > 0 && !msg.hasDteJson && (
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-1">
+                              <Paperclip size={9} /> {msg.attachments.length}
+                            </Badge>
+                          )}
                         </div>
-                      ))}
-                      
-                      {context === 'compras' && thread.folder !== 'enviados' && thread.attachments.some(a => a.type === 'xml' || a.type === 'pdf') && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={(e) => handleStoreInCatalog(thread, e)}
-                          disabled={processingId === thread.id}
-                          className="ml-2 h-7 px-3 text-[11px] font-semibold text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-full"
-                        >
-                          {processingId === thread.id ? <RotateCcw className="animate-spin mr-1.5 h-3 w-3" /> : <Database className="mr-1.5 h-3 w-3" />}
-                          Almacenar DTE
-                        </Button>
                       )}
                     </div>
-                  )}
-                </div>
-              ))
+                  );
+                })}
+              </div>
             )}
-          </div>
+          </ScrollArea>
         </div>
-      )}
 
-      {/* Floating Compose Window */}
-      {renderComposeModal()}
+        {/* Panel Lector + Botón 1 Clic a Ingreso de Compra */}
+        <div className="lg:col-span-6 flex flex-col bg-background/40">
+          {!selectedMsg ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-muted-foreground gap-2">
+              <Mail size={36} className="opacity-30" />
+              <p className="text-sm font-bold text-foreground/70">Selecciona un correo para leerlo</p>
+              <p className="text-xs max-w-sm">
+                Si el correo contiene un archivo <strong>.json (DTE)</strong> de un proveedor, verás el botón para enviarlo directo a <strong>Ingreso de Compra en 1 clic</strong>.
+              </p>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col h-full">
+              {/* Encabezado del Correo */}
+              <div className="p-4 border-b border-border space-y-2.5 bg-card">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-sm font-black text-foreground leading-snug">{selectedMsg.subject}</h3>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const matchEmail = selectedMsg.sender.match(/<([^>]+)>/)?.[1] || selectedMsg.sender;
+                      setComposeTo(matchEmail);
+                      setComposeSubject(
+                        selectedMsg.subject.startsWith('Re:') ? selectedMsg.subject : `Re: ${selectedMsg.subject}`
+                      );
+                      setComposeBody('');
+                      setComposeThreadId(selectedMsg.threadId);
+                      setIsComposeOpen(true);
+                    }}
+                    className="h-8 text-xs font-bold rounded-xl gap-1 shrink-0"
+                  >
+                    <Reply size={13} /> Responder
+                  </Button>
+                </div>
+                <div className="text-[11px] text-muted-foreground flex flex-wrap justify-between gap-2">
+                  <span>
+                    <strong>De:</strong> {selectedMsg.sender}
+                  </span>
+                  <span>{selectedMsg.date}</span>
+                </div>
 
+                {/* Banner de Acción Rápida para Adjuntos DTE JSON */}
+                {selectedMsg.attachments.filter((a) => a.isDteJson).length > 0 && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                        <FileJson size={15} /> Factura Electrónica DTE Detectada
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Carga automáticamente proveedor, número de control y productos en Compras.
+                      </p>
+                    </div>
+                    {selectedMsg.attachments
+                      .filter((a) => a.isDteJson)
+                      .map((att) => (
+                        <Button
+                          key={att.attachmentId}
+                          type="button"
+                          size="sm"
+                          disabled={importingId === selectedMsg.id}
+                          onClick={() => handleImportDteFromMessage(selectedMsg, att, true)}
+                          className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl gap-1.5 shadow-sm"
+                        >
+                          {importingId === selectedMsg.id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Zap size={14} />
+                          )}
+                          Pasar a Ingreso de Compra (1 Clic)
+                        </Button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Cuerpo y Adjuntos */}
+              <ScrollArea className="flex-1 p-5 h-[360px]">
+                <div className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">
+                  {selectedMsg.body}
+                </div>
+
+                {selectedMsg.attachments.length > 0 && (
+                  <div className="mt-6 pt-4 border-t border-border space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
+                      Archivos Adjuntos ({selectedMsg.attachments.length})
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedMsg.attachments.map((att) => (
+                        <div
+                          key={att.attachmentId}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border text-xs"
+                        >
+                          {att.isDteJson ? (
+                            <FileJson size={15} className="text-emerald-500 shrink-0" />
+                          ) : (
+                            <FileText size={15} className="text-indigo-500 shrink-0" />
+                          )}
+                          <span className="font-bold text-foreground truncate max-w-[180px]">{att.filename}</span>
+                          <a
+                            href={`/api/gmail/attachments?messageId=${encodeURIComponent(selectedMsg.id)}&attachmentId=${encodeURIComponent(att.attachmentId)}&filename=${encodeURIComponent(att.filename)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 text-[11px] font-bold"
+                          >
+                            <Download size={12} /> Descargar
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal Redactar / Responder */}
+      <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
+        <DialogContent className="max-w-lg bg-card border-border text-foreground rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black flex items-center gap-2">
+              <Send size={16} className="text-indigo-500" />
+              {composeThreadId ? 'Responder Correo' : 'Nuevo Correo desde Gmail'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSendEmail} className="space-y-3 text-xs">
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground">Para *</label>
+              <Input
+                type="email"
+                required
+                placeholder="proveedor@empresa.com"
+                value={composeTo}
+                onChange={(e) => setComposeTo(e.target.value)}
+                className="h-9 rounded-xl"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground">Asunto *</label>
+              <Input
+                required
+                placeholder="Solicitud de pedido / Consulta de factura..."
+                value={composeSubject}
+                onChange={(e) => setComposeSubject(e.target.value)}
+                className="h-9 rounded-xl"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold text-muted-foreground">Mensaje</label>
+              <Textarea
+                rows={6}
+                placeholder="Escribe tu mensaje..."
+                value={composeBody}
+                onChange={(e) => setComposeBody(e.target.value)}
+                className="rounded-xl text-xs"
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsComposeOpen(false)} className="rounded-xl">
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={sending} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl gap-1.5">
+                {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                Enviar Correo
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -13,10 +13,16 @@ function ComprasContent() {
   const searchParams = useSearchParams();
   const queryTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(queryTab || 'registro');
+  const [pendingImportedDte, setPendingImportedDte] = useState<any | null>(null);
 
   useEffect(() => {
     if (queryTab) setActiveTab(queryTab);
   }, [queryTab]);
+
+  const handleImportDteFromGmail = (dte: any) => {
+    setPendingImportedDte(dte);
+    setActiveTab('registro');
+  };
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
@@ -58,13 +64,16 @@ function ComprasContent() {
         </TabsList>
         
         <TabsContent value="registro" className="outline-none">
-          <PurchasesTab />
+          <PurchasesTab
+            initialImportedDte={pendingImportedDte}
+            onConsumeImportedDte={() => setPendingImportedDte(null)}
+          />
         </TabsContent>
         <TabsContent value="ordenes" className="outline-none">
           <OrdersTab />
         </TabsContent>
         <TabsContent value="gmail" className="m-0 p-0 outline-none">
-          <GmailClient context="compras" />
+          <GmailClient context="compras" onImportDteToPurchase={handleImportDteFromGmail} />
         </TabsContent>
       </Tabs>
     </div>

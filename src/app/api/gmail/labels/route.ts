@@ -1,23 +1,17 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { getAuthenticatedGmail } from '@/lib/gmail-oauth';
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Missing Authorization header' }, { status: 401 });
+    const auth = await getAuthenticatedGmail(req);
+    if (!auth) {
+      return NextResponse.json({ error: 'Cuenta de Gmail no conectada' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: token });
-
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-    
     const body = await req.json();
     const { messageId, addLabelIds, removeLabelIds } = body;
 
-    const res = await gmail.users.messages.modify({
+    const res = await auth.gmail.users.messages.modify({
       userId: 'me',
       id: messageId,
       requestBody: {
