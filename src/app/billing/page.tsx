@@ -4418,6 +4418,10 @@ export default function BillingPage() {
                           size="sm"
                           onClick={() => {
                             const target = cashConfig?.cashFloat || 0;
+                            setBaseFloatDenominations({
+                              '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
+                              '0.25': 0, '0.10': 0, '0.05': 0, '0.01': 0
+                            });
                             setBaseFloatDirectAmount(target.toFixed(2));
                             setShowBaseDenoms(false);
                           }}
@@ -4428,6 +4432,45 @@ export default function BillingPage() {
                       </div>
                     </div>
 
+                    {/* Progreso en vivo hacia el Fondo Base configurado */}
+                    {(() => {
+                      const targetBase = cashConfig?.cashFloat || 0;
+                      const pct = targetBase > 0 ? Math.min(100, Math.round((countedBaseFloat / targetBase) * 100)) : 0;
+                      const remaining = Number((targetBase - countedBaseFloat).toFixed(2));
+                      return (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-bold text-muted-foreground">
+                              Acumulado: <span className="font-mono text-foreground">${countedBaseFloat.toFixed(2)}</span> / <span className="font-mono">${targetBase.toFixed(2)}</span>
+                            </span>
+                            {targetBase > 0 && (
+                              Math.abs(remaining) < 0.01 ? (
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">✓ Fondo Base completo</span>
+                              ) : remaining > 0 ? (
+                                <span className="font-bold text-amber-600 dark:text-amber-400">Faltan ${remaining.toFixed(2)} para completar base</span>
+                              ) : (
+                                <span className="font-bold text-blue-600 dark:text-blue-400">+${Math.abs(remaining).toFixed(2)} sobre el fondo base</span>
+                              )
+                            )}
+                          </div>
+                          {targetBase > 0 && (
+                            <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 ${
+                                  Math.abs(remaining) < 0.01
+                                    ? 'bg-emerald-500'
+                                    : remaining < 0
+                                    ? 'bg-blue-500'
+                                    : 'bg-indigo-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
@@ -4435,21 +4478,17 @@ export default function BillingPage() {
                         className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                       >
                         <Coins size={13} />
-                        {showBaseDenoms ? 'Ocultar detalle por billetes/monedas' : 'Contar Fondo Base por billetes y monedas (opcional)'}
+                        {showBaseDenoms ? 'Ocultar detalle por billetes/monedas' : 'Contar Fondo Base por billetes y monedas'}
                       </button>
-                      {countedBaseFloat > 0 && Math.abs(baseFloatDifference) >= 0.01 && (
-                        <span className={`text-[11px] font-bold ${baseFloatDifference < 0 ? 'text-rose-500' : 'text-blue-500'}`}>
-                          {baseFloatDifference > 0 ? `+$${baseFloatDifference.toFixed(2)} sobre base` : `-$${Math.abs(baseFloatDifference).toFixed(2)} bajo base`}
-                        </span>
-                      )}
                     </div>
 
                     {showBaseDenoms && (
                       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
                         {['100.00', '50.00', '20.00', '10.00', '5.00', '1.00', '0.25', '0.10', '0.05', '0.01'].map(den => {
                           const qty = baseFloatDenominations[den] || 0;
+                          const denSubtotal = parseFloat(den) * qty;
                           return (
-                            <div key={`base-${den}`} className="p-2 rounded-xl bg-muted/40 border border-border flex flex-col items-center gap-1">
+                            <div key={`base-${den}`} className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-colors ${qty > 0 ? 'bg-indigo-500/10 border-indigo-500/35' : 'bg-muted/40 border-border'}`}>
                               <span className="text-[10px] font-black text-foreground">
                                 {parseFloat(den) >= 1 ? `$${parseInt(den)}` : `¢${Math.round(parseFloat(den) * 100)}`}
                               </span>
@@ -4468,6 +4507,9 @@ export default function BillingPage() {
                                 />
                                 <button type="button" onClick={() => adjustBaseDenomination(den, 1)} className="w-5 h-5 rounded bg-background border text-xs font-bold">+</button>
                               </div>
+                              <span className={`text-[10px] font-mono font-bold ${qty > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'}`}>
+                                ${denSubtotal.toFixed(2)}
+                              </span>
                             </div>
                           );
                         })}
@@ -4476,11 +4518,11 @@ export default function BillingPage() {
                   </div>
                 </div>
 
-                {/* PASO 2: VERIFICAR TARJETAS Y DEMÁS FORMAS DE PAGO */}
+                {/* PASO 3: VERIFICAR TARJETAS Y DEMÁS FORMAS DE PAGO */}
                 <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
                   <div className="p-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-black flex items-center justify-center shrink-0">2</span>
+                      <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-black flex items-center justify-center shrink-0">3</span>
                       <div>
                         <h4 className="text-sm font-black text-foreground">Tarjetas y Demás Formas de Pago</h4>
                         <p className="text-[11px] text-muted-foreground">Verifica tus vouchers de POS, transferencias, cheques y créditos.</p>
@@ -4620,11 +4662,11 @@ export default function BillingPage() {
               {/* COLUMNA DERECHA (PASOS 3 Y 4) */}
               <div className="lg:col-span-6 space-y-5">
 
-                {/* PASO 3: CONTAR DINERO PARA LA ENTREGA DE EFECTIVO */}
+                {/* PASO 2: CONTAR DINERO PARA LA ENTREGA DE EFECTIVO */}
                 <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
                   <div className="p-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-black flex items-center justify-center shrink-0">3</span>
+                      <span className="w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-black flex items-center justify-center shrink-0">2</span>
                       <div>
                         <h4 className="text-sm font-black text-foreground">Dinero para Entrega de Efectivo</h4>
                         <p className="text-[11px] text-muted-foreground">Cuenta los billetes y monedas que vas a entregar (aparte del fondo base).</p>
@@ -4739,13 +4781,13 @@ export default function BillingPage() {
                         <span className="text-[10px] text-muted-foreground block">1. Fondo Base</span>
                         <span className="font-mono font-black text-sm">${countedBaseFloat.toFixed(2)}</span>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
-                        <span className="text-[10px] text-muted-foreground block">2. Tarjetas / Otros</span>
-                        <span className="font-mono font-black text-sm">${(physicalCard + physicalTransfer + physicalCheck + physicalCredit).toFixed(2)}</span>
-                      </div>
                       <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                        <span className="text-[10px] text-emerald-700 dark:text-emerald-300 block">3. Entrega Efectivo</span>
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-300 block">2. Entrega Efectivo</span>
                         <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">${countedDeliveryCash.toFixed(2)}</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
+                        <span className="text-[10px] text-muted-foreground block">3. Tarjetas / Otros</span>
+                        <span className="font-mono font-black text-sm">${(physicalCard + physicalTransfer + physicalCheck + physicalCredit).toFixed(2)}</span>
                       </div>
                     </div>
 
