@@ -1043,29 +1043,28 @@ export default function AccountingPage() {
                 <PieChart size={14} className="mr-2"/> Rentabilidad & Márgenes
               </TabsTrigger>
             )}
-            {config?.['accounting_libros_iva'] !== false && (
-              <TabsTrigger value="libros_iva" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <BookOpen size={14} className="mr-2"/> Libros de IVA
-              </TabsTrigger>
-            )}
-            {config?.['accounting_mh_forms'] !== false && (
-              <TabsTrigger value="mh_forms" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <Calculator size={14} className="mr-2"/> Declaración MH
-              </TabsTrigger>
-            )}
-            {config?.['accounting_tributario'] !== false && (
-              <TabsTrigger value="tributario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <Percent size={14} className="mr-2"/> Tributario / Hacienda
-              </TabsTrigger>
+            {(config?.['accounting_libros_iva'] !== false ||
+              config?.['accounting_mh_forms'] !== false ||
+              config?.['accounting_tributario'] !== false) && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!['libros_iva', 'mh_forms', 'tributario'].includes(activeTab)) {
+                    setActiveTab('libros_iva');
+                  }
+                }}
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-xl px-5 py-2 font-bold text-xs md:text-sm transition-all ${
+                  ['libros_iva', 'mh_forms', 'tributario'].includes(activeTab)
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-foreground'
+                }`}
+              >
+                <Percent size={14} className="mr-2" /> Hacienda e IVA (MH)
+              </button>
             )}
             {config?.['accounting_caja-chica'] !== false && (
               <TabsTrigger value="caja-chica" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
                 <Briefcase size={14} className="mr-2"/> Caja Chica
-              </TabsTrigger>
-            )}
-            {config?.['accounting_cuentas-pagar'] !== false && (
-              <TabsTrigger value="cuentas-pagar" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <FileText size={14} className="mr-2"/> Cuentas por Pagar
               </TabsTrigger>
             )}
             {config?.['accounting_pnl'] !== false && (
@@ -1079,6 +1078,39 @@ export default function AccountingPage() {
               </TabsTrigger>
             )}
           </TabsList>
+
+          {/* Sub-barra unificada para Hacienda e IVA (MH) */}
+          {['libros_iva', 'mh_forms', 'tributario'].includes(activeTab) && (
+            <div className="flex flex-wrap items-center gap-2 bg-card border border-border p-1.5 rounded-2xl w-fit shadow-sm">
+              <Button
+                type="button"
+                size="sm"
+                variant={activeTab === 'libros_iva' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('libros_iva')}
+                className="rounded-xl h-8 text-xs font-bold gap-1.5"
+              >
+                <BookOpen size={13} /> 1. Libros de IVA
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={activeTab === 'mh_forms' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('mh_forms')}
+                className="rounded-xl h-8 text-xs font-bold gap-1.5"
+              >
+                <Calculator size={13} /> 2. Declaración MH (F-07 / F-14)
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={activeTab === 'tributario' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('tributario')}
+                className="rounded-xl h-8 text-xs font-bold gap-1.5"
+              >
+                <Percent size={13} /> 3. Resumen Tributario
+              </Button>
+            </div>
+          )}
 
           <TabsContent value="diario" className="space-y-4 outline-none">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

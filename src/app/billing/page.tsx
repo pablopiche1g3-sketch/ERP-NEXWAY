@@ -4941,7 +4941,13 @@ export default function BillingPage() {
           )}
 
           <TabsContent value="cotizacion" className="space-y-6 outline-none">
-            <QuotationsTab onQuotationSaved={fetchQuotations} />
+            <QuotationsTab
+              onQuotationSaved={fetchQuotations}
+              onLoadQuoteToCart={(quote) => {
+                loadQuotationToCart(quote);
+                setActiveTab('facturacion');
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>

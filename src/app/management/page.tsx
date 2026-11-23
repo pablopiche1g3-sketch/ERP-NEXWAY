@@ -46,6 +46,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import DocumentsTab from './components/DocumentsTab';
 import CloudStorageSettingsCard from './components/CloudStorageSettingsCard';
 import WarehousesAndRegistersTab from '@/app/logistica/components/WarehousesAndRegistersTab';
+import { HaciendaGiroSelector } from '@/components/shared/HaciendaGiroSelector';
+import {
+  CAT_012_DEPARTAMENTOS,
+  findDepartmentCode,
+  findMunicipalityList
+} from '@/lib/hacienda-sv-catalogs';
 import PrintDesignerTab from './components/PrintDesignerTab';
 import PerformanceThemesTab from './components/PerformanceThemesTab';
 import UserAccessManagementTab from './components/UserAccessManagementTab';
@@ -130,7 +136,13 @@ export default function ManagementPage() {
     nombreComercial: '',
     nit: '',
     nrc: '',
-    actividadEconomica: ''
+    codActividad: '',
+    actividadEconomica: '',
+    department: 'San Salvador',
+    departmentCode: '06',
+    municipality: 'San Salvador Centro (San Salvador / Mejicanos / Cuscatancingo / Ayutuxtepeque)',
+    municipalityCode: '23',
+    address: ''
   });
   const [isSavingCompanyProfile, setIsSavingCompanyProfile] = useState(false);
 
@@ -1029,6 +1041,27 @@ export default function ManagementPage() {
 
   const currentTab = activeGroup === 'bi' ? activeBiTab : activeGroup === 'config' ? activeConfigTab : activeUsersTab;
 
+  // Sincronizar pestaña inicial desde query string (?tab=documental, ?tab=branches, etc.)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('tab');
+    if (!t) return;
+    const configTabs = ['operativos', 'company', 'branches', 'print-designer', 'performance-themes', 'documental', 'gmail'];
+    const usersTabs = ['permissions', 'roles'];
+    const biTabs = ['metrics', 'analytics'];
+    if (configTabs.includes(t)) {
+      setActiveGroup('config');
+      setActiveConfigTab(t);
+    } else if (usersTabs.includes(t)) {
+      setActiveGroup('users');
+      setActiveUsersTab(t);
+    } else if (biTabs.includes(t)) {
+      setActiveGroup('bi');
+      setActiveBiTab(t);
+    }
+  }, []);
+
   // ─── Estados Cajas/Sucursales ───────────────────────────────────
   const [posStations, setPosStations] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -1528,11 +1561,11 @@ export default function ManagementPage() {
               {activeGroup === 'config' && (
                 <>
                   <TabsTrigger value="operativos" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Ajustes Operativos</TabsTrigger>
-                  <TabsTrigger value="company" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Perfil de Empresa</TabsTrigger>
-                  <TabsTrigger value="branches" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Sucursales y Entorno</TabsTrigger>
+                  <TabsTrigger value="company" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Perfil de Empresa & Nube</TabsTrigger>
+                  <TabsTrigger value="branches" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Sucursales, Bodegas y Cajas</TabsTrigger>
                   <TabsTrigger value="print-designer" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Diseñador Impresión</TabsTrigger>
                   <TabsTrigger value="performance-themes" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-indigo-600 text-xs">Rendimiento y Temas</TabsTrigger>
-                  <TabsTrigger value="documental" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Auditoría (Documental)</TabsTrigger>
+                  <TabsTrigger value="documental" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Bóveda Documental</TabsTrigger>
                   <TabsTrigger value="gmail" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-red-500 text-xs">Auditoría Gmail</TabsTrigger>
                 </>
               )}
@@ -1604,12 +1637,90 @@ export default function ManagementPage() {
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Actividad Económica</Label>
-                    <Input 
-                      placeholder="Venta de..." 
-                      value={companyProfile.actividadEconomica}
-                      onChange={e => setCompanyProfile({...companyProfile, actividadEconomica: e.target.value})}
-                      className="h-12 text-sm font-bold bg-muted rounded-xl border-none"
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                      Actividad Económica / Giro Oficial (CAT-019 Ministerio de Hacienda)
+                    </Label>
+                    <HaciendaGiroSelector
+                      codActividad={companyProfile.codActividad || ''}
+                      descActividad={companyProfile.actividadEconomica || ''}
+                      onSelect={(cod, desc) =>
+                        setCompanyProfile({
+                          ...companyProfile,
+                          codActividad: cod,
+                          actividadEconomica: desc
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                      Departamento (CAT-012 MH)
+                    </Label>
+                    <Select
+                      value={companyProfile.departmentCode || findDepartmentCode(companyProfile.department)}
+                      onValueChange={(deptCode) => {
+                        const dept = CAT_012_DEPARTAMENTOS.find((d) => d.codigo === deptCode);
+                        const munis = findMunicipalityList(deptCode);
+                        const firstMuni = munis[0];
+                        setCompanyProfile({
+                          ...companyProfile,
+                          departmentCode: deptCode,
+                          department: dept?.descripcion || 'San Salvador',
+                          municipalityCode: firstMuni?.codigo || '',
+                          municipality: firstMuni?.descripcion || ''
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="h-11 text-xs font-bold bg-muted rounded-xl border-none">
+                        <SelectValue placeholder="Seleccione departamento..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CAT_012_DEPARTAMENTOS.map((d) => (
+                          <SelectItem key={d.codigo} value={d.codigo} className="text-xs">
+                            [{d.codigo}] {d.descripcion}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                      Municipio (CAT-013 MH)
+                    </Label>
+                    <Select
+                      value={companyProfile.municipalityCode || ''}
+                      onValueChange={(muniCode) => {
+                        const deptCode = companyProfile.departmentCode || findDepartmentCode(companyProfile.department);
+                        const munis = findMunicipalityList(deptCode);
+                        const muni = munis.find((m) => m.codigo === muniCode);
+                        setCompanyProfile({
+                          ...companyProfile,
+                          municipalityCode: muniCode,
+                          municipality: muni?.descripcion || ''
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="h-11 text-xs font-bold bg-muted rounded-xl border-none">
+                        <SelectValue placeholder="Seleccione municipio..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[340px]">
+                        {findMunicipalityList(companyProfile.departmentCode || findDepartmentCode(companyProfile.department)).map((m) => (
+                          <SelectItem key={m.codigo} value={m.codigo} className="text-xs">
+                            [{m.codigo}] {m.descripcion}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                      Dirección Fiscal del Establecimiento
+                    </Label>
+                    <Input
+                      placeholder="Ej. Calle Principal #123, Col. Escalón..."
+                      value={companyProfile.address || ''}
+                      onChange={(e) => setCompanyProfile({ ...companyProfile, address: e.target.value })}
+                      className="h-11 text-sm font-semibold bg-muted rounded-xl border-none"
                     />
                   </div>
                 </div>
@@ -1839,131 +1950,27 @@ export default function ManagementPage() {
               </div>
             </div>
 
-            {/* ── Cajas / Sucursales ─────────────────────────────────── */}
-            <Card className="border shadow-md rounded-2xl bg-card overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-6">
-                <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight">
-                  <Store className="text-indigo-400" size={20} />
-                  Cajas / Sucursales
-                </CardTitle>
-                <CardDescription className="text-slate-400 text-xs">
-                  Defina las cajas de venta y vincule cada una a su bodega de despacho. El stock en facturación se filtra automáticamente por la bodega de la caja asignada al usuario.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                {/* Lista de cajas existentes */}
-                {posStations.length > 0 ? (
-                  <div className="space-y-3">
-                    {posStations.map((st: any) => (
-                      <div key={st.id} className="flex items-center justify-between p-4 rounded-2xl bg-muted/40 border border-muted-foreground/10 hover:border-indigo-500/20 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                            <Store size={16} className="text-indigo-500" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-bold text-foreground">{st.name}</p>
-                              {st.station_role === 'PREFACTURACION_ONLY' ? (
-                                <Badge className="text-[9px] font-black uppercase bg-amber-500/15 text-amber-500 border-amber-500/30">
-                                  📋 Pre-Facturación (Vales)
-                                </Badge>
-                              ) : (
-                                <Badge className="text-[9px] font-black uppercase bg-indigo-500/15 text-indigo-500 border-indigo-500/30">
-                                  👑 Caja Emisora Principal (DTE)
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Warehouse size={10} /> {st.warehouse_name}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Select 
-                            value={st.station_role || 'EMISORA_PRINCIPAL'} 
-                            onValueChange={(val: any) => handleToggleStationRole(st.id, val)}
-                          >
-                            <SelectTrigger className="h-8 text-[11px] font-bold bg-muted/60 border-none rounded-lg w-44">
-                              <SelectValue placeholder="Rol de Caja" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="EMISORA_PRINCIPAL" className="text-xs font-bold text-indigo-500">👑 Caja Emisora DTE</SelectItem>
-                              <SelectItem value="PREFACTURACION_ONLY" className="text-xs font-bold text-amber-500">📋 Pre-Facturación Solo</SelectItem>
-                            </SelectContent>
-                          </Select>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteStation(st.id)}
-                            className="text-rose-500 hover:bg-rose-500/10 rounded-xl h-9 w-9"
-                            title="Eliminar caja"
-                          >
-                            <Trash2 size={15} />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+            {/* ── Acceso directo al Centro Unificado de Sucursales, Bodegas y Cajas ── */}
+            <Card className="border border-indigo-500/30 shadow-sm rounded-2xl bg-card overflow-hidden">
+              <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Store size={18} />
                   </div>
-                ) : (
-                  <div className="py-8 text-center border border-dashed rounded-2xl">
-                    <Store size={28} className="mx-auto text-muted-foreground/40 mb-2" />
-                    <p className="text-xs text-muted-foreground font-semibold">No hay cajas configuradas aún.</p>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Cajas POS, Bodegas y Sucursales (Centralizado)</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Administra tus {posStations.length} caja(s) POS, cambia su bodega vinculada y revisa el mapa operativo desde el panel unificado.
+                    </p>
                   </div>
-                )}
-
-                {/* Formulario nueva caja */}
-                <div className="border-t border-white/10 pt-5 space-y-4">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">+ Agregar Nueva Caja (Configuración de Gerencia)</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold text-muted-foreground">Nombre de la Caja</Label>
-                      <Input
-                        placeholder="Ej: Caja 1 - Matriz"
-                        value={newStationName}
-                        onChange={e => setNewStationName(e.target.value)}
-                        className="h-11 bg-muted rounded-xl border-none font-semibold text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold text-muted-foreground">Bodega Vinculada</Label>
-                      <Select value={newStationWarehouse} onValueChange={setNewStationWarehouse}>
-                        <SelectTrigger className="h-11 bg-muted rounded-xl border-none font-semibold text-sm">
-                          <SelectValue placeholder="Seleccionar bodega..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {warehouses.map((wh: any) => (
-                            <SelectItem key={wh.id} value={wh.id}>{wh.name}</SelectItem>
-                          ))}
-                          {warehouses.length === 0 && (
-                            <SelectItem value="__none" disabled>No hay bodegas registradas</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold text-muted-foreground">Rol Operativo de Estación</Label>
-                      <Select value={newStationRole} onValueChange={(v: any) => setNewStationRole(v)}>
-                        <SelectTrigger className="h-11 bg-muted rounded-xl border-none font-semibold text-sm">
-                          <SelectValue placeholder="Rol de Estación..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="EMISORA_PRINCIPAL" className="text-xs font-bold text-indigo-500">👑 Caja Emisora Principal (DTE)</SelectItem>
-                          <SelectItem value="PREFACTURACION_ONLY" className="text-xs font-bold text-amber-500">📋 Estación Pre-Facturación (Solo Vales)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={handleAddStation}
-                    disabled={isSavingStation}
-                    className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 px-6 flex items-center gap-2"
-                  >
-                    {isSavingStation ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
-                    AGREGAR CAJA
-                  </Button>
                 </div>
+                <Button
+                  type="button"
+                  onClick={() => setActiveConfigTab('branches')}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shrink-0"
+                >
+                  Abrir Sucursales, Bodegas y Cajas →
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

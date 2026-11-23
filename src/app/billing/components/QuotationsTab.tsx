@@ -46,9 +46,10 @@ interface QuoteItem {
 
 interface QuotationsTabProps {
   onQuotationSaved?: () => void;
+  onLoadQuoteToCart?: (quote: any) => void;
 }
 
-export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps = {}) {
+export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: QuotationsTabProps = {}) {
   const { toast } = useToast();
   const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState('');
@@ -933,10 +934,28 @@ export default function QuotationsTab({ onQuotationSaved }: QuotationsTabProps =
                         {itemsArr.length > 0 ? ` · ${itemsArr.slice(0, 2).map((i: any) => `${i.quantity}x ${i.name}`).join(', ')}${itemsArr.length > 2 ? '...' : ''}` : ''}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="font-mono font-black text-sm text-slate-800 dark:text-white">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-mono font-black text-sm text-slate-800 dark:text-white mr-1">
                         ${Number(q.total || 0).toFixed(2)}
                       </span>
+                      {onLoadQuoteToCart && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() =>
+                            onLoadQuoteToCart({
+                              ...q,
+                              quote_number: refCode,
+                              sellerEmail: sellerInfo?.sellerEmail || '',
+                              sellerName: sellerInfo?.sellerName || '',
+                              isPreFacturaSale: false
+                            })
+                          }
+                          className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl gap-1.5 px-3"
+                        >
+                          <ShoppingCart size={13} /> Cobrar en Caja
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         size="sm"

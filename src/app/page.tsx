@@ -171,9 +171,9 @@ path: '/directorio?tab=clientes',
     },
     { 
       id: 'documents', 
-      title: 'Centro Documental', 
-      description: 'Documentos y hojas libres', 
-      path: '/management', 
+      title: 'Bóveda Documental', 
+      description: 'Visor DTE JSON y archivos', 
+      path: '/management?tab=documental', 
       iconBg: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
       glowClass: 'hover:border-rose-500/50 hover:bg-rose-50/50 dark:hover:bg-rose-900/10',
       icon: <FileText size={22} /> 
