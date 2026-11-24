@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { createGoogleOAuthClient, resolveRedirectUri, saveGmailTokens } from '@/lib/gmail-oauth';
+import {
+  createGoogleOAuthClient,
+  resolvePublicOrigin,
+  resolveRedirectUri,
+  saveGmailTokens
+} from '@/lib/gmail-oauth';
 
 export async function GET(req: Request) {
   const reqUrl = new URL(req.url);
+  const publicOrigin = resolvePublicOrigin(req);
   const code = reqUrl.searchParams.get('code');
   const errorParam = reqUrl.searchParams.get('error');
   const stateReturn = reqUrl.searchParams.get('state') || '/compras?tab=gmail';
-  const target = new URL(stateReturn, reqUrl.origin);
+  const target = new URL(stateReturn, publicOrigin);
 
   if (errorParam || !code) {
     target.searchParams.set('gmail_error', errorParam || 'no_code');
@@ -15,7 +21,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const redirectUri = resolveRedirectUri(req.url);
+    const redirectUri = resolveRedirectUri(req);
     const oauth2Client = createGoogleOAuthClient(redirectUri);
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);

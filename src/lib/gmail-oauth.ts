@@ -17,12 +17,30 @@ export function isGoogleOAuthConfigured(): boolean {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
-export function resolveRedirectUri(reqUrl: string): string {
+export function resolvePublicOrigin(req: Request): string {
+  const fwdHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  const fwdProto = req.headers.get('x-forwarded-proto') || 'https';
+  if (fwdHost && !fwdHost.startsWith('0.0.0.0')) {
+    const proto = fwdHost.includes('localhost') || fwdHost.startsWith('127.0.0.1') ? 'http' : fwdProto.split(',')[0].trim();
+    return `${proto}://${fwdHost.split(',')[0].trim()}`;
+  }
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    try {
+      return new URL(process.env.GOOGLE_REDIRECT_URI).origin;
+    } catch {}
+  }
+  return new URL(req.url).origin;
+}
+
+export function resolveRedirectUri(reqOrUrl: Request | string): string {
   if (process.env.GOOGLE_REDIRECT_URI) {
     return process.env.GOOGLE_REDIRECT_URI;
   }
-  const url = new URL(reqUrl);
-  return `${url.origin}/api/gmail/callback`;
+  if (typeof reqOrUrl === 'string') {
+    const url = new URL(reqOrUrl);
+    return `${url.origin}/api/gmail/callback`;
+  }
+  return `${resolvePublicOrigin(reqOrUrl)}/api/gmail/callback`;
 }
 
 export function createGoogleOAuthClient(redirectUri?: string) {
