@@ -13,3 +13,9 @@ env:
     value: sb_publishable_sk-U6640ojnixa2GOUL46A_HEGrcLmf
   - variable: SUPABASE_SERVICE_ROLE_KEY
     secret: SUPABASE_SERVICE_ROLE_KEY
+  - variable: GOOGLE_CLIENT_ID
+    value: 1044738610092-k8hqnm9t12p80dmb5okd2lll3jdpctoj.apps.googleusercontent.com
+  - variable: GOOGLE_CLIENT_SECRET
+    secret: GOOGLE_CLIENT_SECRET
+  - variable: GOOGLE_REDIRECT_URI
+    value: https://studio--studio-8389574161-3faaf.us-central1.hosted.app/api/gmail/callback
