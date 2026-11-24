@@ -40,7 +40,6 @@ import {
   loadPrintBranding,
   printHtmlDocument
 } from '@/lib/print-engine';
-import * as XLSX from 'xlsx';
 
 export interface PurchaseOrderItem {
   sku: string;
@@ -365,7 +364,8 @@ export default function OrdersTab({ onReceiveToPurchase }: OrdersTabProps = {}) 
     printHtmlDocument(html, `Orden ${ord.code}`);
   };
 
-  const handleExportOrderExcel = (ord: PurchaseOrderRecord) => {
+  const handleExportOrderExcel = async (ord: PurchaseOrderRecord) => {
+    const XLSX = await import('xlsx');
     const rows = ord.items.map((it, idx) => ({
       '#': idx + 1,
       SKU: it.sku,

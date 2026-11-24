@@ -32,7 +32,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DteReader } from '@/components/DteReader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1583,447 +1582,575 @@ export default function PurchasesTab({
   };
 
   return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
+    <div className="w-full transition-colors duration-200">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList className="bg-muted/50 dark:bg-white/5 border border-border dark:border-white/10 p-1 h-9 rounded-xl gap-1">
+            <TabsTrigger value="registro" className="rounded-lg px-3 py-1 font-bold text-xs data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
+              <ClipboardList size={13} className="mr-1.5" /> 1. Ingresar Factura / DTE
+            </TabsTrigger>
+            <TabsTrigger value="historial" className="rounded-lg px-3 py-1 font-bold text-xs data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
+              <Calendar size={13} className="mr-1.5" /> 2. Historial de Ingresos
+            </TabsTrigger>
+            <TabsTrigger value="vinculacion" className="rounded-lg px-3 py-1 font-bold text-xs data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
+              <Link2 size={13} className="mr-1.5" /> 3. Vinculación de Códigos
+            </TabsTrigger>
+            <TabsTrigger value="credito" className="rounded-lg px-3 py-1 font-bold text-xs data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all">
+              <FileText size={13} className="mr-1.5" /> 4. Notas de Crédito
+            </TabsTrigger>
+          </TabsList>
 
+          {activeTab === 'registro' && (
+            <div className="flex items-center gap-2 text-[11px]">
+              {editingPurchaseId && (
+                <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/30 font-bold">
+                  Editando Borrador
+                </Badge>
+              )}
+              <span className="font-mono text-[11px] px-2.5 py-1 rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground">
+                Control: <strong className="text-foreground">{pedidoId}</strong>
+              </span>
+            </div>
+          )}
+        </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-7xl mx-auto space-y-6 relative z-10">
-        <TabsList className="bg-transparent p-0 border-b border-border dark:border-white/10 w-full justify-start h-auto rounded-none gap-2">
-          <TabsTrigger value="registro" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-transparent">
-            <ClipboardList size={14} className="mr-2" /> Registro de Compra
-          </TabsTrigger>
-          <TabsTrigger value="historial" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-transparent">
-            <Calendar size={14} className="mr-2" /> Historial de Ingresos
-          </TabsTrigger>
-          <TabsTrigger value="vinculacion" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-transparent">
-            <Link2 size={14} className="mr-2" /> Vinculación de Códigos
-          </TabsTrigger>
-          <TabsTrigger value="credito" className="rounded-none px-4 py-3 font-medium text-[12.5px] text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-[#7c7fff] data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 dark:data-[state=active]:border-[#5b5ef4] data-[state=active]:bg-indigo-500/10 dark:data-[state=active]:bg-indigo-500/10 hover:text-slate-800 dark:hover:text-white/70 transition-colors shadow-none data-[state=active]:shadow-none border-b-2 border-t border-transparent">
-            <FileText size={14} className="mr-2" /> Notas de Crédito
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="registro" className="space-y-6 outline-none">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            <div className="lg:col-span-4 space-y-6">
-              <div className="flex flex-col gap-2.5">
-                <div className="rounded-t-[11px] p-[13px_16px] flex items-center justify-between bg-indigo-500/25 border border-indigo-500/35 border-b-0">
-                  <div className="flex items-center gap-2 text-[13px] font-semibold text-indigo-700 dark:text-[#a5a8ff]">
-                    <ClipboardList size={15} /> Control de Pedido
-                  </div>
-                  <span className="text-[10px] text-muted-foreground dark:text-white/40 font-mono tracking-[0.5px] bg-card dark:bg-white/5 px-2 py-0.5 rounded border border-border dark:border-white/10">{pedidoId}</span>
-                </div>
-                
-                <div className="rounded-b-[11px] p-4 flex flex-col gap-3.5 bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 mt-[-10px]">
-                  {pendingDtes.length > 0 && (
-                    <div className="mb-1 p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/25">
-                      <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.7px] text-indigo-400 mb-1.5">
-                        <span className="flex items-center gap-1.5"><FileJson size={12} /> Importar Catálogo DTE</span>
-                        <Badge variant="outline" className="text-[8px] h-4 bg-indigo-500/20 border-indigo-500/40 text-indigo-700 dark:text-indigo-300 font-mono">
-                          {pendingDtes.length} pendientes
-                        </Badge>
-                      </div>
-                      <Select value={selectedDteId} onValueChange={handleSelectDte}>
-                        <SelectTrigger className="flex items-center justify-between bg-background dark:bg-black/40 border border-indigo-500/30 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-indigo-700 dark:text-indigo-200 shadow-none">
-                          <SelectValue placeholder="Seleccione un DTE para autocompletar..." />
-                        </SelectTrigger>
-                        <SelectContent className="border-border dark:border-white/10 bg-popover text-popover-foreground text-foreground dark:text-white max-h-60">
-                          <SelectItem value="none" className="text-muted-foreground dark:text-white/40 italic">Ninguno (Ingreso Manual)</SelectItem>
-                          {pendingDtes.map((dte) => (
-                            <SelectItem key={dte.id} value={dte.id}>
-                              {dte.documento_numero} - {dte.proveedor_nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {/* PROVEEDOR */}
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5 flex items-center justify-between">
-                      <span>Proveedor</span>
-                      {supplierName && <span className="text-[9px] text-emerald-400 font-mono">✓ Seleccionado</span>}
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] flex-1 relative focus-within:border-indigo-500/50">
-                        <Building2 size={14} className="text-muted-foreground/80 dark:text-white/30 shrink-0" />
-                        <Input 
-                          placeholder="Seleccione o busque proveedor..." 
-                          value={supplierName}
-                          onChange={e => setSupplierName(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12.5px] text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25 font-medium"
-                        />
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/30 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70">
-                            <Search size={14} />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0 border-border dark:border-white/10 bg-popover text-popover-foreground shadow-2xl" align="end">
-                          <div className="p-3 border-b border-border dark:border-white/10">
-                            <Input 
-                              placeholder="Buscar proveedor por nombre o NIT..." 
-                              value={supplierSearch} 
-                              onChange={e => setSupplierSearch(e.target.value)} 
-                              className="h-8 text-xs bg-card dark:bg-white/5 border border-border dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25" 
-                            />
-                          </div>
-                          <ScrollArea className="h-60">
-                            <div className="p-1.5 space-y-1">
-                              {filteredSuppliers.length === 0 ? (
-                                <div className="p-4 text-center text-muted-foreground/80 dark:text-white/30 text-[11px] italic">No se encontraron proveedores</div>
-                              ) : filteredSuppliers.map((s: any) => (
-                                <div 
-                                  key={s.id} 
-                                  onClick={() => selectSupplier(s)} 
-                                  className="p-2.5 hover:bg-accent dark:hover:bg-white/10 cursor-pointer rounded-lg transition-colors group flex items-center justify-between"
-                                >
-                                  <div>
-                                    <span className="text-[11.5px] font-bold text-foreground dark:text-white group-hover:text-indigo-400 block">{s.name}</span>
-                                    <span className="text-[9.5px] text-muted-foreground dark:text-white/40 font-mono">{s.nit ? `NIT: ${s.nit}` : 'Sin NIT'}</span>
-                                  </div>
-                                  {supplierName === s.name && <Check size={14} className="text-emerald-400" />}
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {/* ENCARGADO DE INGRESO (USUARIO DEL SISTEMA) */}
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5 flex items-center justify-between">
-                      <span>Encargado de ingreso</span>
-                      <span className="text-[9px] text-indigo-400 font-mono">Usuario Sistema</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] flex-1 relative focus-within:border-indigo-500/50">
-                        <User size={14} className="text-muted-foreground/80 dark:text-white/30 shrink-0" />
-                        <Input 
-                          placeholder="Nombre del encargado..." 
-                          value={enteredBy}
-                          onChange={e => setEnteredBy(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12.5px] text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25 font-medium"
-                        />
-                      </div>
-                      <Popover
-                        open={isUserPopoverOpen}
-                        onOpenChange={(open) => {
-                          setIsUserPopoverOpen(open);
-                          if (open) loadSystemUsersLazy();
-                        }}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/30 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70" title="Seleccionar usuario del sistema">
-                            <Users size={14} />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0 border-border dark:border-white/10 bg-popover text-popover-foreground shadow-2xl" align="end">
-                          <div className="p-3 border-b border-border dark:border-white/10">
-                            <Input 
-                              placeholder="Buscar usuario por nombre o correo..." 
-                              value={userSearch} 
-                              onChange={e => setUserSearch(e.target.value)} 
-                              className="h-8 text-xs bg-card dark:bg-white/5 border border-border dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25" 
-                            />
-                          </div>
-                          <ScrollArea className="h-60">
-                            <div className="p-1.5 space-y-1">
-                              {filteredUsers.length === 0 ? (
-                                <div className="p-4 text-center text-muted-foreground/80 dark:text-white/30 text-[11px] italic">No se encontraron usuarios</div>
-                              ) : filteredUsers.map((u) => (
-                                <div 
-                                  key={u.id || u.email} 
-                                  onClick={() => {
-                                    setEnteredBy(u.full_name || u.email);
-                                    setIsUserPopoverOpen(false);
-                                  }} 
-                                  className="p-2.5 hover:bg-accent dark:hover:bg-white/10 cursor-pointer rounded-lg transition-colors group flex items-center justify-between"
-                                >
-                                  <div className="flex-1 mr-2">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[11.5px] font-bold text-foreground dark:text-white group-hover:text-indigo-400">{u.full_name || u.email}</span>
-                                      <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 uppercase border-border dark:border-white/15 text-muted-foreground dark:text-white/50">
-                                        {u.role || 'usuario'}
-                                      </Badge>
-                                    </div>
-                                    <span className="text-[9.5px] text-muted-foreground dark:text-white/40 font-mono block truncate">{u.email}</span>
-                                  </div>
-                                  {enteredBy === (u.full_name || u.email) && <Check size={14} className="text-emerald-400 shrink-0" />}
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  {/* TIPO DE DOCUMENTO Y BODEGA */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5">Tipo documento</div>
-                      <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                        <SelectTrigger className="flex items-center justify-between bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-foreground dark:text-white/80 shadow-none font-medium">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="border-border dark:border-white/10 bg-popover text-popover-foreground text-foreground dark:text-white">
-                          <SelectItem value="FACTURA">FACTURA (01)</SelectItem>
-                          <SelectItem value="CCF">CCF (03)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5">Bodega destino</div>
-                      <Select value={warehouse} onValueChange={setWarehouse}>
-                        <SelectTrigger className="flex items-center justify-between bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] h-[38px] text-[12px] text-foreground dark:text-white/80 shadow-none font-medium">
-                          <SelectValue placeholder="Seleccione..." />
-                        </SelectTrigger>
-                        <SelectContent className="border-border dark:border-white/10 bg-popover text-popover-foreground text-foreground dark:text-white">
-                          {warehouses?.map((wh: any) => (
-                            <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* CAMPOS SEPARADOS: N° DTE Y CODIGO DE GENERACION */}
-                  <div className="grid grid-cols-1 gap-2.5 pt-1 border-t border-border/60 dark:border-white/5">
-                    <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5 flex items-center justify-between">
-                        <span>N° Factura / Control DTE</span>
-                        <span className="text-[8.5px] text-indigo-400/80 font-mono">DTE Control</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] focus-within:border-indigo-500/50">
-                        <FileText size={14} className="text-muted-foreground/80 dark:text-white/30 shrink-0" />
-                        <Input 
-                          placeholder="DTE-03-M001P001-000000000000123" 
-                          value={docNumber}
-                          onChange={e => setDocNumber(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12px] font-mono text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5 flex items-center justify-between">
-                        <span>Código de Generación</span>
-                        <span className="text-[8.5px] text-muted-foreground/80 dark:text-white/30 font-mono">UUID v4</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 rounded-lg p-[9px_12px] focus-within:border-indigo-500/50">
-                        <FileCode size={14} className="text-muted-foreground/80 dark:text-white/30 shrink-0" />
-                        <Input 
-                          placeholder="36C4A2D8-724B-4D3C-856E-85F0E9C7BA9A" 
-                          value={generationCode}
-                          onChange={e => setGenerationCode(e.target.value)}
-                          className="h-full bg-transparent border-none text-[12px] font-mono text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="h-[1px] bg-card dark:bg-white/5" />
-
-                  {/* FORMA DE PAGO */}
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40 mb-1.5">Forma de pago</div>
-                    <div className="flex gap-1.5">
-                      <button onClick={() => setPaymentMethod('Efectivo')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Efectivo' ? 'bg-indigo-500/20 border border-indigo-500/50 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/45 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70'}`}>
-                        <Wallet size={12} /> Efectivo
-                      </button>
-                      <button onClick={() => setPaymentMethod('Transferencia')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Transferencia' ? 'bg-indigo-500/20 border border-indigo-500/50 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/45 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70'}`}>
-                        <Landmark size={12} /> Transf.
-                      </button>
-                      <button onClick={() => setPaymentMethod('Credito')} className={`flex-1 flex items-center justify-center gap-1.5 p-[7px_8px] rounded-lg text-[11px] font-semibold transition-all ${paymentMethod === 'Credito' ? 'bg-indigo-500/20 border border-indigo-500/50 text-indigo-700 dark:text-[#a5a8ff] shadow-sm' : 'bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/45 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70'}`}>
-                        <CreditCard size={12} /> Crédito
-                      </button>
-                    </div>
-                    {paymentMethod === 'Credito' && (
-                       <div className="mt-2.5 p-2 rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 flex items-center gap-2 animate-in fade-in">
-                         <div className="text-[10px] font-semibold uppercase tracking-[0.7px] text-indigo-400">Plazo Crédito:</div>
-                         <Input type="number" value={creditDays} onFocus={e => e.target.select()} onChange={e => setCreditDays(e.target.value)} className="h-[28px] w-20 bg-background dark:bg-black/40 border-border dark:border-white/10 text-[11.5px] text-foreground dark:text-white text-center font-bold" placeholder="30" />
-                         <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground dark:text-white/40">Días</div>
-                       </div>
-                    )}
-                  </div>
-                </div>
+        <TabsContent value="registro" className="m-0 outline-none w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            {/* COLUMNA IZQUIERDA (4 cols): PASO 1 — DATOS DEL DOCUMENTO Y PROVEEDOR */}
+            <div className="lg:col-span-4 rounded-2xl bg-card dark:bg-white/[0.04] border border-border dark:border-white/10 overflow-hidden shadow-sm">
+              <div className="px-4 py-2.5 bg-indigo-500/15 border-b border-indigo-500/25 flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wide text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                  <ClipboardList size={14} /> Paso 1 · Datos de Factura
+                </span>
+                {warehouse && (
+                  <Badge variant="outline" className="text-[9.5px] font-bold border-indigo-500/30 text-indigo-600 dark:text-indigo-300">
+                    {warehouse}
+                  </Badge>
+                )}
               </div>
 
-              <div className="rounded-[11px] p-[14px_16px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground/80 dark:text-white/30">Cargar DTE V3</div>
-                  <Popover>
-                    <PopoverTrigger asChild><Info size={14} className="text-muted-foreground dark:text-white/20 hover:text-foreground dark:hover:text-white/40 cursor-pointer" /></PopoverTrigger>
-                    <PopoverContent className="w-64 text-[10px] space-y-2 border-border dark:border-white/10 bg-popover text-popover-foreground text-foreground dark:text-white">
-                       <p className="font-bold text-indigo-400">Hacienda El Salvador V3:</p>
-                       <p className="text-muted-foreground dark:text-white/60">Extrae automáticamente proveedor, códigos de productos, cantidades y precios directamente desde el archivo oficial del Ministerio.</p>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".json" />
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full p-[11px] rounded-xl bg-card dark:bg-white/5 border border-border dark:border-white/10 text-foreground/85 dark:text-white/65 hover:bg-accent dark:hover:bg-white/10 text-[12.5px] font-semibold flex items-center justify-center gap-2 tracking-[0.3px] transition-all"
-                >
-                  <FileJson size={15} className="text-[#7c7fff]" />
-                  <div className="text-center">
-                    <div>IMPORTAR DTE V3 (JSON)</div>
-                    <span className="block text-[10px] font-normal text-muted-foreground/80 dark:text-white/30 mt-0.5">Soporta Ministerio de Hacienda SV</span>
-                  </div>
-                </button>
-                
-                <div className="h-[1px] bg-card dark:bg-white/5 my-3" />
-                
-                <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground/80 dark:text-white/30 mb-2.5">Agregar manualmente</div>
-                <div className="relative">
-                  <div className="grid grid-cols-[1fr_60px_80px] gap-1.5 mb-2">
-                    <Input
-                      placeholder="SKU o nombre..."
-                      value={skuSearch}
-                      onChange={e => setSkuSearch(e.target.value.toUpperCase())}
-                      className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-foreground/90 dark:text-white/70 h-[36px]"
-                    />
-                    <Input type="number" value={manualQty} onFocus={e => e.target.select()} onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-foreground/90 dark:text-white/70 text-center h-[36px]" />
-                    <Input type="number" placeholder="0.00" value={manualPrice} onFocus={e => e.target.select()} onChange={e => setManualPrice(e.target.value)} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-emerald-400 text-right h-[36px]" />
-                  </div>
-                  {skuSearch.trim().length > 0 && !inventory.some(p => p.sku === skuSearch.trim().toUpperCase()) && (
-                    <div className="absolute z-40 left-0 right-0 top-[40px] bg-popover dark:bg-[#161430] border border-border dark:border-white/15 rounded-xl shadow-2xl max-h-48 overflow-y-auto p-1 divide-y divide-border/50 dark:divide-white/5">
-                      {inventory
-                        .filter(p =>
-                          p.sku.toLowerCase().includes(skuSearch.trim().toLowerCase()) ||
-                          (p.name && p.name.toLowerCase().includes(skuSearch.trim().toLowerCase()))
-                        )
-                        .slice(0, 8)
-                        .map(p => (
-                          <button
-                            key={p.sku}
-                            type="button"
-                            onClick={() => {
-                              setSkuSearch(p.sku);
-                              if (!manualPrice && p.price > 0) setManualPrice(p.price.toFixed(2));
-                            }}
-                            className="w-full text-left px-2.5 py-2 text-[11px] hover:bg-accent dark:hover:bg-white/10 rounded-lg flex items-center justify-between gap-2"
-                          >
-                            <span className="font-mono font-bold text-indigo-600 dark:text-indigo-300 shrink-0">{p.sku}</span>
-                            <span className="text-muted-foreground dark:text-white/60 truncate">{p.name}</span>
-                          </button>
+              <div className="p-3.5 space-y-3">
+                {pendingDtes.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/25">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase text-indigo-500 dark:text-indigo-300 mb-1">
+                      <span className="flex items-center gap-1"><FileJson size={12} /> DTEs Pendientes (Gmail)</span>
+                      <Badge variant="outline" className="text-[9px] h-4 font-mono border-indigo-500/40">
+                        {pendingDtes.length}
+                      </Badge>
+                    </div>
+                    <Select value={selectedDteId} onValueChange={handleSelectDte}>
+                      <SelectTrigger className="h-8 text-xs bg-background dark:bg-black/40 border-indigo-500/30">
+                        <SelectValue placeholder="Seleccione un DTE..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="none" className="italic text-muted-foreground">Ninguno (Ingreso Manual)</SelectItem>
+                        {pendingDtes.map((dte) => (
+                          <SelectItem key={dte.id} value={dte.id}>
+                            {dte.documento_numero} - {dte.proveedor_nombre}
+                          </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* PROVEEDOR */}
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
+                    <span>Proveedor</span>
+                    {supplierName && <span className="text-[9.5px] text-emerald-500 font-mono">✓ Seleccionado</span>}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <div className="flex items-center gap-2 bg-background dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-2.5 h-9 flex-1 focus-within:border-indigo-500/60">
+                      <Building2 size={13} className="text-muted-foreground shrink-0" />
+                      <Input
+                        placeholder="Seleccione o escriba proveedor..."
+                        value={supplierName}
+                        onChange={e => setSupplierName(e.target.value)}
+                        className="h-full bg-transparent border-none text-xs p-0 shadow-none focus-visible:ring-0 font-semibold"
+                      />
+                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 rounded-lg">
+                          <Search size={13} />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0 shadow-2xl" align="end">
+                        <div className="p-2.5 border-b border-border">
+                          <Input
+                            placeholder="Buscar por nombre o NIT..."
+                            value={supplierSearch}
+                            onChange={e => setSupplierSearch(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <ScrollArea className="h-60">
+                          <div className="p-1.5 space-y-0.5">
+                            {filteredSuppliers.length === 0 ? (
+                              <div className="p-4 text-center text-muted-foreground text-xs italic">No se encontraron proveedores</div>
+                            ) : filteredSuppliers.map((s: any) => (
+                              <div
+                                key={s.id}
+                                onClick={() => selectSupplier(s)}
+                                className="p-2 hover:bg-accent cursor-pointer rounded-lg flex items-center justify-between"
+                              >
+                                <div>
+                                  <span className="text-xs font-bold block">{s.name}</span>
+                                  <span className="text-[10px] text-muted-foreground font-mono">{s.nit ? `NIT: ${s.nit}` : 'Sin NIT'}</span>
+                                </div>
+                                {supplierName === s.name && <Check size={14} className="text-emerald-500" />}
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* TIPO DOC + BODEGA DESTINO */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Tipo Documento</div>
+                    <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                      <SelectTrigger className="h-9 text-xs font-semibold bg-background dark:bg-white/5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FACTURA">FACTURA (01)</SelectItem>
+                        <SelectItem value="CCF">CCF (03)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Bodega Destino</div>
+                    <Select value={warehouse} onValueChange={setWarehouse}>
+                      <SelectTrigger className="h-9 text-xs font-semibold bg-background dark:bg-white/5">
+                        <SelectValue placeholder="Seleccione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {warehouses?.map((wh: any) => (
+                          <SelectItem key={wh.id} value={wh.name}>{wh.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* N° CONTROL DTE + UUID GENERACIÓN */}
+                <div className="space-y-2 pt-1 border-t border-border/60 dark:border-white/5">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex justify-between">
+                      <span>N° Factura / Control DTE</span>
+                      <span className="text-[9px] font-mono text-indigo-400">Control</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-background dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-2.5 h-9 focus-within:border-indigo-500/60">
+                      <FileText size={13} className="text-muted-foreground shrink-0" />
+                      <Input
+                        placeholder="DTE-03-M001P001-000000000000123"
+                        value={docNumber}
+                        onChange={e => setDocNumber(e.target.value)}
+                        className="h-full bg-transparent border-none text-xs font-mono p-0 shadow-none focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex justify-between">
+                      <span>Código de Generación</span>
+                      <span className="text-[9px] font-mono text-muted-foreground">UUID v4</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-background dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-2.5 h-9 focus-within:border-indigo-500/60">
+                      <FileCode size={13} className="text-muted-foreground shrink-0" />
+                      <Input
+                        placeholder="36C4A2D8-724B-4D3C-856E-85F0E9C7BA9A"
+                        value={generationCode}
+                        onChange={e => setGenerationCode(e.target.value)}
+                        className="h-full bg-transparent border-none text-xs font-mono p-0 shadow-none focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ENCARGADO DE INGRESO */}
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex justify-between">
+                    <span>Encargado de Ingreso</span>
+                    <span className="text-[9px] font-mono text-indigo-400">Operador</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <div className="flex items-center gap-2 bg-background dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-2.5 h-9 flex-1">
+                      <User size={13} className="text-muted-foreground shrink-0" />
+                      <Input
+                        placeholder="Nombre del encargado..."
+                        value={enteredBy}
+                        onChange={e => setEnteredBy(e.target.value)}
+                        className="h-full bg-transparent border-none text-xs p-0 shadow-none focus-visible:ring-0 font-medium"
+                      />
+                    </div>
+                    <Popover
+                      open={isUserPopoverOpen}
+                      onOpenChange={(open) => {
+                        setIsUserPopoverOpen(open);
+                        if (open) loadSystemUsersLazy();
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 rounded-lg" title="Seleccionar usuario del sistema">
+                          <Users size={13} />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0 shadow-2xl" align="end">
+                        <div className="p-2.5 border-b border-border">
+                          <Input
+                            placeholder="Buscar usuario..."
+                            value={userSearch}
+                            onChange={e => setUserSearch(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <ScrollArea className="h-56">
+                          <div className="p-1.5 space-y-0.5">
+                            {loadingUsers ? (
+                              <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando usuarios...
+                              </div>
+                            ) : filteredUsers.length === 0 ? (
+                              <div className="p-4 text-center text-muted-foreground text-xs italic">No se encontraron usuarios</div>
+                            ) : filteredUsers.map((u) => (
+                              <div
+                                key={u.id || u.email}
+                                onClick={() => {
+                                  setEnteredBy(u.full_name || u.email);
+                                  setIsUserPopoverOpen(false);
+                                }}
+                                className="p-2 hover:bg-accent cursor-pointer rounded-lg flex items-center justify-between"
+                              >
+                                <div className="flex-1 mr-2 truncate">
+                                  <span className="text-xs font-bold block truncate">{u.full_name || u.email}</span>
+                                  <span className="text-[10px] text-muted-foreground font-mono block truncate">{u.email}</span>
+                                </div>
+                                {enteredBy === (u.full_name || u.email) && <Check size={14} className="text-emerald-500 shrink-0" />}
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* FORMA DE PAGO */}
+                <div className="pt-1 border-t border-border/60 dark:border-white/5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Forma de Pago</div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('Efectivo')}
+                      className={`flex items-center justify-center gap-1 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                        paymentMethod === 'Efectivo'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-background dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Wallet size={12} /> Efectivo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('Transferencia')}
+                      className={`flex items-center justify-center gap-1 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                        paymentMethod === 'Transferencia'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-background dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Landmark size={12} /> Transf.
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('Credito')}
+                      className={`flex items-center justify-center gap-1 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                        paymentMethod === 'Credito'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-background dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <CreditCard size={12} /> Crédito
+                    </button>
+                  </div>
+                  {paymentMethod === 'Credito' && (
+                    <div className="mt-2 p-2 rounded-lg bg-background dark:bg-white/5 border border-border dark:border-white/10 flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase text-indigo-500">Plazo de Crédito:</span>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          value={creditDays}
+                          onFocus={e => e.target.select()}
+                          onChange={e => setCreditDays(e.target.value)}
+                          className="h-7 w-16 text-xs text-center font-bold"
+                          placeholder="30"
+                        />
+                        <span className="text-[10px] text-muted-foreground font-semibold">días</span>
+                      </div>
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-[60px_60px_1fr] gap-1.5 mb-2.5 px-1">
-                  <div className="text-[9px] text-muted-foreground/80 dark:text-white/25 uppercase tracking-[0.5px]">SKU</div>
-                  <div className="text-[9px] text-muted-foreground/80 dark:text-white/25 uppercase tracking-[0.5px]">Cant.</div>
-                  <div className="text-[9px] text-muted-foreground/80 dark:text-white/25 uppercase tracking-[0.5px]">Costo</div>
+              </div>
+            </div>
+
+            {/* COLUMNA DERECHA (8 cols): PASO 2 Y 3 — BARRA RÁPIDA DTE/PRODUCTOS + TABLA EDITABLE + CIERRE */}
+            <div className="lg:col-span-8 flex flex-col gap-3">
+              {/* BARRA SUPERIOR INTEGRADA: IMPORTAR DTE JSON + AGREGAR PRODUCTO EN 1 SOLA FILA */}
+              <div className="rounded-2xl bg-card dark:bg-white/[0.04] border border-border dark:border-white/10 p-3 shadow-sm">
+                <div className="flex flex-col xl:flex-row xl:items-end gap-2.5">
+                  {/* Botón Importar JSON DTE */}
+                  <div className="shrink-0">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                      <span>Paso 2 · Carga Rápida DTE</span>
+                    </div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".json" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-9 px-3.5 rounded-xl border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 font-bold text-xs gap-2 w-full xl:w-auto"
+                    >
+                      <FileJson size={15} />
+                      Importar DTE JSON (MH)
+                    </Button>
+                  </div>
+
+                  <div className="hidden xl:block h-9 w-px bg-border dark:bg-white/10 mx-1" />
+
+                  {/* Buscador Manual en Línea */}
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                    <div className="sm:col-span-6 relative">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        O buscar producto (SKU / Nombre)
+                      </div>
+                      <Input
+                        placeholder="Escribe SKU o nombre del producto..."
+                        value={skuSearch}
+                        onChange={e => setSkuSearch(e.target.value.toUpperCase())}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
+                        className="h-9 text-xs bg-background dark:bg-white/5"
+                      />
+                      {skuSearch.trim().length > 0 && !inventory.some(p => p.sku === skuSearch.trim().toUpperCase()) && (
+                        <div className="absolute z-40 left-0 right-0 top-[60px] bg-popover dark:bg-[#161430] border border-border dark:border-white/15 rounded-xl shadow-2xl max-h-56 overflow-y-auto p-1 divide-y divide-border/50 dark:divide-white/5">
+                          {inventory
+                            .filter(p =>
+                              p.sku.toLowerCase().includes(skuSearch.trim().toLowerCase()) ||
+                              (p.name && p.name.toLowerCase().includes(skuSearch.trim().toLowerCase()))
+                            )
+                            .slice(0, 10)
+                            .map(p => (
+                              <button
+                                key={p.sku}
+                                type="button"
+                                onClick={() => {
+                                  setSkuSearch(p.sku);
+                                  if (!manualPrice && p.price > 0) setManualPrice(p.price.toFixed(2));
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-accent dark:hover:bg-white/10 rounded-lg flex items-center justify-between gap-2"
+                              >
+                                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-300 shrink-0">{p.sku}</span>
+                                <span className="text-muted-foreground dark:text-white/70 truncate flex-1">{p.name}</span>
+                                <span className="font-mono text-[10px] text-emerald-500 shrink-0">${Number(p.price || 0).toFixed(2)}</span>
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Cant.</div>
+                      <Input
+                        type="number"
+                        value={manualQty}
+                        onFocus={e => e.target.select()}
+                        onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))}
+                        className="h-9 text-xs text-center font-bold bg-background dark:bg-white/5"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Costo s/IVA</div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={manualPrice}
+                        onFocus={e => e.target.select()}
+                        onChange={e => setManualPrice(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
+                        className="h-9 text-xs text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-background dark:bg-white/5"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <Button
+                        type="button"
+                        onClick={handleAddItem}
+                        className="w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1"
+                      >
+                        <Plus size={14} /> Agregar
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <button onClick={handleAddItem} className="w-full p-[9px] rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/50 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70 text-[12px] font-medium flex items-center justify-center gap-1.5 transition-all">
-                  <Plus size={14} className="text-muted-foreground/80 dark:text-white/30" /> Añadir a la Lista
-                </button>
               </div>
-        </div>
 
-        <div className="lg:col-span-8 flex flex-col gap-2.5">
-          <div className="rounded-[11px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between p-[12px_18px] gap-4">
-            <div className="flex items-center gap-3 text-foreground dark:text-white">
-              <div className="text-[13px] font-semibold">Ítems del Pedido</div>
-              <span className="bg-indigo-500/20 text-indigo-700 dark:text-[#a5a8ff] text-[10px] font-mono p-[2px_8px] rounded-full border border-indigo-500/30">{purchaseItems.length} ítems</span>
+              {/* TABLA DE ÍTEMS A ANCHO COMPLETO CON EDICIÓN EN LÍNEA */}
+              <div className="rounded-2xl bg-card dark:bg-white/[0.04] border border-border dark:border-white/10 flex flex-col overflow-hidden shadow-sm">
+                <div className="px-4 py-2.5 border-b border-border dark:border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wide">Detalle de Productos a Ingresar</span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 text-indigo-600 dark:text-indigo-300">
+                      {purchaseItems.length} ítem(s)
+                    </Badge>
+                  </div>
+                  {purchaseItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPurchaseItems([])}
+                      className="text-[11px] font-semibold text-rose-500 hover:underline"
+                    >
+                      Vaciar lista
+                    </button>
+                  )}
+                </div>
+
+                <div className="overflow-auto min-h-[280px] max-h-[calc(100vh-340px)]">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-muted/95 dark:bg-[#161430] z-10">
+                      <TableRow className="border-b border-border dark:border-white/10 hover:bg-transparent">
+                        <TableHead className="text-[10px] font-bold uppercase h-9 px-4 w-[130px]">SKU</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase h-9">Producto</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase h-9 text-center w-[95px]">Cant.</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase h-9 text-right w-[125px]">Costo s/IVA</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase h-9 text-right w-[110px]">c/IVA (13%)</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase h-9 text-right w-[130px]">Subtotal</TableHead>
+                        <TableHead className="w-[44px] h-9"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {purchaseItems.length === 0 ? (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={7} className="text-center py-20 text-muted-foreground text-xs">
+                            Importa un archivo <strong>DTE JSON</strong> arriba a la izquierda o busca un producto para comenzar.
+                          </TableCell>
+                        </TableRow>
+                      ) : purchaseItems.map((item) => (
+                        <TableRow key={item.sku} className="border-b border-border/60 dark:border-white/5 hover:bg-muted/30 dark:hover:bg-white/5">
+                          <TableCell className="px-4 font-mono font-bold text-xs text-indigo-600 dark:text-indigo-300">{item.sku}</TableCell>
+                          <TableCell className="font-semibold text-xs text-foreground">{item.name}</TableCell>
+                          <TableCell className="text-center">
+                            <Input
+                              type="number"
+                              min={1}
+                              value={item.quantity}
+                              onFocus={e => e.target.select()}
+                              onChange={e => {
+                                const val = Math.max(0, Number(e.target.value) || 0);
+                                setPurchaseItems(prev =>
+                                  prev.map(it => it.sku === item.sku ? { ...it, quantity: val } : it)
+                                );
+                              }}
+                              className="h-7 w-20 mx-auto text-center text-xs font-bold bg-background dark:bg-black/30"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              value={item.cost}
+                              onFocus={e => e.target.select()}
+                              onChange={e => {
+                                const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                setPurchaseItems(prev =>
+                                  prev.map(it => it.sku === item.sku ? { ...it, cost: val } : it)
+                                );
+                              }}
+                              className="h-7 w-24 ml-auto text-right font-mono text-xs font-bold bg-background dark:bg-black/30"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                            ${(item.cost * 1.13).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-black text-xs text-foreground">
+                            ${(item.cost * item.quantity).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="pr-3">
+                            <button
+                              type="button"
+                              onClick={() => removeItem(item.sku)}
+                              className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* PASO 3 — BARRA INFERIOR UNIFICADA: TOTALES + ACCIONES EN 1 SOLA VISTA */}
+                <div className="p-3.5 bg-muted/40 dark:bg-white/[0.03] border-t border-border dark:border-white/10 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-6">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground block">Subtotal Gravado</span>
+                      <span className="text-sm font-bold font-mono">${subtotalPurchase.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground block">IVA Crédito (13%)</span>
+                      <span className="text-sm font-bold font-mono text-indigo-600 dark:text-indigo-300">${ivaPurchase.toFixed(2)}</span>
+                    </div>
+                    <div className="pl-4 border-l border-border dark:border-white/10">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground block">Total Factura</span>
+                      <span className="text-xl font-black font-mono text-emerald-600 dark:text-[#63e2b7]">${totalPurchase.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 px-4 rounded-xl font-bold text-xs gap-1.5"
+                      disabled={loading || purchaseItems.length === 0}
+                      onClick={() => savePurchase('PENDIENTE')}
+                      title="Registra como borrador sin sumar al stock todavía"
+                    >
+                      <Save size={15} />
+                      Guardar Borrador
+                    </Button>
+                    <Button
+                      type="button"
+                      className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs gap-1.5 shadow-md shadow-emerald-600/20"
+                      disabled={loading || purchaseItems.length === 0}
+                      onClick={() => savePurchase('CERRADA')}
+                    >
+                      {loading ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                      Cerrar e Ingresar a Inventario
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div className="flex gap-6 text-right">
-              <div>
-                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-muted-foreground dark:text-white/40 mb-0.5">Subtotal</div>
-                <div className="text-[12.5px] font-bold text-foreground dark:text-white/90">${subtotalPurchase.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-muted-foreground dark:text-white/40 mb-0.5">IVA (13%)</div>
-                <div className="text-[12.5px] font-bold text-foreground dark:text-white/90">${ivaPurchase.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-[9px] font-medium uppercase tracking-[0.5px] text-muted-foreground dark:text-white/40 mb-0.5">Total Neto</div>
-                <div className="text-[16px] font-black text-emerald-700 dark:text-[#63e2b7] tracking-[0.5px]">${totalPurchase.toFixed(2)}</div>
-              </div>
-            </div>
           </div>
-
-          <div className="rounded-[11px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 h-[450px] flex flex-col overflow-hidden">
-            <ScrollArea className="flex-1">
-              <Table>
-                <TableHeader className="sticky top-0 bg-muted/90 dark:bg-[#161430]/90 backdrop-blur-sm z-10">
-                  <TableRow className="border-b border-border dark:border-white/10 hover:bg-transparent">
-                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px] px-4">SKU</TableHead>
-                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px]">Producto</TableHead>
-                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px] text-center">Cant.</TableHead>
-                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px] text-right">Costo (S/C)</TableHead>
-                    <TableHead className="text-[10px] font-semibold text-muted-foreground dark:text-white/40 uppercase tracking-[0.5px] h-[36px] text-right">Subtotal</TableHead>
-                    <TableHead className="w-[40px] h-[36px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {purchaseItems.length === 0 ? (
-                    <TableRow className="border-b border-border/60 dark:border-white/5 hover:bg-transparent">
-                      <TableCell colSpan={6} className="text-center py-24 text-muted-foreground/80 dark:text-white/30 italic text-[11px]">
-                        No hay productos seleccionados. Importe un DTE V3 o agréguelos manualmente.
-                      </TableCell>
-                    </TableRow>
-                  ) : purchaseItems.map((item) => (
-                    <TableRow key={item.sku} className="border-b border-border/60 dark:border-white/5 hover:bg-card dark:bg-white/5 transition-colors">
-                      <TableCell className="px-4 font-mono font-bold text-muted-foreground dark:text-white/40 text-[11px]">{item.sku}</TableCell>
-                      <TableCell className="font-bold text-foreground dark:text-white/80 text-[12px]">{item.name}</TableCell>
-                      <TableCell className="text-center font-bold text-foreground dark:text-white/80 text-[12px]">{item.quantity}</TableCell>
-                      <TableCell className="text-right font-medium text-muted-foreground dark:text-white/60 text-[11.5px]">
-                        <span className="text-foreground dark:text-white/90">${item.cost.toFixed(2)}</span>
-                        <span className="text-[9.5px] text-muted-foreground/80 dark:text-white/30 ml-1">/ ${(item.cost * 1.13).toFixed(2)}</span>
-                      </TableCell>
-                      <TableCell className="text-right font-black text-foreground dark:text-white/90 text-[12.5px]">
-                        <span>${(item.cost * item.quantity).toFixed(2)}</span>
-                        <span className="text-[9.5px] text-muted-foreground/80 dark:text-white/30 font-medium ml-1">/ ${((item.cost * item.quantity) * 1.13).toFixed(2)}</span>
-                      </TableCell>
-                      <TableCell>
-                        <button onClick={() => removeItem(item.sku)} className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground/70 dark:text-white/20 hover:text-[#ff5c5c] hover:bg-[#ff5c5c]/10 transition-all">
-                          <Trash2 size={13} />
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-            <button 
-              className="h-[46px] rounded-xl flex items-center justify-center gap-2 bg-card dark:bg-white/5 border border-border dark:border-white/10 text-[13px] font-bold text-foreground/80 dark:text-white/50 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading || purchaseItems.length === 0}
-              onClick={() => savePurchase('PENDIENTE')}
-            >
-              <Save size={16} />
-              Borrador Pendiente
-            </button>
-            <button 
-              className="h-[46px] rounded-xl flex items-center justify-center gap-2 bg-emerald-500/30 border border-emerald-500/40 text-[13px] font-bold text-emerald-700 dark:text-[#63e2b7] hover:bg-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
-              disabled={loading || purchaseItems.length === 0}
-              onClick={() => savePurchase('CERRADA')}
-            >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} className="group-hover:scale-110 transition-transform" />}
-              Cerrar e Ingresar
-            </button>
-          </div>
-
-          <div className="rounded-[11px] p-[12px_16px] bg-[#d97706]/10 border border-[#d97706]/20 flex gap-3 mt-1">
-            <AlertTriangle className="text-[#fbbf24] mt-0.5 shrink-0" size={16} />
-            <div>
-              <div className="text-[10px] font-bold text-[#fbbf24] uppercase tracking-[0.5px] mb-1">Aviso de Operación</div>
-              <div className="text-[11px] text-[#fbbf24]/70 leading-[1.6]">Al "Borrador Pendiente", la compra queda registrada pero el stock no cambia. Al "Cerrar e Ingresar", el stock se carga inmediatamente al inventario maestro y queda disponible para venta.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </TabsContent>
+        </TabsContent>
 
     <TabsContent value="historial" className="space-y-6 outline-none">
       <div className="rounded-[11px] bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 flex flex-col overflow-hidden">

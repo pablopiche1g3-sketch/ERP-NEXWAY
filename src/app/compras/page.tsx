@@ -1,13 +1,31 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PurchasesTab from './components/PurchasesTab';
-import OrdersTab, { PurchaseOrderRecord } from './components/OrdersTab';
-import GmailClient from '@/components/shared/GmailClient';
+import type { PurchaseOrderRecord } from './components/OrdersTab';
 import { Truck, Loader2 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
+
+const OrdersTab = dynamic(() => import('./components/OrdersTab'), {
+  ssr: false,
+  loading: () => (
+    <div className="py-16 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin text-indigo-500" /> Cargando Órdenes de Compra...
+    </div>
+  ),
+});
+
+const GmailClient = dynamic(() => import('@/components/shared/GmailClient'), {
+  ssr: false,
+  loading: () => (
+    <div className="py-16 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin text-red-500" /> Cargando Bandeja Gmail...
+    </div>
+  ),
+});
 
 function ComprasContent() {
   const searchParams = useSearchParams();
@@ -31,45 +49,47 @@ function ComprasContent() {
   };
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm">
-            <Truck className="h-6 w-6" />
+    <div className="flex-1 w-full space-y-3 p-3 md:p-5 animate-in fade-in duration-200">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3 w-full">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-2.5 border-b border-slate-200 dark:border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm">
+              <Truck className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg md:text-xl font-black tracking-tight text-foreground leading-none">Abastecimiento</h2>
+              <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                Ingreso de facturas DTE, órdenes a proveedores y recepción electrónica.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-black tracking-tight text-foreground">Abastecimiento</h2>
-            <p className="text-xs text-muted-foreground font-medium">
-              Registro de compras DTE, órdenes de compra a proveedores y recepción electrónica vía correo.
-            </p>
+
+          <div className="flex items-center gap-2">
+            <TabsList className="bg-muted/50 dark:bg-white/5 border border-border dark:border-white/10 p-1 h-9 rounded-xl gap-1">
+              <TabsTrigger
+                value="registro"
+                className="rounded-lg px-3.5 py-1.5 font-bold text-xs data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all"
+              >
+                Registro de Compra
+              </TabsTrigger>
+              <TabsTrigger
+                value="ordenes"
+                className="rounded-lg px-3.5 py-1.5 font-bold text-xs data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all"
+              >
+                Orden de Compra
+              </TabsTrigger>
+              <TabsTrigger
+                value="gmail"
+                className="rounded-lg px-3.5 py-1.5 font-bold text-xs data-[state=active]:bg-red-600 data-[state=active]:text-white transition-all"
+              >
+                Bandeja Gmail
+              </TabsTrigger>
+            </TabsList>
+            <ModeToggle />
           </div>
         </div>
-        <ModeToggle />
-      </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full">
-        <TabsList className="bg-transparent p-0 h-auto flex w-full justify-start border-b border-slate-200 dark:border-white/10 gap-4 overflow-x-auto pb-px">
-          <TabsTrigger 
-            value="registro" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors whitespace-nowrap"
-          >
-            Registro de Compra
-          </TabsTrigger>
-          <TabsTrigger 
-            value="ordenes" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors whitespace-nowrap"
-          >
-            Orden de Compra
-          </TabsTrigger>
-          <TabsTrigger 
-            value="gmail" 
-            className="rounded-none px-4 py-3 font-medium text-sm text-slate-500 dark:text-white/40 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:border-b-2 data-[state=active]:border-red-500 data-[state=active]:bg-transparent transition-colors whitespace-nowrap"
-          >
-            Bandeja Gmail
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="registro" className="outline-none">
+
+        <TabsContent value="registro" className="m-0 outline-none w-full">
           <PurchasesTab
             initialImportedDte={pendingImportedDte}
             onConsumeImportedDte={() => setPendingImportedDte(null)}
@@ -77,10 +97,10 @@ function ComprasContent() {
             onConsumePurchaseOrder={() => setPendingPurchaseOrder(null)}
           />
         </TabsContent>
-        <TabsContent value="ordenes" className="outline-none">
+        <TabsContent value="ordenes" className="m-0 outline-none w-full">
           <OrdersTab onReceiveToPurchase={handleReceiveOrderToPurchase} />
         </TabsContent>
-        <TabsContent value="gmail" className="m-0 p-0 outline-none">
+        <TabsContent value="gmail" className="m-0 p-0 outline-none w-full">
           <GmailClient context="compras" onImportDteToPurchase={handleImportDteFromGmail} />
         </TabsContent>
       </Tabs>
