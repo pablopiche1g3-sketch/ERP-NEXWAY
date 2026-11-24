@@ -54,6 +54,9 @@ import {
   loadProductFractionRules,
   saveProductFractionRule,
   computeSuppliesCost,
+  PackagingBomPreset,
+  loadPackagingPresets,
+  savePackagingPresets,
 } from '@/lib/product-fraction-rules';
 
 export interface SpecialDischargeRecord {
@@ -234,6 +237,12 @@ export default function FractionAndDischargesTab() {
   const [selectedCapSku, setSelectedCapSku] = useState<string>('none');
   const [selectedExtraSku, setSelectedExtraSku] = useState<string>('none');
 
+  // Presets guardables de Envase / Tapa / Insumo Extra (para Consumo en Producción)
+  const [packagingPresets, setPackagingPresets] = useState<PackagingBomPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('none');
+  const [presetNameInput, setPresetNameInput] = useState<string>('');
+  const [isSavingPreset, setIsSavingPreset] = useState<boolean>(false);
+
   // Producción vinculada
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>('');
 
@@ -262,7 +271,111 @@ export default function FractionAndDischargesTab() {
     loadData();
     resolveActiveOperator();
     loadProductFractionRules().then(rules => setProductRules(rules));
+    loadPackagingPresets().then(list => setPackagingPresets(list));
   }, []);
+
+  const getPresetEstimatedCost = (preset: PackagingBomPreset): number => {
+    const pkgCost = preset.packageSku && preset.packageSku !== 'none'
+      ? Number(products.find(p => p.sku === preset.packageSku)?.cost || 0)
+      : 0;
+    const capCost = preset.capSku && preset.capSku !== 'none'
+      ? Number(products.find(p => p.sku === preset.capSku)?.cost || 0)
+      : 0;
+    const extCost = preset.extraSku && preset.extraSku !== 'none'
+      ? Number(products.find(p => p.sku === preset.extraSku)?.cost || 0)
+      : 0;
+    return Number((pkgCost + capCost + extCost).toFixed(2));
+  };
+
+  const handleApplyPackagingPreset = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    if (presetId === 'none') {
+      setPresetNameInput('');
+      return;
+    }
+    const found = packagingPresets.find(p => p.id === presetId);
+    if (!found) return;
+    setSelectedPackageSku(found.packageSku || 'none');
+    setSelectedCapSku(found.capSku || 'none');
+    setSelectedExtraSku(found.extraSku || 'none');
+    setPresetNameInput(found.name);
+    toast({
+      title: `Preset aplicado: ${found.name}`,
+      description: 'Se rellenaron Bote/Envase, Tapa e Insumo Extra. Puedes ajustarlos libremente.'
+    });
+  };
+
+  const handleSaveNewPackagingPreset = async () => {
+    const cleanName = presetNameInput.trim();
+    if (!cleanName) {
+      toast({ variant: 'destructive', title: 'Nombre requerido', description: 'Escribe un nombre para guardar este preset de envase.' });
+      return;
+    }
+    setIsSavingPreset(true);
+    try {
+      const newPreset: PackagingBomPreset = {
+        id: `preset-${Date.now()}`,
+        name: cleanName,
+        packageSku: selectedPackageSku || 'none',
+        capSku: selectedCapSku || 'none',
+        extraSku: selectedExtraSku || 'none',
+        updatedAt: new Date().toISOString()
+      };
+      const updated = [newPreset, ...packagingPresets];
+      await savePackagingPresets(updated);
+      setPackagingPresets(updated);
+      setSelectedPresetId(newPreset.id);
+      toast({ title: 'Preset Guardado ✓', description: `"${cleanName}" listo para reutilizar en Consumo en Producción.` });
+    } finally {
+      setIsSavingPreset(false);
+    }
+  };
+
+  const handleUpdateCurrentPackagingPreset = async () => {
+    if (selectedPresetId === 'none') return;
+    const cleanName = presetNameInput.trim();
+    if (!cleanName) {
+      toast({ variant: 'destructive', title: 'Nombre requerido', description: 'El preset debe tener un nombre.' });
+      return;
+    }
+    setIsSavingPreset(true);
+    try {
+      const updated = packagingPresets.map(p =>
+        p.id === selectedPresetId
+          ? {
+              ...p,
+              name: cleanName,
+              packageSku: selectedPackageSku || 'none',
+              capSku: selectedCapSku || 'none',
+              extraSku: selectedExtraSku || 'none',
+              updatedAt: new Date().toISOString()
+            }
+          : p
+      );
+      await savePackagingPresets(updated);
+      setPackagingPresets(updated);
+      toast({ title: 'Preset Actualizado ✓', description: `"${cleanName}" actualizado con los insumos actuales.` });
+    } finally {
+      setIsSavingPreset(false);
+    }
+  };
+
+  const handleDeleteCurrentPackagingPreset = async () => {
+    if (selectedPresetId === 'none') return;
+    const target = packagingPresets.find(p => p.id === selectedPresetId);
+    if (!target || !window.confirm(`¿Eliminar el preset "${target.name}"?`)) return;
+    setIsSavingPreset(true);
+    try {
+      const updated = packagingPresets.filter(p => p.id !== selectedPresetId);
+      await savePackagingPresets(updated);
+      setPackagingPresets(updated);
+      setSelectedPresetId('none');
+      setPresetNameInput('');
+      toast({ title: 'Preset Eliminado', description: `Se eliminó "${target.name}".` });
+    } finally {
+      setIsSavingPreset(false);
+    }
+  };
 
   const resolveActiveOperator = async () => {
     try {
@@ -1767,6 +1880,87 @@ export default function FractionAndDischargesTab() {
                   <p className="text-[11px] text-muted-foreground">
                     Selecciona los botes vacíos, tapas o aditivos que se consumirán. El sistema descontará <strong>{netResultingUnits} unidades</strong> de cada insumo y sumará su costo al producto final.
                   </p>
+
+                  {/* Selector rápido de Presets guardables (solo en modo Consumo en Producción, sin alterar Fraccionar para Venta) */}
+                  {fractionFlow === 'PRODUCCION' && (
+                    <div className="p-3 rounded-xl bg-card border border-border/80 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Label className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                          Preset de Envase / Insumos Extras (Producción)
+                        </Label>
+                        <span className="text-[10px] text-muted-foreground">
+                          Guarda solo Bote, Tapa e Insumo Extra (fracciones y tintes quedan libres)
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                        <div className="md:col-span-5">
+                          <Select value={selectedPresetId} onValueChange={handleApplyPackagingPreset}>
+                            <SelectTrigger className="h-8 text-xs rounded-lg">
+                              <SelectValue placeholder="Seleccionar preset guardado..." />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-52">
+                              <SelectItem value="none" className="text-xs">Personalizado / Ninguno</SelectItem>
+                              {packagingPresets.map((preset) => (
+                                <SelectItem key={preset.id} value={preset.id} className="text-xs">
+                                  {preset.name} (+${getPresetEstimatedCost(preset).toFixed(2)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="md:col-span-4">
+                          <Input
+                            placeholder="Nombre del preset (ej. Kit 1/4 Galón)"
+                            value={presetNameInput}
+                            onChange={(e) => setPresetNameInput(e.target.value)}
+                            className="h-8 text-xs rounded-lg"
+                          />
+                        </div>
+
+                        <div className="md:col-span-3 flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={isSavingPreset || !presetNameInput.trim()}
+                            onClick={handleSaveNewPackagingPreset}
+                            className="h-8 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex-1 px-2"
+                            title="Guardar como nuevo preset"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Guardar
+                          </Button>
+                          {selectedPresetId !== 'none' && (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={isSavingPreset || !presetNameInput.trim()}
+                                onClick={handleUpdateCurrentPackagingPreset}
+                                className="h-8 text-[11px] font-bold rounded-lg px-2"
+                                title="Actualizar preset seleccionado"
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                disabled={isSavingPreset}
+                                onClick={handleDeleteCurrentPackagingPreset}
+                                className="h-8 w-8 p-0 text-rose-500 hover:bg-rose-500/10 rounded-lg"
+                                title="Eliminar preset"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {/* Envase / Bote */}

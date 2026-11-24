@@ -301,3 +301,76 @@ export async function deleteProductFractionRule(
 
   return updated;
 }
+
+
+export interface PackagingBomPreset {
+  id: string;
+  name: string;
+  packageSku: string;
+  capSku: string;
+  extraSku: string;
+  updatedAt?: string;
+}
+
+const PACKAGING_PRESETS_LOCAL_KEY = 'nexway_packaging_bom_presets';
+const PACKAGING_PRESETS_CONFIG_KEY = 'packaging_bom_presets';
+
+export async function loadPackagingPresets(): Promise<PackagingBomPreset[]> {
+  let localList: PackagingBomPreset[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(PACKAGING_PRESETS_LOCAL_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) localList = parsed;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    const { data } = await supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', PACKAGING_PRESETS_CONFIG_KEY)
+      .maybeSingle();
+
+    if (Array.isArray(data?.value)) {
+      const remoteList = data.value as PackagingBomPreset[];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(PACKAGING_PRESETS_LOCAL_KEY, JSON.stringify(remoteList));
+      }
+      return remoteList;
+    }
+  } catch (e) {
+    console.warn('Error cargando presets de envasado:', e);
+  }
+
+  return localList;
+}
+
+export async function savePackagingPresets(presets: PackagingBomPreset[]): Promise<PackagingBomPreset[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(PACKAGING_PRESETS_LOCAL_KEY, JSON.stringify(presets));
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    await supabase.from('system_config').upsert(
+      {
+        key: PACKAGING_PRESETS_CONFIG_KEY,
+        value: presets,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'key' }
+    );
+  } catch (e) {
+    console.warn('Error guardando presets de envasado en Supabase:', e);
+  }
+
+  return presets;
+}
