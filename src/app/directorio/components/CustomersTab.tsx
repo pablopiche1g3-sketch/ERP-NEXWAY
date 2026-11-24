@@ -311,9 +311,7 @@ export default function CustomersTab() {
       await supabase.from('system_config').upsert(
         {
           key: 'customers_extended_metadata',
-          value: currentMeta,
-          updated_at: new Date().toISOString()
-        },
+          value: currentMeta},
         { onConflict: 'key' }
       );
     } catch (e) {

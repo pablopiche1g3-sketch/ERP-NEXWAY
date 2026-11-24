@@ -96,9 +96,7 @@ export default function PayrollTab() {
           bonuses: nextBonuses,
           baseSalaries: nextSalaries,
           updated_at: new Date().toISOString()
-        },
-        updated_at: new Date().toISOString()
-      },
+        }},
       { onConflict: 'key' }
     );
   };

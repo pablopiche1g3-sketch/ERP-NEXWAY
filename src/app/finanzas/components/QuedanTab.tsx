@@ -287,7 +287,7 @@ export default function QuedanTab() {
     }
     await supabase
       .from('system_config')
-      .upsert({ key: META_CONFIG_KEY, value: updated, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      .upsert({ key: META_CONFIG_KEY, value: updated}, { onConflict: 'key' });
   };
 
   const loadData = async () => {

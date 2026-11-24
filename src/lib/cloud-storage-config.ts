@@ -125,9 +125,7 @@ export async function saveCloudStorageConfig(cfg: CloudStorageConfig): Promise<v
   const { error } = await supabase.from('system_config').upsert(
     {
       key: CLOUD_CONFIG_KEY,
-      value: payload,
-      updated_at: payload.updatedAt
-    },
+      value: payload},
     { onConflict: 'key' }
   );
 

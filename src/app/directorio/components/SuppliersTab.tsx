@@ -231,9 +231,7 @@ export default function SuppliersTab() {
       await supabase.from('system_config').upsert(
         {
           key: 'suppliers_extended_metadata',
-          value: currentMeta,
-          updated_at: new Date().toISOString()
-        },
+          value: currentMeta},
         { onConflict: 'key' }
       );
     } catch (e) {

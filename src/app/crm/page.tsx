@@ -219,9 +219,7 @@ export default function CRMPage() {
       await supabase.from('system_config').upsert(
         {
           key: 'crm_seller_routes',
-          value: nextStops,
-          updated_at: new Date().toISOString()
-        },
+          value: nextStops},
         { onConflict: 'key' }
       );
     } catch (e) {

@@ -263,8 +263,7 @@ export async function saveProductFractionRule(
     await supabase.from('system_config').upsert(
       {
         key: CONFIG_KEY,
-        value: updated,
-        updated_at: new Date().toISOString(),
+        value: updated
       },
       { onConflict: 'key' }
     );
@@ -290,8 +289,7 @@ export async function deleteProductFractionRule(
     await supabase.from('system_config').upsert(
       {
         key: CONFIG_KEY,
-        value: updated,
-        updated_at: new Date().toISOString(),
+        value: updated
       },
       { onConflict: 'key' }
     );
@@ -363,8 +361,7 @@ export async function savePackagingPresets(presets: PackagingBomPreset[]): Promi
     await supabase.from('system_config').upsert(
       {
         key: PACKAGING_PRESETS_CONFIG_KEY,
-        value: presets,
-        updated_at: new Date().toISOString(),
+        value: presets
       },
       { onConflict: 'key' }
     );

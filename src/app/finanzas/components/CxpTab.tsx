@@ -215,9 +215,7 @@ export default function CxpTab() {
       await supabase.from('system_config').upsert(
         {
           key: 'cxp_payments_registry',
-          value: [newPayment, ...existingPayments],
-          updated_at: new Date().toISOString()
-        },
+          value: [newPayment, ...existingPayments]},
         { onConflict: 'key' }
       );
 
@@ -285,9 +283,7 @@ export default function CxpTab() {
       await supabase.from('system_config').upsert(
         {
           key: 'cxp_manual_records',
-          value: [newManualCxp, ...currManual],
-          updated_at: new Date().toISOString()
-        },
+          value: [newManualCxp, ...currManual]},
         { onConflict: 'key' }
       );
 

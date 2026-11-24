@@ -218,9 +218,7 @@ export default function GmailClient({ context = 'compras', onImportDteToPurchase
     await supabase.from('system_config').upsert(
       {
         key: 'gmail_pending_dtes',
-        value: nextList,
-        updated_at: new Date().toISOString()
-      },
+        value: nextList},
       { onConflict: 'key' }
     );
 

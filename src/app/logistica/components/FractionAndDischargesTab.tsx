@@ -1288,9 +1288,7 @@ export default function FractionAndDischargesTab() {
           .from('system_config')
           .upsert({
             key: 'special_discharges_history',
-            value: updatedHistory,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'key' });
+            value: updatedHistory}, { onConflict: 'key' });
       } catch (scErr) {
         console.warn('System config history sync warning:', scErr);
       }
@@ -1408,9 +1406,7 @@ export default function FractionAndDischargesTab() {
           .from('system_config')
           .upsert({
             key: 'special_discharges_history',
-            value: updatedHistory,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'key' });
+            value: updatedHistory}, { onConflict: 'key' });
       } catch (e4) {}
 
       toast({

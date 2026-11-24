@@ -263,9 +263,7 @@ export default function CxcTab() {
       await supabase.from('system_config').upsert(
         {
           key: 'cxc_payments_registry',
-          value: [newPaymentRecord, ...existingPayments],
-          updated_at: new Date().toISOString()
-        },
+          value: [newPaymentRecord, ...existingPayments]},
         { onConflict: 'key' }
       );
 
@@ -347,9 +345,7 @@ export default function CxcTab() {
         await supabase.from('system_config').upsert(
           {
             key: 'cxc_manual_records',
-            value: [manualItem, ...currManual],
-            updated_at: new Date().toISOString()
-          },
+            value: [manualItem, ...currManual]},
           { onConflict: 'key' }
         );
       }

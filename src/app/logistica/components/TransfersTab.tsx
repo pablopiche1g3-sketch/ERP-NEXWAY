@@ -187,9 +187,7 @@ export default function TransfersTab() {
       .from('system_config')
       .upsert({
         key: 'dispatch_picking_drafts',
-        value: nextDrafts,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'key' })
+        value: nextDrafts}, { onConflict: 'key' })
       .then(() => {}, () => {});
   };
 
@@ -206,9 +204,7 @@ export default function TransfersTab() {
       .from('system_config')
       .upsert({
         key: 'dispatch_picking_drafts',
-        value: nextDrafts,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'key' })
+        value: nextDrafts}, { onConflict: 'key' })
       .then(() => {}, () => {});
   };
 

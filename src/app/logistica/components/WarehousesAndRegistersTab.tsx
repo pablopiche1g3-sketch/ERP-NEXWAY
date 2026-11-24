@@ -254,7 +254,7 @@ export default function WarehousesAndRegistersTab() {
   const persistStations = async (updated: PosStationRow[], successMsg: string) => {
     const { error } = await supabase
       .from('system_config')
-      .upsert({ key: 'pos_stations', value: updated, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      .upsert({ key: 'pos_stations', value: updated}, { onConflict: 'key' });
     if (error) throw error;
     setPosStations(updated);
     toast({ title: successMsg });

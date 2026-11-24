@@ -101,9 +101,7 @@ export default function BankingTab() {
       await supabase.from('system_config').upsert(
         {
           key: 'bank_accounts_registry',
-          value: updatedAccounts,
-          updated_at: new Date().toISOString()
-        },
+          value: updatedAccounts},
         { onConflict: 'key' }
       );
       toast({ title: 'Cuenta Bancaria Registrada', description: `Se creó la cuenta ${bankName} (${newAcc.account_number}).` });

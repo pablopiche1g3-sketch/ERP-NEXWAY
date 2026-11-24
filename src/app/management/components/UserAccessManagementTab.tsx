@@ -574,8 +574,7 @@ export default function UserAccessManagementTab() {
       await supabase.from('system_config').upsert(
         {
           key: 'app_users_registry',
-          value: updated,
-          updated_at: new Date().toISOString(),
+          value: updated
         },
         { onConflict: 'key' }
       );

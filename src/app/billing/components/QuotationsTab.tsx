@@ -348,9 +348,7 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
           await supabase.from('system_config').upsert(
             {
               key: 'quotations_seller_metadata',
-              value: nextMeta,
-              updated_at: new Date().toISOString()
-            },
+              value: nextMeta},
             { onConflict: 'key' }
           );
         } catch {}

@@ -428,8 +428,7 @@ export async function saveHaciendaSandboxConfig(cfg: HaciendaSandboxConfig): Pro
   const { error } = await supabase.from('system_config').upsert(
     {
       key: HACIENDA_SANDBOX_CONFIG_KEY,
-      value: normalized,
-      updated_at: new Date().toISOString(),
+      value: normalized
     },
     { onConflict: 'key' }
   );
@@ -459,8 +458,7 @@ export async function appendDteTransmission(record: DteTransmissionRecord): Prom
   await supabase.from('system_config').upsert(
     {
       key: HACIENDA_TRANSMISSIONS_KEY,
-      value: updated,
-      updated_at: new Date().toISOString(),
+      value: updated
     },
     { onConflict: 'key' }
   );

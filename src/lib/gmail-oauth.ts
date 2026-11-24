@@ -75,9 +75,7 @@ export async function saveGmailTokens(tokens: StoredGmailTokens) {
       await sb.from('system_config').upsert(
         {
           key: GMAIL_CONFIG_KEY,
-          value: tokens,
-          updated_at: new Date().toISOString()
-        },
+          value: tokens},
         { onConflict: 'key' }
       );
     }

@@ -450,8 +450,7 @@ export async function POST(request: Request) {
       await supabaseAdmin.from('system_config').upsert(
         {
           key: 'app_users_registry',
-          value: updatedRegistry,
-          updated_at: new Date().toISOString(),
+          value: updatedRegistry
         },
         { onConflict: 'key' }
       );
