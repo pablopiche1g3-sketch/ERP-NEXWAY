@@ -44,6 +44,7 @@ import {
   executeRestockOrderAndReceiveDte,
   syncExternalSuppliersToDirectory,
 } from '@/lib/hacienda-sandbox';
+import { useBms } from '@/contexts/BmsContext';
 
 export interface PurchaseOrderItem {
   sku: string;
@@ -86,6 +87,7 @@ function normalizeStatus(raw: string): 'PENDIENTE' | 'ENVIADA' | 'RECIBIDA' {
 export default function OrdersTab({ onReceiveToPurchase, onImportDteToPurchase }: OrdersTabProps = {}) {
   const { toast } = useToast();
   const { user } = useUser();
+  const { auditSystem } = useBms();
 
   // Datos livianos cargados en paralelo (sin descargar todo el inventario)
   const [loading, setLoading] = useState(true);
@@ -318,6 +320,7 @@ export default function OrdersTab({ onReceiveToPurchase, onImportDteToPurchase }
       setOrderItems([]);
       setNotes('');
       await loadInitialData();
+      auditSystem().catch(() => {});
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error al emitir orden', description: err?.message });
     } finally {
@@ -332,6 +335,7 @@ export default function OrdersTab({ onReceiveToPurchase, onImportDteToPurchase }
       setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o)));
       if (previewOrder?.id === order.id) setPreviewOrder({ ...previewOrder, status: nextStatus });
       toast({ title: `Estado actualizado: ${nextStatus}`, description: order.code });
+      auditSystem().catch(() => {});
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error actualizando estado', description: err?.message });
     }
@@ -345,6 +349,7 @@ export default function OrdersTab({ onReceiveToPurchase, onImportDteToPurchase }
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
       if (previewOrder?.id === order.id) setPreviewOrder(null);
       toast({ title: 'Orden Eliminada', description: order.code });
+      auditSystem().catch(() => {});
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error al eliminar', description: err?.message });
     }
@@ -439,6 +444,7 @@ export default function OrdersTab({ onReceiveToPurchase, onImportDteToPurchase }
         title: 'Factura CCF recibida',
         description: `Documento ${res.numeroControl} cargado en Registro de Compra.`,
       });
+      auditSystem().catch(() => {});
 
       if (onImportDteToPurchase) {
         onImportDteToPurchase(res.dteEntry);
@@ -903,13 +909,13 @@ export default function OrdersTab({ onReceiveToPurchase, onImportDteToPurchase }
                         </TableCell>
                         <TableCell className="px-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
-                            {ord.status !== 'RECIBIDA' && (
+                            {ord.status === 'PENDIENTE' && (
                               <Button
                                 size="sm"
                                 onClick={() => handleRestockOrder(ord)}
                                 disabled={restockingOrderId === ord.id}
                                 className="h-7 px-2.5 text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg gap-1"
-                                title="Solicitar factura CCF electrónica del proveedor y cargarla en Registro de Compra"
+                                title="Solicitar factura CCF electrónica del proveedor y abrirla lista para ingresar"
                               >
                                 {restockingOrderId === ord.id ? (
                                   <Loader2 size={11} className="animate-spin" />
@@ -920,15 +926,15 @@ export default function OrdersTab({ onReceiveToPurchase, onImportDteToPurchase }
                                 )}
                               </Button>
                             )}
-                            {onReceiveToPurchase && ord.status !== 'RECIBIDA' && (
+                            {onReceiveToPurchase && ord.status === 'ENVIADA' && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => onReceiveToPurchase(ord)}
-                                className="h-7 px-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/15 rounded-lg gap-1"
-                                title="Cargar esta orden manualmente en Registro de Compra"
+                                className="h-7 px-2.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/15 rounded-lg gap-1"
+                                title="Pasar a Registro de Compra para confirmar el ingreso al inventario"
                               >
-                                Recibir <ArrowRight size={11} />
+                                Ingresar Factura <ArrowRight size={11} />
                               </Button>
                             )}
                             <Button variant="ghost" size="icon" onClick={() => handlePrintOrder(ord)} className="h-7 w-7 text-indigo-500" title="Imprimir PDF">

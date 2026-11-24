@@ -192,6 +192,7 @@ export function AsistenteGuiaERP() {
         description: `Factura CCF ${res.numeroControl} recibida y lista para ingreso a inventario.`,
       });
 
+      auditSystem().catch(() => {});
       setPriorityModalTab(null);
       router.push('/compras?tab=registro');
     } catch (err: any) {

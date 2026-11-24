@@ -47,6 +47,7 @@ import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { fetchSystemAppUsers, SystemUserOption } from '@/lib/session-operator';
 import { postDoubleEntryJournal } from '@/lib/accounting-journal';
+import { useBms } from '@/contexts/BmsContext';
 import type { PurchaseOrderRecord } from './OrdersTab';
 
 interface PurchaseItem {
@@ -74,6 +75,7 @@ export default function PurchasesTab({
 }: PurchasesTabProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
+  const { auditSystem } = useBms();
   const [loading, setLoading] = useState(false);
   
   const [activeBranchId, setActiveBranchId] = useState<string | null>(() =>
@@ -1237,36 +1239,71 @@ export default function PurchasesTab({
 
         if (stockErr) throw stockErr;
 
-        if (selectedDteId !== 'none') {
-          try {
-            const { data: cfg } = await supabase
+        // Marcar cualquier DTE pendiente coincidente (por ID, N° Control o UUID) como PROCESADO y quitarlo de la bandeja activa
+        try {
+          const cleanCtrl = docNumber.trim().toUpperCase();
+          const cleanUuid = generationCode.trim().toUpperCase();
+          const matchesDte = (d: any) =>
+            (selectedDteId !== 'none' && d?.id === selectedDteId) ||
+            (cleanCtrl && String(d?.documento_numero || d?.payload_json?.identificacion?.numeroControl || '').trim().toUpperCase() === cleanCtrl) ||
+            (cleanUuid && String(d?.codigo_generacion || d?.payload_json?.identificacion?.codigoGeneracion || '').trim().toUpperCase() === cleanUuid);
+
+          setPendingDtes(prev => prev.filter(d => !matchesDte(d)));
+
+          const { data: cfg } = await supabase
+            .from('system_config')
+            .select('value')
+            .eq('key', 'gmail_pending_dtes')
+            .maybeSingle();
+          if (Array.isArray(cfg?.value)) {
+            const updated = cfg.value.map((d: any) =>
+              matchesDte(d) ? { ...d, estado: 'PROCESADO' } : d
+            );
+            await supabase
               .from('system_config')
-              .select('value')
-              .eq('key', 'gmail_pending_dtes')
-              .maybeSingle();
-            if (Array.isArray(cfg?.value)) {
-              const updated = cfg.value.map((d: any) =>
-                d?.id === selectedDteId ? { ...d, estado: 'PROCESADO' } : d
-              );
-              await supabase
-                .from('system_config')
-                .upsert({ key: 'gmail_pending_dtes', value: updated }, { onConflict: 'key' });
-            }
-          } catch (dteErr) {
-            console.warn('No se pudo actualizar el estado del DTE en system_config:', dteErr);
+              .upsert({ key: 'gmail_pending_dtes', value: updated }, { onConflict: 'key' });
           }
+        } catch (dteErr) {
+          console.warn('No se pudo actualizar el estado del DTE en system_config:', dteErr);
         }
 
-        // Si viene de una Orden de Compra (OC-...), marcarla automáticamente como RECIBIDA
-        if (pedidoId && pedidoId.trim().startsWith('OC-')) {
-          try {
+        // Cerrar automáticamente la Orden de Compra vinculada (OC-..., NEXBOT-..., etc.) Y cualquier orden pendiente cuyos SKUs ya se ingresaron
+        try {
+          const purchasedSkuSet = new Set(purchaseItems.map(i => String(i.sku).trim().toUpperCase()));
+
+          if (pedidoId && pedidoId.trim()) {
             await supabase
               .from('supplier_orders')
               .update({ status: 'RECIBIDA' })
               .eq('code', pedidoId.trim());
-          } catch (ocErr) {
-            console.warn('No se pudo actualizar estado de la orden de compra:', ocErr);
           }
+
+          const { data: openOrders } = await supabase
+            .from('supplier_orders')
+            .select('id, code, items, status')
+            .in('status', ['PENDIENTE', 'ENVIADA']);
+
+          if (Array.isArray(openOrders) && openOrders.length > 0) {
+            const fulfilledIds = openOrders
+              .filter((ord: any) => {
+                if (pedidoId && ord.code === pedidoId.trim()) return true;
+                const ordItems = Array.isArray(ord.items) ? ord.items : [];
+                if (ordItems.length === 0) return false;
+                return ordItems.every((it: any) =>
+                  purchasedSkuSet.has(String(it.sku || '').trim().toUpperCase())
+                );
+              })
+              .map((ord: any) => ord.id);
+
+            if (fulfilledIds.length > 0) {
+              await supabase
+                .from('supplier_orders')
+                .update({ status: 'RECIBIDA' })
+                .in('id', fulfilledIds);
+            }
+          }
+        } catch (ocErr) {
+          console.warn('No se pudo actualizar estado de la orden de compra:', ocErr);
         }
 
         // 4. Registro Contable Automático en Journal (Partida Doble Compras El Salvador)
@@ -1343,6 +1380,8 @@ export default function PurchasesTab({
       if (historyLoaded) {
         await loadPurchasesHistory();
       }
+      // Refrescar el BMS de inmediato para que desaparezcan las alertas de stock / órdenes ya ingresadas
+      auditSystem().catch(() => {});
 
     } catch (error: any) {
       console.error(error);

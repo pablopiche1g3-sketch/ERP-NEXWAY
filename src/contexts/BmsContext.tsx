@@ -302,7 +302,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         supabase.from('inventory').select('sku, name, cost, price, reorder_point, min_stock, max_stock, is_service'),
         supabase.from('inventory_stock').select('sku, quantity'),
         supabase.from('suppliers').select('name').limit(1),
-        supabase.from('supplier_orders').select('*').eq('status', 'PENDIENTE').order('created_at', { ascending: false }).limit(25),
+        supabase.from('supplier_orders').select('*').in('status', ['PENDIENTE', 'ENVIADA']).order('created_at', { ascending: false }).limit(25),
         supabase.from('sales').select('id, total').neq('status', 'CANCELADA').gte('created_at', todayStr),
         supabase.from('daily_closings').select('id').gte('date', todayStr).limit(1),
         supabase.from('sales_items').select('sku, sales!inner(created_at, status)').neq('sales.status', 'CANCELADA').gte('sales.created_at', limitDate.toISOString()).limit(500),
@@ -340,17 +340,31 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         skuStockMap[st.sku] = (skuStockMap[st.sku] || 0) + (parseFloat(st.quantity) || 0);
       });
 
+      // Identificar SKUs que ya están en una orden activa (PENDIENTE o ENVIADA) para no pedirlos dos veces
+      const skusAlreadyOrdered = new Set<string>();
+      (ordersRes.data || []).forEach((po: any) => {
+        if (Array.isArray(po?.items)) {
+          po.items.forEach((it: any) => {
+            if (it?.sku) skusAlreadyOrdered.add(String(it.sku).trim().toUpperCase());
+          });
+        }
+      });
+
       // Construir lista detallada de productos críticos / por pedir
       const criticalProductsList: CriticalProductItem[] = [];
       allInventory.forEach((prod: any) => {
         if (!prod?.sku || prod.is_service) return;
+        const skuUpper = String(prod.sku).trim().toUpperCase();
+        if (skusAlreadyOrdered.has(skuUpper)) return;
+
         const currentStock = skuStockMap[prod.sku] ?? 0;
         const explicitReorder = Math.max(parseFloat(prod.reorder_point) || 0, parseFloat(prod.min_stock) || 0);
-        const effectiveThreshold = explicitReorder > 0 ? explicitReorder : 2;
+        // Si el producto no tiene mínimo configurado, solo pedir cuando esté realmente en 0 (agotado)
+        const effectiveThreshold = explicitReorder > 0 ? explicitReorder : 0;
 
         if (currentStock <= effectiveThreshold) {
           const maxStock = parseFloat(prod.max_stock) || 0;
-          const suggestedOrderQty = maxStock > currentStock ? (maxStock - currentStock) : Math.max(6, (effectiveThreshold * 3) - currentStock);
+          const suggestedOrderQty = maxStock > currentStock ? (maxStock - currentStock) : Math.max(6, ((explicitReorder || 2) * 3) - currentStock);
           const unitCost = parseFloat(prod.cost) > 0
             ? parseFloat(prod.cost)
             : parseFloat(((parseFloat(prod.price) || 10) * 0.65).toFixed(2));
@@ -383,8 +397,9 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         .map(it => `[${it.sku}] ${it.name} (Stock: ${it.currentStock}, Pedir: +${it.suggestedOrderQty})`)
         .join(' • ');
 
-      // Procesar órdenes pendientes a proveedor
-      const pendingOrdersDetails: PendingOrderDetail[] = pendingOrdersRaw.map((po: any) => {
+      // Procesar órdenes pendientes a proveedor (solo las que siguen PENDIENTE de solicitar/autorizar)
+      const onlyPendingOrders = pendingOrdersRaw.filter((po: any) => (po.status || '').toUpperCase() === 'PENDIENTE');
+      const pendingOrdersDetails: PendingOrderDetail[] = onlyPendingOrders.map((po: any) => {
         const itemsArr = Array.isArray(po.items) ? po.items : [];
         const calcTotal = parseFloat(po.total) > 0
           ? parseFloat(po.total)
@@ -591,7 +606,7 @@ export function BmsProvider({ children }: { children: ReactNode }) {
         actionLabel: 'Revisar y Autorizar Pedidos',
         actionPath: '/compras?tab=ordenes',
         secondaryActionLabel: 'Registrar Compra DTE',
-        secondaryActionPath: '/compras?tab=compras'
+        secondaryActionPath: '/compras?tab=registro'
       });
     }
 
