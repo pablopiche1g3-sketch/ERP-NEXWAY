@@ -77,7 +77,9 @@ export default function PurchasesTab({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   
-  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('active_branch_id') : null
+  );
   const [activeTab, setActiveTab] = useState('registro');
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [pedidoId, setPedidoId] = useState('');
@@ -86,8 +88,15 @@ export default function PurchasesTab({
   const [docType, setDocType] = useState<'FACTURA' | 'CCF'>('FACTURA');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [creditDays, setCreditDays] = useState<string | number>('');
-  const [enteredBy, setEnteredBy] = useState('');
+  const [enteredBy, setEnteredBy] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('nexway_session_operator') || '' : ''
+  );
   const [systemUsers, setSystemUsers] = useState<SystemUserOption[]>([]);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [creditNotesLoaded, setCreditNotesLoaded] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [isUserPopoverOpen, setIsUserPopoverOpen] = useState(false);
   const [warehouse, setWarehouse] = useState('');
@@ -144,7 +153,7 @@ export default function PurchasesTab({
   const [pendingDtes, setPendingDtes] = useState<any[]>([]);
   const [selectedDteId, setSelectedDteId] = useState<string>('none');
 
-  // Función para cargar los datos relacionados en paralelo (máxima velocidad)
+  // Carga ultraligera inicial: SOLO lo necesario para abrir "Registro de Compra" al instante
   const loadPurchasesData = async () => {
     try {
       setLoadingData(true);
@@ -154,49 +163,19 @@ export default function PurchasesTab({
         whQuery = whQuery.eq('branch_id', activeBranchId);
       }
 
-      let purchasesQuery = supabase
-        .from('purchases')
-        .select(`
-          *,
-          suppliers ( name ),
-          purchase_items (
-            *,
-            inventory (
-              name
-            )
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (activeBranchId) {
-        purchasesQuery = purchasesQuery.eq('branch_id', activeBranchId);
-      }
-
-      const [
-        whRes,
-        supRes,
-        invRes,
-        stockRes,
-        mapRes,
-        purchRes,
-        gmailDteRes,
-        appUsers
-      ] = await Promise.all([
+      const [whRes, supRes, invRes, mapRes, gmailDteRes] = await Promise.all([
         whQuery,
         supabase
           .from('suppliers')
           .select('id, name, nit, nrc, giro, email, phone, address, apply_retention, apply_perception')
           .order('name'),
         supabase.from('inventory').select('sku, name, category, price').order('sku'),
-        supabase.from('inventory_stock').select('sku, warehouse_id, quantity'),
         supabase.from('supplier_mappings').select('supplier_code, internal_sku'),
-        purchasesQuery,
         supabase
           .from('system_config')
           .select('value')
           .eq('key', 'gmail_pending_dtes')
-          .maybeSingle(),
-        fetchSystemAppUsers().catch(() => [])
+          .maybeSingle()
       ]);
 
       const whData = whRes.data || [];
@@ -215,46 +194,21 @@ export default function PurchasesTab({
         applyPerception: s.apply_perception
       })));
 
-      const whMap: Record<string, string> = {};
-      whData.forEach((w: any) => {
-        whMap[w.id] = w.name;
-      });
-
-      // Índice O(N) de stock por SKU (evita O(N*M) al cargar inventario)
-      const stockBySku = new Map<string, Record<string, number>>();
-      (stockRes.data || []).forEach((s: any) => {
-        const whName = whMap[s.warehouse_id];
-        if (!whName) return;
-        let map = stockBySku.get(s.sku);
-        if (!map) {
-          map = {};
-          stockBySku.set(s.sku, map);
-        }
-        map[whName] = (map[whName] || 0) + (parseFloat(s.quantity) || 0);
-      });
-
-      const mappedInventory = (invRes.data || []).map((item: any) => {
-        const bodegasMap = stockBySku.get(item.sku) || {};
-        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
-        return {
-          id: item.sku,
-          sku: item.sku,
-          name: item.name,
-          category: item.category,
-          price: parseFloat(item.price) || 0,
-          quantity: totalQty,
-          bodegas: bodegasMap
-        };
-      });
-
+      const mappedInventory = (invRes.data || []).map((item: any) => ({
+        id: item.sku,
+        sku: item.sku,
+        name: item.name,
+        category: item.category,
+        price: parseFloat(item.price) || 0,
+        quantity: 0,
+        bodegas: {} as Record<string, number>
+      }));
       setInventory(mappedInventory);
 
       setSavedMappings((mapRes.data || []).map((m: any) => ({
         supplierCode: m.supplier_code,
         internalSku: m.internal_sku
       })));
-
-      setPurchasesHistory(purchRes.data || []);
 
       const mergedDtes: any[] = [];
       if (Array.isArray(gmailDteRes.data?.value)) {
@@ -263,20 +217,59 @@ export default function PurchasesTab({
           .forEach((d: any) => mergedDtes.push(d));
       }
       setPendingDtes(mergedDtes);
-
-      setSystemUsers(appUsers || []);
-      if (!enteredBy && appUsers && appUsers.length > 0) {
-        const localOp = typeof window !== 'undefined' ? localStorage.getItem('nexway_session_operator') : null;
-        if (localOp) {
-          setEnteredBy(localOp);
-        } else {
-          setEnteredBy(appUsers[0].full_name || appUsers[0].email);
-        }
-      }
     } catch (e: any) {
       console.error('Error al cargar datos en compras:', e);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  // Carga bajo demanda del historial de compras (solo al abrir "Historial de Ingresos" o "Notas de Crédito")
+  const loadPurchasesHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      let purchasesQuery = supabase
+        .from('purchases')
+        .select(`
+          *,
+          suppliers ( name ),
+          purchase_items (
+            *,
+            inventory (
+              name
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (activeBranchId) {
+        purchasesQuery = purchasesQuery.eq('branch_id', activeBranchId);
+      }
+      const { data } = await purchasesQuery;
+      setPurchasesHistory(data || []);
+      setHistoryLoaded(true);
+    } catch (e: any) {
+      console.error('Error al cargar historial de compras:', e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Carga bajo demanda de usuarios del sistema (solo cuando el usuario abre el selector de encargado)
+  const loadSystemUsersLazy = async () => {
+    if (usersLoaded || loadingUsers) return;
+    setLoadingUsers(true);
+    try {
+      const appUsers = await fetchSystemAppUsers();
+      setSystemUsers(appUsers || []);
+      setUsersLoaded(true);
+      if (!enteredBy && appUsers && appUsers.length > 0) {
+        setEnteredBy(appUsers[0].full_name || appUsers[0].email);
+      }
+    } catch (e) {
+      console.error('Error al cargar usuarios:', e);
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
@@ -290,6 +283,7 @@ export default function PurchasesTab({
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       setCreditNotes(data || []);
+      setCreditNotesLoaded(true);
     } catch (e: any) {
       console.error('Error al cargar notas de crédito:', e);
     } finally {
@@ -478,6 +472,13 @@ export default function PurchasesTab({
         supplierCode: m.supplier_code,
         internalSku: m.internal_sku
       })));
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        variant: 'destructive',
+        title: 'Error en JSON de vinculaciones',
+        description: err.message || 'Verifica la sintaxis JSON antes de importar.'
+      });
     } finally {
       setSavingJsonMappings(false);
     }
@@ -758,27 +759,34 @@ export default function PurchasesTab({
     }
   };
 
-  // Cargar datos en el montaje
-  useEffect(() => {
-    // Carga inicial manejada por activeBranchId useEffect
-  }, []);
-
-  // Manejar cambios de sucursal activa
+  // Manejar cambios de sucursal activa (sin disparar doble carga en el montaje)
   useEffect(() => {
     const handleBranchChanged = () => {
       if (typeof window !== 'undefined') {
-        setActiveBranchId(localStorage.getItem('active_branch_id'));
+        const nextBranch = localStorage.getItem('active_branch_id');
+        setActiveBranchId(prev => (prev === nextBranch ? prev : nextBranch));
       }
     };
-    handleBranchChanged();
     window.addEventListener('branchChanged', handleBranchChanged);
     return () => window.removeEventListener('branchChanged', handleBranchChanged);
   }, []);
 
   useEffect(() => {
+    setHistoryLoaded(false);
+    setCreditNotesLoaded(false);
     loadPurchasesData();
-    loadCreditNotes();
   }, [activeBranchId]);
+
+  // Carga bajo demanda según la subpestaña que abra el usuario
+  useEffect(() => {
+    if (activeTab === 'historial' && !historyLoaded) {
+      loadPurchasesHistory();
+    }
+    if (activeTab === 'credito') {
+      if (!creditNotesLoaded) loadCreditNotes();
+      if (!historyLoaded) loadPurchasesHistory();
+    }
+  }, [activeTab, historyLoaded, creditNotesLoaded]);
 
   const processCreditNoteJsonText = (jsonText: string) => {
     try {
@@ -798,8 +806,8 @@ export default function PurchasesTab({
       // Match related purchase
       const relDocNum = docRel.numeroDocumento || docRel.codigoGeneracion || '';
       const matchedPurchase = purchasesHistory.find(p => 
-        (p.doc_number && relDocNum && p.doc_number.toLowerCase().includes(relDocNum.toLowerCase())) ||
-        (p.order_number && relDocNum && p.order_number.toLowerCase().includes(relDocNum.toLowerCase())) ||
+        (p.document_number && relDocNum && p.document_number.toLowerCase().includes(relDocNum.toLowerCase())) ||
+        (p.order_id && relDocNum && p.order_id.toLowerCase().includes(relDocNum.toLowerCase())) ||
         (matchedSup && p.supplier_id === matchedSup.id)
       );
 
@@ -823,7 +831,7 @@ export default function PurchasesTab({
         supplierNit: emi.nit || '',
         relatedDocNumber: relDocNum,
         matchedPurchaseId: matchedPurchase ? matchedPurchase.id : '',
-        matchedPurchaseDoc: matchedPurchase ? (matchedPurchase.doc_number || matchedPurchase.order_number) : relDocNum,
+        matchedPurchaseDoc: matchedPurchase ? (matchedPurchase.document_number || matchedPurchase.order_id) : relDocNum,
         applicationMode: 'AUTOMATICO_FINANCIERO', // 'AUTOMATICO_FINANCIERO' | 'PRODUCTO_ESPECIFICO'
         targetWarehouseId: warehouses.length > 0 ? warehouses[0].id : '',
         total: totalAmount,
@@ -890,19 +898,8 @@ export default function PurchasesTab({
             await supabase.from('inventory_stock').upsert({
               sku: item.sku,
               warehouse_id: selectedWh.id,
-              quantity: newStock
+              quantity: Math.max(0, newStock)
             }, { onConflict: 'sku,warehouse_id' });
-
-            await supabase.from('kardex').insert({
-              sku: item.sku,
-              movement_type: 'DEVOLUCION_COMPRA',
-              location: selectedWh.name,
-              document_ref: `NC-${parsedCreditNote.documentNumber}`,
-              qty_in: 0,
-              qty_out: item.returnQty,
-              balance: newStock,
-              unit_cost: item.price
-            });
           }
         }
       }
@@ -1193,25 +1190,31 @@ export default function PurchasesTab({
 
       if (itemsErr) throw itemsErr;
 
-      // 3. Update stock if status === 'CERRADA'
+      // 3. Update stock if status === 'CERRADA' (consulta directa solo para los SKUs de esta compra)
       if (status === 'CERRADA') {
-        for (const item of purchaseItems) {
-          const currentProduct = inventory.find(p => p.sku === item.sku);
-          const currentWhStock = currentProduct ? (currentProduct.bodegas[warehouse] || 0) : 0;
-          const newQty = currentWhStock + item.quantity;
+        const skusInOrder = Array.from(new Set(purchaseItems.map(i => i.sku)));
+        const { data: existingStockRows } = await supabase
+          .from('inventory_stock')
+          .select('sku, quantity')
+          .eq('warehouse_id', selectedWh.id)
+          .in('sku', skusInOrder);
 
-          const { error: stockErr } = await supabase
-            .from('inventory_stock')
-            .upsert({
-              sku: item.sku,
-              warehouse_id: selectedWh.id,
-              quantity: newQty
-            }, {
-              onConflict: 'sku,warehouse_id'
-            });
+        const stockBySkuMap = new Map<string, number>();
+        (existingStockRows || []).forEach((r: any) => {
+          stockBySkuMap.set(r.sku, parseFloat(r.quantity) || 0);
+        });
 
-          if (stockErr) throw stockErr;
-        }
+        const stockUpserts = purchaseItems.map(item => ({
+          sku: item.sku,
+          warehouse_id: selectedWh.id,
+          quantity: (stockBySkuMap.get(item.sku) || 0) + item.quantity
+        }));
+
+        const { error: stockErr } = await supabase
+          .from('inventory_stock')
+          .upsert(stockUpserts, { onConflict: 'sku,warehouse_id' });
+
+        if (stockErr) throw stockErr;
 
         if (selectedDteId !== 'none') {
           try {
@@ -1316,7 +1319,9 @@ export default function PurchasesTab({
       const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const randPart = Math.floor(1000 + Math.random() * 9000);
       setPedidoId(`ORD-${datePart}-${randPart}`);
-      await loadPurchasesData();
+      if (historyLoaded) {
+        await loadPurchasesHistory();
+      }
 
     } catch (error: any) {
       console.error(error);
@@ -1393,7 +1398,7 @@ export default function PurchasesTab({
 
         toast({ title: "Borrador Eliminado", description: "El borrador de compra fue eliminado del sistema." });
       }
-      await loadPurchasesData();
+      await loadPurchasesHistory();
     } catch (err: any) {
       console.error(err);
       toast({ variant: "destructive", title: "Error al anular compra", description: err.message });
@@ -1705,7 +1710,13 @@ export default function PurchasesTab({
                           className="h-full bg-transparent border-none text-[12.5px] text-foreground dark:text-white/80 p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70 dark:placeholder:text-muted-foreground/80 dark:text-white/25 font-medium"
                         />
                       </div>
-                      <Popover open={isUserPopoverOpen} onOpenChange={setIsUserPopoverOpen}>
+                      <Popover
+                        open={isUserPopoverOpen}
+                        onOpenChange={(open) => {
+                          setIsUserPopoverOpen(open);
+                          if (open) loadSystemUsersLazy();
+                        }}
+                      >
                         <PopoverTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-[38px] w-[38px] rounded-lg bg-card dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground dark:text-white/30 hover:bg-accent dark:hover:bg-white/10 hover:text-foreground dark:hover:text-white/70" title="Seleccionar usuario del sistema">
                             <Users size={14} />
@@ -1869,10 +1880,41 @@ export default function PurchasesTab({
                 <div className="h-[1px] bg-card dark:bg-white/5 my-3" />
                 
                 <div className="text-[10px] font-medium uppercase tracking-[0.7px] text-muted-foreground/80 dark:text-white/30 mb-2.5">Agregar manualmente</div>
-                <div className="grid grid-cols-[1fr_60px_80px] gap-1.5 mb-2">
-                  <Input placeholder="SKU..." value={skuSearch} onChange={e => setSkuSearch(e.target.value.toUpperCase())} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-foreground/90 dark:text-white/70 h-[36px]" />
-                  <Input type="number" value={manualQty} onFocus={e => e.target.select()} onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-foreground/90 dark:text-white/70 text-center h-[36px]" />
-                  <Input type="number" placeholder="0.00" value={manualPrice} onFocus={e => e.target.select()} onChange={e => setManualPrice(e.target.value)} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-emerald-400 text-right h-[36px]" />
+                <div className="relative">
+                  <div className="grid grid-cols-[1fr_60px_80px] gap-1.5 mb-2">
+                    <Input
+                      placeholder="SKU o nombre..."
+                      value={skuSearch}
+                      onChange={e => setSkuSearch(e.target.value.toUpperCase())}
+                      className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-foreground/90 dark:text-white/70 h-[36px]"
+                    />
+                    <Input type="number" value={manualQty} onFocus={e => e.target.select()} onChange={e => setManualQty(e.target.value === '' ? '' : (parseInt(e.target.value) || 0))} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-foreground/90 dark:text-white/70 text-center h-[36px]" />
+                    <Input type="number" placeholder="0.00" value={manualPrice} onFocus={e => e.target.select()} onChange={e => setManualPrice(e.target.value)} className="bg-card dark:bg-white/5 border-border dark:border-white/10 rounded-lg p-[8px_10px] text-[12px] text-emerald-400 text-right h-[36px]" />
+                  </div>
+                  {skuSearch.trim().length > 0 && !inventory.some(p => p.sku === skuSearch.trim().toUpperCase()) && (
+                    <div className="absolute z-40 left-0 right-0 top-[40px] bg-popover dark:bg-[#161430] border border-border dark:border-white/15 rounded-xl shadow-2xl max-h-48 overflow-y-auto p-1 divide-y divide-border/50 dark:divide-white/5">
+                      {inventory
+                        .filter(p =>
+                          p.sku.toLowerCase().includes(skuSearch.trim().toLowerCase()) ||
+                          (p.name && p.name.toLowerCase().includes(skuSearch.trim().toLowerCase()))
+                        )
+                        .slice(0, 8)
+                        .map(p => (
+                          <button
+                            key={p.sku}
+                            type="button"
+                            onClick={() => {
+                              setSkuSearch(p.sku);
+                              if (!manualPrice && p.price > 0) setManualPrice(p.price.toFixed(2));
+                            }}
+                            className="w-full text-left px-2.5 py-2 text-[11px] hover:bg-accent dark:hover:bg-white/10 rounded-lg flex items-center justify-between gap-2"
+                          >
+                            <span className="font-mono font-bold text-indigo-600 dark:text-indigo-300 shrink-0">{p.sku}</span>
+                            <span className="text-muted-foreground dark:text-white/60 truncate">{p.name}</span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-[60px_60px_1fr] gap-1.5 mb-2.5 px-1">
                   <div className="text-[9px] text-muted-foreground/80 dark:text-white/25 uppercase tracking-[0.5px]">SKU</div>
@@ -2031,6 +2073,15 @@ export default function PurchasesTab({
             </TableHeader>
             <TableBody>
               {(() => {
+                if (loadingHistory) {
+                  return (
+                    <TableRow className="border-b border-border/60 dark:border-white/5 hover:bg-transparent">
+                      <TableCell colSpan={9} className="text-center py-20 text-muted-foreground dark:text-white/40 text-[11px]">
+                        <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-indigo-400" /> Cargando historial de ingresos...</span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
                 const s = historySearch.toLowerCase().trim();
                 let list = purchasesHistory || [];
                 if (historyStatusFilter !== 'TODOS') {
@@ -2401,7 +2452,7 @@ export default function PurchasesTab({
                         setParsedCreditNote((prev: any) => ({
                           ...prev,
                           matchedPurchaseId: val,
-                          matchedPurchaseDoc: purch ? (purch.doc_number || purch.order_number) : prev.relatedDocNumber
+                          matchedPurchaseDoc: purch ? (purch.document_number || purch.order_id) : prev.relatedDocNumber
                         }));
                       }}
                     >
@@ -2413,7 +2464,7 @@ export default function PurchasesTab({
                           .filter(p => !parsedCreditNote.supplierId || p.supplier_id === parsedCreditNote.supplierId)
                           .map(p => (
                             <SelectItem key={p.id} value={p.id} className="text-xs font-bold">
-                              CCF: {p.doc_number || p.order_number} • Total: ${parseFloat(p.total).toFixed(2)} ({new Date(p.created_at).toLocaleDateString()})
+                              CCF: {p.document_number || p.order_id} • Total: ${parseFloat(p.total).toFixed(2)} ({new Date(p.created_at).toLocaleDateString()})
                             </SelectItem>
                           ))}
                         <SelectItem value="manual" className="text-xs font-bold italic text-indigo-700 dark:text-indigo-300">
@@ -2536,7 +2587,7 @@ export default function PurchasesTab({
         </div>
 
         {/* COLUMNA DERECHA: HISTORIAL DE NOTAS DE CRÉDITO */}
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-7">
           <Card className="bg-card dark:bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden">
             <CardHeader className="p-6 border-b border-border dark:border-white/10 flex flex-row items-center justify-between">
               <div>
