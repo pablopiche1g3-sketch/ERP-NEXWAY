@@ -30,7 +30,8 @@ import {
   Briefcase,
   Printer,
   FileSearch,
-  CheckCircle2
+  CheckCircle2,
+  ShieldCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/supabase/client';
+import HaciendaSandboxPanel from './components/HaciendaSandboxPanel';
 import { useModuleConfig } from '@/supabase/use-module-config';
 import { useTabs } from '@/hooks/use-tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -1054,7 +1056,7 @@ export default function AccountingPage() {
                   }
                 }}
                 className={`inline-flex items-center justify-center whitespace-nowrap rounded-xl px-5 py-2 font-bold text-xs md:text-sm transition-all ${
-                  ['libros_iva', 'mh_forms', 'tributario'].includes(activeTab)
+                  ['libros_iva', 'mh_forms', 'tributario', 'sandbox_mh'].includes(activeTab)
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-foreground'
                 }`}
@@ -1080,7 +1082,7 @@ export default function AccountingPage() {
           </TabsList>
 
           {/* Sub-barra unificada para Hacienda e IVA (MH) */}
-          {['libros_iva', 'mh_forms', 'tributario'].includes(activeTab) && (
+          {['libros_iva', 'mh_forms', 'tributario', 'sandbox_mh'].includes(activeTab) && (
             <div className="flex flex-wrap items-center gap-2 bg-card border border-border p-1.5 rounded-2xl w-fit shadow-sm">
               <Button
                 type="button"
@@ -1109,8 +1111,21 @@ export default function AccountingPage() {
               >
                 <Percent size={13} /> 3. Resumen Tributario
               </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={activeTab === 'sandbox_mh' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('sandbox_mh')}
+                className="rounded-xl h-8 text-xs font-bold gap-1.5"
+              >
+                <ShieldCheck size={13} /> 4. Sandbox MH (DTE Studio)
+              </Button>
             </div>
           )}
+
+          <TabsContent value="sandbox_mh" className="space-y-6 outline-none">
+            <HaciendaSandboxPanel />
+          </TabsContent>
 
           <TabsContent value="diario" className="space-y-4 outline-none">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

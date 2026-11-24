@@ -101,6 +101,12 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { sendDteEmail } from '@/ai/flows/send-dte-email-flow';
 import { CustomerHistoryDialog } from './components/CustomerHistoryDialog';
 import { DteEmailSimulationModal, type DteEmailSalePayload } from '@/components/DteEmailSimulationModal';
+import {
+  appendDteTransmission,
+  buildOfficialDteJson,
+  loadHaciendaSandboxConfig,
+  transmitDteViaSandbox,
+} from '@/lib/hacienda-sandbox';
 import { Textarea } from '@/components/ui/textarea';
 import { useStation } from './components/use-station';
 import { useTabs } from '@/hooks/use-tabs';
@@ -789,6 +795,11 @@ export default function BillingPage() {
     customerName: string;
     customerEmail?: string;
     items: any[];
+    dteEstado?: 'PROCESADO' | 'RECHAZADO' | 'ERROR';
+    selloRecibido?: string | null;
+    codigoGeneracion?: string | null;
+    numeroControl?: string | null;
+    dteObservaciones?: string[];
   } | null>(null);
 
   // Estado para Simulación de Envío de Correo DTE
@@ -2620,6 +2631,123 @@ export default function BillingPage() {
         console.warn('Error al registrar partida contable en journal:', jErr);
       }
 
+      // 5. Transmisión automática a Sandbox MH (DTE Studio) si está habilitada
+      let dteTransmitSummary: {
+        dteEstado?: 'PROCESADO' | 'RECHAZADO' | 'ERROR';
+        selloRecibido?: string | null;
+        codigoGeneracion?: string | null;
+        numeroControl?: string | null;
+        dteObservaciones?: string[];
+      } = {};
+
+      try {
+        const [mhConfig, companyCfgRes] = await Promise.all([
+          loadHaciendaSandboxConfig(),
+          supabase.from('system_config').select('value').eq('key', 'company_profile').maybeSingle(),
+        ]);
+
+        if (mhConfig.enabled && mhConfig.autoTransmit) {
+          const dteJson = buildOfficialDteJson({
+            saleId: insertedSale?.id || null,
+            correlative,
+            docType: docType === 'CCF' ? 'CCF' : 'FACTURA',
+            total: totalCart,
+            ivaRete1: ivaRetention1 || 0,
+            paymentMethod,
+            items: cart.map((i) => ({
+              sku: i.sku,
+              name: i.name,
+              quantity: Number(i.quantity) || 1,
+              unitPrice: Number(i.price) || 0,
+            })),
+            customer: selectedCust
+              ? {
+                  name: selectedCust.name,
+                  nit: selectedCust.nit,
+                  nrc: selectedCust.nrc,
+                  dui: selectedCust.dui,
+                  giro: selectedCust.giro,
+                  codActividad: selectedCust.cod_actividad || selectedCust.codActividad,
+                  descActividad: selectedCust.desc_actividad || selectedCust.giro,
+                  departamento: selectedCust.departamento,
+                  municipio: selectedCust.municipio,
+                  address: selectedCust.address,
+                  phone: selectedCust.phone,
+                  email: customerEmail || selectedCust.email,
+                }
+              : {
+                  name: customerName || 'Consumidor Final',
+                  email: customerEmail || cashConfig?.catchAllEmail || 'cliente@correo.sv',
+                },
+            company: companyCfgRes?.data?.value || null,
+            ambiente: mhConfig.ambiente,
+            codEstableMH: mhConfig.codEstableMH,
+            codPuntoVentaMH: mhConfig.codPuntoVentaMH,
+          });
+
+          const txRes = await transmitDteViaSandbox({
+            dteJson,
+            baseUrl: mhConfig.baseUrl,
+            ambiente: mhConfig.ambiente,
+          });
+
+          const estado: 'PROCESADO' | 'RECHAZADO' | 'ERROR' =
+            txRes?.estado === 'PROCESADO'
+              ? 'PROCESADO'
+              : txRes?.estado === 'RECHAZADO'
+              ? 'RECHAZADO'
+              : 'ERROR';
+
+          await appendDteTransmission({
+            id: `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            saleId: insertedSale?.id || null,
+            correlative,
+            tipoDte: docType === 'CCF' ? '03' : '01',
+            docTypeLabel: docType === 'CCF' ? 'CCF (03)' : 'Factura (01)',
+            numeroControl: txRes?.numeroControl || dteJson.identificacion.numeroControl,
+            codigoGeneracion: txRes?.codigoGeneracion || dteJson.identificacion.codigoGeneracion,
+            estado,
+            selloRecibido: txRes?.selloRecibido || null,
+            fhaRecibido: txRes?.fhaRecibido || null,
+            codigoMsg: txRes?.codigoMsg || null,
+            descripcionMsg: txRes?.descripcionMsg || null,
+            observaciones: Array.isArray(txRes?.observaciones) ? txRes.observaciones : [],
+            customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
+            total: totalCart,
+            ambiente: mhConfig.ambiente,
+            signedJws: txRes?.signedJws || null,
+            dteJson,
+            createdAt: new Date().toISOString(),
+          });
+
+          dteTransmitSummary = {
+            dteEstado: estado,
+            selloRecibido: txRes?.selloRecibido || null,
+            codigoGeneracion: txRes?.codigoGeneracion || dteJson.identificacion.codigoGeneracion,
+            numeroControl: txRes?.numeroControl || dteJson.identificacion.numeroControl,
+            dteObservaciones: Array.isArray(txRes?.observaciones) ? txRes.observaciones : [],
+          };
+
+          if (estado === 'PROCESADO') {
+            toast({
+              title: 'Sello MH Recibido (Sandbox)',
+              description: `Sello: ${txRes.selloRecibido}`,
+            });
+          } else {
+            toast({
+              variant: 'destructive',
+              title: 'DTE Rechazado por Sandbox MH',
+              description:
+                (txRes?.observaciones && txRes.observaciones[0]) ||
+                txRes?.descripcionMsg ||
+                'Revisa el historial en Contabilidad → Hacienda e IVA (MH).',
+            });
+          }
+        }
+      } catch (mhErr) {
+        console.warn('Error en transmisión Sandbox MH (venta guardada correctamente):', mhErr);
+      }
+
       // Desplegar Modal de Venta Completada
       setCompletedSaleData({
         correlative,
@@ -2629,7 +2757,8 @@ export default function BillingPage() {
         change: changeVal,
         customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
         customerEmail: customerEmail || selectedCustomer?.email || cashConfig?.catchAllEmail || '',
-        items: [...cart]
+        items: [...cart],
+        ...dteTransmitSummary
       });
 
       toast({ title: "Venta Registrada Exitosamente", description: `DTE: ${correlative}` });
@@ -5438,6 +5567,47 @@ export default function BillingPage() {
                   <span className="font-black text-base">${completedSaleData.change.toFixed(2)}</span>
                 </div>
               </div>
+
+              {completedSaleData.dteEstado && (
+                <div
+                  className={`p-3 rounded-xl border text-[11px] space-y-1 ${
+                    completedSaleData.dteEstado === 'PROCESADO'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-black uppercase text-[10px]">
+                    <span>Hacienda SV (Sandbox)</span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] font-black ${
+                        completedSaleData.dteEstado === 'PROCESADO'
+                          ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-300'
+                          : 'border-amber-500/40 text-amber-600 dark:text-amber-300'
+                      }`}
+                    >
+                      {completedSaleData.dteEstado}
+                    </Badge>
+                  </div>
+                  {completedSaleData.selloRecibido && (
+                    <div className="font-mono text-[10px] break-all">
+                      <span className="font-bold opacity-75">Sello:</span> {completedSaleData.selloRecibido}
+                    </div>
+                  )}
+                  {completedSaleData.codigoGeneracion && (
+                    <div className="font-mono text-[10px] break-all opacity-80">
+                      <span className="font-bold">UUID:</span> {completedSaleData.codigoGeneracion}
+                    </div>
+                  )}
+                  {completedSaleData.dteEstado !== 'PROCESADO' &&
+                    completedSaleData.dteObservaciones &&
+                    completedSaleData.dteObservaciones.length > 0 && (
+                      <div className="text-[10px] pt-1">
+                        {completedSaleData.dteObservaciones[0]}
+                      </div>
+                    )}
+                </div>
+              )}
             </div>
 
             <DialogFooter className="flex flex-col gap-2">
