@@ -68,10 +68,12 @@ export function DteEmailSimulationModal({
   const [customNote, setCustomNote] = useState('');
   const [activeTab, setActiveTab] = useState<'preview' | 'json' | 'logs'>('preview');
   
-  // Simulation states
+  // Simulation & real Gmail states
   const [sendingStep, setSendingStep] = useState<'IDLE' | 'SIGNING' | 'TRANSMITTING_MH' | 'SENDING_SMTP' | 'SENT'>('IDLE');
   const [transmissionLog, setTransmissionLog] = useState<string[]>([]);
   const [copiedJson, setCopiedJson] = useState(false);
+  const [gmailConnected, setGmailConnected] = useState<boolean>(false);
+  const [gmailAccountEmail, setGmailAccountEmail] = useState<string>('');
 
   // Derived DTE Metadata
   const codigoGeneracion = React.useMemo(() => {
@@ -88,13 +90,24 @@ export function DteEmailSimulationModal({
 
   useEffect(() => {
     if (saleData && open) {
-      setRecipientEmail(saleData.customerEmail || 'cliente@empresa.com.sv');
+      setRecipientEmail(saleData.customerEmail || '');
       const docLabel = saleData.docType === 'CCF' ? 'Comprobante de Crédito Fiscal (DTE-03)' : 'Factura Electrónica (DTE-01)';
       setSubject(`Documento Tributario Electrónico: ${saleData.correlative} - ${docLabel} | NEXWAY ERP`);
-      setCustomNote('Adjunto encontrará la representación gráfica (PDF) y el archivo estructurado (JSON) de su Documento Tributario Electrónico autorizado por el Ministerio de Hacienda.');
+      setCustomNote('Adjunto encontrará el detalle de su Documento Tributario Electrónico y el archivo estructurado (JSON) emitido desde ERP NEXWAY.');
       setSendingStep('IDLE');
       setTransmissionLog([]);
       setActiveTab('preview');
+
+      fetch('/api/gmail/status', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((st) => {
+          setGmailConnected(Boolean(st?.connected));
+          setGmailAccountEmail(st?.email || '');
+        })
+        .catch(() => {
+          setGmailConnected(false);
+          setGmailAccountEmail('');
+        });
     }
   }, [saleData, open]);
 
@@ -192,54 +205,107 @@ export function DteEmailSimulationModal({
     await new Promise(r => setTimeout(r, 700));
     addLog(`Sello MH Verificado: ${selloRecepcion}`);
 
-    // Step 3: SMTP / Gmail API Dispatch
+    // Step 3: Real Gmail API Dispatch with DTE JSON attachment
     setSendingStep('SENDING_SMTP');
-    addLog(`Empaquetando adjuntos: ${saleData.correlative}.pdf (Representación Gráfica) + ${saleData.correlative}.json...`);
+    addLog(`Empaquetando correo HTML + adjunto oficial ${saleData.correlative}_DTE.json...`);
 
-    // Try calling real Gmail endpoint if user has google_access_token
-    try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null;
-      if (token) {
-        addLog('Token OAuth2 de Gmail detectado. Enviando a través de Google Gmail API...');
-        const htmlEmailBody = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-            <div style="background: #1e1b4b; color: white; padding: 20px; text-align: center;">
-              <h2 style="margin: 0;">NEXWAY ERP - Facturación Electrónica</h2>
-              <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.8;">Ministerio de Hacienda - El Salvador (DTE)</p>
-            </div>
-            <div style="padding: 24px; color: #1e293b;">
-              <p>Estimado(a) <strong>${saleData.customerName}</strong>,</p>
-              <p>${customNote}</p>
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 13px;">
-                <p style="margin: 4px 0;"><strong>Tipo de Documento:</strong> ${saleData.docType === 'CCF' ? 'Comprobante de Crédito Fiscal (03)' : 'Factura de Consumidor Final (01)'}</p>
-                <p style="margin: 4px 0;"><strong>Número de Control:</strong> ${saleData.correlative}</p>
-                <p style="margin: 4px 0;"><strong>Código de Generación:</strong> ${codigoGeneracion}</p>
-                <p style="margin: 4px 0;"><strong>Sello de Recepción:</strong> ${selloRecepcion}</p>
-                <p style="margin: 4px 0;"><strong>Monto Total:</strong> $${saleData.total.toFixed(2)} USD</p>
-              </div>
-              <p style="font-size: 12px; color: #64748b;">Gracias por su preferencia.</p>
-            </div>
+    const itemsRowsHtml = (saleData.items || [])
+      .map(
+        (it, idx) => `
+        <tr>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;">${idx + 1}</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;">${it.name}</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;">${it.quantity}</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;">$${Number(it.price || 0).toFixed(2)}</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;">$${(Number(it.price || 0) * Number(it.quantity || 0)).toFixed(2)}</td>
+        </tr>`
+      )
+      .join('');
+
+    const htmlEmailBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #ffffff;">
+        <div style="background: #1e1b4b; color: white; padding: 20px; text-align: center;">
+          <h2 style="margin: 0; font-size: 18px;">NEXWAY ERP — Facturación Electrónica (DTE)</h2>
+          <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.85;">${saleData.docType === 'CCF' ? 'Comprobante de Crédito Fiscal (DTE-03)' : 'Factura de Consumidor Final (DTE-01)'}</p>
+        </div>
+        <div style="padding: 22px; color: #0f172a; font-size: 13px;">
+          <p>Estimado(a) <strong>${saleData.customerName}</strong>,</p>
+          <p>${customNote}</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin: 14px 0; font-size: 12px;">
+            <p style="margin: 3px 0;"><strong>Número de Control:</strong> ${saleData.correlative}</p>
+            <p style="margin: 3px 0;"><strong>Código de Generación:</strong> ${codigoGeneracion}</p>
+            <p style="margin: 3px 0;"><strong>Sello de Recepción:</strong> ${selloRecepcion}</p>
+            <p style="margin: 3px 0;"><strong>Fecha de Emisión:</strong> ${fechaEmision}</p>
           </div>
-        `;
-        await fetch('/api/gmail/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            to: recipientEmail,
-            subject: subject,
-            message: htmlEmailBody
-          })
-        });
-      }
-    } catch (e) {
-      // Fallback to simulation cleanly
-    }
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin:14px 0;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="padding:6px 8px;border:1px solid #cbd5e1;width:32px;">#</th>
+                <th style="padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Descripción</th>
+                <th style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;width:55px;">Cant.</th>
+                <th style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;width:75px;">P. Unit</th>
+                <th style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;width:80px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>${itemsRowsHtml}</tbody>
+          </table>
+          <div style="text-align:right;font-size:13px;margin-top:10px;">
+            <div>Subtotal Gravado: <strong>$${subtotalNeto.toFixed(2)}</strong></div>
+            <div>IVA (13%): <strong>$${ivaAmount.toFixed(2)}</strong></div>
+            <div style="font-size:16px;color:#312e81;margin-top:4px;"><strong>TOTAL A PAGAR: $${saleData.total.toFixed(2)} USD</strong></div>
+          </div>
+          <p style="font-size: 11px; color: #64748b; margin-top: 18px;">Se adjunta el archivo estructurado <strong>${saleData.correlative}_DTE.json</strong>.</p>
+        </div>
+      </div>
+    `;
 
-    await new Promise(r => setTimeout(r, 800));
-    addLog(`Despacho SMTP 250 OK -> Correo entregado a ${recipientEmail}${ccEmail ? ` (CC: ${ccEmail})` : ''}`);
+    const jsonString = JSON.stringify(officialDteJson, null, 2);
+    const jsonBase64 = typeof window !== 'undefined'
+      ? btoa(unescape(encodeURIComponent(jsonString)))
+      : '';
+
+    try {
+      const res = await fetch('/api/gmail/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipientEmail.trim(),
+          cc: ccEmail.trim() || undefined,
+          subject,
+          message: htmlEmailBody,
+          attachments: [
+            {
+              filename: `${saleData.correlative}_DTE.json`,
+              mimeType: 'application/json',
+              contentBase64: jsonBase64
+            }
+          ]
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setSendingStep('IDLE');
+        addLog(`❌ Error Gmail API (${res.status}): ${data?.error || 'No se pudo enviar'}`);
+        toast({
+          variant: 'destructive',
+          title: res.status === 401 ? 'Conecta tu Gmail primero' : 'Error al enviar correo',
+          description: data?.error || 'Haz clic en "Conectar Gmail" abajo para autorizar el envío real.'
+        });
+        return;
+      }
+
+      addLog(`✓ Correo REAL entregado vía Gmail API (${data.from || 'Gmail'}) -> ID: ${data.id || 'OK'}`);
+    } catch (e: any) {
+      setSendingStep('IDLE');
+      addLog(`❌ Error de red: ${e?.message || 'No se pudo contactar /api/gmail/send'}`);
+      toast({
+        variant: 'destructive',
+        title: 'Error de conexión',
+        description: e?.message || 'No se pudo enviar el correo.'
+      });
+      return;
+    }
 
     // Save record in localStorage for audit trail
     if (typeof window !== 'undefined') {
@@ -646,9 +712,27 @@ export function DteEmailSimulationModal({
 
         {/* Footer */}
         <DialogFooter className="px-6 py-4 bg-muted/40 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-10 text-xs font-bold w-full sm:w-auto">
-            Cerrar Ventana
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-10 text-xs font-bold">
+              Cerrar
+            </Button>
+            {gmailConnected ? (
+              <Badge variant="outline" className="h-8 px-2.5 text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
+                ✓ Gmail: {gmailAccountEmail || 'Conectado'}
+              </Badge>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  window.location.href = '/api/gmail/auth?returnTo=/billing';
+                }}
+                className="rounded-xl h-10 text-xs font-bold border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 gap-1.5"
+              >
+                <Mail className="h-3.5 w-3.5" /> Conectar Gmail
+              </Button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button
@@ -658,12 +742,12 @@ export function DteEmailSimulationModal({
             >
               {sendingStep !== 'IDLE' && sendingStep !== 'SENT' ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Transmitiendo DTE...
+                  <Loader2 className="h-4 w-4 animate-spin" /> Enviando vía Gmail...
                 </>
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  {sendingStep === 'SENT' ? 'Reenviar Correo con DTE' : 'Enviar Factura DTE por Correo Ahora'}
+                  {sendingStep === 'SENT' ? 'Reenviar Correo con DTE' : 'Enviar Factura DTE Real (Gmail)'}
                 </>
               )}
             </Button>
