@@ -29,8 +29,11 @@ import {
   Flame,
   DollarSign,
   Layers,
-  Filter
+  Filter,
+  Loader2,
+  Send
 } from 'lucide-react';
+import { executeRestockOrderAndReceiveDte } from '@/lib/hacienda-sandbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -74,7 +77,7 @@ const AREA_SHORTCUTS: Record<string, { label: string; path: string; buttonText: 
   },
   compras: {
     label: 'Abastecimiento — Registro de Compra DTE',
-    path: '/compras?tab=compras',
+    path: '/compras?tab=registro',
     buttonText: 'Ir a Registro de Compras'
   },
   inventario: {
@@ -138,6 +141,69 @@ export function AsistenteGuiaERP() {
   const [newAreaKey, setNewAreaKey] = useState<string>('ordenes');
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [restockingKey, setRestockingKey] = useState<string | null>(null);
+
+  const handleDirectRestock = async (
+    rawItems: Array<{ sku: string; name: string; suggestedOrderQty: number; unitCost: number; price: number; supplierName?: string }>,
+    keyId = 'all'
+  ) => {
+    if (!rawItems || rawItems.length === 0) return;
+    setRestockingKey(keyId);
+    try {
+      const batch = rawItems.slice(0, 30);
+      const { data: whRows } = await supabase.from('warehouses').select('name').limit(1);
+      const defaultWhName = whRows?.[0]?.name || 'Bodega Principal';
+      const orderCode = `OC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const normalizedItems = batch.map((it) => ({
+        sku: it.sku,
+        name: it.name,
+        quantity: Math.max(1, Number(it.suggestedOrderQty) || 10),
+        cost: Number((Number(it.unitCost) > 0 ? Number(it.unitCost) : Math.max(1, (Number(it.price) || 10) * 0.7)).toFixed(2)),
+      }));
+
+      const preferredSupplier =
+        batch.find((i) => i.supplierName && i.supplierName !== 'Proveedor General')?.supplierName || '';
+
+      const res = await executeRestockOrderAndReceiveDte({
+        orderCode,
+        supplierName: preferredSupplier,
+        destinationWarehouse: defaultWhName,
+        items: normalizedItems,
+      });
+
+      if (!res.ok) {
+        throw new Error(res.error || 'No se pudo solicitar el reabastecimiento.');
+      }
+
+      const subtotal = normalizedItems.reduce((s, i) => s + i.quantity * i.cost, 0);
+      await supabase.from('supplier_orders').insert({
+        code: orderCode,
+        supplier_name: res.supplierName || preferredSupplier || 'Proveedor Mayorista',
+        destination_warehouse: defaultWhName,
+        requested_by: 'BMS Reabastecimiento',
+        items: normalizedItems,
+        total: Number((subtotal * 1.13).toFixed(2)),
+        status: 'ENVIADA',
+      });
+
+      toast({
+        title: 'Reabastecimiento procesado',
+        description: `Factura CCF ${res.numeroControl} recibida y lista para ingreso a inventario.`,
+      });
+
+      setPriorityModalTab(null);
+      router.push('/compras?tab=registro');
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al reabastecer',
+        description: err?.message || 'No se pudo completar la solicitud.',
+      });
+    } finally {
+      setRestockingKey(null);
+    }
+  };
 
   // Enriquecer tareas antiguas que no tenían ruta o listado detallado
   const enrichAgendaTask = (raw: AgendaTask): AgendaTask => {
@@ -571,6 +637,22 @@ export function AsistenteGuiaERP() {
 
             {/* Botones de Acción y Redirección Directa */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
+              {task.id === 'setup_critical_restock' && (stats.criticalProductsList || []).length > 0 && (
+                <Button
+                  size="sm"
+                  disabled={restockingKey !== null}
+                  onClick={() => handleDirectRestock(stats.criticalProductsList || [], 'card-all')}
+                  className="h-7 px-2.5 text-[10px] font-black uppercase tracking-wider rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1"
+                >
+                  {restockingKey === 'card-all' ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <>
+                      <Send size={11} /> Reabastecer
+                    </>
+                  )}
+                </Button>
+              )}
               {task.actionLabel && task.actionPath && (
                 <Button
                   size="sm"
@@ -1132,7 +1214,22 @@ export function AsistenteGuiaERP() {
                       Productos con existencias en cero o iguales/inferiores al punto de reorden.
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {(stats.criticalProductsList || []).length > 0 && (
+                      <Button
+                        size="sm"
+                        disabled={restockingKey !== null}
+                        onClick={() => handleDirectRestock(stats.criticalProductsList || [], 'modal-all')}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-8 rounded-xl gap-1.5"
+                      >
+                        {restockingKey === 'modal-all' ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Send size={12} />
+                        )}
+                        Reabastecer
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       onClick={() => {
@@ -1188,17 +1285,33 @@ export function AsistenteGuiaERP() {
                             ${item.estimatedTotal.toFixed(2)}
                           </td>
                           <td className="py-2.5 px-3 text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setPriorityModalTab(null);
-                                router.push('/compras?tab=ordenes');
-                              }}
-                              className="h-7 px-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400"
-                            >
-                              Pedir <ArrowUpRight size={11} className="ml-0.5" />
-                            </Button>
+                            <div className="inline-flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                disabled={restockingKey !== null}
+                                onClick={() => handleDirectRestock([item], item.sku)}
+                                className="h-7 px-2.5 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg gap-1"
+                              >
+                                {restockingKey === item.sku ? (
+                                  <Loader2 size={11} className="animate-spin" />
+                                ) : (
+                                  <>
+                                    <Send size={10} /> Reabastecer
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setPriorityModalTab(null);
+                                  router.push('/compras?tab=ordenes');
+                                }}
+                                className="h-7 px-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400"
+                              >
+                                Orden <ArrowUpRight size={11} className="ml-0.5" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}

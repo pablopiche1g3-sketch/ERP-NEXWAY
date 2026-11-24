@@ -40,6 +40,10 @@ import {
   loadPrintBranding,
   printHtmlDocument
 } from '@/lib/print-engine';
+import {
+  executeRestockOrderAndReceiveDte,
+  syncExternalSuppliersToDirectory,
+} from '@/lib/hacienda-sandbox';
 
 export interface PurchaseOrderItem {
   sku: string;
@@ -69,6 +73,7 @@ export interface PurchaseOrderRecord {
 
 interface OrdersTabProps {
   onReceiveToPurchase?: (order: PurchaseOrderRecord) => void;
+  onImportDteToPurchase?: (dte: any) => void;
 }
 
 function normalizeStatus(raw: string): 'PENDIENTE' | 'ENVIADA' | 'RECIBIDA' {
@@ -78,13 +83,15 @@ function normalizeStatus(raw: string): 'PENDIENTE' | 'ENVIADA' | 'RECIBIDA' {
   return 'PENDIENTE';
 }
 
-export default function OrdersTab({ onReceiveToPurchase }: OrdersTabProps = {}) {
+export default function OrdersTab({ onReceiveToPurchase, onImportDteToPurchase }: OrdersTabProps = {}) {
   const { toast } = useToast();
   const { user } = useUser();
 
   // Datos livianos cargados en paralelo (sin descargar todo el inventario)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncingSups, setSyncingSups] = useState(false);
+  const [restockingOrderId, setRestockingOrderId] = useState<string | null>(null);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [orders, setOrders] = useState<PurchaseOrderRecord[]>([]);
@@ -380,6 +387,73 @@ export default function OrdersTab({ onReceiveToPurchase }: OrdersTabProps = {}) 
     XLSX.writeFile(wb, `${ord.code}_${ord.supplier.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
   };
 
+  const handleSyncSuppliers = async () => {
+    setSyncingSups(true);
+    try {
+      const res = await syncExternalSuppliersToDirectory();
+      await loadInitialData();
+      toast({
+        title: 'Proveedores sincronizados',
+        description:
+          res.added > 0
+            ? `Se agregaron ${res.added} proveedores nuevos al directorio.`
+            : `Los ${res.total} proveedores ya están registrados en tu directorio.`,
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al sincronizar proveedores',
+        description: err?.message || 'Intenta nuevamente.',
+      });
+    } finally {
+      setSyncingSups(false);
+    }
+  };
+
+  const handleRestockOrder = async (ord: PurchaseOrderRecord) => {
+    setRestockingOrderId(ord.id);
+    try {
+      const res = await executeRestockOrderAndReceiveDte({
+        orderCode: ord.code,
+        supplierName: ord.supplier,
+        supplierNit: ord.supplierNit,
+        destinationWarehouse: ord.destinationWarehouse,
+        items: ord.items.map((it) => ({
+          sku: it.sku,
+          name: it.name,
+          quantity: Number(it.quantity) || 1,
+          cost: Number(it.cost) || 1,
+        })),
+      });
+
+      if (!res.ok || !res.dteEntry) {
+        throw new Error(res.error || 'No se pudo procesar el reabastecimiento.');
+      }
+
+      await supabase
+        .from('supplier_orders')
+        .update({ status: 'ENVIADA' })
+        .eq('id', ord.id);
+
+      toast({
+        title: 'Factura CCF recibida',
+        description: `Documento ${res.numeroControl} cargado en Registro de Compra.`,
+      });
+
+      if (onImportDteToPurchase) {
+        onImportDteToPurchase(res.dteEntry);
+      }
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al reabastecer',
+        description: err?.message || 'No se pudo obtener la factura del proveedor.',
+      });
+    } finally {
+      setRestockingOrderId(null);
+    }
+  };
+
   const kpis = useMemo(() => {
     const pending = orders.filter((o) => o.status === 'PENDIENTE').length;
     const sent = orders.filter((o) => o.status === 'ENVIADA').length;
@@ -460,7 +534,18 @@ export default function OrdersTab({ onReceiveToPurchase }: OrdersTabProps = {}) 
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               <div className="space-y-1">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Proveedor *</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Proveedor *</Label>
+                  <button
+                    type="button"
+                    onClick={handleSyncSuppliers}
+                    disabled={syncingSups}
+                    className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    <RefreshCw size={10} className={syncingSups ? 'animate-spin' : ''} />
+                    Sincronizar Proveedores
+                  </button>
+                </div>
                 <Select
                   value={suppliers.find((s) => s.name === supplierName)?.id || '__manual'}
                   onValueChange={(supId) => {
@@ -818,13 +903,30 @@ export default function OrdersTab({ onReceiveToPurchase }: OrdersTabProps = {}) 
                         </TableCell>
                         <TableCell className="px-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
+                            {ord.status !== 'RECIBIDA' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleRestockOrder(ord)}
+                                disabled={restockingOrderId === ord.id}
+                                className="h-7 px-2.5 text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg gap-1"
+                                title="Solicitar factura CCF electrónica del proveedor y cargarla en Registro de Compra"
+                              >
+                                {restockingOrderId === ord.id ? (
+                                  <Loader2 size={11} className="animate-spin" />
+                                ) : (
+                                  <>
+                                    <Send size={10} /> Reabastecer
+                                  </>
+                                )}
+                              </Button>
+                            )}
                             {onReceiveToPurchase && ord.status !== 'RECIBIDA' && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => onReceiveToPurchase(ord)}
                                 className="h-7 px-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/15 rounded-lg gap-1"
-                                title="Cargar esta orden en Registro de Compra para ingresar la factura al stock"
+                                title="Cargar esta orden manualmente en Registro de Compra"
                               >
                                 Recibir <ArrowRight size={11} />
                               </Button>

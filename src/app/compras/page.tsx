@@ -98,7 +98,10 @@ function ComprasContent() {
           />
         </TabsContent>
         <TabsContent value="ordenes" className="m-0 outline-none w-full">
-          <OrdersTab onReceiveToPurchase={handleReceiveOrderToPurchase} />
+          <OrdersTab
+            onReceiveToPurchase={handleReceiveOrderToPurchase}
+            onImportDteToPurchase={handleImportDteFromGmail}
+          />
         </TabsContent>
         <TabsContent value="gmail" className="m-0 p-0 outline-none w-full">
           <GmailClient context="compras" onImportDteToPurchase={handleImportDteFromGmail} />

@@ -303,10 +303,19 @@ export default function PurchasesTab({
     else setSupplierName(payload.emisor?.nombre || dte.proveedor_nombre || '');
 
     const ctrl = payload.identificacion?.numeroControl || dte.documento_numero || '';
-    const gen = payload.identificacion?.codigoGeneracion || '';
+    const gen = payload.identificacion?.codigoGeneracion || dte.codigo_generacion || '';
     setDocNumber(ctrl);
     setGenerationCode(gen);
     setDocType(payload.identificacion?.tipoDte === '03' ? 'CCF' : 'FACTURA');
+
+    if (dte.orden_origen) {
+      setPedidoId(dte.orden_origen);
+    }
+    if (dte.warehouse_destino) {
+      setWarehouse(dte.warehouse_destino);
+    } else if (!warehouse && warehouses.length > 0) {
+      setWarehouse(warehouses[0].name);
+    }
     
     const rawItems = payload.cuerpoDocumento || [];
     const mappedItems: any[] = [];
@@ -365,6 +374,19 @@ export default function PurchasesTab({
       onConsumeImportedDte?.();
     }
   }, [initialImportedDte, loadingData]);
+
+  // Auto-abrir DTE generado desde botón "Reabastecer" (BMS / Orden de Compra)
+  useEffect(() => {
+    if (loadingData || typeof window === 'undefined') return;
+    const autoDteId = localStorage.getItem('nexway_auto_open_dte_id');
+    if (!autoDteId) return;
+    const found = pendingDtes.find(d => d.id === autoDteId);
+    if (found) {
+      localStorage.removeItem('nexway_auto_open_dte_id');
+      setActiveTab('registro');
+      handleSelectDte(found.id, found);
+    }
+  }, [loadingData, pendingDtes]);
 
   // Recibir una Orden de Compra directamente desde OrdersTab ("Recibir →")
   useEffect(() => {

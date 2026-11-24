@@ -477,3 +477,151 @@ export async function transmitDteViaSandbox(params: {
   });
   return res.json();
 }
+
+export async function syncExternalSuppliersToDirectory(): Promise<{
+  added: number;
+  total: number;
+}> {
+  const cfg = await loadHaciendaSandboxConfig();
+  const res = await fetch(
+    `/api/hacienda/supply-order?baseUrl=${encodeURIComponent(cfg.baseUrl)}`
+  );
+  const data = await res.json().catch(() => ({ companies: [] }));
+  const remoteList: any[] = Array.isArray(data?.companies) ? data.companies : [];
+  if (remoteList.length === 0) return { added: 0, total: 0 };
+
+  const { data: existingSups } = await supabase
+    .from('suppliers')
+    .select('id, name, nit');
+  const existing = existingSups || [];
+
+  let added = 0;
+  for (const comp of remoteList) {
+    const cleanCompNit = cleanDigits(comp.nit);
+    const compNameLower = (comp.nombre || '').toString().trim().toLowerCase();
+    const already = existing.some(
+      (s: any) =>
+        (cleanCompNit && cleanDigits(s.nit) === cleanCompNit) ||
+        (s.name && s.name.trim().toLowerCase() === compNameLower)
+    );
+    if (!already && comp.nombre) {
+      const { error } = await supabase.from('suppliers').insert({
+        name: comp.nombre,
+        nit: comp.nit || null,
+        nrc: comp.nrc || null,
+        giro: comp.descActividad || null,
+        email: comp.correo || null,
+        phone: comp.telefono || null,
+        address: comp.direccion?.complemento || 'San Salvador',
+        apply_retention: Boolean(comp.granContribuyente),
+        apply_perception: false,
+      });
+      if (!error) added++;
+    }
+  }
+
+  return { added, total: remoteList.length };
+}
+
+export async function executeRestockOrderAndReceiveDte(params: {
+  orderCode?: string;
+  supplierName?: string;
+  supplierNit?: string;
+  destinationWarehouse?: string;
+  items: Array<{ sku: string; name: string; quantity: number; cost: number }>;
+}): Promise<{
+  ok: boolean;
+  dteEntry?: any;
+  selloRecibido?: string | null;
+  numeroControl?: string;
+  supplierName?: string;
+  error?: string;
+}> {
+  const [cfg, compCfgRes] = await Promise.all([
+    loadHaciendaSandboxConfig(),
+    supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', 'company_profile')
+      .maybeSingle(),
+  ]);
+
+  const res = await fetch('/api/hacienda/supply-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      orderCode: params.orderCode,
+      supplierName: params.supplierName,
+      supplierNit: params.supplierNit,
+      destinationWarehouse: params.destinationWarehouse,
+      items: params.items,
+      buyerCompany: compCfgRes?.data?.value || null,
+      baseUrl: cfg.baseUrl,
+      ambiente: cfg.ambiente,
+    }),
+  });
+
+  const data = await res.json();
+  if (!data?.ok || !data?.dteEntry) {
+    return {
+      ok: false,
+      error: data?.error || 'No se pudo obtener la factura de reabastecimiento.',
+    };
+  }
+
+  // 1. Auto-registrar el proveedor en public.suppliers si aún no existe
+  if (data.supplier?.name) {
+    const supNit = cleanDigits(data.supplier.nit);
+    const { data: existingSups } = await supabase
+      .from('suppliers')
+      .select('id, name, nit');
+    const exists = (existingSups || []).some(
+      (s: any) =>
+        (supNit && cleanDigits(s.nit) === supNit) ||
+        (s.name && s.name.trim().toLowerCase() === data.supplier.name.trim().toLowerCase())
+    );
+    if (!exists) {
+      await supabase.from('suppliers').insert({
+        name: data.supplier.name,
+        nit: data.supplier.nit || null,
+        nrc: data.supplier.nrc || null,
+        giro: data.supplier.giro || null,
+        email: data.supplier.email || null,
+        phone: data.supplier.phone || null,
+        address: data.supplier.address || 'San Salvador',
+        apply_retention: Boolean(data.supplier.applyRetention),
+        apply_perception: false,
+      });
+    }
+  }
+
+  // 2. Guardar el DTE recibido en gmail_pending_dtes (system_config)
+  const { data: pendingCfg } = await supabase
+    .from('system_config')
+    .select('value')
+    .eq('key', 'gmail_pending_dtes')
+    .maybeSingle();
+  const prevList = Array.isArray(pendingCfg?.value) ? pendingCfg.value : [];
+  const nextList = [data.dteEntry, ...prevList].slice(0, 80);
+
+  await supabase.from('system_config').upsert(
+    {
+      key: 'gmail_pending_dtes',
+      value: nextList,
+    },
+    { onConflict: 'key' }
+  );
+
+  // 3. Marcar en localStorage para que Registro de Compra la abra automáticamente
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('nexway_auto_open_dte_id', data.dteEntry.id);
+  }
+
+  return {
+    ok: true,
+    dteEntry: data.dteEntry,
+    selloRecibido: data.selloRecibido || null,
+    numeroControl: data.numeroControl,
+    supplierName: data.supplier?.name,
+  };
+}
