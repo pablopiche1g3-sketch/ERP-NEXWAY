@@ -48,6 +48,7 @@ import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { fetchSystemAppUsers, SystemUserOption } from '@/lib/session-operator';
 import { postDoubleEntryJournal } from '@/lib/accounting-journal';
+import type { PurchaseOrderRecord } from './OrdersTab';
 
 interface PurchaseItem {
   id: string;
@@ -62,9 +63,16 @@ type PaymentMethod = 'Efectivo' | 'Transferencia' | 'Credito';
 interface PurchasesTabProps {
   initialImportedDte?: any | null;
   onConsumeImportedDte?: () => void;
+  initialPurchaseOrder?: PurchaseOrderRecord | null;
+  onConsumePurchaseOrder?: () => void;
 }
 
-export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte }: PurchasesTabProps = {}) {
+export default function PurchasesTab({
+  initialImportedDte,
+  onConsumeImportedDte,
+  initialPurchaseOrder,
+  onConsumePurchaseOrder
+}: PurchasesTabProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -136,22 +144,65 @@ export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte 
   const [pendingDtes, setPendingDtes] = useState<any[]>([]);
   const [selectedDteId, setSelectedDteId] = useState<string>('none');
 
-  // Función para cargar los datos relacionados de forma segura
+  // Función para cargar los datos relacionados en paralelo (máxima velocidad)
   const loadPurchasesData = async () => {
     try {
       setLoadingData(true);
 
-      // Cargar bodegas
-      let whQuery = supabase.from('warehouses').select('*');
+      let whQuery = supabase.from('warehouses').select('id, name, branch_id').order('name');
       if (activeBranchId) {
         whQuery = whQuery.eq('branch_id', activeBranchId);
       }
-      const { data: whData } = await whQuery.order('name');
-      setWarehouses(whData || []);
 
-      // Cargar proveedores
-      const { data: supData } = await supabase.from('suppliers').select('*').order('name');
-      setSuppliers((supData || []).map(s => ({
+      let purchasesQuery = supabase
+        .from('purchases')
+        .select(`
+          *,
+          suppliers ( name ),
+          purchase_items (
+            *,
+            inventory (
+              name
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (activeBranchId) {
+        purchasesQuery = purchasesQuery.eq('branch_id', activeBranchId);
+      }
+
+      const [
+        whRes,
+        supRes,
+        invRes,
+        stockRes,
+        mapRes,
+        purchRes,
+        gmailDteRes,
+        appUsers
+      ] = await Promise.all([
+        whQuery,
+        supabase
+          .from('suppliers')
+          .select('id, name, nit, nrc, giro, email, phone, address, apply_retention, apply_perception')
+          .order('name'),
+        supabase.from('inventory').select('sku, name, category, price').order('sku'),
+        supabase.from('inventory_stock').select('sku, warehouse_id, quantity'),
+        supabase.from('supplier_mappings').select('supplier_code, internal_sku'),
+        purchasesQuery,
+        supabase
+          .from('system_config')
+          .select('value')
+          .eq('key', 'gmail_pending_dtes')
+          .maybeSingle(),
+        fetchSystemAppUsers().catch(() => [])
+      ]);
+
+      const whData = whRes.data || [];
+      setWarehouses(whData);
+
+      setSuppliers((supRes.data || []).map((s: any) => ({
         id: s.id,
         name: s.name,
         nit: s.nit,
@@ -164,27 +215,27 @@ export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte 
         applyPerception: s.apply_perception
       })));
 
-      // Cargar inventario maestro y stock consolidado
-      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
-      const { data: stockData } = await supabase.from('inventory_stock').select('*');
-
       const whMap: Record<string, string> = {};
-      (whData || []).forEach(w => {
+      whData.forEach((w: any) => {
         whMap[w.id] = w.name;
       });
 
-      const mappedInventory = (invData || []).map(item => {
-        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
-        const bodegasMap: Record<string, number> = {};
-        itemStocks.forEach(s => {
-          const whName = whMap[s.warehouse_id];
-          if (whName) {
-            bodegasMap[whName] = parseFloat(s.quantity) || 0;
-          }
-        });
+      // Índice O(N) de stock por SKU (evita O(N*M) al cargar inventario)
+      const stockBySku = new Map<string, Record<string, number>>();
+      (stockRes.data || []).forEach((s: any) => {
+        const whName = whMap[s.warehouse_id];
+        if (!whName) return;
+        let map = stockBySku.get(s.sku);
+        if (!map) {
+          map = {};
+          stockBySku.set(s.sku, map);
+        }
+        map[whName] = (map[whName] || 0) + (parseFloat(s.quantity) || 0);
+      });
 
+      const mappedInventory = (invRes.data || []).map((item: any) => {
+        const bodegasMap = stockBySku.get(item.sku) || {};
         const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
-
         return {
           id: item.sku,
           sku: item.sku,
@@ -198,52 +249,21 @@ export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte 
 
       setInventory(mappedInventory);
 
-      // Cargar vinculaciones de proveedor
-      const { data: mapData } = await supabase.from('supplier_mappings').select('*');
-      setSavedMappings((mapData || []).map(m => ({
+      setSavedMappings((mapRes.data || []).map((m: any) => ({
         supplierCode: m.supplier_code,
         internalSku: m.internal_sku
       })));
 
-      // Cargar historial de compras
-      let purchasesQuery = supabase
-        .from('purchases')
-        .select(`
-          *,
-          suppliers ( name ),
-          purchase_items (
-            *,
-            inventory (
-              name
-            )
-          )
-        `);
-      if (activeBranchId) {
-        purchasesQuery = purchasesQuery.eq('branch_id', activeBranchId);
-      }
-      const { data: purchHistoryData } = await purchasesQuery
-        .order('created_at', { ascending: false });
-      setPurchasesHistory(purchHistoryData || []);
+      setPurchasesHistory(purchRes.data || []);
 
-      // Cargar catálogo de DTEs pendientes desde Gmail (system_config)
       const mergedDtes: any[] = [];
-      try {
-        const { data: gmailDteCfg } = await supabase
-          .from('system_config')
-          .select('value')
-          .eq('key', 'gmail_pending_dtes')
-          .maybeSingle();
-        if (Array.isArray(gmailDteCfg?.value)) {
-          gmailDteCfg.value
-            .filter((d: any) => d && d.estado !== 'PROCESADO')
-            .forEach((d: any) => mergedDtes.push(d));
-        }
-      } catch {}
-
+      if (Array.isArray(gmailDteRes.data?.value)) {
+        gmailDteRes.data.value
+          .filter((d: any) => d && d.estado !== 'PROCESADO')
+          .forEach((d: any) => mergedDtes.push(d));
+      }
       setPendingDtes(mergedDtes);
 
-      // Cargar usuarios del sistema para selector de encargado
-      const appUsers = await fetchSystemAppUsers();
       setSystemUsers(appUsers || []);
       if (!enteredBy && appUsers && appUsers.length > 0) {
         const localOp = typeof window !== 'undefined' ? localStorage.getItem('nexway_session_operator') : null;
@@ -253,7 +273,6 @@ export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte 
           setEnteredBy(appUsers[0].full_name || appUsers[0].email);
         }
       }
-
     } catch (e: any) {
       console.error('Error al cargar datos en compras:', e);
     } finally {
@@ -353,6 +372,47 @@ export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte 
       onConsumeImportedDte?.();
     }
   }, [initialImportedDte, loadingData]);
+
+  // Recibir una Orden de Compra directamente desde OrdersTab ("Recibir →")
+  useEffect(() => {
+    if (!initialPurchaseOrder || loadingData) return;
+
+    setActiveTab('registro');
+    setEditingPurchaseId(null);
+    setPedidoId(initialPurchaseOrder.code || '');
+
+    // Intentar empatar proveedor exacto por nombre
+    const matchedSup = suppliers.find(
+      s => s.name.trim().toLowerCase() === (initialPurchaseOrder.supplier || '').trim().toLowerCase()
+    );
+    setSupplierName(matchedSup ? matchedSup.name : initialPurchaseOrder.supplier || '');
+
+    // Intentar empatar bodega destino
+    const matchedWh = warehouses.find(
+      w => w.name.trim().toLowerCase() === (initialPurchaseOrder.destinationWarehouse || '').trim().toLowerCase()
+    );
+    if (matchedWh) {
+      setWarehouse(matchedWh.name);
+    } else if (initialPurchaseOrder.destinationWarehouse) {
+      setWarehouse(initialPurchaseOrder.destinationWarehouse);
+    }
+
+    const mappedItems: PurchaseItem[] = (initialPurchaseOrder.items || []).map((item, idx) => ({
+      id: item.sku || `OC-ITEM-${idx}`,
+      sku: item.sku,
+      name: item.name,
+      quantity: Number(item.quantity) || 1,
+      cost: Number(item.cost) || 0
+    }));
+    setPurchaseItems(mappedItems);
+
+    toast({
+      title: `Orden ${initialPurchaseOrder.code} cargada`,
+      description: `Se precargaron ${mappedItems.length} producto(s) de ${initialPurchaseOrder.supplier}. Ingrese el número de factura/CCF para confirmar el ingreso.`
+    });
+
+    onConsumePurchaseOrder?.();
+  }, [initialPurchaseOrder, loadingData]);
 
   const handleSaveManualMapping = async () => {
     if (!supplierCodeInput.trim() || !internalSkuInput.trim()) return;
@@ -1154,11 +1214,35 @@ export default function PurchasesTab({ initialImportedDte, onConsumeImportedDte 
         }
 
         if (selectedDteId !== 'none') {
-           const { error: dteErr } = await supabase
-             .from('facturas_proveedores_json')
-             .update({ estado: 'PROCESADO' })
-             .eq('id', selectedDteId);
-           if (dteErr) throw dteErr;
+          try {
+            const { data: cfg } = await supabase
+              .from('system_config')
+              .select('value')
+              .eq('key', 'gmail_pending_dtes')
+              .maybeSingle();
+            if (Array.isArray(cfg?.value)) {
+              const updated = cfg.value.map((d: any) =>
+                d?.id === selectedDteId ? { ...d, estado: 'PROCESADO' } : d
+              );
+              await supabase
+                .from('system_config')
+                .upsert({ key: 'gmail_pending_dtes', value: updated }, { onConflict: 'key' });
+            }
+          } catch (dteErr) {
+            console.warn('No se pudo actualizar el estado del DTE en system_config:', dteErr);
+          }
+        }
+
+        // Si viene de una Orden de Compra (OC-...), marcarla automáticamente como RECIBIDA
+        if (pedidoId && pedidoId.trim().startsWith('OC-')) {
+          try {
+            await supabase
+              .from('supplier_orders')
+              .update({ status: 'RECIBIDA' })
+              .eq('code', pedidoId.trim());
+          } catch (ocErr) {
+            console.warn('No se pudo actualizar estado de la orden de compra:', ocErr);
+          }
         }
 
         // 4. Registro Contable Automático en Journal (Partida Doble Compras El Salvador)

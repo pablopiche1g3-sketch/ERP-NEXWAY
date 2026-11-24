@@ -1,2270 +1,931 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  ClipboardList, 
-  ArrowLeft, 
-  Search, 
-  Plus, 
-  Trash2, 
-  Warehouse, 
-  Truck, 
-  Building2, 
-  CheckCircle2, 
-  Loader2, 
-  Printer, 
-  DollarSign, 
-  Clock, 
-  User, 
+import React, { useEffect, useMemo, useState } from 'react';
+import {
   ArrowRight,
-  Info,
+  Building2,
   Calendar,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  DollarSign,
   Eye,
-  AlertTriangle,
-  BadgeAlert,
   FileSpreadsheet,
-  UploadCloud,
-  Lock,
-  Unlock,
-  Mail,
-  LogOut,
-  Zap,
-  ArrowUpRight,
-  Boxes
+  Loader2,
+  Package,
+  Plus,
+  Printer,
+  RefreshCw,
+  Search,
+  Send,
+  Trash2,
+  Truck,
+  Warehouse
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { supabase } from '@/supabase/client';
+import { useUser } from '@/supabase/use-user';
+import { useToast } from '@/hooks/use-toast';
 import {
   buildPurchaseOrderDocumentHtml,
   loadPrintBranding,
   printHtmlDocument
 } from '@/lib/print-engine';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useUser, getTenantName } from '@/supabase/compat';
-import { useModuleConfig } from '@/supabase/use-module-config';
-import { supabase } from '@/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useRouter } from 'next/navigation';
-import { ModeToggle } from '@/components/mode-toggle';
-import { DEFAULT_FROM_EMAIL } from '@/lib/admin-emails';
+import * as XLSX from 'xlsx';
 
-interface OrderItem {
+export interface PurchaseOrderItem {
   sku: string;
   name: string;
   quantity: number;
-  cost?: number;
-  quoteNumber?: string;
+  cost: number;
+  currentStock?: number;
 }
 
-export default function OrdersTab() {
-  const router = useRouter();
+export interface PurchaseOrderRecord {
+  id: string;
+  code: string;
+  supplier: string;
+  supplierNit?: string;
+  supplierEmail?: string;
+  supplierPhone?: string;
+  destinationWarehouse: string;
+  requestedBy: string;
+  items: PurchaseOrderItem[];
+  total: number;
+  status: 'PENDIENTE' | 'ENVIADA' | 'RECIBIDA';
+  createdAt: string;
+  expectedDate?: string;
+  paymentTerms?: string;
+  notes?: string;
+}
+
+interface OrdersTabProps {
+  onReceiveToPurchase?: (order: PurchaseOrderRecord) => void;
+}
+
+function normalizeStatus(raw: string): 'PENDIENTE' | 'ENVIADA' | 'RECIBIDA' {
+  const up = (raw || '').toUpperCase();
+  if (up === 'RECIBIDO' || up === 'RECIBIDA' || up === 'COMPLETADA') return 'RECIBIDA';
+  if (up === 'ENVIADO' || up === 'ENVIADA') return 'ENVIADA';
+  return 'PENDIENTE';
+}
+
+export default function OrdersTab({ onReceiveToPurchase }: OrdersTabProps = {}) {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'externo' | 'cargar-codigos' | 'historial'>('externo');
-  const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'interno' | 'externo'>('all');
-  const [historySearchTerm, setHistorySearchTerm] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { user } = useUser();
 
-  const { config } = useModuleConfig();
-
-  const tabsList = useMemo(() => [
-    { id: 'externo', key: 'orders_externo' },
-    { id: 'cargar-codigos', key: 'orders_cargar-codigos' },
-    { id: 'historial', key: 'orders_historial' },
-  ], []);
-
-  useEffect(() => {
-    if (!config) return;
-    const currentTabObj = tabsList.find(t => t.id === activeTab);
-    if (currentTabObj && config[currentTabObj.key] === false) {
-      const firstEnabled = tabsList.find(t => config[t.key] !== false);
-      if (firstEnabled) {
-        setActiveTab(firstEnabled.id as any);
-      }
-    }
-  }, [config, activeTab, tabsList]);
-
-  // Estados locales para datos de Supabase
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [loadingInv, setLoadingInv] = useState(true);
+  // Datos livianos cargados en paralelo (sin descargar todo el inventario)
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [internalOrders, setInternalOrders] = useState<any[]>([]);
-  const [supplierOrders, setSupplierOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<PurchaseOrderRecord[]>([]);
 
-  const loadData = async () => {
+  // Paso 1: Proveedor y Condiciones
+  const [supplierName, setSupplierName] = useState('');
+  const [supplierNit, setSupplierNit] = useState('');
+  const [supplierEmail, setSupplierEmail] = useState('');
+  const [supplierPhone, setSupplierPhone] = useState('');
+  const [destWarehouse, setDestWarehouse] = useState('');
+  const [expectedDate, setExpectedDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 5);
+    return d.toISOString().slice(0, 10);
+  });
+  const [paymentTerms, setPaymentTerms] = useState('Crédito 30 días');
+  const [responsible, setResponsible] = useState('');
+  const [notes, setNotes] = useState('');
+  const [includeIva, setIncludeIva] = useState(true);
+
+  // Paso 2: Buscador rápido bajo demanda en Supabase
+  const [productQuery, setProductQuery] = useState('');
+  const [searchingProducts, setSearchingProducts] = useState(false);
+  const [productResults, setProductResults] = useState<Array<{ sku: string; name: string; cost: number; stock: number }>>([]);
+  const [orderItems, setOrderItems] = useState<PurchaseOrderItem[]>([]);
+
+  // Agregar producto nuevo rápido (opcional)
+  const [showCustomItem, setShowCustomItem] = useState(false);
+  const [customSku, setCustomSku] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [customQty, setCustomQty] = useState('1');
+  const [customCost, setCustomCost] = useState('');
+
+  // Filtros y vista previa de historial
+  const [searchOrders, setSearchOrders] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDIENTE' | 'ENVIADA' | 'RECIBIDA'>('ALL');
+  const [previewOrder, setPreviewOrder] = useState<PurchaseOrderRecord | null>(null);
+
+  useEffect(() => {
+    if (user?.email && !responsible) {
+      setResponsible(user.email);
+    }
+  }, [user]);
+
+  const loadInitialData = async () => {
+    setLoading(true);
     try {
-      setLoadingInv(true);
-      // 1. Cargar bodegas
-      const { data: whData } = await supabase.from('warehouses').select('*').order('name');
-      setWarehouses(whData || []);
+      const [whRes, supRes, ordRes] = await Promise.all([
+        supabase.from('warehouses').select('id, name').order('name'),
+        supabase.from('suppliers').select('id, name, nit, email, phone').order('name').limit(200),
+        supabase.from('supplier_orders').select('*').order('created_at', { ascending: false }).limit(60)
+      ]);
 
-      // 2. Cargar proveedores
-      const { data: supData } = await supabase.from('suppliers').select('*').order('name');
-      setSuppliers(supData || []);
+      const whList = whRes.data || [];
+      setWarehouses(whList);
+      if (!destWarehouse && whList.length > 0) {
+        setDestWarehouse(whList[0].name);
+      }
+      setSuppliers(supRes.data || []);
 
-      // 3. Cargar pedidos internos
-      const { data: intData } = await supabase.from('internal_orders').select('*').order('created_at', { ascending: false });
-      setInternalOrders((intData || []).map(o => ({
+      const mapped: PurchaseOrderRecord[] = (ordRes.data || []).map((o: any) => ({
         id: o.id,
-        code: o.code,
-        sourceWarehouse: o.source_warehouse,
-        destinationWarehouse: o.destination_warehouse,
-        requestedBy: o.requested_by,
-        items: o.items,
-        status: o.status,
-        createdAt: o.created_at
-      })));
-
-      // 4. Cargar pedidos a proveedores
-      const { data: extData } = await supabase.from('supplier_orders').select('*').order('created_at', { ascending: false });
-      setSupplierOrders((extData || []).map(o => ({
-        id: o.id,
-        code: o.code,
-        supplier: o.supplier_name,
-        destinationWarehouse: o.destination_warehouse,
-        requestedBy: o.requested_by,
-        items: o.items,
-        total: parseFloat(o.total) || 0,
-        status: o.status,
+        code: o.code || `OC-${String(o.id).slice(0, 6).toUpperCase()}`,
+        supplier: o.supplier_name || 'Proveedor',
+        supplierEmail: o.supplier_email || '',
+        supplierPhone: o.supplier_phone || '',
+        destinationWarehouse: o.destination_warehouse || 'Bodega Principal',
+        requestedBy: o.requested_by || '',
+        items: Array.isArray(o.items) ? o.items : [],
+        total: Number(o.total || 0),
+        status: normalizeStatus(o.status),
         createdAt: o.created_at,
-        supplierEmail: o.supplier_email,
-        fromEmail: o.from_email,
-        authorizedBy: o.authorized_by,
-        digitizedBy: o.digitized_by,
-        supplierPhone: o.supplier_phone
-      })));
-
-      // 5. Cargar inventario y stock relacional
-      const { data: invData } = await supabase.from('inventory').select('*').order('sku');
-      const { data: stockData } = await supabase.from('inventory_stock').select('*');
-
-      const whMap: Record<string, string> = {};
-      (whData || []).forEach(w => {
-        whMap[w.id] = w.name;
+        paymentTerms: o.authorized_by || undefined,
+        notes: o.digitized_by || undefined
+      }));
+      setOrders(mapped);
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error cargando órdenes',
+        description: err?.message || 'No se pudieron cargar las órdenes de compra.'
       });
-
-      const mappedInventory = (invData || []).map(item => {
-        const itemStocks = (stockData || []).filter(s => s.sku === item.sku);
-        const bodegasMap: Record<string, number> = {};
-        itemStocks.forEach(s => {
-          const whName = whMap[s.warehouse_id];
-          if (whName) {
-            bodegasMap[whName] = parseFloat(s.quantity) || 0;
-          }
-        });
-
-        const totalQty = Object.values(bodegasMap).reduce((sum, val) => sum + val, 0);
-
-        return {
-          id: item.sku,
-          sku: item.sku,
-          name: item.name,
-          category: item.category,
-          brand: item.brand,
-          price: parseFloat(item.price) || 0,
-          cost: parseFloat(item.cost) || 0,
-          min_stock: parseFloat(item.min_stock) || 5,
-          reorder_point: parseFloat(item.reorder_point) || 10,
-          max_stock: parseFloat(item.max_stock) || 30,
-          default_supplier_id: item.default_supplier_id,
-          default_supplier_name: item.default_supplier_name,
-          quantity: totalQty,
-          bodegas: bodegasMap
-        };
-      });
-
-      setInventory(mappedInventory);
-    } catch (e) {
-      console.error("Error cargando datos en pedidos:", e);
     } finally {
-      setLoadingInv(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadInitialData();
   }, []);
 
-  // --- BULK CODES UPLOAD STATES ---
-  const [bulkCodes, setBulkCodes] = useState<{ sku: string; name: string }[]>([]);
-  const [bulkLoading, setBulkLoading] = useState(false);
-
-  // --- PEDIDOS INTERNOS STATES ---
-  const [intSourceWh, setIntSourceWh] = useState('');
-  const [intDestWh, setIntDestWh] = useState('');
-  const [intRequestedBy, setIntRequestedBy] = useState('');
-  const [intItems, setIntItems] = useState<OrderItem[]>([]);
-  const [intSearchTerm, setIntSearchTerm] = useState('');
-  const [intItemQty, setIntItemQty] = useState<number | string>(1);
-  const [intItemSku, setIntItemSku] = useState('');
-  const [intItemName, setIntItemName] = useState('');
-  const [intIsManual, setIntIsManual] = useState(false);
-  const [internalSearchFilter, setInternalSearchFilter] = useState('');
-
-  // --- PEDIDOS EXTERNOS STATES ---
-  const [extSupplier, setExtSupplier] = useState('');
-  const [extDestWh, setExtDestWh] = useState('');
-  const [extRequestedBy, setExtRequestedBy] = useState('');
-  const [extItems, setExtItems] = useState<OrderItem[]>([]);
-  const [extSearchTerm, setExtSearchTerm] = useState('');
-  const [extItemQty, setExtItemQty] = useState<number | string>(1);
-  const [extItemCost, setExtItemCost] = useState<number | string>('');
-  const [extItemSku, setExtItemSku] = useState('');
-  const [extItemName, setExtItemName] = useState('');
-  const [extIsManual, setExtIsManual] = useState(false);
-  const [extSupplierEmail, setExtSupplierEmail] = useState('');
-  const [extFromEmail, setExtFromEmail] = useState(DEFAULT_FROM_EMAIL);
-  const [extAuthorizedBy, setExtAuthorizedBy] = useState('JULIO NEFTALI CAÑAS ZELAYA');
-  const [extDigitizedBy, setExtDigitizedBy] = useState('RENE LANGLOIS 74503973');
-  const [extSupplierPhone, setExtSupplierPhone] = useState('');
-  const [extConfigLocked, setExtConfigLocked] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
-  const { isAdmin } = useUser();
-  const activeTenant = getTenantName();
-  const [extItemQuote, setExtItemQuote] = useState('');
-  const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
-  const [externalSearchFilter, setExternalSearchFilter] = useState('');
-
-  // Combine and filter internal & external orders for history tab
-  const combinedOrders = useMemo(() => {
-    const internalMapped = (internalOrders || []).map(o => ({
-      ...o,
-      orderType: 'INTERNO' as const,
-      routeOrSupplier: `${o.sourceWarehouse} -> ${o.destinationWarehouse}`,
-      totalValue: 0
-    }));
-
-    const externalMapped = (supplierOrders || []).map(o => ({
-      ...o,
-      orderType: 'EXTERNO' as const,
-      routeOrSupplier: o.supplier,
-      totalValue: parseFloat(o.total) || 0
-    }));
-
-    const all = [...internalMapped, ...externalMapped].sort((a, b) => 
-      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-    );
-
-    return all.filter(order => {
-      const matchesType = 
-        historyTypeFilter === 'all' || 
-        (historyTypeFilter === 'interno' && order.orderType === 'INTERNO') ||
-        (historyTypeFilter === 'externo' && order.orderType === 'EXTERNO');
-
-      const term = historySearchTerm.toLowerCase().trim();
-      const matchesSearch = !term || (
-        (order.code && order.code.toLowerCase().includes(term)) ||
-        (order.requestedBy && order.requestedBy.toLowerCase().includes(term)) ||
-        (order.routeOrSupplier && order.routeOrSupplier.toLowerCase().includes(term)) ||
-        (order.status && order.status.toLowerCase().includes(term))
-      );
-
-      return matchesType && matchesSearch;
-    });
-  }, [internalOrders, supplierOrders, historyTypeFilter, historySearchTerm]);
-
-  // Persistir metadatos bloqueados localmente y verificar vista independiente
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const locked = localStorage.getItem('nexway_extConfigLocked') === 'true';
-      setExtConfigLocked(locked);
-      
-      const savedSupplierEmail = localStorage.getItem('nexway_extSupplierEmail');
-      const savedFromEmail = localStorage.getItem('nexway_extFromEmail');
-      const savedAuthorizedBy = localStorage.getItem('nexway_extAuthorizedBy');
-      const savedDigitizedBy = localStorage.getItem('nexway_extDigitizedBy');
-      const savedSupplierPhone = localStorage.getItem('nexway_extSupplierPhone');
-
-      if (savedSupplierEmail) setExtSupplierEmail(savedSupplierEmail);
-      if (savedFromEmail) setExtFromEmail(savedFromEmail);
-      if (savedAuthorizedBy) setExtAuthorizedBy(savedAuthorizedBy);
-      if (savedDigitizedBy) setExtDigitizedBy(savedDigitizedBy);
-      if (savedSupplierPhone) setExtSupplierPhone(savedSupplierPhone);
-
-      // Verificar si es vista independiente (shared / standalone)
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('shared') === 'true' || params.get('standalone') === 'true') {
-        setIsStandalone(true);
-      }
-    }
-  }, []);
-
-  const toggleLockConfig = () => {
-    if (extConfigLocked) {
-      localStorage.removeItem('nexway_extConfigLocked');
-      setExtConfigLocked(false);
-      toast({ title: "Configuración Desbloqueada", description: "Los campos ahora pueden editarse libremente." });
-    } else {
-      localStorage.setItem('nexway_extConfigLocked', 'true');
-      localStorage.setItem('nexway_extSupplierEmail', extSupplierEmail);
-      localStorage.setItem('nexway_extFromEmail', extFromEmail);
-      localStorage.setItem('nexway_extAuthorizedBy', extAuthorizedBy);
-      localStorage.setItem('nexway_extDigitizedBy', extDigitizedBy);
-      localStorage.setItem('nexway_extSupplierPhone', extSupplierPhone);
-      setExtConfigLocked(true);
-      toast({ title: "Configuración Fijada", description: "Los datos de envío, firmas y teléfono se han guardado permanentemente." });
-    }
-  };
-
-  // Modal de Vista Previa / Impresión
-  const [selectedOrderForPreview, setSelectedOrderForPreview] = useState<any>(null);
-  const [previewType, setPreviewType] = useState<'interno' | 'externo'>('interno');
-
-  // --- LOGICA DE ENVIO DE CORREO CLIENTE ---
-  const handleSendEmailClient = (order: any) => {
-    try {
-      const emails = order.supplierEmail || 'sac.es2@swdeca.com';
-      const subject = encodeURIComponent(`Pedido de Suministros NexWay - ${order.code}`);
-      const body = encodeURIComponent(
-        `Estimado proveedor,\n\nAdjunto a este correo enviamos el archivo de pedido ${order.code} generado por el Centro de Requisición & Pedidos de NexWay.\n\n` +
-        `Detalles Generales del Pedido:\n` +
-        `- Código de Orden: ${order.code}\n` +
-        `- Bodega de Entrega: ${order.destinationWarehouse}\n` +
-        `- Teléfono de quien solicita: ${order.supplierPhone || '-'}\n\n` +
-        `Por favor, confirmar la recepción de este pedido y proceder con el despacho según los términos cotizados.\n\n` +
-        `Atentamente,\n` +
-        `${order.requestedBy || 'Responsable de Orden'}\n` +
-        `NexWay S.A. de C.V.`
-      );
-      window.open(`mailto:${emails}?subject=${subject}&body=${body}`, '_blank');
-      toast({ title: "Cliente de Correo Abierto", description: "Se ha pre-redactado la orden en tu aplicación de correo." });
-    } catch {
-      toast({ variant: "destructive", title: "Error al enviar", description: "No se pudo abrir el cliente de correo." });
-    }
-  };
-
-  // --- LOGICA DE EXPORTACION A EXCEL ---
-  const handleDownloadExcel = async (order: any) => {
-    try {
-      const XLSX = await import('xlsx');
-      // Helper para formatear fecha en español: ej. "12-may-26"
-      const formatDateToSpanishShort = (dateStr: string) => {
-        try {
-          const d = new Date(dateStr);
-          if (isNaN(d.getTime())) return '';
-          const day = d.getDate();
-          const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-          const month = months[d.getMonth()];
-          const year = String(d.getFullYear()).slice(-2);
-          return `${day}-${month}-${year}`;
-        } catch {
-          return '';
-        }
-      };
-
-      const supplierNameUpper = String(order.supplier || 'PROVEEDOR').toUpperCase();
-      const title = `PEDIDO A ${supplierNameUpper}`;
-      
-      const data: any[][] = [];
-      
-      // Fila 1: Título Centrado
-      data.push(['', '', title, '']);
-      
-      // Fila 2: Fecha, valor, CASA MATRIZ
-      data.push([
-        'Fecha', 
-        formatDateToSpanishShort(order.createdAt), 
-        String(order.destinationWarehouse || 'CASA MATRIZ').toUpperCase(),
-        ''
-      ]);
-      
-      // Fila 3: Distribuidor, Enviar al correo electrónico
-      data.push([
-        'Distribuidor', 
-        '', 
-        'ENVIAR AL CORREO ELECTRONICO', 
-        order.supplierEmail || 'sac.es2@swdeca.com'
-      ]);
-      
-      // Fila 4: Teléfono y Correo Emisor
-      data.push([
-        'Teléfono', 
-        order.supplierPhone || '', 
-        'DESDE EL CORREO ELECTRONICO', 
-        order.fromEmail || DEFAULT_FROM_EMAIL
-      ]);
-      
-      // Fila 5: Encabezados de Tabla
-      data.push(['Cantidad', 'Rex', 'Descripción', 'No Cotizacion']);
-      
-      // Filas 6+: Ítems
-      if (order.items && Array.isArray(order.items)) {
-        order.items.forEach((item: any) => {
-          data.push([
-            item.quantity,
-            item.sku,
-            item.name,
-            item.quoteNumber || ''
-          ]);
-        });
-      }
-      
-      // 5 Filas vacías de separación
-      for (let i = 0; i < 5; i++) {
-        data.push([]);
-      }
-      
-      // Bloque de Firmas
-      data.push([
-        'SOLICITADO POR',
-        '',
-        'AUTORIZADO POR',
-        'DIGITADO POR'
-      ]);
-      
-      data.push([
-        `BODEGA ${String(order.destinationWarehouse || 'CASA MATRIZ').toUpperCase()}`,
-        '',
-        String(order.authorizedBy || 'JULIO NEFTALI CAÑAS ZELAYA').toUpperCase(),
-        String(order.digitizedBy || 'RENE LANGLOIS 74503973').toUpperCase()
-      ]);
-
-      // Generar Worksheet de SheetJS
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      
-      // Combinaciones de celdas (Merges)
-      ws['!merges'] = [
-        { s: { r: 0, c: 2 }, e: { r: 0, c: 3 } } // Combinar C1 y D1 para el título
-      ];
-
-      // Anchos de columnas para evitar cortes de texto
-      ws['!cols'] = [
-        { wch: 15 }, // Cantidad / Fecha / SOLICITADO
-        { wch: 18 }, // Rex / Valor Fecha
-        { wch: 45 }, // Descripción / Etiqueta Correo / AUTORIZADO
-        { wch: 35 }  // No Cotizacion / Correo / DIGITADO
-      ];
-
-      // Generar Workbook y guardar
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Pedido');
-
-      const cleanSupplier = supplierNameUpper.replace(/[^A-Z0-9]/g, '_');
-      const filename = `Pedido_${cleanSupplier}_${order.code}.xlsx`;
-
-      XLSX.writeFile(wb, filename);
-
-      toast({
-        title: "Excel Descargado",
-        description: `Se ha descargado el archivo ${filename} exitosamente.`
-      });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Error de Exportación",
-        description: "No se pudo generar el archivo Excel."
-      });
-    }
-  };
-
-  // --- LOGICA DE EXCEL ---
-  const handleBulkCodesExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const XLSX = await import('xlsx');
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
-
-        if (json.length === 0) {
-          toast({ variant: "destructive", title: "Archivo vacío", description: "El archivo Excel no contiene datos." });
-          return;
-        }
-
-        const headers = (json[0] as any[]).map(h => String(h || '').trim().toLowerCase());
-        
-        const skuIdx = headers.findIndex(h => h.includes('sku') || h.includes('código') || h.includes('codigo') || h.includes('code') || h.includes('referencia'));
-        const nameIdx = headers.findIndex(h => h.includes('descrip') || h.includes('nombre') || h.includes('producto') || h.includes('name') || h.includes('item'));
-
-        if (skuIdx === -1) {
-          toast({ variant: "destructive", title: "Formato Incorrecto", description: "No se encontró una columna de Código o SKU." });
-          return;
-        }
-
-        const parsedCodes: { sku: string; name: string }[] = [];
-        let count = 0;
-
-        for (let i = 1; i < json.length; i++) {
-          const row = json[i];
-          if (!row || row.length === 0) continue;
-
-          const sku = String(row[skuIdx] || '').trim().toUpperCase();
-          if (!sku) continue;
-
-          let name = nameIdx !== -1 ? String(row[nameIdx] || '').trim() : `Producto ${sku}`;
-          
-          if (!parsedCodes.some(c => c.sku === sku)) {
-            parsedCodes.push({ sku, name });
-            count++;
-          }
-        }
-
-        if (parsedCodes.length > 0) {
-          setBulkCodes(parsedCodes);
-          toast({ title: "Códigos Cargados", description: `Se prepararon ${count} códigos para importar desde el archivo Excel.` });
-        } else {
-          toast({ variant: "destructive", title: "Sin datos", description: "No se pudieron procesar filas del archivo." });
-        }
-      } catch (err) {
-        toast({ variant: "destructive", title: "Error", description: "No se pudo leer el archivo Excel." });
-      }
-    };
-    reader.readAsArrayBuffer(file);
-    if (e.target) e.target.value = '';
-  };
-
-  // Cargar automáticamente los productos con stock bajo asignados al proveedor seleccionado
-  const handleLoadLowStockForSupplier = () => {
-    if (!extSupplier) {
-      toast({ 
-        variant: 'destructive', 
-        title: 'Seleccione un Proveedor', 
-        description: 'Primero elija un proveedor para consultar sus productos en punto de reorden.' 
-      });
-      return;
-    }
-    
-    const matching = (inventory || []).filter(item => {
-      const isThisSupplier = (item.default_supplier_name && item.default_supplier_name.toLowerCase() === extSupplier.toLowerCase()) ||
-                             (item.brand && item.brand.toLowerCase() === extSupplier.toLowerCase());
-      const qty = Number(item.quantity || 0);
-      const reorder = Number(item.reorder_point || item.min_stock || 10);
-      return isThisSupplier && qty <= reorder;
-    });
-
-    if (matching.length === 0) {
-      const allForSupplier = (inventory || []).filter(item => 
-        (item.default_supplier_name && item.default_supplier_name.toLowerCase() === extSupplier.toLowerCase()) ||
-        (item.brand && item.brand.toLowerCase() === extSupplier.toLowerCase())
-      );
-      if (allForSupplier.length === 0) {
-        toast({
-          title: 'Sin Productos Asignados',
-          description: `No se encontraron productos en el catálogo vinculados a ${extSupplier}. Puedes asignarle productos en Logística → Inventario.`
-        });
-        return;
-      }
-      toast({
-        title: 'Inventario Saludable',
-        description: `Los productos de ${extSupplier} cuentan con existencias suficientes por encima del punto de reorden.`
-      });
+  // Buscador de productos bajo demanda (solo 25 resultados -> instantáneo)
+  const handleSearchProducts = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const q = productQuery.trim();
+    if (!q) {
+      setProductResults([]);
       return;
     }
 
-    const newItems: OrderItem[] = matching.map(item => {
-      const currentQty = Number(item.quantity || 0);
-      const maxStock = Number(item.max_stock || 30);
-      const suggestedQty = Math.max(1, maxStock - currentQty);
-      const unitCost = Number(item.cost || item.price || 0);
-      return {
-        sku: item.sku,
-        name: item.name,
-        quantity: suggestedQty,
-        cost: unitCost
-      };
-    });
-
-    const currentSkus = new Set(extItems.map(i => i.sku));
-    const itemsToAdd = newItems.filter(i => !currentSkus.has(i.sku));
-
-    if (itemsToAdd.length === 0) {
-      toast({
-        title: 'Ya están agregados',
-        description: `Todos los productos con stock bajo de ${extSupplier} ya se encuentran en la lista actual.`
-      });
-      return;
-    }
-
-    setExtItems([...extItems, ...itemsToAdd]);
-    toast({
-      title: 'Productos Cargados con Éxito',
-      description: `Se agregaron ${itemsToAdd.length} producto(s) en punto de reorden para ${extSupplier} con sus costos unitarios.`
-    });
-  };
-
-  const handleRegisterBulkCodes = async () => {
-    if (bulkCodes.length === 0) return;
-    setBulkLoading(true);
-    let createdCount = 0;
-    let skippedCount = 0;
-
+    setSearchingProducts(true);
     try {
-      const itemsToInsert: any[] = [];
-      const stockToInsert: any[] = [];
-
-      // Validar contra la base de datos real para evitar duplicados y errores de clave primaria
-      const skusToImport = bulkCodes.map(c => c.sku);
-      const { data: dbExisting } = await supabase
+      const { data, error } = await supabase
         .from('inventory')
-        .select('sku')
-        .in('sku', skusToImport);
+        .select('sku, name, cost, price')
+        .or(`sku.ilike.%${q}%,name.ilike.%${q}%`)
+        .limit(25);
 
-      const dbExistingSkus = new Set((dbExisting || []).map((p: any) => p.sku));
+      if (error) throw error;
+      const rows = data || [];
+      const skus = rows.map((r: any) => r.sku).filter(Boolean);
 
-      for (const item of bulkCodes) {
-        const exists = dbExistingSkus.has(item.sku);
-        if (!exists) {
-          itemsToInsert.push({
-            sku: item.sku,
-            name: item.name,
-            category: 'General',
-            price: 0
-          });
-          createdCount++;
-        } else {
-          skippedCount++;
-        }
+      const stockBySku: Record<string, number> = {};
+      if (skus.length > 0) {
+        const { data: stRows } = await supabase
+          .from('inventory_stock')
+          .select('sku, quantity')
+          .in('sku', skus);
+        (stRows || []).forEach((s: any) => {
+          stockBySku[s.sku] = (stockBySku[s.sku] || 0) + (Number(s.quantity) || 0);
+        });
       }
 
-
-      if (itemsToInsert.length > 0) {
-        const { error } = await supabase.from('inventory').insert(itemsToInsert);
-        if (error) throw error;
-
-        // Crear existencias iniciales en 0 para cada bodega para los nuevos productos
-        if (warehouses && warehouses.length > 0) {
-          for (const newItem of itemsToInsert) {
-            for (const wh of warehouses) {
-              stockToInsert.push({
-                sku: newItem.sku,
-                warehouse_id: wh.id,
-                quantity: 0
-              });
-            }
-          }
-          if (stockToInsert.length > 0) {
-            await supabase.from('inventory_stock').insert(stockToInsert);
-          }
-        }
-      }
-
-      toast({ 
-        title: "Importación Exitosa", 
-        description: `Se registraron ${createdCount} códigos nuevos rápidamente. Se omitieron ${skippedCount} códigos que ya existían.` 
-      });
-      setBulkCodes([]);
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Error", description: "Ocurrió un error al registrar los códigos en la base de datos." });
+      setProductResults(
+        rows.map((r: any) => ({
+          sku: r.sku,
+          name: r.name || r.sku,
+          cost: Number(r.cost ?? (r.price ? r.price * 0.7 : 0)),
+          stock: Number((stockBySku[r.sku] || 0).toFixed(2))
+        }))
+      );
+    } catch {
+      toast({ variant: 'destructive', title: 'Error buscando catálogo' });
     } finally {
-      setBulkLoading(false);
+      setSearchingProducts(false);
     }
   };
 
-  // --- LOGICA DE PEDIDOS INTERNOS ---
-  const handleIntAddItem = () => {
-    if (!intItemSku) return;
-    const cleanSku = intItemSku.trim().toUpperCase();
-    const product = inventory?.find((p: any) => p.sku === cleanSku);
-    const qty = parseInt(intItemQty.toString()) || 0;
-
-    if (qty <= 0) {
-      toast({ variant: "destructive", title: "Cantidad inválida", description: "Debe solicitar al menos 1 unidad." });
-      return;
-    }
-
-    let finalName = '';
-    if (product) {
-      finalName = product.name;
-    } else {
-      if (!intItemName.trim()) {
-        toast({ variant: "destructive", title: "Descripción Requerida", description: "El SKU es nuevo. Ingrese una descripción para el producto." });
-        return;
-      }
-      finalName = intItemName.trim();
-    }
-
-    // Advertencia de Stock de origen si existe el producto
-    if (product && intSourceWh) {
-      const sourceStock = product.bodegas?.[intSourceWh] || 0;
-      if (qty > sourceStock) {
-        toast({ 
-          variant: "default", 
-          title: "Stock Insuficiente en Origen", 
-          description: `Advertencia: ${product.name} solo cuenta con ${sourceStock} un. en ${intSourceWh}. El pedido se puede registrar como pendiente.`,
-          className: "bg-amber-500 text-white"
-        });
-      }
-    }
-
-    setIntItems(prev => {
-      const existing = prev.find(item => item.sku === cleanSku);
+  const addProductToOrder = (prod: { sku: string; name: string; cost: number; stock?: number }) => {
+    setOrderItems((prev) => {
+      const existing = prev.find((i) => i.sku === prod.sku);
       if (existing) {
-        return prev.map(item => item.sku === cleanSku ? { ...item, quantity: item.quantity + qty } : item);
+        return prev.map((i) => (i.sku === prod.sku ? { ...i, quantity: i.quantity + 1 } : i));
       }
-      return [...prev, { sku: cleanSku, name: finalName, quantity: qty }];
+      return [
+        ...prev,
+        {
+          sku: prod.sku,
+          name: prod.name,
+          quantity: 1,
+          cost: Number(prod.cost || 0),
+          currentStock: prod.stock
+        }
+      ];
     });
-
-    setIntItemSku('');
-    setIntItemName('');
-    setIntIsManual(false);
-    setIntItemQty(1);
-    toast({ title: "Añadido", description: `${finalName} agregado a la lista.` });
+    setProductQuery('');
+    setProductResults([]);
   };
 
-  const handleCreateInternalOrder = async (e: React.FormEvent) => {
+  const handleAddCustomItem = () => {
+    if (!customName.trim()) {
+      toast({ variant: 'destructive', title: 'Nombre requerido', description: 'Ingresa la descripción del producto.' });
+      return;
+    }
+    const sku = customSku.trim() || `NEW-${Date.now().toString().slice(-4)}`;
+    addProductToOrder({
+      sku,
+      name: customName.trim(),
+      cost: parseFloat(customCost) || 0
+    });
+    setOrderItems((prev) =>
+      prev.map((i) => (i.sku === sku ? { ...i, quantity: Math.max(1, parseInt(customQty) || 1) } : i))
+    );
+    setCustomSku('');
+    setCustomName('');
+    setCustomQty('1');
+    setCustomCost('');
+    setShowCustomItem(false);
+  };
+
+  const subtotalOrder = useMemo(
+    () => orderItems.reduce((acc, i) => acc + (Number(i.cost) || 0) * (Number(i.quantity) || 0), 0),
+    [orderItems]
+  );
+  const ivaOrder = includeIva ? subtotalOrder * 0.13 : 0;
+  const totalOrder = subtotalOrder + ivaOrder;
+
+  const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!intSourceWh || !intDestWh || !intRequestedBy || intItems.length === 0) {
-      toast({ variant: "destructive", title: "Datos Incompletos", description: "Complete bodegas, solicitante e ítems." });
-      return;
-    }
-    if (intSourceWh === intDestWh) {
-      toast({ variant: "destructive", title: "Ruta Inválida", description: "El origen y destino deben ser bodegas diferentes." });
+    if (!supplierName.trim() || !destWarehouse || orderItems.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Completa los 3 pasos',
+        description: 'Selecciona proveedor, bodega destino y al menos 1 producto.'
+      });
       return;
     }
 
-    setLoading(true);
+    setSaving(true);
     try {
-      // Autocrear productos inexistentes en el catálogo
-      for (const item of intItems) {
-        const exists = inventory?.some((p: any) => p.sku === item.sku);
-        if (!exists) {
-          await supabase.from('inventory').insert({
-            sku: item.sku,
-            name: item.name,
-            category: 'General',
-            price: 0
-          });
-          
-          const whOrigen = warehouses.find(w => w.name === intSourceWh);
-          const whDestino = warehouses.find(w => w.name === intDestWh);
-          
-          if (whOrigen) {
-            await supabase.from('inventory_stock').insert({
-              sku: item.sku,
-              warehouse_id: whOrigen.id,
-              quantity: 0
-            });
-          }
-          if (whDestino) {
-            await supabase.from('inventory_stock').insert({
-              sku: item.sku,
-              warehouse_id: whDestino.id,
-              quantity: 0
-            });
-          }
-        }
-      }
-
-      const orderCode = `REQ-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-      await supabase.from('internal_orders').insert({
+      const orderCode = `OC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const { error } = await supabase.from('supplier_orders').insert({
         code: orderCode,
-        source_warehouse: intSourceWh,
-        destination_warehouse: intDestWh,
-        requested_by: intRequestedBy,
-        items: intItems,
-        status: 'PENDIENTE'
+        supplier_name: supplierName.trim(),
+        destination_warehouse: destWarehouse,
+        requested_by: responsible.trim() || user?.email || 'Compras',
+        items: orderItems,
+        total: Number(totalOrder.toFixed(2)),
+        status: 'PENDIENTE',
+        supplier_email: supplierEmail.trim() || null,
+        from_email: user?.email || null,
+        authorized_by: `${paymentTerms}${expectedDate ? ` | Entrega: ${expectedDate}` : ''}`,
+        digitized_by: notes.trim() || null,
+        supplier_phone: supplierPhone.trim() || null
       });
 
-      toast({ title: "Requisición Enviada", description: `Se ha registrado el pedido ${orderCode} de forma exitosa y se han integrado los códigos al sistema.` });
-      setIntItems([]);
-      setIntRequestedBy('');
-      setIntSourceWh('');
-      setIntDestWh('');
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el pedido interno." });
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (error) throw error;
 
-  const handleUpdateInternalStatus = async (orderId: string, currentStatus: string, nextStatus: 'DESPACHADO' | 'RECIBIDO') => {
-    setLoading(true);
-    try {
-      const order = internalOrders.find((o: any) => o.id === orderId);
-
-      if (nextStatus === 'RECIBIDO') {
-        // --- PROCESAR LOGICA DE INVENTARIO MULTIBODEGA ---
-        // 1. Restar stock de la bodega origen
-        // 2. Sumar stock en la bodega destino
-        const whOrigen = warehouses.find(w => w.name === order.sourceWarehouse);
-        const whDestino = warehouses.find(w => w.name === order.destinationWarehouse);
-
-        if (!whOrigen || !whDestino) {
-          toast({ variant: "destructive", title: "Error de bodegas", description: "No se encontraron las bodegas de origen o destino." });
-          setLoading(false);
-          return;
-        }
-
-        const stockUpdates = [];
-        const kardexInserts = [];
-
-        for (const item of order.items) {
-          // Restar stock de origen
-          const { data: stockOrig } = await supabase
-            .from('inventory_stock')
-            .select('*')
-            .eq('sku', item.sku)
-            .eq('warehouse_id', whOrigen.id)
-            .maybeSingle();
-
-          const currentOrigQty = stockOrig ? parseFloat(stockOrig.quantity) || 0 : 0;
-          const newOrigQty = Math.max(0, currentOrigQty - item.quantity);
-          
-          stockUpdates.push({
-            action: 'UPSERT',
-            sku: item.sku,
-            warehouse_id: whOrigen.id,
-            quantity: newOrigQty
-          });
-          
-          kardexInserts.push({
-            sku: item.sku,
-            movement_type: 'TRASLADO',
-            location: whOrigen.name,
-            document_ref: `TRASLADO-OUT-${order.id.split('-')[0]}`,
-            qty_in: 0,
-            qty_out: item.quantity,
-            balance: newOrigQty,
-            unit_cost: item.price || 0
-          });
-
-          // Sumar stock de destino
-          const { data: stockDest } = await supabase
-            .from('inventory_stock')
-            .select('*')
-            .eq('sku', item.sku)
-            .eq('warehouse_id', whDestino.id)
-            .maybeSingle();
-
-          const currentDestQty = stockDest ? parseFloat(stockDest.quantity) || 0 : 0;
-          const newDestQty = currentDestQty + item.quantity;
-          
-          stockUpdates.push({
-            action: 'UPSERT',
-            sku: item.sku,
-            warehouse_id: whDestino.id,
-            quantity: newDestQty
-          });
-          
-          kardexInserts.push({
-            sku: item.sku,
-            movement_type: 'TRASLADO',
-            location: whDestino.name,
-            document_ref: `TRASLADO-IN-${order.id.split('-')[0]}`,
-            qty_in: item.quantity,
-            qty_out: 0,
-            balance: newDestQty,
-            unit_cost: item.price || 0
-          });
-        }
-        
-        const { error: rpcErr } = await supabase.rpc('process_inventory_transaction', {
-          p_stock_updates: stockUpdates,
-          p_kardex_inserts: kardexInserts
-        });
-        if (rpcErr) throw rpcErr;
-        toast({ title: "Inventario Actualizado", description: "Se ha transferido el stock físico entre las bodegas." });
-      }
-
-      await supabase.from('internal_orders').update({ status: nextStatus }).eq('id', orderId);
-      toast({ title: "Estado Actualizado", description: `El pedido ha sido marcado como ${nextStatus}.` });
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado de la requisición." });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteInternalOrder = async (id: string) => {
-    try {
-      await supabase.from('internal_orders').delete().eq('id', id);
-      toast({ title: "Pedido Eliminado" });
-      await loadData();
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error al eliminar" });
-    }
-  };
-
-
-  // --- LOGICA DE PEDIDOS EXTERNOS ---
-  const handleImportInternalOrder = (order: any) => {
-    if (!order || !order.items) return;
-    
-    const importedItems = order.items.map((item: any) => {
-      const catalogItem = inventory?.find((p: any) => p.sku === item.sku);
-      const cost = catalogItem?.price || 0;
-      return {
-        sku: item.sku,
-        name: item.name,
-        quantity: item.quantity,
-        cost: cost
-      };
-    });
-
-    setExtItems(prev => {
-      const merged = [...prev];
-      importedItems.forEach((newItem: any) => {
-        const existing = merged.find(item => item.sku === newItem.sku);
-        if (existing) {
-          existing.quantity += newItem.quantity;
-          if (newItem.cost > 0) existing.cost = newItem.cost;
-        } else {
-          merged.push(newItem);
-        }
-      });
-      return merged;
-    });
-
-    if (order.destinationWarehouse) {
-      setExtDestWh(order.destinationWarehouse);
-    }
-
-    toast({ 
-      title: "Requisición Importada", 
-      description: `Se han cargado ${order.items.length} productos de la requisición ${order.code}.` 
-    });
-  };
-
-  const handleExtAddItem = () => {
-    if (!extItemSku) return;
-    const cleanSku = extItemSku.trim().toUpperCase();
-    const product = inventory?.find((p: any) => p.sku === cleanSku);
-    const qty = parseInt(extItemQty.toString()) || 0;
-    const cost = parseFloat(extItemCost.toString()) || 0;
-
-    if (qty <= 0) {
-      toast({ variant: "destructive", title: "Cantidad inválida" });
-      return;
-    }
-    if (cost < 0) {
-      toast({ variant: "destructive", title: "Costo inválido", description: "El costo no puede ser negativo." });
-      return;
-    }
-
-    let finalName = '';
-    if (product) {
-      finalName = product.name;
-    } else {
-      if (!extItemName.trim()) {
-        toast({ variant: "destructive", title: "Descripción Requerida", description: "El SKU es nuevo. Ingrese una descripción para el producto." });
-        return;
-      }
-      finalName = extItemName.trim();
-    }
-
-    setExtItems(prev => {
-      const existing = prev.find(item => item.sku === cleanSku);
-      if (existing) {
-        return prev.map(item => item.sku === cleanSku ? { ...item, quantity: item.quantity + qty, cost: cost, quoteNumber: extItemQuote.trim() } : item);
-      }
-      return [...prev, { sku: cleanSku, name: finalName, quantity: qty, cost: cost, quoteNumber: extItemQuote.trim() }];
-    });
-
-    setExtItemSku('');
-    setExtItemName('');
-    setExtIsManual(false);
-    setExtItemQty(1);
-    setExtItemCost('');
-    setExtItemQuote('');
-    toast({ title: "Añadido", description: `${finalName} agregado.` });
-  };
-
-  const handleCreateSupplierOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!extSupplier || !extDestWh || !extRequestedBy || extItems.length === 0) {
-      toast({ variant: "destructive", title: "Datos Incompletos", description: "Complete todos los campos del pedido." });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Autocrear productos inexistentes en el catálogo
-      for (const item of extItems) {
-        const exists = inventory?.some((p: any) => p.sku === item.sku);
-        if (!exists) {
-          await supabase.from('inventory').insert({
-            sku: item.sku,
-            name: item.name,
-            category: 'General',
-            price: parseFloat(item.cost as any) || 0
-          });
-          
-          const whDestino = warehouses.find(w => w.name === extDestWh);
-          if (whDestino) {
-            await supabase.from('inventory_stock').insert({
-              sku: item.sku,
-              warehouse_id: whDestino.id,
-              quantity: 0
-            });
-          }
-        }
-      }
-
-      const orderCode = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const totalAmount = extItems.reduce((acc, item) => acc + ((item.cost || 0) * item.quantity), 0);
-
-      await supabase.from('supplier_orders').insert({
-        code: orderCode,
-        supplier_name: extSupplier,
-        destination_warehouse: extDestWh,
-        requested_by: extRequestedBy,
-        items: extItems,
-        total: totalAmount,
-        status: 'SOLICITADO',
-        supplier_email: extSupplierEmail,
-        from_email: extFromEmail,
-        authorized_by: extAuthorizedBy,
-        digitized_by: extDigitizedBy,
-        supplier_phone: extSupplierPhone
+      toast({
+        title: `Orden ${orderCode} Emitida ✓`,
+        description: `Proveedor: ${supplierName.trim()} · Total: $${totalOrder.toFixed(2)}`
       });
 
-      toast({ title: "Orden de Pedido Creada", description: `Se registró la orden ${orderCode} de forma exitosa y se han integrado los nuevos códigos al sistema.` });
-      setExtItems([]);
-      setExtRequestedBy('');
-      setExtSupplier('');
-      setExtDestWh('');
-      if (!extConfigLocked) {
-        setExtSupplierEmail('');
-        setExtFromEmail(DEFAULT_FROM_EMAIL);
-        setExtAuthorizedBy('JULIO NEFTALI CAÑAS ZELAYA');
-        setExtDigitizedBy('RENE LANGLOIS 74503973');
-        setExtSupplierPhone('');
-      }
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el pedido externo." });
+      setOrderItems([]);
+      setNotes('');
+      await loadInitialData();
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al emitir orden', description: err?.message });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleUpdateSupplierOrderStatus = async (orderId: string, nextStatus: 'RECIBIDO' | 'SOLICITADO') => {
-    setLoading(true);
+  const handleUpdateOrderStatus = async (order: PurchaseOrderRecord, nextStatus: 'PENDIENTE' | 'ENVIADA' | 'RECIBIDA') => {
     try {
-      const order = supplierOrders.find((o: any) => o.id === orderId);
-
-      if (nextStatus === 'RECIBIDO') {
-        // --- INGRESO DE STOCK AUTOMÁTICO ---
-        const whDestino = warehouses.find(w => w.name === order.destinationWarehouse);
-        if (!whDestino) {
-          toast({ variant: "destructive", title: "Error de bodega", description: "No se encontró la bodega de destino." });
-          setLoading(false);
-          return;
-        }
-
-        const stockUpdates = [];
-        const kardexInserts = [];
-
-        for (const item of order.items) {
-          const { data: stockDest } = await supabase
-            .from('inventory_stock')
-            .select('*')
-            .eq('sku', item.sku)
-            .eq('warehouse_id', whDestino.id)
-            .maybeSingle();
-
-          const currentDestQty = stockDest ? parseFloat(stockDest.quantity) || 0 : 0;
-          const newDestQty = currentDestQty + item.quantity;
-          
-          stockUpdates.push({
-            action: 'UPSERT',
-            sku: item.sku,
-            warehouse_id: whDestino.id,
-            quantity: newDestQty
-          });
-          
-          kardexInserts.push({
-            sku: item.sku,
-            movement_type: 'INGRESO RÁPIDO',
-            location: whDestino.name,
-            document_ref: `ORDEN-${order.id.split('-')[0]}`,
-            qty_in: item.quantity,
-            qty_out: 0,
-            balance: newDestQty,
-            unit_cost: item.cost || 0
-          });
-
-          // Actualizar precio con el nuevo costo si aplica
-          if (item.cost && item.cost > 0) {
-            await supabase.from('inventory').update({ price: item.cost }).eq('sku', item.sku);
-          }
-        }
-        
-        const { error: rpcErr } = await supabase.rpc('process_inventory_transaction', {
-          p_stock_updates: stockUpdates,
-          p_kardex_inserts: kardexInserts
-        });
-        if (rpcErr) throw rpcErr;
-        toast({ title: "Mercadería Recibida", description: `El stock se ha ingresado con éxito a la bodega '${order.destinationWarehouse}'.` });
-      }
-
-      await supabase.from('supplier_orders').update({ status: nextStatus }).eq('id', orderId);
-      toast({ title: "Estado Actualizado", description: `La orden ha sido marcada como ${nextStatus}.` });
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo completar la orden de compra." });
-    } finally {
-      setLoading(false);
+      const { error } = await supabase.from('supplier_orders').update({ status: nextStatus }).eq('id', order.id);
+      if (error) throw error;
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o)));
+      if (previewOrder?.id === order.id) setPreviewOrder({ ...previewOrder, status: nextStatus });
+      toast({ title: `Estado actualizado: ${nextStatus}`, description: order.code });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error actualizando estado', description: err?.message });
     }
   };
 
-  const handleDeleteSupplierOrder = async (id: string) => {
+  const handleDeleteOrder = async (order: PurchaseOrderRecord) => {
+    if (!window.confirm(`¿Eliminar la orden ${order.code} de ${order.supplier}?`)) return;
     try {
-      await supabase.from('supplier_orders').delete().eq('id', id);
-      toast({ title: "Orden Eliminada" });
-      await loadData();
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error al eliminar" });
+      const { error } = await supabase.from('supplier_orders').delete().eq('id', order.id);
+      if (error) throw error;
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      if (previewOrder?.id === order.id) setPreviewOrder(null);
+      toast({ title: 'Orden Eliminada', description: order.code });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al eliminar', description: err?.message });
     }
   };
 
-  // --- FILTROS DE HISTORIAL ---
-  const filteredInternalOrders = useMemo(() => {
-    if (!internalOrders) return [];
-    return internalOrders.filter((o: any) => 
-      o.code.toLowerCase().includes(internalSearchFilter.toLowerCase()) ||
-      o.sourceWarehouse.toLowerCase().includes(internalSearchFilter.toLowerCase()) ||
-      o.destinationWarehouse.toLowerCase().includes(internalSearchFilter.toLowerCase()) ||
-      o.requestedBy.toLowerCase().includes(internalSearchFilter.toLowerCase())
-    );
-  }, [internalSearchFilter, internalOrders]);
+  const handlePrintOrder = async (ord: PurchaseOrderRecord) => {
+    const branding = await loadPrintBranding('purchases');
+    const html = buildPurchaseOrderDocumentHtml({
+      branding,
+      orderNumber: ord.code,
+      supplierName: ord.supplier,
+      supplierNit: ord.supplierNit,
+      warehouseName: ord.destinationWarehouse,
+      expectedDate: ord.paymentTerms,
+      notes: ord.notes,
+      items: ord.items.map((i) => ({
+        sku: i.sku,
+        name: i.name,
+        quantity: Number(i.quantity || 1),
+        unitCost: Number(i.cost || 0)
+      })),
+      total: ord.total
+    });
+    printHtmlDocument(html, `Orden ${ord.code}`);
+  };
 
-  const filteredSupplierOrders = useMemo(() => {
-    if (!supplierOrders) return [];
-    return supplierOrders.filter((o: any) => 
-      o.code.toLowerCase().includes(externalSearchFilter.toLowerCase()) ||
-      o.supplier.toLowerCase().includes(externalSearchFilter.toLowerCase()) ||
-      o.destinationWarehouse.toLowerCase().includes(externalSearchFilter.toLowerCase())
-    );
-  }, [externalSearchFilter, supplierOrders]);
+  const handleExportOrderExcel = (ord: PurchaseOrderRecord) => {
+    const rows = ord.items.map((it, idx) => ({
+      '#': idx + 1,
+      SKU: it.sku,
+      Producto: it.name,
+      Cantidad: it.quantity,
+      'Costo Unit ($)': Number(it.cost || 0),
+      'Subtotal ($)': Number((it.quantity * (it.cost || 0)).toFixed(2))
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Orden_Compra');
+    XLSX.writeFile(wb, `${ord.code}_${ord.supplier.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+  };
 
-  const filteredSuppliers = useMemo(() => {
-    if (!suppliers) return [];
-    return suppliers.filter((s: any) => 
-      s.name.toLowerCase().includes(supplierSearchQuery.toLowerCase()) ||
-      (s.nit && s.nit.includes(supplierSearchQuery))
-    );
-  }, [supplierSearchQuery, suppliers]);
+  const kpis = useMemo(() => {
+    const pending = orders.filter((o) => o.status === 'PENDIENTE').length;
+    const sent = orders.filter((o) => o.status === 'ENVIADA').length;
+    const received = orders.filter((o) => o.status === 'RECIBIDA').length;
+    const committed = orders
+      .filter((o) => o.status !== 'RECIBIDA')
+      .reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+    return { pending, sent, received, committed };
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    const q = searchOrders.trim().toLowerCase();
+    return orders.filter((o) => {
+      if (statusFilter !== 'ALL' && o.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        o.code.toLowerCase().includes(q) ||
+        o.supplier.toLowerCase().includes(q) ||
+        o.destinationWarehouse.toLowerCase().includes(q)
+      );
+    });
+  }, [orders, searchOrders, statusFilter]);
 
   return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
-{/* HEADER PRINCIPAL */}
-      <div className="relative z-10 max-w-7xl mx-auto mb-6 bg-card dark:bg-white/5 backdrop-blur-md border border-border dark:border-white/10 rounded-2xl shadow-sm p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          {!isStandalone && isAdmin && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="w-10 h-10 rounded-xl bg-muted/50 dark:bg-white/5 border border-border dark:border-white/10 hover:bg-accent dark:hover:bg-white/10" 
-              onClick={() => router.push('/')}
-            >
-              <ArrowLeft className="text-slate-800 dark:text-slate-300" size={18} />
-            </Button>
-          )}
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white font-headline leading-tight">Centro de Requisición & Pedidos</h1>
-              {activeTenant && (
-                <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full text-amber-600 dark:text-amber-400 text-[10px] font-bold shadow-sm animate-pulse">
-                  <span>CLIENTE: {activeTenant.toUpperCase()}</span>
-                  <button 
-                    onClick={() => {
-                      window.localStorage.removeItem('nexway_tenant');
-                      window.location.reload();
-                    }}
-                    className="ml-1 hover:text-amber-800 dark:hover:text-amber-200 transition-colors font-bold text-[10px]"
-                    title="Volver a base principal"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
+    <div className="space-y-6">
+      {/* KPIs SUPERIORES */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card className="bg-card border-border rounded-2xl shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Pendientes</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{kpis.pending}</p>
             </div>
-            <p className="text-slate-500 dark:text-white/40 text-[11px] md:text-xs">Gestión y emisión de órdenes de compra para abastecimiento con proveedores externos</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={async () => {
-              await supabase.auth.signOut();
-            }}
-            title="Cerrar sesión"
-          >
-            <LogOut size={20} className="text-muted-foreground" />
-          </Button>
-          <ModeToggle />
-        </div>
+            <Clock className="text-amber-500/70" size={20} />
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border rounded-2xl shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Enviadas</p>
+              <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{kpis.sent}</p>
+            </div>
+            <Send className="text-blue-500/70" size={20} />
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border rounded-2xl shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Recibidas</p>
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{kpis.received}</p>
+            </div>
+            <CheckCircle2 className="text-emerald-500/70" size={20} />
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border rounded-2xl shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase text-muted-foreground">Inversión en Tránsito</p>
+              <p className="text-xl font-black font-mono text-foreground">${kpis.committed.toFixed(2)}</p>
+            </div>
+            <DollarSign className="text-indigo-500/70" size={20} />
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="max-w-7xl mx-auto relative z-10">
-        <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="space-y-6">
-          <TabsList className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-1 rounded-2xl h-auto w-full justify-start overflow-x-auto no-scrollbar shadow-sm">
-            {config?.['orders_externo'] !== false && (
-              <TabsTrigger value="externo" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
-                <Truck size={14} className="mr-2" /> Pedidos Externos (Proveedores)
-              </TabsTrigger>
-            )}
-            {config?.['orders_cargar-codigos'] !== false && (
-              <TabsTrigger value="cargar-codigos" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
-                <FileSpreadsheet size={14} className="mr-2" /> Cargar Códigos (Excel)
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="historial" className="rounded-xl px-4 md:px-6 py-2 text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400 data-[state=active]:bg-indigo-600 data-[state=active]:text-white whitespace-nowrap">
-              <Clock size={14} className="mr-2" /> Historial de Pedidos
-            </TabsTrigger>
-          </TabsList>
-
-          {/* ==================== TAB PEDIDOS EXTERNOS ==================== */}
-          <TabsContent value="externo" className="space-y-6 outline-none">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Formulario Nueva Orden Proveedor */}
-              <div className="lg:col-span-5 space-y-6">
-                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-                  <CardHeader className="border-b border-slate-200 dark:border-white/10 text-white bg-indigo-600 dark:bg-white/5 p-5">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Building2 size={18} className="text-violet-400" /> Nueva Orden de Pedido a Proveedor
-                    </CardTitle>
-                    <CardDescription className="text-slate-400 text-xs">Cree cotizaciones u órdenes formales de compra.</CardDescription>
-                  </CardHeader>
-                  
-                  <CardContent className="p-6 space-y-4">
-                    {/* Botón de Importación rápida de Sucursal */}
-                    <div className="p-3 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Warehouse size={16} className="text-indigo-600 dark:text-indigo-400" />
-                        <div className="flex flex-col">
-                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-350">¿Cargar de Requisición Sucursal?</span>
-                          <span className="text-[9px] text-slate-400 font-semibold">Importa los pedidos de tiendas directo a esta orden</span>
-                        </div>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button type="button" size="sm" variant="outline" className="h-8 rounded-xl text-[10px] font-black border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-transparent hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shadow-sm dark:shadow-none">
-                            <Plus size={12} className="mr-1" /> Importar Requisición
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-0" align="end">
-                          <div className="p-3 border-b bg-indigo-50/50 dark:bg-indigo-950/50">
-                            <span className="text-[10px] font-black text-indigo-900 dark:text-indigo-300 uppercase tracking-wider">Requisiciones Pendientes</span>
-                          </div>
-                          <ScrollArea className="h-48">
-                            {internalOrders?.filter((o: any) => o.status === 'PENDIENTE').length === 0 ? (
-                              <div className="p-4 text-center text-slate-400 text-xs italic">No hay requisiciones pendientes de sucursales</div>
-                            ) : internalOrders
-                              ?.filter((o: any) => o.status === 'PENDIENTE')
-                              .map((o: any) => (
-                                <div 
-                                  key={o.id} 
-                                  onClick={() => handleImportInternalOrder(o)} 
-                                  className="p-3 hover:bg-slate-50 dark:hover:bg-muted cursor-pointer rounded-lg transition-colors border-b last:border-0"
-                                >
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-mono font-black text-slate-800 dark:text-foreground">{o.code}</span>
-                                    <Badge className="text-[8px] bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-bold">{o.items?.length || 0} prod.</Badge>
-                                  </div>
-                                  <span className="text-[9px] font-semibold text-slate-500 block mt-1">De: {o.destinationWarehouse}</span>
-                                  <span className="text-[8px] font-mono text-slate-400">Solicitado por: {o.requestedBy}</span>
-                                </div>
-                              ))}
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-
-                    <form onSubmit={handleCreateSupplierOrder} className="space-y-4">
-                      
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Seleccionar Proveedor</Label>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                            <Input 
-                              placeholder="Seleccione de la lista..." 
-                              value={extSupplier}
-                              onChange={e => setExtSupplier(e.target.value)}
-                              className="h-10 pl-9 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
-                            />
-                          </div>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-card border border-slate-200">
-                                <Search size={16} />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 p-0" align="end">
-                              <div className="p-3 border-b">
-                                <Input 
-                                  placeholder="Buscar proveedor..." 
-                                  value={supplierSearchQuery} 
-                                  onChange={e => setSupplierSearchQuery(e.target.value)} 
-                                  className="h-8 text-xs bg-muted border-none" 
-                                />
-                              </div>
-                              <ScrollArea className="h-48">
-                                {filteredSuppliers.length === 0 ? (
-                                  <div className="p-4 text-center text-slate-400 text-xs italic">No hay proveedores registrados</div>
-                                ) : filteredSuppliers.map((s: any) => (
-                                  <div 
-                                    key={s.id} 
-                                    onClick={() => {
-                                      setExtSupplier(s.name);
-                                      toast({ title: "Cargado", description: `Proveedor ${s.name} seleccionado.` });
-                                    }} 
-                                    className="p-3 hover:bg-slate-50 dark:hover:bg-muted cursor-pointer rounded-lg transition-colors border-b last:border-0"
-                                  >
-                                    <span className="text-xs font-bold text-slate-800 dark:text-foreground block">{s.name}</span>
-                                    <span className="text-[9px] font-mono text-slate-400">NIT: {s.nit}</span>
-                                  </div>
-                                ))}
-                              </ScrollArea>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-
-                        {extSupplier && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleLoadLowStockForSupplier}
-                            className="w-full h-8 text-[10px] font-bold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 rounded-xl gap-1.5 transition-colors shadow-sm"
-                          >
-                            <Zap size={12} className="fill-amber-500 text-amber-500" />
-                            <span>⚡ Cargar Quiebres / Stock Bajo de {extSupplier}</span>
-                          </Button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Bodega de Recepción</Label>
-                          <Select value={extDestWh} onValueChange={setExtDestWh}>
-                            <SelectTrigger className="h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white">
-                              <SelectValue placeholder="Bodega..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {warehouses?.map(w => (
-                                <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Responsable de Orden</Label>
-                          <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
-                            <Input 
-                              placeholder="Nombre..." 
-                              value={extRequestedBy}
-                              onChange={e => setExtRequestedBy(e.target.value)}
-                              className="pl-8 h-10 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Configuración de Envíos & Firmas */}
-                      <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl space-y-3">
-                        <div className="flex justify-between items-center">
-                          <Label className="text-[10px] font-black uppercase text-slate-500 block tracking-widest">Configuración de Envío & Firmas</Label>
-                          <Button 
-                            type="button" 
-                            size="icon" 
-                            variant="ghost" 
-                            className={`h-7 w-7 rounded-lg transition-all ${
-                              extConfigLocked 
-                                ? 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100' 
-                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                            }`}
-                            onClick={toggleLockConfig}
-                            title={extConfigLocked ? "Desbloquear Configuración" : "Fijar y Bloquear Configuración"}
-                          >
-                            {extConfigLocked ? <Lock size={14} className="animate-pulse" /> : <Unlock size={14} />}
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-[9px] font-bold text-slate-400">Enviar al correo electrónico</Label>
-                            <Input 
-                              placeholder="ejemplo1@mail.com, ejemplo2@mail.com"
-                              value={extSupplierEmail}
-                              onChange={e => setExtSupplierEmail(e.target.value)}
-                              disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[9px] font-bold text-slate-400">Desde el correo electrónico</Label>
-                            <Input 
-                              type="email"
-                              placeholder="mi-correo@correo.com"
-                              value={extFromEmail}
-                              onChange={e => setExtFromEmail(e.target.value)}
-                              disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-[9px] font-bold text-slate-400">Teléfono de quien solicita</Label>
-                            <Input 
-                              placeholder="Ej: +503 7450-3973"
-                              value={extSupplierPhone}
-                              onChange={e => setExtSupplierPhone(e.target.value)}
-                              disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[9px] font-bold text-slate-400">Autorizado Por</Label>
-                            <Input 
-                              placeholder="Nombre autorizador..."
-                              value={extAuthorizedBy}
-                              onChange={e => setExtAuthorizedBy(e.target.value)}
-                              disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-[9px] font-bold text-slate-400">Digitado Por</Label>
-                            <Input 
-                              placeholder="Nombre digitador..."
-                              value={extDigitizedBy}
-                              onChange={e => setExtDigitizedBy(e.target.value)}
-                              disabled={extConfigLocked}
-                              className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
-                            />
-                          </div>
-                          <div className="flex items-center justify-start text-[9px] text-slate-400 font-semibold italic pl-1 pt-4">
-                            {extConfigLocked 
-                              ? "🔒 Configuración bloqueada y guardada." 
-                              : "🔓 Modifica y pulsa el candado para fijar."}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Cargar Ítems Manualmente */}
-                      <div className="p-4 bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-2xl border space-y-3">
-                        <Label className="text-[10px] font-black uppercase text-slate-500 block tracking-widest">Agregar Producto Manual</Label>
-                        
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="col-span-2 space-y-1 relative">
-                              <Label className="text-[9px] font-bold text-slate-400">Código / SKU</Label>
-                              <Input
-                                placeholder="Escribe SKU..."
-                                value={extItemSku}
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  setExtItemSku(val);
-                                  const clean = val.trim().toUpperCase();
-                                  const match = inventory?.find((p: any) => p.sku === clean);
-                                  if (match) {
-                                    setExtItemName(match.name);
-                                    setExtIsManual(false);
-                                  } else {
-                                    setExtIsManual(true);
-                                  }
-                                }}
-                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-800 dark:text-white"
-                              />
-                              {/* Autocomplete Suggestions */}
-                              {extItemSku.trim().length > 0 && !inventory?.some((p: any) => p.sku === extItemSku.trim().toUpperCase()) && (
-                                <div className="absolute z-20 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg mt-1 shadow-lg max-h-40 overflow-y-auto">
-                                  {inventory
-                                    ?.filter((p: any) => p.sku.toLowerCase().includes(extItemSku.toLowerCase()) || p.name.toLowerCase().includes(extItemSku.toLowerCase()))
-                                    .slice(0, 5)
-                                    .map((p: any) => (
-                                      <div
-                                        key={p.id}
-                                        className="p-2 hover:bg-slate-50 dark:hover:bg-muted text-left cursor-pointer transition-colors text-[11px] font-bold border-b last:border-0"
-                                        onClick={() => {
-                                          setExtItemSku(p.sku);
-                                          setExtItemName(p.name);
-                                          setExtIsManual(false);
-                                        }}
-                                      >
-                                        <span className="text-violet-600 font-mono">{p.sku}</span> - <span className="text-slate-700 dark:text-slate-350">{p.name}</span>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-400">Cant.</Label>
-                              <Input 
-                                type="number" 
-                                value={extItemQty} 
-                                onChange={e => setExtItemQty(e.target.value)}
-                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-center text-xs font-bold text-slate-800 dark:text-white"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-400">Descripción del Producto</Label>
-                              <Input
-                                placeholder={extIsManual ? "Escriba descripción..." : "Se auto-rellena..."}
-                                value={extItemName}
-                                onChange={e => setExtItemName(e.target.value)}
-                                disabled={!extIsManual && extItemSku.trim() !== ''}
-                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white disabled:opacity-50"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-400">Costo ($)</Label>
-                              <Input 
-                                type="number" 
-                                placeholder="0.00"
-                                value={extItemCost} 
-                                onChange={e => setExtItemCost(e.target.value)}
-                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-right text-xs font-bold text-emerald-600"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-bold text-slate-400">No. Cotización</Label>
-                              <Input 
-                                placeholder="Ej: COT-102"
-                                value={extItemQuote} 
-                                onChange={e => setExtItemQuote(e.target.value)}
-                                className="h-9 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white"
-                              />
-                            </div>
-                          </div>
-                          
-                          {extIsManual && extItemSku.trim().length > 0 && (
-                            <span className="text-[9px] text-amber-500 font-bold flex items-center gap-1 mt-0.5">
-                              <AlertTriangle size={10} /> Código nuevo. Se registrará automáticamente en el inventario al guardar.
-                            </span>
-                          )}
-                        </div>
-
-                        <Button 
-                          type="button" 
-                          onClick={handleExtAddItem} 
-                          variant="outline" 
-                          className="w-full h-9 border-indigo-200 dark:border-violet-500/20 text-indigo-600 dark:text-violet-400 bg-white hover:bg-indigo-50 dark:bg-transparent dark:hover:bg-white/5 font-bold text-xs rounded-xl mt-2"
-                        >
-                          <Plus size={14} className="mr-1.5" /> Agregar Ítem
-                        </Button>
-                      </div>
-
-                      {/* Lista de Ítems */}
-                      {extItems.length > 0 && (
-                        <div className="space-y-2 pt-2 border-t border-white/10">
-                          <div className="flex justify-between items-center">
-                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Detalle de Pedido</Label>
-                            <span className="text-xs font-black text-emerald-600">Total: ${extItems.reduce((acc, item) => acc + ((item.cost || 0) * item.quantity), 0).toFixed(2)}</span>
-                          </div>
-                          <ScrollArea className="h-32 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-white/5">
-                            <Table>
-                              <TableBody>
-                                                                 {extItems.map((item, idx) => (
-                                  <TableRow key={item.sku} className="hover:bg-slate-100 dark:hover:bg-white/10 border-slate-100 dark:border-white/5">
-                                    <TableCell className="py-2 text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">{item.sku}</TableCell>
-                                    <TableCell className="py-2 text-[11px] font-bold text-slate-800 dark:text-white">
-                                      {item.name}
-                                      {item.quoteNumber && (
-                                        <Badge variant="outline" className="text-[8px] bg-indigo-50 border-indigo-150 text-indigo-600 ml-1.5 font-bold h-4 px-1 py-0 select-none">
-                                          Cot: {item.quoteNumber}
-                                        </Badge>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="py-2 text-center text-[10px] font-bold">{item.quantity}x</TableCell>
-                                    <TableCell className="py-2 text-right text-[10px] font-bold text-emerald-600">${((item.cost || 0) * item.quantity).toFixed(2)}</TableCell>
-                                    <TableCell className="py-2 text-right">
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 text-slate-400 hover:text-rose-500"
-                                        onClick={() => setExtItems(prev => prev.filter(i => i.sku !== item.sku))}
-                                      >
-                                        <Trash2 size={12} />
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </ScrollArea>
-                        </div>
-                      )}
-
-                      <Button 
-                        type="submit" 
-                        className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 dark:bg-violet-600 dark:hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 dark:shadow-violet-600/20 text-xs transition-all active:scale-95"
-                        disabled={loading || extItems.length === 0}
-                      >
-                        {loading ? <Loader2 className="animate-spin mr-2" /> : <Plus className="mr-2" size={16} />}
-                        GENERAR ORDEN DE PEDIDO
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
+      {/* PANEL PRINCIPAL: 3 PASOS SIMPLES (IZQUIERDA) + HISTORIAL ENRIQUECIDO (DERECHA) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* COLUMNA IZQUIERDA: FORMULARIO EN 3 PASOS */}
+        <form onSubmit={handleCreateOrder} className="lg:col-span-5 space-y-4">
+          {/* PASO 1: PROVEEDOR Y CONDICIONES */}
+          <Card className="bg-card border-border rounded-2xl shadow-sm overflow-hidden">
+            <CardHeader className="p-4 border-b border-border bg-muted/30">
+              <CardTitle className="text-sm font-black flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center">1</span>
+                Proveedor y Bodega Destino
+              </CardTitle>
+              <CardDescription className="text-xs">Elige el proveedor, bodega de recepción y plazo.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Proveedor *</Label>
+                <Select
+                  value={suppliers.find((s) => s.name === supplierName)?.id || '__manual'}
+                  onValueChange={(supId) => {
+                    const found = suppliers.find((s) => s.id === supId);
+                    if (found) {
+                      setSupplierName(found.name || '');
+                      setSupplierNit(found.nit || '');
+                      setSupplierEmail(found.email || '');
+                      setSupplierPhone(found.phone || '');
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs bg-background">
+                    <SelectValue placeholder="Seleccionar proveedor del directorio..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    <SelectItem value="__manual" className="text-xs">-- Escribir nombre abajo --</SelectItem>
+                    {suppliers.map((s) => (
+                      <SelectItem key={s.id} value={s.id} className="text-xs">
+                        {s.name}{s.nit ? ` (${s.nit})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Nombre / Razón Social del Proveedor..."
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  className="h-9 text-xs font-semibold"
+                />
               </div>
 
-              {/* Historial de Pedidos Proveedores */}
-              <div className="lg:col-span-7 space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <Input 
-                    placeholder="Buscar orden externa por código, proveedor o bodega..." 
-                    value={externalSearchFilter}
-                    onChange={e => setExternalSearchFilter(e.target.value)}
-                    className="pl-12 h-12 bg-white/5 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm rounded-2xl text-xs md:text-sm text-slate-800 dark:text-white"
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bodega Recepción *</Label>
+                  <Select value={destWarehouse} onValueChange={setDestWarehouse}>
+                    <SelectTrigger className="h-9 text-xs bg-background">
+                      <SelectValue placeholder="Bodega..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map((w) => (
+                        <SelectItem key={w.id} value={w.name} className="text-xs">{w.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Condición de Pago</Label>
+                  <Select value={paymentTerms} onValueChange={setPaymentTerms}>
+                    <SelectTrigger className="h-9 text-xs bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Contado" className="text-xs">Contado</SelectItem>
+                      <SelectItem value="Crédito 15 días" className="text-xs">Crédito 15 días</SelectItem>
+                      <SelectItem value="Crédito 30 días" className="text-xs">Crédito 30 días</SelectItem>
+                      <SelectItem value="Crédito 45 días" className="text-xs">Crédito 45 días</SelectItem>
+                      <SelectItem value="Crédito 60 días" className="text-xs">Crédito 60 días</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Entrega Estimada</Label>
+                  <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} className="h-9 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Responsable</Label>
+                  <Input value={responsible} onChange={(e) => setResponsible(e.target.value)} placeholder="Usuario compras" className="h-9 text-xs" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* PASO 2: PRODUCTOS A PEDIR */}
+          <Card className="bg-card border-border rounded-2xl shadow-sm overflow-hidden">
+            <CardHeader className="p-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-black flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center">2</span>
+                  Productos a Pedir ({orderItems.length})
+                </CardTitle>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCustomItem((p) => !p)}
+                className="h-7 text-[11px] rounded-lg gap-1"
+              >
+                <Plus size={12} /> Ítem Nuevo
+              </Button>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {/* Buscador rápido bajo demanda */}
+              <div className="flex gap-2 relative">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                  <Input
+                    placeholder="Buscar SKU o producto y presiona Enter..."
+                    value={productQuery}
+                    onChange={(e) => {
+                      setProductQuery(e.target.value);
+                      if (!e.target.value.trim()) setProductResults([]);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSearchProducts();
+                      }
+                    }}
+                    className="pl-9 h-9 text-xs"
                   />
                 </div>
-
-                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-                  <ScrollArea className="h-[520px]">
-                    <Table>
-                      <TableHeader className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
-                        <TableRow>
-                          <TableHead className="text-[10px] font-bold uppercase px-4 md:px-6">Código / Fecha</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase">Proveedor</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase">Destino</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase text-right">Inversión</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase text-center">Estado</TableHead>
-                          <TableHead className="w-10"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredSupplierOrders.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-24 text-slate-400 italic text-xs">
-                              No se encontraron órdenes registradas.
-                            </TableCell>
-                          </TableRow>
-                        ) : filteredSupplierOrders.map((o: any) => (
-                          <TableRow key={o.id} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-200 dark:border-white/5 transition-colors">
-                            <TableCell className="px-4 md:px-6 py-4">
-                              <div className="flex flex-col">
-                                <span className="font-mono font-black text-xs text-slate-800 dark:text-white">{o.code}</span>
-                                <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold">{new Date(o.createdAt).toLocaleDateString()}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs font-bold text-slate-800 dark:text-white">{o.supplier}</TableCell>
-                            <TableCell className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-3">
-                              <Warehouse size={12} className="text-slate-400" />
-                              <span>{o.destinationWarehouse}</span>
-                            </TableCell>
-                            <TableCell className="text-right text-xs font-black text-emerald-600">${o.total?.toFixed(2)}</TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex flex-col items-center gap-1">
-                                <Badge className={`font-black text-[9px] h-5 ${
-                                  o.status === 'SOLICITADO' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                  'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                }`} variant="outline">
-                                  {o.status}
-                                </Badge>
-                                
-                                {o.status === 'SOLICITADO' && (
-                                  <Button 
-                                    size="sm" 
-                                    onClick={() => handleUpdateSupplierOrderStatus(o.id, 'RECIBIDO')}
-                                    className="h-6 px-2 text-[9px] font-bold bg-emerald-600 text-white rounded-md mt-1"
-                                  >
-                                    Cargar Stock
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-4">
-                              <div className="flex gap-1 items-center">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-7 w-7 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-lg" 
-                                  onClick={() => {
-                                    setSelectedOrderForPreview(o);
-                                    setPreviewType('externo');
-                                  }}
-                                  title="Ver Vista Previa"
-                                >
-                                  <Eye size={12} />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded-lg" 
-                                  title="Descargar Excel (.xlsx)"
-                                  onClick={() => handleDownloadExcel(o)}
-                                >
-                                  <FileSpreadsheet size={12} />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-7 w-7 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg" 
-                                  onClick={() => handleDeleteSupplierOrder(o.id)}
-                                  title="Eliminar Orden"
-                                >
-                                  <Trash2 size={12} />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </Card>
+                <Button type="button" size="sm" variant="secondary" onClick={() => handleSearchProducts()} disabled={searchingProducts} className="h-9 text-xs px-3">
+                  {searchingProducts ? <Loader2 size={13} className="animate-spin" /> : 'Buscar'}
+                </Button>
               </div>
 
-            </div>
-          </TabsContent>
-
-          {/* ==================== TAB CARGAR CÓDIGOS ==================== */}
-          <TabsContent value="cargar-codigos" className="space-y-6 outline-none">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Cargador e Instrucciones */}
-              <div className="lg:col-span-5 space-y-6">
-                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-                  <CardHeader className="bg-indigo-600 dark:bg-violet-950 text-white p-5">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <FileSpreadsheet size={18} className="text-violet-400" /> Carga Masiva de Códigos
-                    </CardTitle>
-                    <CardDescription className="text-violet-200/80 text-xs">Registra productos masivamente en el inventario.</CardDescription>
-                  </CardHeader>
-                  
-                  <CardContent className="p-6 space-y-4">
-                    <div className="p-4 bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/50 rounded-2xl space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-violet-600 dark:text-violet-400 tracking-widest block flex items-center gap-1.5 font-sans">
-                        <UploadCloud size={14} /> Seleccionar Excel (.xlsx)
-                      </Label>
-                      <div className="relative border-2 border-dashed border-indigo-200 dark:border-violet-850 hover:border-indigo-500 dark:hover:border-violet-500 bg-white/50 dark:bg-white/5 rounded-xl p-6 text-center cursor-pointer transition-all">
-                        <input 
-                          type="file" 
-                          accept=".xlsx, .xls" 
-                          onChange={handleBulkCodesExcelUpload} 
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        />
-                        <div className="flex flex-col items-center gap-2">
-                          <UploadCloud size={28} className="text-violet-500 animate-pulse" />
-                          <span className="text-[12px] font-bold text-slate-755 dark:text-slate-350">Arrastra o selecciona un archivo</span>
-                          <span className="text-[10px] text-slate-400 font-semibold">El archivo debe contener las columnas: Código/SKU y Descripción</span>
+              {productResults.length > 0 && (
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-popover divide-y divide-border">
+                  {productResults.map((p) => (
+                    <button
+                      key={p.sku}
+                      type="button"
+                      onClick={() => addProductToOrder(p)}
+                      className="w-full text-left px-3 py-2 hover:bg-muted/60 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-bold text-foreground truncate">{p.name}</div>
+                        <div className="text-[10px] font-mono text-muted-foreground">
+                          SKU: {p.sku} • Stock actual: {p.stock}
                         </div>
                       </div>
-                    </div>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                        ${p.cost.toFixed(2)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-                    <div className="p-4 bg-muted/40 rounded-2xl border border-border text-xs space-y-2 text-muted-foreground">
-                      <h4 className="font-black text-slate-700 dark:text-foreground text-[10px] uppercase tracking-wider flex items-center gap-1">
-                        <Info size={12} className="text-violet-500" /> Formato sugerido de columnas:
-                      </h4>
-                      <ul className="list-disc list-inside pl-1 space-y-1 font-semibold text-[11px]">
-                        <li><span className="font-mono text-violet-600 dark:text-violet-400">Código / SKU</span> (Obligatorio)</li>
-                        <li><span className="font-mono text-violet-600 dark:text-violet-400">Descripción / Nombre</span> (Obligatorio)</li>
-                      </ul>
-                      <p className="text-[10px] text-slate-400 pt-1 leading-relaxed">
-                        Los productos se guardarán con cantidad <span className="font-bold">0</span> y precio <span className="font-bold">$0.00</span> en el inventario consolidado. Luego podrás abastecerlos desde los módulos de stock o compras.
-                      </p>
-                    </div>
+              {showCustomItem && (
+                <div className="p-3 rounded-xl bg-muted/40 border border-border space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <Input placeholder="SKU (opc.)" value={customSku} onChange={(e) => setCustomSku(e.target.value)} className="h-8 text-xs font-mono" />
+                    <Input placeholder="Descripción *" value={customName} onChange={(e) => setCustomName(e.target.value)} className="h-8 text-xs col-span-2" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Input type="number" min="1" placeholder="Cant." value={customQty} onChange={(e) => setCustomQty(e.target.value)} className="h-8 text-xs w-20" />
+                    <Input type="number" step="0.01" placeholder="Costo Unit ($)" value={customCost} onChange={(e) => setCustomCost(e.target.value)} className="h-8 text-xs flex-1 font-mono" />
+                    <Button type="button" size="sm" onClick={handleAddCustomItem} className="h-8 text-xs bg-indigo-600 text-white">Agregar</Button>
+                  </div>
+                </div>
+              )}
 
-                    {bulkCodes.length > 0 && (
-                      <Button 
-                        type="button" 
-                        onClick={handleRegisterBulkCodes} 
-                        className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg text-xs"
-                        disabled={bulkLoading}
-                      >
-                        {bulkLoading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" size={16} />}
-                        IMPORTAR {bulkCodes.length} CÓDIGOS AL CATÁLOGO
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Vista Previa de Códigos a Registrar */}
-              <div className="lg:col-span-7 space-y-4">
-                <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="p-4 bg-slate-50 dark:bg-white/10 border-b border-slate-200 dark:border-white/10 sticky top-0 flex justify-between items-center z-10">
-                    <span className="text-[10px] font-black text-slate-700 dark:text-foreground uppercase tracking-widest">Vista Previa de Importación</span>
-                    <div className="flex items-center gap-2">
-                      {bulkCodes.length > 0 && (
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-7 text-[10px] font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 px-2 rounded-lg"
-                          onClick={() => setBulkCodes([])}
+              {orderItems.length === 0 ? (
+                <div className="py-6 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
+                  Busca arriba por SKU o nombre para añadir productos a la orden.
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {orderItems.map((it) => (
+                    <div key={it.sku} className="p-2 rounded-xl bg-muted/30 border border-border flex items-center justify-between gap-2 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-foreground truncate">{it.name}</div>
+                        <div className="text-[10px] font-mono text-muted-foreground">{it.sku}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={it.quantity}
+                          onChange={(e) =>
+                            setOrderItems((prev) =>
+                              prev.map((x) => (x.sku === it.sku ? { ...x, quantity: Math.max(1, parseInt(e.target.value) || 1) } : x))
+                            )
+                          }
+                          className="h-7 w-14 text-center text-xs font-bold p-1"
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={it.cost}
+                          onChange={(e) =>
+                            setOrderItems((prev) =>
+                              prev.map((x) => (x.sku === it.sku ? { ...x, cost: Math.max(0, parseFloat(e.target.value) || 0) } : x))
+                            )
+                          }
+                          className="h-7 w-20 text-right text-xs font-mono font-bold p-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setOrderItems((prev) => prev.filter((x) => x.sku !== it.sku))}
+                          className="h-7 w-7 text-rose-500"
                         >
-                          <Trash2 size={12} className="mr-1" /> Limpiar Todo
+                          <Trash2 size={12} />
                         </Button>
-                      )}
-                      <Badge variant="outline" className="text-[10px] bg-violet-50 text-violet-600 border-violet-100 font-bold">
-                        {bulkCodes.length} productos listos
-                      </Badge>
+                      </div>
                     </div>
-                  </div>
-                  <ScrollArea className="h-[480px]">
-                    <Table>
-                      <TableHeader className="bg-slate-50/50 dark:bg-muted/30">
-                        <TableRow>
-                          <TableHead className="w-1/3 px-4 md:px-6 text-[10px] font-bold uppercase">Código / SKU</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase">Descripción / Nombre</TableHead>
-                          <TableHead className="w-20 text-[10px] font-bold uppercase text-center">Acción</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {bulkCodes.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={3} className="text-center py-24 text-slate-400 italic text-xs">
-                              Sube un archivo de Excel para ver la vista previa de los códigos a registrar.
-                            </TableCell>
-                          </TableRow>
-                        ) : bulkCodes.map((item, idx) => (
-                          <TableRow key={item.sku} className="hover:bg-slate-50 dark:hover:bg-white/10 border-slate-200 dark:border-white/5 transition-colors">
-                            <TableCell className="px-4 md:px-6 py-3 font-mono font-black text-xs text-slate-800 dark:text-white">
-                              {item.sku}
-                            </TableCell>
-                            <TableCell className="text-xs font-bold text-slate-400">
-                              {item.name}
-                            </TableCell>
-                            <TableCell className="text-center py-1.5 px-2">
-                              <Button 
-                                type="button" 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                onClick={() => setBulkCodes(bulkCodes.filter(c => c.sku !== item.sku))}
-                              >
-                                <Trash2 size={12} />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
+          {/* PASO 3: REVISAR Y EMITIR */}
+          <Card className="bg-card border-indigo-500/30 rounded-2xl shadow-sm overflow-hidden">
+            <CardHeader className="p-4 border-b border-border bg-indigo-500/5">
+              <CardTitle className="text-sm font-black flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-black flex items-center justify-center">3</span>
+                Resumen y Emisión
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <Input
+                placeholder="Observaciones para el proveedor (opcional)..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="h-9 text-xs"
+              />
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-semibold">Calcular IVA (13%) en el total</span>
+                <Switch checked={includeIva} onCheckedChange={setIncludeIva} />
               </div>
 
+              <div className="p-3 rounded-xl bg-muted/40 border border-border text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span className="font-mono font-semibold">${subtotalOrder.toFixed(2)}</span>
+                </div>
+                {includeIva && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">IVA (13%):</span>
+                    <span className="font-mono font-semibold">${ivaOrder.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-1.5 border-t border-border font-black text-sm text-indigo-600 dark:text-indigo-400">
+                  <span>TOTAL INVERSIÓN:</span>
+                  <span className="font-mono">${totalOrder.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={saving || orderItems.length === 0 || !supplierName.trim()}
+                className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl gap-2"
+              >
+                {saving ? <Loader2 className="animate-spin h-4 w-4" /> : <ClipboardList size={15} />}
+                Emitir Orden de Compra
+              </Button>
+            </CardContent>
+          </Card>
+        </form>
+
+        {/* COLUMNA DERECHA: HISTORIAL ENRIQUECIDO DE ÓRDENES */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="bg-card border border-border rounded-2xl p-3 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between shadow-sm">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+              <Input
+                placeholder="Buscar por código OC, proveedor o bodega..."
+                value={searchOrders}
+                onChange={(e) => setSearchOrders(e.target.value)}
+                className="pl-9 h-9 text-xs bg-background"
+              />
             </div>
-          </TabsContent>
+            <div className="flex items-center gap-1 flex-wrap">
+              {(['ALL', 'PENDIENTE', 'ENVIADA', 'RECIBIDA'] as const).map((st) => (
+                <Button
+                  key={st}
+                  size="sm"
+                  variant={statusFilter === st ? 'default' : 'outline'}
+                  onClick={() => setStatusFilter(st)}
+                  className="h-8 text-[11px] px-2.5 rounded-lg"
+                >
+                  {st === 'ALL' ? 'Todas' : st}
+                </Button>
+              ))}
+              <Button size="icon" variant="outline" onClick={loadInitialData} disabled={loading} className="h-8 w-8 rounded-lg" title="Actualizar">
+                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              </Button>
+            </div>
+          </div>
 
-          {/* ==================== TAB HISTORIAL DE PEDIDOS ==================== */}
-          <TabsContent value="historial" className="space-y-6 outline-none">
-            <Card className="bg-white/5 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-              <CardHeader className="bg-indigo-600 dark:bg-violet-950 text-white p-5">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Clock size={18} className="text-violet-400" /> Historial General de Pedidos y Requisiciones
-                </CardTitle>
-                <CardDescription className="text-violet-200/80 text-xs">Consulte y administre todas las órdenes registradas (internas y externas).</CardDescription>
-              </CardHeader>
-              <CardContent className="p-5 space-y-4">
-                {/* Filtros y Buscador */}
-                <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                  <div className="flex items-center gap-2 bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/10 w-full sm:w-auto">
-                    <Button
-                      size="sm"
-                      variant={historyTypeFilter === 'all' ? 'default' : 'ghost'}
-                      className={`text-xs font-bold rounded-lg h-8 ${historyTypeFilter === 'all' ? 'bg-indigo-600 text-white' : ''}`}
-                      onClick={() => setHistoryTypeFilter('all')}
-                    >
-                      Todos ({combinedOrders.length})
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={historyTypeFilter === 'interno' ? 'default' : 'ghost'}
-                      className={`text-xs font-bold rounded-lg h-8 ${historyTypeFilter === 'interno' ? 'bg-indigo-600 text-white' : ''}`}
-                      onClick={() => setHistoryTypeFilter('interno')}
-                    >
-                      Internos (Tiendas)
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={historyTypeFilter === 'externo' ? 'default' : 'ghost'}
-                      className={`text-xs font-bold rounded-lg h-8 ${historyTypeFilter === 'externo' ? 'bg-indigo-600 text-white' : ''}`}
-                      onClick={() => setHistoryTypeFilter('externo')}
-                    >
-                      Externos (Proveedores)
-                    </Button>
-                  </div>
-
-                  <div className="relative w-full sm:w-72">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Buscar código, solicitante, ruta..."
-                      value={historySearchTerm}
-                      onChange={(e) => setHistorySearchTerm(e.target.value)}
-                      className="pl-9 h-9 text-xs rounded-xl bg-white dark:bg-black/20 border-slate-200 dark:border-white/10"
-                    />
-                  </div>
-                </div>
-
-                {/* Tabla de Historial Combinado */}
-                <div className="rounded-xl border border-border overflow-hidden bg-card">
-                  <ScrollArea className="h-[480px]">
-                    <Table>
-                      <TableHeader className="bg-slate-100 dark:bg-white/5 sticky top-0 z-10 backdrop-blur-md">
-                        <TableRow className="border-b border-slate-200 dark:border-white/10">
-                          <TableHead className="text-xs font-bold uppercase py-3">Tipo</TableHead>
-                          <TableHead className="text-xs font-bold uppercase py-3">Código / Fecha</TableHead>
-                          <TableHead className="text-xs font-bold uppercase py-3">Ruta / Proveedor</TableHead>
-                          <TableHead className="text-xs font-bold uppercase py-3">Solicitante</TableHead>
-                          <TableHead className="text-xs font-bold uppercase py-3 text-center">Ítems</TableHead>
-                          <TableHead className="text-xs font-bold uppercase py-3 text-right">Total ($)</TableHead>
-                          <TableHead className="text-xs font-bold uppercase py-3 text-center">Estado</TableHead>
-                          <TableHead className="text-xs font-bold uppercase py-3 text-right">Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {combinedOrders.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={8} className="text-center py-12 text-slate-400">
-                              <ClipboardList size={32} className="mx-auto mb-2 opacity-50" />
-                              No se encontraron registros en el historial de pedidos.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          combinedOrders.map((order: any) => (
-                            <TableRow key={order.id} className="hover:bg-slate-50 dark:hover:bg-white/5 border-b border-slate-100 dark:border-white/5 transition-colors">
-                              <TableCell className="py-3">
-                                {order.orderType === 'INTERNO' ? (
-                                  <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 text-[10px]">
-                                    Interno
-                                  </Badge>
-                                ) : order.notes?.includes('SOLICITUD INTERTIENDA') ? (
-                                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-[10px]">
-                                    🛒 Faltante Intertienda
-                                  </Badge>
-                                ) : (
-                                  <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 text-[10px]">
-                                    Proveedor
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="py-3">
-                                <p className="font-mono font-bold text-xs text-slate-800 dark:text-white">{order.code}</p>
-                                <p className="text-[10px] text-slate-400">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('es-SV') : '-'}</p>
-                              </TableCell>
-                              <TableCell className="py-3 font-semibold text-xs text-slate-700 dark:text-slate-200">
-                                {order.routeOrSupplier}
-                              </TableCell>
-                              <TableCell className="py-3 text-xs text-slate-600 dark:text-slate-300">
-                                {order.requestedBy || '-'}
-                              </TableCell>
-                              <TableCell className="py-3 text-center font-mono font-bold text-xs">
-                                {order.items?.length || 0}
-                              </TableCell>
-                              <TableCell className="py-3 text-right font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
-                                {order.orderType === 'EXTERNO' ? `$${Number(order.totalValue).toFixed(2)}` : '-'}
-                              </TableCell>
-                              <TableCell className="py-3 text-center">
-                                <Badge variant="outline" className="text-[10px] font-bold">
-                                  {order.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="py-3 text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg"
-                                    onClick={() => {
-                                      setSelectedOrderForPreview(order);
-                                      setPreviewType(order.orderType === 'INTERNO' ? 'interno' : 'externo');
-                                    }}
-                                    title="Ver Orden / Imprimir"
-                                  >
-                                    <Eye size={14} />
-                                  </Button>
-                                  {order.orderType === 'EXTERNO' && (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg"
-                                      onClick={() => handleDownloadExcel(order)}
-                                      title="Descargar Excel"
-                                    >
-                                      <FileSpreadsheet size={14} />
-                                    </Button>
-                                  )}
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg"
-                                    onClick={() => {
-                                      if (order.orderType === 'INTERNO') {
-                                        handleDeleteInternalOrder(order.id);
-                                      } else {
-                                        supabase.from('supplier_orders').delete().eq('id', order.id).then(() => {
-                                          toast({ title: "Pedido Eliminado" });
-                                          loadData();
-                                        });
-                                      }
-                                    }}
-                                    title="Eliminar Pedido"
-                                  >
-                                    <Trash2 size={14} />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-sm">
+            <ScrollArea className="h-[680px]">
+              <Table>
+                <TableHeader className="bg-muted/40 sticky top-0 z-10 border-b border-border">
+                  <TableRow>
+                    <TableHead className="text-[10px] font-bold uppercase px-4">Orden & Proveedor</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase">Bodega / Ítems</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase text-right">Inversión</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase text-center">Estado</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase text-right px-4">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-20 text-xs text-muted-foreground">
+                        <Loader2 className="animate-spin mx-auto mb-2 text-indigo-500 h-5 w-5" />
+                        Cargando órdenes...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredOrders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-20 text-xs text-muted-foreground italic">
+                        No hay órdenes de compra registradas.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredOrders.map((ord) => (
+                      <TableRow key={ord.id} onClick={() => setPreviewOrder(ord)} className="hover:bg-muted/30 border-b border-border/60 cursor-pointer">
+                        <TableCell className="px-4 py-3.5">
+                          <div className="space-y-0.5">
+                            <div className="font-mono font-black text-[11px] text-indigo-600 dark:text-indigo-400">{ord.code}</div>
+                            <div className="font-bold text-xs text-foreground">{ord.supplier}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {new Date(ord.createdAt).toLocaleDateString()} {ord.paymentTerms ? `• ${ord.paymentTerms}` : ''}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3.5">
+                          <div className="text-xs font-semibold text-foreground flex items-center gap-1">
+                            <Warehouse size={12} className="text-muted-foreground" /> {ord.destinationWarehouse}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">{ord.items.length} producto(s)</div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-black text-sm text-foreground">
+                          ${ord.total.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                          <Select value={ord.status} onValueChange={(v: any) => handleUpdateOrderStatus(ord, v)}>
+                            <SelectTrigger className={`h-7 w-28 text-[10px] font-bold rounded-full mx-auto ${
+                              ord.status === 'RECIBIDA'
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                                : ord.status === 'ENVIADA'
+                                ? 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30'
+                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                            }`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="PENDIENTE" className="text-xs">PENDIENTE</SelectItem>
+                              <SelectItem value="ENVIADA" className="text-xs">ENVIADA</SelectItem>
+                              <SelectItem value="RECIBIDA" className="text-xs">RECIBIDA</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            {onReceiveToPurchase && ord.status !== 'RECIBIDA' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onReceiveToPurchase(ord)}
+                                className="h-7 px-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/15 rounded-lg gap-1"
+                                title="Cargar esta orden en Registro de Compra para ingresar la factura al stock"
+                              >
+                                Recibir <ArrowRight size={11} />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => handlePrintOrder(ord)} className="h-7 w-7 text-indigo-500" title="Imprimir PDF">
+                              <Printer size={13} />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleExportOrderExcel(ord)} className="h-7 w-7 text-emerald-600" title="Descargar Excel">
+                              <FileSpreadsheet size={13} />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteOrder(ord)} className="h-7 w-7 text-rose-500" title="Eliminar">
+                              <Trash2 size={13} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </Card>
+        </div>
       </div>
 
-      {/* ==================== MODAL DE VISTA PREVIA & IMPRESIÓN DE ORDEN ==================== */}
-      {selectedOrderForPreview && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            
-            {/* Header Modal */}
-            <div className="p-5 bg-slate-900 text-white flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Printer size={18} className="text-violet-400" />
-                <span className="font-bold text-sm">Vista Previa del Documento</span>
-              </div>
-              <Badge className="font-mono bg-violet-600 text-white font-bold">{selectedOrderForPreview.code}</Badge>
-            </div>
+      {/* MODAL DETALLE DE ORDEN */}
+      <Dialog open={!!previewOrder} onOpenChange={(open) => !open && setPreviewOrder(null)}>
+        <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto bg-card border-border">
+          {previewOrder && (
+            <>
+              <DialogHeader className="border-b border-border pb-3">
+                <DialogTitle className="text-base font-bold flex items-center gap-2">
+                  <Truck size={17} className="text-indigo-500" />
+                  Orden de Compra {previewOrder.code}
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  {previewOrder.supplier} • Bodega: {previewOrder.destinationWarehouse} • Estado: {previewOrder.status}
+                </DialogDescription>
+              </DialogHeader>
 
-            {/* Area de Impresión */}
-            <ScrollArea className="flex-1 p-6 md:p-8 bg-white dark:bg-slate-950 font-sans" id="order-print-area">
-              <div className="space-y-6 text-slate-800 dark:text-slate-200">
-                
-                {/* Logo & Identificacion */}
-                <div className="flex justify-between items-start border-b pb-6">
-                  <div>
-                    <h2 className="text-2xl font-black text-indigo-600 tracking-tight">NEXWAY S.A. DE C.V.</h2>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Centro de Distribución Logística</p>
-                    <p className="text-xs text-slate-500 mt-1">San Salvador, El Salvador</p>
-                    <p className="text-xs text-slate-500">Tel: +503 2200-0000 | info@nexway.com</p>
-                  </div>
-                  <div className="text-right">
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase">
-                      {previewType === 'interno' ? 'Requisición Interna' : 'Orden de Compra'}
-                    </h3>
-                    <p className="text-xs font-mono font-bold text-violet-600 mt-1">{selectedOrderForPreview.code}</p>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1">Fecha Emisión: {new Date(selectedOrderForPreview.createdAt).toLocaleDateString()}</p>
-                    {previewType === 'externo' && (
-                      <div className="text-[9px] text-slate-400 font-bold mt-2 space-y-0.5 text-right select-none">
-                        <div>ENVIAR AL CORREO: <span className="text-indigo-600 font-mono">{selectedOrderForPreview.supplierEmail || 'sac.es2@swdeca.com'}</span></div>
-                        <div>DESDE EL CORREO: <span className="text-slate-600 font-mono">{selectedOrderForPreview.fromEmail || DEFAULT_FROM_EMAIL}</span></div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Detalles de Ruta / Sujeto */}
-                <div className="grid grid-cols-2 gap-6 bg-muted/40 p-4 rounded-2xl border border-border">
-                  {previewType === 'interno' ? (
-                    <>
-                      <div>
-                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Bodega (la que da el material)</span>
-                        <p className="text-sm font-bold text-slate-800 dark:text-white mt-0.5">{selectedOrderForPreview.sourceWarehouse}</p>
-                        <p className="text-xs text-slate-500">Distribución local autorizada</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Bodega (que solicita)</span>
-                        <p className="text-sm font-bold text-violet-600 mt-0.5">{selectedOrderForPreview.destinationWarehouse}</p>
-                        <p className="text-xs text-slate-500">Destino del stock solicitado</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Proveedor Destinatario</span>
-                        <p className="text-sm font-bold text-slate-800 dark:text-white mt-0.5">{selectedOrderForPreview.supplier}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Directorio de Suministrantes Oficiales</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Bodega de Destino / Entrega</span>
-                        <p className="text-sm font-bold text-violet-600 mt-0.5">{selectedOrderForPreview.destinationWarehouse}</p>
-                        <p className="text-xs text-slate-500">Punto de recepción de mercancía</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Encargado de Gestión</span>
-                    <p className="text-xs font-bold text-slate-700 dark:text-foreground mt-0.5">{selectedOrderForPreview.requestedBy}</p>
-                    {previewType === 'externo' && selectedOrderForPreview.supplierPhone && (
-                      <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Tel: {selectedOrderForPreview.supplierPhone}</p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Estado Actual</span>
-                    <p className="text-xs font-bold mt-0.5 uppercase text-violet-600">{selectedOrderForPreview.status}</p>
-                  </div>
-                </div>
-
-                {/* Tabla de Productos */}
-                <div className="border rounded-2xl overflow-hidden mt-4">
+              <div className="space-y-4 py-2 text-xs">
+                <div className="border border-border rounded-xl overflow-hidden">
                   <Table>
-                    <TableHeader className="bg-white/10 border-b border-white/10">
+                    <TableHeader className="bg-muted/40 text-[10px]">
                       <TableRow>
-                        <TableHead className="px-4 text-[9px] font-black uppercase">SKU</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase">Descripción del Producto</TableHead>
-                        <TableHead className="text-center text-[9px] font-black uppercase">Cantidad</TableHead>
-                        {previewType === 'externo' && (
-                          <>
-                            <TableHead className="text-right text-[9px] font-black uppercase">Precio Unitario</TableHead>
-                            <TableHead className="text-center text-[9px] font-black uppercase">No. Cotización</TableHead>
-                            <TableHead className="text-right text-[9px] font-black uppercase">Subtotal</TableHead>
-                          </>
-                        )}
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="text-right">Cant.</TableHead>
+                        <TableHead className="text-right">Costo Unit.</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedOrderForPreview.items?.map((item: any, idx: number) => (
-                        <TableRow key={item.sku} className="border-b last:border-0 hover:bg-transparent">
-                          <TableCell className="px-4 py-3 font-mono text-[10px] font-bold text-slate-600">{item.sku}</TableCell>
-                          <TableCell className="text-xs font-bold text-slate-800 dark:text-slate-200">{item.name}</TableCell>
-                          <TableCell className="text-center text-xs font-black">{item.quantity} un.</TableCell>
-                          {previewType === 'externo' && (
-                            <>
-                              <TableCell className="text-right text-xs font-bold text-slate-500">${(item.cost || 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-center text-xs font-semibold text-slate-600 dark:text-slate-350">{item.quoteNumber || '-'}</TableCell>
-                              <TableCell className="text-right text-xs font-black text-slate-800 dark:text-foreground">${((item.cost || 0) * item.quantity).toFixed(2)}</TableCell>
-                            </>
-                          )}
+                      {previewOrder.items.map((it, idx) => (
+                        <TableRow key={`${it.sku}-${idx}`}>
+                          <TableCell className="font-mono text-muted-foreground">{it.sku}</TableCell>
+                          <TableCell className="font-semibold">{it.name}</TableCell>
+                          <TableCell className="text-right font-mono">{it.quantity}</TableCell>
+                          <TableCell className="text-right font-mono">${Number(it.cost || 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono font-bold">
+                            ${(Number(it.quantity || 0) * Number(it.cost || 0)).toFixed(2)}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
 
-                {/* Total en Orden de Compra */}
-                {previewType === 'externo' && (
-                  <div className="flex justify-end pt-4">
-                    <div className="w-64 bg-muted/40 p-4 rounded-2xl border border-border text-right">
-                      <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Total de Inversión</span>
-                      <p className="text-2xl font-black text-emerald-600 mt-1">${selectedOrderForPreview.total?.toFixed(2)}</p>
-                      <p className="text-[8px] text-slate-400 mt-1 font-semibold">Sujeto a percepción de IVA del 1% si aplica</p>
-                    </div>
+                {previewOrder.notes && (
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border">
+                    <strong>Observaciones:</strong> {previewOrder.notes}
                   </div>
                 )}
 
-                {/* Terminos y Firmas */}
-                {previewType === 'interno' ? (
-                  <div className="pt-12 grid grid-cols-2 gap-12 text-center text-xs text-slate-400">
-                    <div className="space-y-4">
-                      <div className="border-t border-white/10 border-dashed w-48 mx-auto pt-2 font-bold text-[10px] uppercase text-slate-500">Firma Encargado</div>
-                      <p className="text-[8px]">Emitido y aprobado digitalmente por {selectedOrderForPreview.requestedBy}</p>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="border-t border-white/10 border-dashed w-48 mx-auto pt-2 font-bold text-[10px] uppercase text-slate-500">Autorización CD</div>
-                      <p className="text-[8px]">NexWay Centro de Control y Despacho</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="pt-12 grid grid-cols-3 gap-6 text-center text-[10px] text-slate-400">
-                    <div className="space-y-4">
-                      <div className="border-t border-white/10 border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">SOLICITADO POR</div>
-                      <p className="font-bold text-slate-700 dark:text-slate-350">BODEGA {selectedOrderForPreview.destinationWarehouse?.toUpperCase()}</p>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="border-t border-white/10 border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">AUTORIZADO POR</div>
-                      <p className="font-bold text-slate-700 dark:text-slate-350">{selectedOrderForPreview.authorizedBy || 'JULIO NEFTALI CAÑAS ZELAYA'}</p>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="border-t border-white/10 border-dashed w-full mx-auto pt-2 font-black uppercase text-slate-500 text-[9px]">DIGITADO POR</div>
-                      <p className="font-bold text-slate-700 dark:text-slate-350">{selectedOrderForPreview.digitizedBy || 'RENE LANGLOIS 74503973'}</p>
-                    </div>
-                  </div>
-                )}
-
+                <div className="text-right font-mono font-black text-base text-indigo-600 dark:text-indigo-400">
+                  Total Orden: ${previewOrder.total.toFixed(2)}
+                </div>
               </div>
-            </ScrollArea>
 
-            {/* Footer Modal */}
-            <div className="p-4 bg-white/10 border-b border-white/10 border-t border-white/10 flex justify-end gap-3 select-none">
-              <Button 
-                variant="outline" 
-                onClick={() => setSelectedOrderForPreview(null)}
-                className="h-10 text-xs font-bold rounded-xl"
-              >
-                Cerrar
-              </Button>
-              {previewType === 'externo' && (
-                <>
-                  <Button 
-                    onClick={() => handleSendEmailClient(selectedOrderForPreview)}
-                    className="h-10 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl"
+              <DialogFooter className="gap-2">
+                <Button variant="outline" size="sm" onClick={() => handlePrintOrder(previewOrder)} className="text-xs gap-1.5">
+                  <Printer size={14} /> Imprimir PDF (Carta)
+                </Button>
+                {onReceiveToPurchase && previewOrder.status !== 'RECIBIDA' && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const ord = previewOrder;
+                      setPreviewOrder(null);
+                      onReceiveToPurchase(ord);
+                    }}
+                    className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
                   >
-                    <Mail size={14} className="mr-1.5" /> Enviar por Correo
+                    Recibir en Registro de Compra <ArrowRight size={14} />
                   </Button>
-                  <Button 
-                    onClick={() => handleDownloadExcel(selectedOrderForPreview)}
-                    className="h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl"
-                  >
-                    <FileSpreadsheet size={14} className="mr-1.5" /> Descargar Excel
-                  </Button>
-                </>
-              )}
-              <Button 
-                onClick={async () => {
-                  const ord = selectedOrderForPreview;
-                  if (!ord) return;
-                  const branding = await loadPrintBranding('purchases');
-                  const rawItems = Array.isArray(ord.items) ? ord.items : [];
-                  const itemsNorm = rawItems.map((it: any) => ({
-                    sku: it.sku || it.code || '',
-                    name: it.name || it.description || it.sku || 'Producto',
-                    quantity: Number(it.quantity || it.qty || 1),
-                    unitCost: Number(it.cost || it.unit_cost || it.price || 0)
-                  }));
-                  const totalOrd =
-                    Number(ord.total || ord.total_amount || 0) ||
-                    itemsNorm.reduce((acc: number, i: any) => acc + i.quantity * i.unitCost, 0);
-                  const html = buildPurchaseOrderDocumentHtml({
-                    branding,
-                    orderNumber: ord.order_number || ord.correlative || `OC-${String(ord.id || '').slice(0, 6).toUpperCase()}`,
-                    supplierName: ord.supplier_name || ord.supplier || ord.destination_warehouse || 'Proveedor / Bodega',
-                    warehouseName: ord.warehouse_name || ord.destination_warehouse || 'Bodega Principal',
-                    expectedDate: ord.expected_date || ord.delivery_date || '',
-                    notes: ord.notes || '',
-                    items: itemsNorm,
-                    total: totalOrd
-                  });
-                  printHtmlDocument(html, `Orden ${ord.order_number || ''}`);
-                }}
-                className="h-10 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl"
-              >
-                <Printer size={14} className="mr-1.5" /> Imprimir Documento
-              </Button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

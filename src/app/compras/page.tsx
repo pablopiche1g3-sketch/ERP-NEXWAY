@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PurchasesTab from './components/PurchasesTab';
-import OrdersTab from './components/OrdersTab';
+import OrdersTab, { PurchaseOrderRecord } from './components/OrdersTab';
 import GmailClient from '@/components/shared/GmailClient';
 import { Truck, Loader2 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
@@ -14,6 +14,7 @@ function ComprasContent() {
   const queryTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(queryTab || 'registro');
   const [pendingImportedDte, setPendingImportedDte] = useState<any | null>(null);
+  const [pendingPurchaseOrder, setPendingPurchaseOrder] = useState<PurchaseOrderRecord | null>(null);
 
   useEffect(() => {
     if (queryTab) setActiveTab(queryTab);
@@ -21,6 +22,11 @@ function ComprasContent() {
 
   const handleImportDteFromGmail = (dte: any) => {
     setPendingImportedDte(dte);
+    setActiveTab('registro');
+  };
+
+  const handleReceiveOrderToPurchase = (order: PurchaseOrderRecord) => {
+    setPendingPurchaseOrder(order);
     setActiveTab('registro');
   };
 
@@ -67,10 +73,12 @@ function ComprasContent() {
           <PurchasesTab
             initialImportedDte={pendingImportedDte}
             onConsumeImportedDte={() => setPendingImportedDte(null)}
+            initialPurchaseOrder={pendingPurchaseOrder}
+            onConsumePurchaseOrder={() => setPendingPurchaseOrder(null)}
           />
         </TabsContent>
         <TabsContent value="ordenes" className="outline-none">
-          <OrdersTab />
+          <OrdersTab onReceiveToPurchase={handleReceiveOrderToPurchase} />
         </TabsContent>
         <TabsContent value="gmail" className="m-0 p-0 outline-none">
           <GmailClient context="compras" onImportDteToPurchase={handleImportDteFromGmail} />
