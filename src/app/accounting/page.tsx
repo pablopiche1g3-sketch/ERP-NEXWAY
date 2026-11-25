@@ -907,11 +907,171 @@ export default function AccountingPage() {
     if (activeTab === 'balance-comprobacion') {
       return { badge: 'Paso 5 · Cierre de Mes', text: 'Confirma que el total del Debe sea igual al total del Haber antes de emitir los reportes financieros.' };
     }
-    if (['pnl', 'rentabilidad'].includes(activeTab)) {
-      return { badge: 'Paso 6 · Gerencia', text: 'Consulta el Estado de Resultados (P&L) y la Rentabilidad por producto/canal para presentar el cierre a gerencia.' };
+    if (['pnl', 'rentabilidad', 'balance-general'].includes(activeTab)) {
+      return { badge: 'Paso 6 · Contador y Gerencia', text: 'Revisa el Estado de Resultados (P&L), Rentabilidad y Balance General (Activo = Pasivo + Patrimonio), o descarga el Paquete Contador (.xlsx).' };
     }
     return { badge: 'Administración', text: 'Configura el perfil fiscal (IVA 13%, Pago a Cuenta 1.75%) y el nivel de contabilidad del ERP.' };
   }, [activeTab]);
+
+  // Datos estructurados del Balance General (Activo = Pasivo + Patrimonio + Resultado del Ejercicio)
+  const balanceSheetData = useMemo(() => {
+    const assets = trialBalanceAccounts.filter(a => a.group === 'Activo');
+    const liabilities = trialBalanceAccounts.filter(a => a.group === 'Pasivo');
+    const equity = trialBalanceAccounts.filter(a => a.group === 'Patrimonio');
+    const ingresos = trialBalanceAccounts.filter(a => a.group === 'Ingresos').reduce((s, a) => s + a.finalBalance, 0);
+    const costosYGastos = trialBalanceAccounts
+      .filter(a => a.group === 'Costos' || a.group === 'Gastos')
+      .reduce((s, a) => s + a.finalBalance, 0);
+    const periodResult = ingresos - costosYGastos;
+
+    const totalAssets = assets.reduce((s, a) => s + a.finalBalance, 0);
+    const totalLiabilities = liabilities.reduce((s, a) => s + a.finalBalance, 0);
+    const totalEquityBase = equity.reduce((s, a) => s + a.finalBalance, 0);
+    const totalEquityWithResult = totalEquityBase + periodResult;
+    const totalLiabilitiesAndEquity = totalLiabilities + totalEquityWithResult;
+    const difference = totalAssets - totalLiabilitiesAndEquity;
+
+    return {
+      assets,
+      liabilities,
+      equity,
+      periodResult,
+      totalAssets,
+      totalLiabilities,
+      totalEquityBase,
+      totalEquityWithResult,
+      totalLiabilitiesAndEquity,
+      difference,
+      isBalanced: Math.abs(difference) < 0.05,
+    };
+  }, [trialBalanceAccounts]);
+
+  const [exportingPackage, setExportingPackage] = useState(false);
+
+  // Exportar Paquete Completo del Contador en 1 solo archivo Excel (.xlsx) con 6 hojas
+  const handleExportAccountantPackage = async () => {
+    setExportingPackage(true);
+    try {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.utils.book_new();
+
+      // Hoja 1: Ventas a Consumidor Final (CF)
+      const cfRows = filteredSalesCF.map((s, idx) => {
+        const net = Number(s.total || 0) / (1 + settings.ivaRate / 100);
+        const iva = Number(s.total || 0) - net;
+        return {
+          'No.': idx + 1,
+          'Fecha': s.timestamp ? new Date(s.timestamp).toLocaleDateString() : '',
+          'Documento': s.id || 'N/A',
+          'Cliente': s.customer || 'Consumidor Final',
+          'Gravado Neto ($)': Number(net.toFixed(2)),
+          'IVA 13% ($)': Number(iva.toFixed(2)),
+          'Total ($)': Number((s.total || 0).toFixed(2)),
+        };
+      });
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(cfRows.length > 0 ? cfRows : [{ Nota: 'Sin ventas CF en este período' }]),
+        '1_Ventas_CF'
+      );
+
+      // Hoja 2: Ventas a Contribuyentes (CCF)
+      const ccfRows = filteredSalesCCF.map((s, idx) => {
+        const net = Number(s.total || 0) / (1 + settings.ivaRate / 100);
+        const iva = Number(s.total || 0) - net;
+        const ret = net >= 100 ? net * 0.01 : 0;
+        return {
+          'No.': idx + 1,
+          'Fecha': s.timestamp ? new Date(s.timestamp).toLocaleDateString() : '',
+          'Documento': s.id || 'N/A',
+          'Cliente': s.customer || 'Contribuyente',
+          'NRC': s.nrc || 'N/A',
+          'Gravado Neto ($)': Number(net.toFixed(2)),
+          'IVA 13% ($)': Number(iva.toFixed(2)),
+          'Retencion 1% ($)': Number(ret.toFixed(2)),
+          'Total ($)': Number((s.total || 0).toFixed(2)),
+        };
+      });
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(ccfRows.length > 0 ? ccfRows : [{ Nota: 'Sin ventas CCF en este período' }]),
+        '2_Ventas_CCF'
+      );
+
+      // Hoja 3: Libro de Compras
+      const purchaseRows = filteredPurchases.map((p, idx) => {
+        const net = Number(p.total || 0) / (1 + settings.ivaRate / 100);
+        const iva = Number(p.total || 0) - net;
+        return {
+          'No.': idx + 1,
+          'Fecha': (p.timestamp || p.date) ? new Date(p.timestamp || p.date).toLocaleDateString() : '',
+          'Proveedor': p.supplier || p.provider || 'Proveedor',
+          'NRC': p.nrc || 'N/A',
+          'Compra Gravada ($)': Number(net.toFixed(2)),
+          'IVA Credito 13% ($)': Number(iva.toFixed(2)),
+          'Total ($)': Number((p.total || 0).toFixed(2)),
+        };
+      });
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(purchaseRows.length > 0 ? purchaseRows : [{ Nota: 'Sin compras registradas en este período' }]),
+        '3_Compras_CCF'
+      );
+
+      // Hoja 4: Resumen F-07 y F-14
+      const mhSummaryRows = [
+        { Concepto: 'Período Fiscal', Valor: `${filterMonth}/${filterYear}` },
+        { Concepto: 'Ingresos Totales del Período ($)', Valor: Number(activeIncome.toFixed(2)) },
+        { Concepto: 'Costos y Gastos Totales ($)', Valor: Number(activeExpenses.toFixed(2)) },
+        { Concepto: 'Margen Neto Global ($)', Valor: Number(grossProfit.toFixed(2)) },
+        { Concepto: 'IVA Débito Fiscal - Ventas (13%) ($)', Valor: Number(totalDebitFiscal.toFixed(2)) },
+        { Concepto: 'IVA Crédito Fiscal - Compras (13%) ($)', Valor: Number(totalCreditFiscal.toFixed(2)) },
+        { Concepto: 'Saldo F-07 (+ a Pagar / - Remanente) ($)', Valor: Number(f07TaxBalance.toFixed(2)) },
+        { Concepto: `Pago a Cuenta F-14 (${settings.pagoCuentaRate}%) ($)`, Valor: Number(f14PagoCuenta.toFixed(2)) },
+        { Concepto: 'Total F-14 con Retenciones ($)', Valor: Number(f14Total.toFixed(2)) },
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mhSummaryRows), '4_Resumen_F07_F14');
+
+      // Hoja 5: Balance de Comprobación
+      const trialRows = trialBalanceAccounts.map(a => ({
+        'Código': a.code,
+        'Cuenta': a.name,
+        'Grupo': a.group,
+        'Debe ($)': Number((a.debit || 0).toFixed(2)),
+        'Haber ($)': Number((a.credit || 0).toFixed(2)),
+        'Saldo Final ($)': Number((a.finalBalance || 0).toFixed(2)),
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(trialRows), '5_Balance_Comprobacion');
+
+      // Hoja 6: Balance General
+      const bsRows = [
+        ...balanceSheetData.assets.map(a => ({ Seccion: 'ACTIVO', Codigo: a.code, Cuenta: a.name, Saldo: Number(a.finalBalance.toFixed(2)) })),
+        { Seccion: 'TOTAL ACTIVO', Codigo: '', Cuenta: 'Total Activos', Saldo: Number(balanceSheetData.totalAssets.toFixed(2)) },
+        ...balanceSheetData.liabilities.map(a => ({ Seccion: 'PASIVO', Codigo: a.code, Cuenta: a.name, Saldo: Number(a.finalBalance.toFixed(2)) })),
+        { Seccion: 'TOTAL PASIVO', Codigo: '', Cuenta: 'Total Pasivos', Saldo: Number(balanceSheetData.totalLiabilities.toFixed(2)) },
+        ...balanceSheetData.equity.map(a => ({ Seccion: 'PATRIMONIO', Codigo: a.code, Cuenta: a.name, Saldo: Number(a.finalBalance.toFixed(2)) })),
+        { Seccion: 'PATRIMONIO', Codigo: '3999', Cuenta: 'Resultado del Ejercicio (Período)', Saldo: Number(balanceSheetData.periodResult.toFixed(2)) },
+        { Seccion: 'TOTAL PASIVO + PATRIMONIO', Codigo: '', Cuenta: 'Total Pasivo + Patrimonio', Saldo: Number(balanceSheetData.totalLiabilitiesAndEquity.toFixed(2)) },
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(bsRows), '6_Balance_General');
+
+      const fileName = `Paquete_Contador_${filterMonth}_${filterYear}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      toast({
+        title: 'Paquete Contador Exportado ✓',
+        description: `Se descargó ${fileName} con 6 hojas listas para revisión y declaración MH.`,
+      });
+    } catch (err) {
+      console.error('Error exportando Paquete Contador:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error al exportar',
+        description: 'No se pudo generar el archivo Excel del contador.',
+      });
+    } finally {
+      setExportingPackage(false);
+    }
+  };
 
   // Exportar anexo CSV
   const handleExportCSV = (type: 'vcf' | 'vc' | 'compras') => {
@@ -1003,6 +1163,17 @@ export default function AccountingPage() {
         
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <ModeToggle />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={exportingPackage}
+            onClick={handleExportAccountantPackage}
+            className="rounded-xl text-xs h-10 font-bold gap-1.5 border-emerald-200 dark:border-emerald-900 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
+            title="Descarga en 1 archivo Excel (.xlsx) los 3 Libros de IVA, F-07/F-14, Balance de Comprobación y Balance General"
+          >
+            {exportingPackage ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />}
+            <span>Paquete Contador (.xlsx)</span>
+          </Button>
           <AccountingAiAssistant
             context={aiLiveContext}
             branchId={branches[0]?.id || null}
@@ -1147,12 +1318,12 @@ export default function AccountingPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!['pnl', 'rentabilidad'].includes(activeTab)) {
+                  if (!['pnl', 'rentabilidad', 'balance-general'].includes(activeTab)) {
                     setActiveTab('pnl');
                   }
                 }}
                 className={`inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2 font-bold text-xs md:text-sm transition-all ${
-                  ['pnl', 'rentabilidad'].includes(activeTab)
+                  ['pnl', 'rentabilidad', 'balance-general'].includes(activeTab)
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-foreground'
                 }`}
@@ -1180,7 +1351,7 @@ export default function AccountingPage() {
           </div>
 
           {/* Sub-barra unificada para 6. Resultados y Rentabilidad */}
-          {['pnl', 'rentabilidad'].includes(activeTab) && (
+          {['pnl', 'rentabilidad', 'balance-general'].includes(activeTab) && (
             <div className="flex flex-wrap items-center gap-2 bg-card border border-border p-1.5 rounded-2xl w-fit shadow-sm">
               {config?.['accounting_pnl'] !== false && (
                 <Button
@@ -1204,6 +1375,15 @@ export default function AccountingPage() {
                   <PieChart size={13} /> 2. Rentabilidad & Márgenes
                 </Button>
               )}
+              <Button
+                type="button"
+                size="sm"
+                variant={activeTab === 'balance-general' ? 'default' : 'ghost'}
+                onClick={() => setActiveTab('balance-general')}
+                className="rounded-xl h-8 text-xs font-bold gap-1.5"
+              >
+                <Scale size={13} /> 3. Balance General (Activo = Pasivo + Patrimonio)
+              </Button>
             </div>
           )}
 
@@ -2416,6 +2596,163 @@ export default function AccountingPage() {
                     })}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 3. BALANCE GENERAL (ESTADO DE SITUACIÓN FINANCIERA PARA CONTADOR Y GERENCIA) */}
+          <TabsContent value="balance-general" className="space-y-6 outline-none">
+            <Card className="bg-card border-border shadow-sm rounded-2xl overflow-hidden">
+              <CardHeader className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
+                      <Scale className="text-blue-600" size={18} />
+                      Balance General (Estado de Situación Financiera)
+                    </CardTitle>
+                    <Badge
+                      className={
+                        balanceSheetData.isBalanced
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-0 text-[10px] font-bold'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-0 text-[10px] font-bold'
+                      }
+                    >
+                      {balanceSheetData.isBalanced
+                        ? '✓ Ecuación Cuadrada'
+                        : `Diferencia: $${Math.abs(balanceSheetData.difference).toFixed(2)}`}
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-xs mt-1">
+                    Resumen contable al período {filterMonth}/{filterYear} — Ecuación: Activo = Pasivo + Patrimonio (incluye Resultado del Ejercicio).
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.print()}
+                    className="rounded-xl h-9 text-xs font-bold gap-1.5"
+                  >
+                    <Printer size={14} /> Imprimir
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={exportingPackage}
+                    onClick={handleExportAccountantPackage}
+                    className="rounded-xl h-9 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <FileSpreadsheet size={14} /> Descargar Excel Contador
+                  </Button>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Columna Izquierda: ACTIVOS */}
+                  <div className="rounded-2xl border border-border overflow-hidden bg-background/50">
+                    <div className="px-4 py-3 bg-blue-50/70 dark:bg-blue-950/30 border-b border-border flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                        1. Activos
+                      </span>
+                      <span className="text-sm font-black font-mono text-blue-700 dark:text-blue-300">
+                        ${balanceSheetData.totalAssets.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <Table>
+                      <TableBody>
+                        {balanceSheetData.assets.map(acc => (
+                          <TableRow key={acc.code} className="border-b-border/40">
+                            <TableCell className="font-mono text-xs font-bold text-muted-foreground w-16">{acc.code}</TableCell>
+                            <TableCell className="text-xs font-medium text-foreground">{acc.name}</TableCell>
+                            <TableCell className="text-right font-mono text-xs font-bold text-foreground">
+                              ${acc.finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-slate-50 dark:bg-slate-900/60 font-black">
+                          <TableCell colSpan={2} className="text-xs uppercase text-foreground">Total Activos</TableCell>
+                          <TableCell className="text-right font-mono text-sm text-blue-600 dark:text-blue-400">
+                            ${balanceSheetData.totalAssets.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Columna Derecha: PASIVOS + PATRIMONIO */}
+                  <div className="space-y-4">
+                    {/* PASIVOS */}
+                    <div className="rounded-2xl border border-border overflow-hidden bg-background/50">
+                      <div className="px-4 py-3 bg-rose-50/70 dark:bg-rose-950/30 border-b border-border flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                          2. Pasivos
+                        </span>
+                        <span className="text-sm font-black font-mono text-rose-700 dark:text-rose-300">
+                          ${balanceSheetData.totalLiabilities.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <Table>
+                        <TableBody>
+                          {balanceSheetData.liabilities.map(acc => (
+                            <TableRow key={acc.code} className="border-b-border/40">
+                              <TableCell className="font-mono text-xs font-bold text-muted-foreground w-16">{acc.code}</TableCell>
+                              <TableCell className="text-xs font-medium text-foreground">{acc.name}</TableCell>
+                              <TableCell className="text-right font-mono text-xs font-bold text-foreground">
+                                ${acc.finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="bg-slate-50 dark:bg-slate-900/60 font-black">
+                            <TableCell colSpan={2} className="text-xs uppercase text-foreground">Total Pasivos</TableCell>
+                            <TableCell className="text-right font-mono text-sm text-rose-600 dark:text-rose-400">
+                              ${balanceSheetData.totalLiabilities.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* PATRIMONIO */}
+                    <div className="rounded-2xl border border-border overflow-hidden bg-background/50">
+                      <div className="px-4 py-3 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-border flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                          3. Patrimonio
+                        </span>
+                        <span className="text-sm font-black font-mono text-emerald-700 dark:text-emerald-300">
+                          ${balanceSheetData.totalEquityWithResult.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <Table>
+                        <TableBody>
+                          {balanceSheetData.equity.map(acc => (
+                            <TableRow key={acc.code} className="border-b-border/40">
+                              <TableCell className="font-mono text-xs font-bold text-muted-foreground w-16">{acc.code}</TableCell>
+                              <TableCell className="text-xs font-medium text-foreground">{acc.name}</TableCell>
+                              <TableCell className="text-right font-mono text-xs font-bold text-foreground">
+                                ${acc.finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="border-b-border/40 bg-emerald-50/30 dark:bg-emerald-950/10">
+                            <TableCell className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 w-16">3999</TableCell>
+                            <TableCell className="text-xs font-bold text-foreground">Resultado del Ejercicio (Ingresos − Costos/Gastos)</TableCell>
+                            <TableCell className={`text-right font-mono text-xs font-black ${balanceSheetData.periodResult >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                              ${balanceSheetData.periodResult.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow className="bg-slate-100 dark:bg-slate-900 font-black">
+                            <TableCell colSpan={2} className="text-xs uppercase text-foreground">Total Pasivo + Patrimonio</TableCell>
+                            <TableCell className="text-right font-mono text-sm text-emerald-600 dark:text-emerald-400">
+                              ${balanceSheetData.totalLiabilitiesAndEquity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
