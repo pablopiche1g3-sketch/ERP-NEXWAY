@@ -216,6 +216,8 @@ export function buildQuotationDocumentHtml(params: {
   customerNit?: string;
   customerNrc?: string;
   sellerName?: string;
+  paymentMethod?: string;
+  creditDays?: number | string;
   taxMode: 'con-iva' | 'sin-iva';
   subtotal: number;
   iva: number;
@@ -261,6 +263,11 @@ export function buildQuotationDocumentHtml(params: {
         <div class="info-card">
           <h4>Atención Comercial</h4>
           <div class="info-row"><strong>Asesor / Vendedor:</strong> ${esc(params.sellerName || 'Mostrador')}</div>
+          <div class="info-row"><strong>Forma de Pago:</strong> ${
+            (params.paymentMethod || '').toLowerCase().includes('cred')
+              ? `<strong style="color:#b45309;">CRÉDITO${params.creditDays ? ` (${esc(String(params.creditDays))} días)` : ''}</strong>`
+              : esc(params.paymentMethod || 'Contado / Efectivo')
+          }</div>
           <div class="info-row"><strong>Régimen de Precios:</strong> ${params.taxMode === 'con-iva' ? 'Precios con IVA (13%)' : 'Precios Netos (Sin IVA)'}</div>
         </div>
       </div>
@@ -321,6 +328,8 @@ export function buildInvoiceDocumentHtml(params: {
   customerAddress?: string;
   sellerName?: string;
   paymentMethod?: string;
+  creditDays?: number | string;
+  creditAmount?: number;
   items: Array<{ sku?: string; name: string; quantity: number; price: number }>;
   total: number;
   ivaRetention1?: number;
@@ -335,6 +344,10 @@ export function buildInvoiceDocumentHtml(params: {
   const ivaAmount = params.total - subtotalGravado;
   const retention = Number(params.ivaRetention1 || 0);
   const netPayable = Math.max(0, params.total - retention);
+  const pmLower = (params.paymentMethod || '').toLowerCase();
+  const isCreditSale = pmLower.includes('cred') || (Number(params.creditAmount || 0) > 0);
+  const creditAmountVal = isCreditSale ? (Number(params.creditAmount || 0) > 0 ? Number(params.creditAmount) : netPayable) : 0;
+  const creditDaysLabel = params.creditDays ? `${params.creditDays} días` : '30 días';
 
   // FORMATO TICKET TÉRMICO (80mm / 58mm)
   if (paperSize === '80mm' || paperSize === '58mm') {
@@ -397,9 +410,25 @@ export function buildInvoiceDocumentHtml(params: {
         }
         ${retention > 0 ? `<div class="tot"><span>Retención 1% IVA:</span><span>-$${retention.toFixed(2)}</span></div>` : ''}
         <div class="tot grand"><span>TOTAL A PAGAR:</span><span>$${netPayable.toFixed(2)}</span></div>
-        ${params.paymentMethod ? `<div class="tot"><span>Pago:</span><span>${esc(params.paymentMethod)}</span></div>` : ''}
-        ${typeof params.cashReceived === 'number' && params.cashReceived > 0 ? `<div class="tot"><span>Recibido:</span><span>$${params.cashReceived.toFixed(2)}</span></div>` : ''}
-        ${typeof params.change === 'number' && params.change > 0 ? `<div class="tot"><span>Cambio:</span><span>$${params.change.toFixed(2)}</span></div>` : ''}
+        ${params.paymentMethod ? `<div class="tot"><span>Condición / Pago:</span><span><strong>${esc(params.paymentMethod)}</strong></span></div>` : ''}
+        ${
+          isCreditSale
+            ? `<div style="border:2px solid #000;padding:5px;margin:6px 0;text-align:center;">
+                 <div style="font-weight:900;font-size:12px;">*** VENTA AL CRÉDITO ***</div>
+                 <div style="font-size:10px;font-weight:700;">CUENTA POR COBRAR: $${creditAmountVal.toFixed(2)}</div>
+                 <div style="font-size:10px;">Plazo autorizado: ${esc(creditDaysLabel)}</div>
+                 <div style="font-size:9.5px;margin-top:2px;">CAJERO: CONSERVAR COPIA FIRMADA</div>
+               </div>
+               <div style="margin-top:10px;font-size:9.5px;line-height:1.35;">
+                 <div><strong>CONSTANCIA DE CRÉDITO:</strong> Recibí de conformidad la mercadería detallada y me obligo a cancelar el saldo en el plazo estipulado.</div>
+                 <div style="border-bottom:1px solid #000;height:26px;margin-top:12px;"></div>
+                 <div class="ctr" style="font-weight:700;margin-top:2px;">FIRMA Y SELLO DEL CLIENTE</div>
+                 <div style="margin-top:6px;">Nombre: ________________________</div>
+                 <div style="margin-top:4px;">DUI/NIT: _______________________</div>
+               </div>`
+            : `${typeof params.cashReceived === 'number' && params.cashReceived > 0 ? `<div class="tot"><span>Recibido:</span><span>$${params.cashReceived.toFixed(2)}</span></div>` : ''}
+               ${typeof params.change === 'number' && params.change > 0 ? `<div class="tot"><span>Cambio:</span><span>$${params.change.toFixed(2)}</span></div>` : ''}`
+        }
         <div class="hr"></div>
         <div class="ctr" style="font-size:9.5px;">¡Gracias por su preferencia!<br/>Representación impresa POS</div>
       </div>
@@ -444,10 +473,22 @@ export function buildInvoiceDocumentHtml(params: {
         <div class="info-card">
           <h4>Información Operativa</h4>
           <div class="info-row"><strong>Vendedor / Asesor:</strong> ${esc(params.sellerName || 'Caja Principal')}</div>
-          <div class="info-row"><strong>Forma de Pago:</strong> ${esc(params.paymentMethod || 'Efectivo')}</div>
+          <div class="info-row"><strong>Condición / Pago:</strong> ${
+            isCreditSale
+              ? `<strong style="color:#b45309;">CRÉDITO (${esc(creditDaysLabel)}) — Saldo CXC: $${creditAmountVal.toFixed(2)}</strong>`
+              : esc(params.paymentMethod || 'Efectivo')
+          }</div>
           <div class="info-row"><strong>Moneda:</strong> USD ($)</div>
         </div>
       </div>
+
+      ${
+        isCreditSale
+          ? `<div style="border:2px solid #b45309;background:#fffbeb;color:#78350f;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:11px;">
+               <strong>VENTA AL CRÉDITO (CUENTA POR COBRAR):</strong> Documento emitido al crédito por <strong>$${creditAmountVal.toFixed(2)}</strong> a plazo de <strong>${esc(creditDaysLabel)}</strong>. <strong>AVISO CAJA:</strong> Solicitar firma y sello de recepción del cliente y archivar copia en Cuentas por Cobrar.
+             </div>`
+          : ''
+      }
 
       <table>
         <thead>
@@ -474,6 +515,15 @@ export function buildInvoiceDocumentHtml(params: {
           <div class="t-row t-grand"><span>TOTAL A PAGAR:</span><span class="mono">$${netPayable.toFixed(2)}</span></div>
         </div>
       </div>
+
+      ${
+        isCreditSale
+          ? `<div class="signatures" style="margin-top:34px;">
+               <div class="sig-line"><strong>Entregado por Caja / Despacho</strong><br/>${esc(params.sellerName || branding.companyName)}</div>
+               <div class="sig-line"><strong>Recibido Conforme al Crédito</strong><br/>Nombre, DUI/NIT, Firma y Sello del Cliente</div>
+             </div>`
+          : ''
+      }
 
       <div class="footer">${esc(branding.companyName)} — Gracias por su compra.</div>
     </div>

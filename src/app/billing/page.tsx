@@ -276,14 +276,14 @@ export default function BillingPage() {
       ]);
       if (error) throw error;
 
-      let localSellerMeta: Record<string, { sellerEmail?: string; sellerName?: string }> = {};
+      let localSellerMeta: Record<string, { sellerEmail?: string; sellerName?: string; paymentMethod?: string; creditDays?: number }> = {};
       if (typeof window !== 'undefined') {
         try {
           const raw = localStorage.getItem('nexway_quotations_seller_meta');
           if (raw) localSellerMeta = JSON.parse(raw);
         } catch {}
       }
-      const remoteSellerMeta: Record<string, { sellerEmail?: string; sellerName?: string }> =
+      const remoteSellerMeta: Record<string, { sellerEmail?: string; sellerName?: string; paymentMethod?: string; creditDays?: number }> =
         sellerMetaRow?.value && typeof sellerMetaRow.value === 'object' ? sellerMetaRow.value : {};
       const combinedSellerMeta = { ...localSellerMeta, ...remoteSellerMeta };
 
@@ -292,6 +292,8 @@ export default function BillingPage() {
         quote_number: q.quote_number || `PRE-${String(q.id).slice(0, 6).toUpperCase()}`,
         sellerEmail: combinedSellerMeta[q.id]?.sellerEmail || '',
         sellerName: combinedSellerMeta[q.id]?.sellerName || '',
+        paymentMethod: combinedSellerMeta[q.id]?.paymentMethod || 'Efectivo',
+        creditDays: combinedSellerMeta[q.id]?.creditDays || 30,
         isPreFacturaSale: false
       }));
 
@@ -427,9 +429,22 @@ export default function BillingPage() {
       quantity: Number(it.quantity) || 1
     }));
     setCart(normalizedItems);
-    setCustomerName(quote.customer_name || '');
+    const qCustName = (quote.customer_name || '').trim();
+    setCustomerName(qCustName);
+    if (qCustName && customers?.length > 0) {
+      const matchedCust = customers.find(
+        (c: any) => (c.name || '').trim().toLowerCase() === qCustName.toLowerCase()
+      );
+      if (matchedCust) setSelectedCustomer(matchedCust);
+    }
     if (quote.sellerEmail) {
       setSelectedSellerEmail(quote.sellerEmail);
+    }
+    const validMethods = ['Efectivo', 'Tarjeta', 'Transferencia', 'Cheque', 'Credito', 'Mixto'];
+    const qMethod = validMethods.includes(quote.paymentMethod) ? quote.paymentMethod : 'Efectivo';
+    setPaymentMethod(qMethod as any);
+    if (quote.creditDays) {
+      setPosCreditDays(String(quote.creditDays));
     }
     if (quote.isPreFacturaSale) {
       setSelectedPendingSaleId(quote.id);
@@ -440,8 +455,11 @@ export default function BillingPage() {
     }
     setShowQuotationsDialog(false);
     toast({
-      title: 'Pre-Factura Cargada en Caja 📋',
-      description: `Se cargó ${quote.quote_number || 'la cotización'}${quote.sellerName ? ` (Vendedor: ${quote.sellerName})` : ''} lista para cobrar y facturar.`
+      title: qMethod === 'Credito' ? '⚠️ Pre-Factura AL CRÉDITO Cargada' : 'Pre-Factura Cargada en Caja 📋',
+      description:
+        qMethod === 'Credito'
+          ? `${quote.quote_number || 'Cotización'} configurada a CRÉDITO (${quote.creditDays || 30} días). Recuerde solicitar firma al imprimir.`
+          : `Se cargó ${quote.quote_number || 'la cotización'} (${qMethod}) lista para facturar.`
     });
   };
 
@@ -785,6 +803,7 @@ export default function BillingPage() {
   // Checkout Modal States
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentReference, setPaymentReference] = useState('');
+  const [posCreditDays, setPosCreditDays] = useState<string>('30');
   const [cashReceived, setCashReceived] = useState<string>('');
   const [completedSaleData, setCompletedSaleData] = useState<{
     correlative: string;
@@ -792,8 +811,15 @@ export default function BillingPage() {
     total: number;
     cashReceived: number;
     change: number;
+    paymentMethod?: string;
+    creditDays?: number;
+    creditAmount?: number;
     customerName: string;
     customerEmail?: string;
+    customerNit?: string;
+    customerNrc?: string;
+    customerGiro?: string;
+    customerAddress?: string;
     items: any[];
     dteEstado?: 'PROCESADO' | 'RECHAZADO' | 'ERROR';
     selloRecibido?: string | null;
@@ -2383,10 +2409,17 @@ export default function BillingPage() {
           correlative,
           docType,
           total: totalCart,
-          cashReceived: cashVal,
-          change: changeVal,
+          cashReceived: paymentMethod === 'Credito' ? 0 : cashVal,
+          change: paymentMethod === 'Credito' ? 0 : changeVal,
+          paymentMethod,
+          creditDays: paymentMethod === 'Credito' || splitCreditVal > 0 ? (parseInt(posCreditDays) || 30) : undefined,
+          creditAmount: paymentMethod === 'Credito' ? totalCart : (paymentMethod === 'Mixto' ? splitCreditVal : 0),
           customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
           customerEmail: customerEmail || selectedCustomer?.email || cashConfig?.catchAllEmail || '',
+          customerNit: selectedCustomer?.nit,
+          customerNrc: selectedCustomer?.nrc,
+          customerGiro: selectedCustomer?.giro,
+          customerAddress: selectedCustomer?.address,
           items: [...cart]
         });
 
@@ -2753,10 +2786,17 @@ export default function BillingPage() {
         correlative,
         docType,
         total: totalCart,
-        cashReceived: cashVal,
-        change: changeVal,
+        cashReceived: paymentMethod === 'Credito' ? 0 : cashVal,
+        change: paymentMethod === 'Credito' ? 0 : changeVal,
+        paymentMethod,
+        creditDays: paymentMethod === 'Credito' || splitCreditVal > 0 ? (parseInt(posCreditDays) || 30) : undefined,
+        creditAmount: paymentMethod === 'Credito' ? totalCart : (paymentMethod === 'Mixto' ? splitCreditVal : 0),
         customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
         customerEmail: customerEmail || selectedCustomer?.email || cashConfig?.catchAllEmail || '',
+        customerNit: selectedCustomer?.nit,
+        customerNrc: selectedCustomer?.nrc,
+        customerGiro: selectedCustomer?.giro,
+        customerAddress: selectedCustomer?.address,
         items: [...cart],
         ...dteTransmitSummary
       });
@@ -5516,6 +5556,44 @@ export default function BillingPage() {
                   </div>
                 </div>
               </div>
+            ) : paymentMethod === 'Credito' ? (
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-200 space-y-1.5">
+                  <div className="text-xs font-black uppercase flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                    <Receipt size={14} /> Aviso a Cajero · Factura al Crédito (CXC)
+                  </div>
+                  <p className="text-[11px] leading-snug">
+                    <strong>No cobrar efectivo en ventanilla.</strong> El saldo de <strong>${totalCart.toFixed(2)}</strong> pasará a Cuentas por Cobrar de <strong>{customerName || selectedCustomer?.name || 'Cliente'}</strong>. Al imprimir, solicite firma y sello en la copia de caja.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Plazo Autorizado (Días)</Label>
+                    <Select value={posCreditDays} onValueChange={setPosCreditDays}>
+                      <SelectTrigger className="h-11 rounded-xl font-bold text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15">15 días</SelectItem>
+                        <SelectItem value="30">30 días</SelectItem>
+                        <SelectItem value="45">45 días</SelectItem>
+                        <SelectItem value="60">60 días</SelectItem>
+                        <SelectItem value="90">90 días</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Orden / Autorización (Opc.)</Label>
+                    <Input
+                      placeholder="Ej. OC-Cliente..."
+                      value={paymentReference}
+                      onChange={e => setPaymentReference(e.target.value)}
+                      className="h-11 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground">Referencia ({paymentMethod})</Label>
@@ -5557,15 +5635,39 @@ export default function BillingPage() {
             </DialogHeader>
 
             <div className="space-y-3 my-2">
+              {(completedSaleData.paymentMethod === 'Credito' || (completedSaleData.creditAmount || 0) > 0) && (
+                <div className="p-3.5 rounded-xl bg-amber-500/20 border-2 border-amber-500 text-amber-900 dark:text-amber-200 space-y-1">
+                  <div className="text-xs font-black uppercase tracking-wide flex items-center justify-between">
+                    <span>⚠️ VENTA AL CRÉDITO — AVISO CAJERO</span>
+                    <Badge className="bg-amber-600 text-white border-0 text-[9px] font-black">
+                      {completedSaleData.creditDays || 30} DÍAS
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] font-medium leading-snug">
+                    <strong>NO COBRAR EN EFECTIVO</strong> (${(completedSaleData.creditAmount || completedSaleData.total).toFixed(2)} registrado en CXC). Imprima el comprobante y <strong>solicite FIRMA Y SELLO del cliente</strong> para archivo de caja.
+                  </p>
+                </div>
+              )}
+
               <div className="bg-slate-900 text-white p-4 rounded-xl space-y-2 text-xs">
                 <div className="flex justify-between"><span>Cliente:</span><span className="font-bold">{completedSaleData.customerName}</span></div>
                 <div className="flex justify-between"><span>Tipo Doc:</span><span className="font-bold uppercase text-amber-400">{completedSaleData.docType}</span></div>
+                <div className="flex justify-between"><span>Condición / Pago:</span><span className="font-bold text-indigo-300">{completedSaleData.paymentMethod || 'Efectivo'}</span></div>
                 <div className="flex justify-between"><span>Monto Total:</span><span className="font-black text-blue-400 text-sm">${completedSaleData.total.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>Efectivo Recibido:</span><span className="font-bold">${completedSaleData.cashReceived.toFixed(2)}</span></div>
-                <div className="flex justify-between border-t border-white/10 pt-2 text-emerald-400 font-bold">
-                  <span>Vuelto a Entregar:</span>
-                  <span className="font-black text-base">${completedSaleData.change.toFixed(2)}</span>
-                </div>
+                {completedSaleData.paymentMethod === 'Credito' || (completedSaleData.creditAmount || 0) > 0 ? (
+                  <div className="flex justify-between border-t border-white/10 pt-2 text-amber-400 font-bold">
+                    <span>Saldo a Crédito (CXC):</span>
+                    <span className="font-black text-base">${(completedSaleData.creditAmount || completedSaleData.total).toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between"><span>Efectivo Recibido:</span><span className="font-bold">${completedSaleData.cashReceived.toFixed(2)}</span></div>
+                    <div className="flex justify-between border-t border-white/10 pt-2 text-emerald-400 font-bold">
+                      <span>Vuelto a Entregar:</span>
+                      <span className="font-black text-base">${completedSaleData.change.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {completedSaleData.dteEstado && (
@@ -5621,12 +5723,14 @@ export default function BillingPage() {
                       correlative: completedSaleData.correlative,
                       docType: completedSaleData.docType,
                       customerName: completedSaleData.customerName,
-                      customerNit: selectedCustomer?.nit,
-                      customerNrc: selectedCustomer?.nrc,
-                      customerGiro: selectedCustomer?.giro,
-                      customerAddress: selectedCustomer?.address,
+                      customerNit: completedSaleData.customerNit,
+                      customerNrc: completedSaleData.customerNrc,
+                      customerGiro: completedSaleData.customerGiro,
+                      customerAddress: completedSaleData.customerAddress,
                       sellerName: appUsersList.find((u) => u.email === selectedSellerEmail)?.full_name || selectedSellerEmail,
-                      paymentMethod,
+                      paymentMethod: completedSaleData.paymentMethod || paymentMethod,
+                      creditDays: completedSaleData.creditDays,
+                      creditAmount: completedSaleData.creditAmount,
                       items: completedSaleData.items,
                       total: completedSaleData.total,
                       ivaRetention1,
@@ -5649,12 +5753,14 @@ export default function BillingPage() {
                       correlative: completedSaleData.correlative,
                       docType: completedSaleData.docType,
                       customerName: completedSaleData.customerName,
-                      customerNit: selectedCustomer?.nit,
-                      customerNrc: selectedCustomer?.nrc,
-                      customerGiro: selectedCustomer?.giro,
-                      customerAddress: selectedCustomer?.address,
+                      customerNit: completedSaleData.customerNit,
+                      customerNrc: completedSaleData.customerNrc,
+                      customerGiro: completedSaleData.customerGiro,
+                      customerAddress: completedSaleData.customerAddress,
                       sellerName: appUsersList.find((u) => u.email === selectedSellerEmail)?.full_name || selectedSellerEmail,
-                      paymentMethod,
+                      paymentMethod: completedSaleData.paymentMethod || paymentMethod,
+                      creditDays: completedSaleData.creditDays,
+                      creditAmount: completedSaleData.creditAmount,
                       items: completedSaleData.items,
                       total: completedSaleData.total,
                       ivaRetention1,
@@ -5862,6 +5968,18 @@ export default function BillingPage() {
                             {q.sellerName && (
                               <Badge variant="outline" className="text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/30 gap-1">
                                 <UserCheck size={10} /> {q.sellerName}
+                              </Badge>
+                            )}
+                            {q.paymentMethod && (
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] font-black uppercase ${
+                                  q.paymentMethod === 'Credito'
+                                    ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40'
+                                    : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                }`}
+                              >
+                                {q.paymentMethod === 'Credito' ? `⚠️ CRÉDITO (${q.creditDays || 30}d)` : q.paymentMethod}
                               </Badge>
                             )}
                           </div>

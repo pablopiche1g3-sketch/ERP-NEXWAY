@@ -125,7 +125,8 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 
 export function AsistenteGuiaERP() {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [panelView, setPanelView] = useState<'resumen' | 'agenda'>('resumen');
   const [showCompleted, setShowCompleted] = useState(false);
   const [priorityModalTab, setPriorityModalTab] = useState<'criticos' | 'estancados' | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<'ALL' | 'URGENTE' | 'ALTA' | 'NORMAL'>('ALL');
@@ -526,9 +527,24 @@ export function AsistenteGuiaERP() {
     return tasks.filter(t => t.status === 'pending').length;
   }, [tasks]);
 
-  // Enriquecer y ordenar tareas de la agenda por prioridad (URGENTE > ALTA > NORMAL)
+  // Enriquecer, depurar obsoletas y ordenar tareas de la agenda por prioridad
   const activeAgendaTasks = useMemo(() => {
-    const base = showCompleted ? agendaTasks : agendaTasks.filter(a => a.status !== 'completed');
+    const base = (showCompleted ? agendaTasks : agendaTasks.filter(a => a.status !== 'completed')).filter(a => {
+      // Ocultar sugerencias IA antiguas que ya fueron resueltas en tiempo real
+      if (a.category === 'ai_suggested') {
+        const tl = (a.title || '').toLowerCase();
+        if ((tl.includes('crítico') || tl.includes('cero') || tl.includes('reordenar')) && (stats.zeroStockProductsCount || 0) === 0) {
+          return false;
+        }
+        if (tl.includes('autorizar') && tl.includes('pedido') && (stats.pendingOrdersCount || 0) === 0) {
+          return false;
+        }
+        if (tl.includes('estancado') && (stats.stagnantProductsCount || 0) === 0) {
+          return false;
+        }
+      }
+      return true;
+    });
     const enriched = base.map(t => enrichAgendaTask(t));
     const filtered = priorityFilter === 'ALL'
       ? enriched
@@ -569,38 +585,30 @@ export function AsistenteGuiaERP() {
     return (
       <div
         key={task.id}
-        className={`p-4 rounded-xl border transition-all ${
-          isCompleted
-            ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40'
-            : task.priority === 'URGENTE'
-            ? 'bg-rose-50/80 dark:bg-rose-950/25 border-rose-300 dark:border-rose-800/50 shadow-sm'
-            : isPending
-            ? 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40 shadow-sm'
-            : 'bg-blue-50/60 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/40'
-        }`}
+        className="p-3 rounded-xl border border-border bg-card/80 dark:bg-white/[0.03] transition-all hover:border-indigo-500/30"
       >
         <div className="flex gap-2.5 items-start">
           {isCompleted ? (
-            <CheckCircle size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" />
           ) : isPending ? (
             <AlertCircle
-              size={15}
+              size={14}
               className={`${
                 task.priority === 'URGENTE'
-                  ? 'text-rose-600 dark:text-rose-400 animate-pulse'
-                  : 'text-amber-600 dark:text-amber-400'
+                  ? 'text-rose-500'
+                  : 'text-amber-500'
               } shrink-0 mt-0.5`}
             />
           ) : (
-            <HelpCircle size={15} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <HelpCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
           )}
 
-          <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
-              <p className="text-xs font-black text-foreground leading-snug">{task.title}</p>
+              <p className="text-xs font-bold text-foreground leading-snug">{task.title}</p>
               <div className="flex items-center gap-1">
                 {task.badgeText && (
-                  <Badge variant="outline" className="text-[9px] font-mono font-bold h-4 px-1.5 border-border bg-background/80">
+                  <Badge variant="outline" className="text-[9px] font-mono font-bold h-4 px-1.5 border-border">
                     {task.badgeText}
                   </Badge>
                 )}
@@ -608,31 +616,25 @@ export function AsistenteGuiaERP() {
               </div>
             </div>
 
-            <p className="text-[10.5px] text-muted-foreground leading-relaxed">{task.description}</p>
+            <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{task.description}</p>
 
-            {/* Desglose real de productos / órdenes directamente en la tarjeta */}
+            {/* Resumen compacto (máx 2 líneas) para no saturar la vista */}
             {task.itemsPreview && task.itemsPreview.length > 0 && (
-              <div className="p-2.5 rounded-lg bg-background/90 border border-border/70 space-y-1">
-                <div className="flex items-center justify-between text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground pb-1 border-b border-border/50">
-                  <span>Detalle de Ítems Prioritarios</span>
-                  {(task.id === 'setup_critical_restock' || task.id === 'opp_stagnant') && (
-                    <button
-                      type="button"
-                      onClick={() => setPriorityModalTab(task.id === 'setup_critical_restock' ? 'criticos' : 'estancados')}
-                      className="text-indigo-600 dark:text-indigo-400 hover:underline font-black"
-                    >
-                      Ver Tabla Completa ({task.id === 'setup_critical_restock' ? stats.zeroStockProductsCount : stats.stagnantProductsCount})
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
-                  {task.itemsPreview.map((line, idx) => (
-                    <div key={idx} className="text-[10px] font-mono text-foreground/90 truncate flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
-                      <span className="truncate">{line}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="px-2.5 py-1.5 rounded-lg bg-muted/40 dark:bg-black/25 border border-border/60 space-y-0.5">
+                {task.itemsPreview.slice(0, 2).map((line, idx) => (
+                  <div key={idx} className="text-[10px] font-mono text-foreground/85 truncate">
+                    • {line}
+                  </div>
+                ))}
+                {(task.id === 'setup_critical_restock' || task.id === 'opp_stagnant') && (
+                  <button
+                    type="button"
+                    onClick={() => setPriorityModalTab(task.id === 'setup_critical_restock' ? 'criticos' : 'estancados')}
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold pt-0.5 inline-block"
+                  >
+                    Ver lista completa ({task.id === 'setup_critical_restock' ? stats.zeroStockProductsCount : stats.stagnantProductsCount}) →
+                  </button>
+                )}
               </div>
             )}
 
@@ -689,247 +691,241 @@ export function AsistenteGuiaERP() {
 
   return (
     <>
-      <Card className="bg-card rounded-2xl mb-8 overflow-hidden relative z-10 border-border shadow-sm">
+      <Card className="bg-card rounded-2xl mb-4 overflow-hidden relative z-10 border-border shadow-sm">
         <CardHeader
-          className="p-5 bg-card dark:bg-slate-950 border-b border-border flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none"
+          className="px-4 py-2.5 bg-card dark:bg-slate-950/80 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 cursor-pointer select-none"
           onClick={() => setIsOpen(!isOpen)}
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-sm">
-              <Award size={20} className="animate-pulse" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <Award size={16} />
             </div>
-            <div>
-              <CardTitle className="text-xs md:text-sm font-black text-foreground uppercase tracking-wider flex flex-wrap items-center gap-2 font-headline">
-                Asistente de Control y Agenda Táctica ERP
-                {pendingTasksCount > 0 && (
-                  <Badge className="bg-amber-500 text-slate-950 text-[9px] font-black h-4 px-1.5 rounded-full">
-                    {pendingTasksCount} ACCIONES PRIORITARIAS
-                  </Badge>
-                )}
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-xs font-black text-foreground uppercase tracking-wide">
+                Asistente Operativo
               </CardTitle>
-              <CardDescription className="text-[11px] text-muted-foreground mt-0.5">
-                Centro ejecutivo de abastecimiento inteligente, priorización de stock, control de caja y agenda operativa IA.
-              </CardDescription>
+              {pendingTasksCount > 0 ? (
+                <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9.5px] font-bold h-5 px-2 rounded-full">
+                  {pendingTasksCount} avisos
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9.5px] font-bold h-5 px-2 rounded-full">
+                  Al día
+                </Badge>
+              )}
             </div>
           </div>
 
-          {/* PÍLDORAS EJECUTIVAS CON REDIRECCIÓN EN 1 CLIC */}
-          <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {/* PÍLDORAS COMPACTAS DE 1 LÍNEA CON ACCESO DIRECTO */}
+          <div className="flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => setPriorityModalTab('criticos')}
-              className={`px-3 py-1.5 rounded-xl border text-left transition-all flex items-center gap-2 ${
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all inline-flex items-center gap-1.5 ${
                 criticalCount > 0
                   ? 'bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400'
-                  : 'bg-muted/40 border-border text-muted-foreground'
+                  : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'
               }`}
-              title="Ver detalle de productos por pedir"
+              title="Ver productos por pedir"
             >
-              <ShoppingCart size={14} />
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider opacity-80">Productos a Pedir</div>
-                <div className="text-xs font-black font-mono">
-                  {criticalCount} SKUs • ${(stats.estimatedRestockCost || 0).toFixed(2)}
-                </div>
-              </div>
+              <ShoppingCart size={12} />
+              <span>Por Pedir:</span>
+              <span className="font-mono font-black">{criticalCount}</span>
             </button>
 
             <button
               type="button"
               onClick={() => router.push('/compras?tab=ordenes')}
-              className={`px-3 py-1.5 rounded-xl border text-left transition-all flex items-center gap-2 ${
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all inline-flex items-center gap-1.5 ${
                 stats.pendingOrdersCount > 0
                   ? 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400'
-                  : 'bg-muted/40 border-border text-muted-foreground'
+                  : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'
               }`}
-              title="Ir a Órdenes de Compra Pendientes"
+              title="Ir a Órdenes de Compra"
             >
-              <Layers size={14} />
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider opacity-80">Pedidos Proveedor</div>
-                <div className="text-xs font-black font-mono">{stats.pendingOrdersCount} Pendientes</div>
-              </div>
+              <Layers size={12} />
+              <span>Pedidos:</span>
+              <span className="font-mono font-black">{stats.pendingOrdersCount}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setPriorityModalTab('estancados')}
-              className={`px-3 py-1.5 rounded-xl border text-left transition-all flex items-center gap-2 ${
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all inline-flex items-center gap-1.5 ${
                 stagnantCount > 0
                   ? 'bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'
-                  : 'bg-muted/40 border-border text-muted-foreground'
+                  : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'
               }`}
-              title="Ver productos con stock estancado para priorizar venta"
+              title="Ver productos sin rotación en 30 días"
             >
-              <Flame size={14} />
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider opacity-80">Stock Estancado</div>
-                <div className="text-xs font-black font-mono">
-                  {stagnantCount} SKUs • ${(stats.stagnantCapitalTotal || 0).toFixed(2)}
-                </div>
-              </div>
+              <Flame size={12} />
+              <span>Estancados:</span>
+              <span className="font-mono font-black">{stagnantCount}</span>
             </button>
 
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowCompleted(!showCompleted)}
-              className="text-[10px] text-muted-foreground hover:text-foreground h-8 px-2.5 flex items-center gap-1 rounded-xl border border-border bg-background"
-            >
-              {showCompleted ? <EyeOff size={12} /> : <Eye size={12} />}
-              {showCompleted ? 'Ocultar Completadas' : 'Ver Completadas'}
-            </Button>
-
-            <button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => setIsOpen(!isOpen)}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg border border-border bg-background"
+              className="h-7 px-2.5 text-[11px] font-bold rounded-lg gap-1"
             >
-              {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            </button>
+              {isOpen ? 'Ocultar' : 'Ver Panel'}
+              {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </Button>
           </div>
         </CardHeader>
 
         {isOpen && (
-          <CardContent className="p-6 bg-background/50 space-y-6">
-            {/* PANEL DE 3 COLUMNAS EJECUTIVAS */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Columna 1: Abastecimiento & Productos por Pedir */}
-              <div className="space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[10.5px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                    <Building2 size={13} className="text-indigo-600 dark:text-indigo-400" />
-                    1. Abastecimiento y Productos por Pedir
-                  </h4>
-                  {criticalCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setPriorityModalTab('criticos')}
-                      className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
-                    >
-                      Priorizar ({criticalCount}) <ArrowUpRight size={11} />
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {visibleTasks.filter(t => t.category === 'setup').map(task => renderGuideTaskCard(task))}
-                  {visibleTasks.filter(t => t.category === 'setup').length === 0 && (
-                    <div className="p-4 rounded-xl border bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <div>
-                          <p className="text-xs text-emerald-700 dark:text-emerald-400 font-black">Abastecimiento y Base al Día</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {stats.productsCount} productos activos en catálogo y sucursales configuradas sin quiebres de stock.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => router.push('/logistica?tab=inventario')}
-                          className="h-7 text-[10px] font-bold rounded-lg"
-                        >
-                          Ver Inventario <ArrowUpRight size={11} className="ml-1" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => router.push('/compras?tab=ordenes')}
-                          className="h-7 text-[10px] font-bold rounded-lg"
-                        >
-                          Órdenes de Compra <ArrowUpRight size={11} className="ml-1" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+          <CardContent className="p-4 border-t border-border bg-background/50 space-y-4">
+            {/* SUB-BARRA COMPACTA: RESUMEN OPERATIVO VS AGENDA TÁCTICA (Evita mostrar todo apilado) */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="inline-flex items-center bg-muted/60 border border-border p-0.5 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setPanelView('resumen')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    panelView === 'resumen'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Resumen Operativo ({pendingTasksCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPanelView('agenda')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    panelView === 'agenda'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Agenda Táctica ({activeAgendaTasks.length})
+                </button>
               </div>
 
-              {/* Columna 2: Operaciones Diarias, Pedidos y Caja */}
-              <div className="space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[10.5px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                    <CalendarCheck size={13} className="text-blue-600 dark:text-blue-400" />
-                    2. Operación Diaria, Pedidos y Caja
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => router.push('/billing')}
-                    className="text-[10px] font-black text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
-                  >
-                    Terminal POS <ArrowUpRight size={11} />
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {visibleTasks.filter(t => t.category === 'operations').map(task => renderGuideTaskCard(task))}
-                  {visibleTasks.filter(t => t.category === 'operations').length === 0 && (
-                    <div className="p-4 rounded-xl border bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 text-center space-y-2">
-                      <CheckCircle size={16} className="text-emerald-600 dark:text-emerald-400 mx-auto" />
-                      <p className="text-xs text-emerald-700 dark:text-emerald-400 font-black">Operaciones Diarias al Día</p>
-                      <p className="text-[10px] text-muted-foreground">No hay pedidos ni cierres pendientes de autorización.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Columna 3: Oportunidades Comerciales & Rotación */}
-              <div className="space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[10.5px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                    <Sparkles size={13} className="text-amber-600 dark:text-amber-400" />
-                    3. Oportunidades y Prioridad de Venta
-                  </h4>
-                  {stagnantCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setPriorityModalTab('estancados')}
-                      className="text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5"
-                    >
-                      Ver Estancados ({stagnantCount}) <ArrowUpRight size={11} />
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {visibleTasks.filter(t => t.category === 'opportunities').map(task => renderGuideTaskCard(task))}
-                  {visibleTasks.filter(t => t.category === 'opportunities').length === 0 && (
-                    <div className="p-4 rounded-xl border bg-card border-border text-center space-y-2">
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-black">🎯 Rotación de Stock Óptima</p>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        No se detectan productos estancados sin ventas en los últimos 30 días.
-                      </p>
-                    </div>
-                  )}
-                </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCompleted(!showCompleted)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground h-7 px-2 flex items-center gap-1 rounded-lg"
+                >
+                  {showCompleted ? <EyeOff size={12} /> : <Eye size={12} />}
+                  {showCompleted ? 'Ocultar completadas' : 'Ver completadas'}
+                </Button>
+                <Button
+                  onClick={auditSystem}
+                  variant="ghost"
+                  size="sm"
+                  className="text-[11px] font-bold text-muted-foreground hover:text-foreground h-7 px-2 rounded-lg flex items-center gap-1"
+                >
+                  <RotateCcw size={11} /> Actualizar
+                </Button>
               </div>
             </div>
 
-            {/* SECCIÓN DE AGENDA TÁCTICA DIARIA CON PRIORIZACIÓN Y REDIRECCIÓN */}
-            <div className="pt-6 border-t border-border space-y-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                <div>
-                  <h4 className="text-xs font-black uppercase text-foreground flex items-center gap-2">
-                    <BrainCircuit size={16} className="text-emerald-600 dark:text-emerald-400" />
-                    Agenda Táctica del Día y Plan de Prioridades IA
-                  </h4>
-                  <p className="text-[10.5px] text-muted-foreground">
-                    Haz clic en el nivel de prioridad (🔴/🟠/🔵) para reordenar o pulsa el botón de acción en cada tarjeta para ir directo al módulo.
-                  </p>
+            {panelView === 'resumen' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+                {/* Columna 1: Abastecimiento */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Building2 size={12} className="text-indigo-500" />
+                      1. Abastecimiento
+                    </h4>
+                    {criticalCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPriorityModalTab('criticos')}
+                        className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Ver ({criticalCount})
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {visibleTasks.filter(t => t.category === 'setup').map(task => renderGuideTaskCard(task))}
+                    {visibleTasks.filter(t => t.category === 'setup').length === 0 && (
+                      <div className="p-3 rounded-xl border border-border bg-card/60 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                          <span className="text-xs font-bold text-foreground">Inventario sin quiebres ({stats.productsCount} SKUs)</span>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => router.push('/compras?tab=ordenes')} className="h-7 px-2 text-[10px] font-bold">
+                          Órdenes →
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Filtro rápido por prioridad */}
-                  <div className="flex items-center bg-muted/50 border border-border rounded-xl p-0.5 text-[10px] font-bold">
+                {/* Columna 2: Operaciones */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <CalendarCheck size={12} className="text-blue-500" />
+                      2. Operación Diaria y Caja
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/billing')}
+                      className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Ir a Caja →
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {visibleTasks.filter(t => t.category === 'operations').map(task => renderGuideTaskCard(task))}
+                    {visibleTasks.filter(t => t.category === 'operations').length === 0 && (
+                      <div className="p-3 rounded-xl border border-border bg-card/60 flex items-center gap-2">
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                        <span className="text-xs font-bold text-foreground">Caja y pedidos al día</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Columna 3: Oportunidades */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={12} className="text-amber-500" />
+                      3. Rotación y Ventas
+                    </h4>
+                    {stagnantCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPriorityModalTab('estancados')}
+                        className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                      >
+                        Estancados ({stagnantCount})
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {visibleTasks.filter(t => t.category === 'opportunities').map(task => renderGuideTaskCard(task))}
+                    {visibleTasks.filter(t => t.category === 'opportunities').length === 0 && (
+                      <div className="p-3 rounded-xl border border-border bg-card/60 flex items-center gap-2">
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                        <span className="text-xs font-bold text-foreground">Rotación saludable (30 días)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* VISTA COMPACTA DE AGENDA TÁCTICA (Filas limpias en vez de cajas gigantes) */
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center bg-muted/50 border border-border rounded-lg p-0.5 text-[10px] font-bold">
                     {(['ALL', 'URGENTE', 'ALTA', 'NORMAL'] as const).map(pKey => (
                       <button
                         key={pKey}
                         type="button"
                         onClick={() => setPriorityFilter(pKey)}
-                        className={`px-2.5 py-1 rounded-lg transition-colors ${
+                        className={`px-2.5 py-1 rounded-md transition-colors ${
                           priorityFilter === pKey
                             ? 'bg-indigo-600 text-white shadow-sm'
                             : 'text-muted-foreground hover:text-foreground'
@@ -940,228 +936,140 @@ export function AsistenteGuiaERP() {
                     ))}
                   </div>
 
-                  <Button
-                    onClick={handleGenerateAiSuggestions}
-                    disabled={isGeneratingAi}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 rounded-xl shadow-sm"
-                  >
-                    <Sparkles size={14} className="mr-1.5 text-amber-300" />
-                    {isGeneratingAi ? 'Auditando SKUs...' : '⚡ NexBot: Actualizar Plan IA'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleGenerateAiSuggestions}
+                      disabled={isGeneratingAi}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs font-bold h-7 rounded-lg gap-1"
+                    >
+                      <Sparkles size={12} className="text-indigo-500" />
+                      {isGeneratingAi ? 'Actualizando...' : 'Sugerir con IA'}
+                    </Button>
+                    <Button
+                      onClick={() => setIsAddingTask(!isAddingTask)}
+                      size="sm"
+                      className="h-7 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white gap-1"
+                    >
+                      <Plus size={12} /> Nueva Tarea
+                    </Button>
+                  </div>
+                </div>
 
-                  <Button
-                    onClick={() => setIsAddingTask(!isAddingTask)}
-                    variant="outline"
-                    className="h-8 text-xs font-bold rounded-xl border-border hover:bg-accent text-foreground"
-                  >
-                    <Plus size={14} className="mr-1" /> Nueva Tarea Priorizada
-                  </Button>
+                {isAddingTask && (
+                  <form onSubmit={handleAddManualTask} className="p-3 rounded-xl bg-card border border-border space-y-2.5">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+                      <div className="md:col-span-5">
+                        <Input
+                          value={newTitle}
+                          onChange={e => setNewTitle(e.target.value)}
+                          placeholder="Título de la tarea..."
+                          className="h-8 text-xs"
+                          required
+                        />
+                      </div>
+                      <div className="md:col-span-3">
+                        <Select value={newPriority} onValueChange={(v: any) => setNewPriority(v)}>
+                          <SelectTrigger className="h-8 text-xs font-bold"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="URGENTE" className="text-xs">🔴 URGENTE</SelectItem>
+                            <SelectItem value="ALTA" className="text-xs">🟠 ALTA</SelectItem>
+                            <SelectItem value="NORMAL" className="text-xs">🔵 NORMAL</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="md:col-span-4">
+                        <Select value={newAreaKey} onValueChange={setNewAreaKey}>
+                          <SelectTrigger className="h-8 text-xs font-bold"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(AREA_SHORTCUTS).map(([key, cfg]) => (
+                              <SelectItem key={key} value={key} className="text-xs">{cfg.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={newDesc}
+                        onChange={e => setNewDesc(e.target.value)}
+                        placeholder="Nota opcional..."
+                        className="h-8 text-xs flex-1"
+                      />
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddingTask(false)} className="h-8 text-xs">
+                        Cancelar
+                      </Button>
+                      <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-8 text-xs font-bold text-white">
+                        Guardar
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="divide-y divide-border border border-border rounded-xl bg-card/70 overflow-hidden">
+                  {activeAgendaTasks.map(item => (
+                    <div
+                      key={item.id}
+                      className={`px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 hover:bg-muted/30 transition-colors ${
+                        item.status === 'completed' ? 'opacity-55 line-through' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleAgendaStatus(item.id, item.status)}
+                          className="text-muted-foreground hover:text-emerald-600 shrink-0"
+                        >
+                          {item.status === 'completed' ? <CheckSquare size={15} className="text-emerald-500" /> : <Square size={15} />}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-foreground truncate flex items-center gap-1.5">
+                            <span className="truncate">{item.title}</span>
+                            {item.category === 'ai_suggested' && (
+                              <Badge variant="outline" className="text-[8px] h-4 px-1 border-emerald-500/30 text-emerald-500">IA</Badge>
+                            )}
+                          </div>
+                          {item.description && (
+                            <p className="text-[10.5px] text-muted-foreground truncate">{item.description}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onClick={() => cycleTaskPriority(item)} title="Cambiar prioridad">
+                          {renderPriorityBadge(item.priority)}
+                        </button>
+                        {item.actionPath && item.actionLabel && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(item.actionPath!)}
+                            className="h-7 px-2.5 text-[10px] font-bold rounded-lg gap-1"
+                          >
+                            {item.actionLabel} <ArrowUpRight size={11} />
+                          </Button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => deleteAgendaTask(item.id)}
+                          className="text-muted-foreground hover:text-rose-500 p-1"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {activeAgendaTasks.length === 0 && (
+                    <div className="p-4 text-center text-muted-foreground text-xs">
+                      Sin tareas pendientes. Usa <strong>&quot;Sugerir con IA&quot;</strong> o <strong>&quot;+ Nueva Tarea&quot;</strong> cuando lo necesites.
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* FORMULARIO AGREGAR TAREA CON PRIORIDAD Y ÁREA DE REDIRECCIÓN */}
-              {isAddingTask && (
-                <form onSubmit={handleAddManualTask} className="p-4 rounded-xl bg-card border border-border space-y-3 animate-in fade-in duration-200">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div className="md:col-span-5 space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Título de la Acción / Producto</label>
-                      <Input
-                        value={newTitle}
-                        onChange={e => setNewTitle(e.target.value)}
-                        placeholder="Ej. Pedir 20 galones de Solvente Mineral a proveedor"
-                        className="h-9 text-xs bg-background border-border text-foreground"
-                        required
-                      />
-                    </div>
-                    <div className="md:col-span-3 space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Nivel de Prioridad</label>
-                      <Select value={newPriority} onValueChange={(v: any) => setNewPriority(v)}>
-                        <SelectTrigger className="h-9 text-xs font-bold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="URGENTE" className="text-xs font-bold">🔴 URGENTE (Inmediato)</SelectItem>
-                          <SelectItem value="ALTA" className="text-xs font-bold">🟠 PRIORIDAD ALTA (Hoy)</SelectItem>
-                          <SelectItem value="NORMAL" className="text-xs font-bold">🔵 NORMAL (Programado)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="md:col-span-4 space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Módulo / Área de Destino</label>
-                      <Select value={newAreaKey} onValueChange={setNewAreaKey}>
-                        <SelectTrigger className="h-9 text-xs font-bold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(AREA_SHORTCUTS).map(([key, cfg]) => (
-                            <SelectItem key={key} value={key} className="text-xs">
-                              {cfg.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Detalle Operativo / SKUs / Notas</label>
-                    <Input
-                      value={newDesc}
-                      onChange={e => setNewDesc(e.target.value)}
-                      placeholder="Ej. Confirmar descuento por volumen y autorizar orden antes de las 3:00 PM"
-                      className="h-9 text-xs bg-background border-border text-foreground"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2 pt-1">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddingTask(false)} className="h-8 text-xs">
-                      Cancelar
-                    </Button>
-                    <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-8 text-xs font-bold text-white">
-                      Guardar en Agenda Táctica
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              {/* LISTADO DE AGENDA TÁCTICA PRIORIZADA */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {activeAgendaTasks.map(item => (
-                  <div
-                    key={item.id}
-                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between gap-3 ${
-                      item.status === 'completed'
-                        ? 'bg-muted/40 border-border opacity-60 line-through'
-                        : item.priority === 'URGENTE'
-                        ? 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/50 shadow-sm'
-                        : item.category === 'ai_suggested'
-                        ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 shadow-sm'
-                        : 'bg-card border-border shadow-sm'
-                    }`}
-                  >
-                    <div className="space-y-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2.5 min-w-0">
-                          <button
-                            type="button"
-                            onClick={() => toggleAgendaStatus(item.id, item.status)}
-                            className="mt-0.5 text-muted-foreground hover:text-emerald-600 transition-colors shrink-0"
-                            title="Marcar como completada"
-                          >
-                            {item.status === 'completed' ? (
-                              <CheckSquare size={16} className="text-emerald-600 dark:text-emerald-400" />
-                            ) : (
-                              <Square size={16} />
-                            )}
-                          </button>
-
-                          <div className="min-w-0">
-                            <p className="text-xs font-black text-foreground leading-snug flex flex-wrap items-center gap-1.5">
-                              <span>{item.title}</span>
-                              {item.category === 'ai_suggested' && (
-                                <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[8px] font-black h-3.5 px-1 border-0">
-                                  IA
-                                </Badge>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => cycleTaskPriority(item)}
-                            title="Clic para cambiar prioridad (Normal ➔ Alta ➔ Urgente)"
-                            className="cursor-pointer transition-transform hover:scale-105"
-                          >
-                            {renderPriorityBadge(item.priority)}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteAgendaTask(item.id)}
-                            className="text-muted-foreground hover:text-rose-600 transition-colors p-1"
-                            title="Eliminar tarea"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <p className="text-[10.5px] text-muted-foreground leading-relaxed pl-6">
-                        {item.description}
-                      </p>
-
-                      {/* Lista específica de productos si la tarea los incluye */}
-                      {item.itemsList && item.itemsList.length > 0 && (
-                        <div className="ml-6 p-2 rounded-lg bg-background/90 border border-border/70 space-y-1">
-                          {item.itemsList.map((prodLine, idx) => (
-                            <div key={idx} className="text-[9.5px] font-mono text-foreground/90 truncate flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                              <span className="truncate">{prodLine}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Pie de Tarjeta con Botón de Redirección al Área */}
-                    {item.actionPath && item.actionLabel && (
-                      <div className="pl-6 pt-2 border-t border-border/50 flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-mono text-muted-foreground uppercase">
-                          Fecha: {item.due_date}
-                        </span>
-                        <Button
-                          size="sm"
-                          onClick={() => router.push(item.actionPath!)}
-                          className="h-7 px-2.5 text-[10px] font-black rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1"
-                        >
-                          {item.actionLabel}
-                          <ArrowUpRight size={11} />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {activeAgendaTasks.length === 0 && (
-                  <div className="col-span-full p-5 rounded-xl border border-dashed border-border text-center text-muted-foreground text-xs">
-                    No hay tareas pendientes con este filtro. Haz clic en <strong>&quot;⚡ NexBot: Actualizar Plan IA&quot;</strong> para generar acciones con desglose de productos a pedir y prioridades de venta.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Barra Inferior de Auditoría y Accesos Rápidos */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border/60">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPriorityModalTab('criticos')}
-                  className="h-7 text-[10px] font-bold rounded-lg gap-1"
-                >
-                  <PackageSearch size={12} className="text-rose-500" />
-                  Ver Tabla de Productos a Pedir ({criticalCount})
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPriorityModalTab('estancados')}
-                  className="h-7 text-[10px] font-bold rounded-lg gap-1"
-                >
-                  <Flame size={12} className="text-amber-500" />
-                  Ver Tabla de Stock Estancado ({stagnantCount})
-                </Button>
-              </div>
-
-              <Button
-                onClick={auditSystem}
-                variant="ghost"
-                size="sm"
-                className="text-[10px] font-bold text-muted-foreground hover:text-foreground h-7 rounded-lg flex items-center gap-1"
-              >
-                <RotateCcw size={11} /> Re-auditar Sistema Ahora
-              </Button>
-            </div>
+            )}
           </CardContent>
         )}
       </Card>

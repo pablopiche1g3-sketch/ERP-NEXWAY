@@ -62,10 +62,14 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
   const [savedQuotes, setSavedQuotes] = useState<any[]>([]);
   const [loadingSavedQuotes, setLoadingSavedQuotes] = useState(false);
 
-  // Vendedor / Asesor (mismo patrón que Facturación)
+  // Vendedor / Asesor + Forma de Pago (mismo patrón que Facturación)
   const [appUsersList, setAppUsersList] = useState<Array<{ id: string; email: string; full_name: string }>>([]);
   const [selectedSellerEmail, setSelectedSellerEmail] = useState<string>('');
-  const [quoteSellerMeta, setQuoteSellerMeta] = useState<Record<string, { sellerEmail: string; sellerName: string }>>({});
+  const [quotePaymentMethod, setQuotePaymentMethod] = useState<string>('Efectivo');
+  const [quoteCreditDays, setQuoteCreditDays] = useState<string>('30');
+  const [quoteSellerMeta, setQuoteSellerMeta] = useState<
+    Record<string, { sellerEmail?: string; sellerName?: string; paymentMethod?: string; creditDays?: number }>
+  >({});
 
   // Cliente Receptor (mismo patrón que Facturación)
   const [customers, setCustomers] = useState<any[]>([]);
@@ -126,7 +130,7 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
           .maybeSingle()
       ]);
 
-      let localMeta: Record<string, { sellerEmail: string; sellerName: string }> = {};
+      let localMeta: Record<string, { sellerEmail?: string; sellerName?: string; paymentMethod?: string; creditDays?: number }> = {};
       if (typeof window !== 'undefined') {
         try {
           const raw = localStorage.getItem('nexway_quotations_seller_meta');
@@ -330,12 +334,14 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
 
       if (error) throw error;
 
-      // Guardar vendedor/asesor asignado a la pre-factura (para atribución en Caja y Comisiones)
-      if (inserted?.id && selectedSellerEmail) {
+      // Guardar vendedor/asesor y condición/forma de pago asignados a la pre-factura (para atribución en Caja y alertas de Crédito)
+      if (inserted?.id) {
         const matchedSeller = appUsersList.find((u) => u.email === selectedSellerEmail);
         const sellerEntry = {
-          sellerEmail: selectedSellerEmail,
-          sellerName: matchedSeller?.full_name || selectedSellerEmail
+          sellerEmail: selectedSellerEmail || '',
+          sellerName: matchedSeller?.full_name || selectedSellerEmail || '',
+          paymentMethod: quotePaymentMethod || 'Efectivo',
+          creditDays: quotePaymentMethod === 'Credito' ? (parseInt(quoteCreditDays) || 30) : undefined,
         };
         const nextMeta = { ...quoteSellerMeta, [inserted.id]: sellerEntry };
         setQuoteSellerMeta(nextMeta);
@@ -348,7 +354,8 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
           await supabase.from('system_config').upsert(
             {
               key: 'quotations_seller_metadata',
-              value: nextMeta},
+              value: nextMeta
+            },
             { onConflict: 'key' }
           );
         } catch {}
@@ -367,6 +374,8 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
           customerNit: customerNit.trim() || undefined,
           customerNrc: customerNrc.trim() || undefined,
           sellerName: matchedSeller?.full_name || selectedSellerEmail || undefined,
+          paymentMethod: quotePaymentMethod,
+          creditDays: quotePaymentMethod === 'Credito' ? (parseInt(quoteCreditDays) || 30) : undefined,
           taxMode,
           subtotal,
           iva,
@@ -675,6 +684,40 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
                   className="h-10 bg-white/50 dark:bg-black/20 border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono"
                 />
               </div>
+
+              <div className="w-full sm:w-40 space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
+                  Forma de Pago
+                </Label>
+                <Select value={quotePaymentMethod} onValueChange={setQuotePaymentMethod}>
+                  <SelectTrigger className="h-10 rounded-xl bg-white/60 dark:bg-black/25 border-slate-200 dark:border-white/10 text-xs font-bold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl dark:bg-[#0a0a14] dark:border-white/10">
+                    <SelectItem value="Efectivo" className="text-xs">Efectivo</SelectItem>
+                    <SelectItem value="Tarjeta" className="text-xs">Tarjeta POS</SelectItem>
+                    <SelectItem value="Transferencia" className="text-xs">Transferencia</SelectItem>
+                    <SelectItem value="Cheque" className="text-xs">Cheque</SelectItem>
+                    <SelectItem value="Credito" className="text-xs font-bold text-amber-600 dark:text-amber-400">Crédito (CXC)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {quotePaymentMethod === 'Credito' && (
+                <div className="w-full sm:w-24 space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400 tracking-wider">
+                    Plazo (Días)
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={quoteCreditDays}
+                    onChange={e => setQuoteCreditDays(e.target.value)}
+                    className="h-10 bg-amber-500/10 border-amber-500/30 rounded-xl text-xs font-mono font-bold text-center text-amber-700 dark:text-amber-300"
+                    placeholder="30"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Producto Especial / Sin Existencia (Colapsable para no saturar) */}
@@ -941,6 +984,20 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
                             <UserCheck size={10} /> {sellerInfo.sellerName}
                           </Badge>
                         )}
+                        {sellerInfo?.paymentMethod && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] font-black uppercase ${
+                              sellerInfo.paymentMethod === 'Credito'
+                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40'
+                                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                            }`}
+                          >
+                            {sellerInfo.paymentMethod === 'Credito'
+                              ? `CRÉDITO (${sellerInfo.creditDays || 30}d)`
+                              : sellerInfo.paymentMethod}
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="text-[9px] font-bold uppercase text-amber-600 border-amber-500/30">
                           {itemsArr.length} {itemsArr.length === 1 ? 'producto' : 'productos'}
                         </Badge>
@@ -964,6 +1021,8 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
                               quote_number: refCode,
                               sellerEmail: sellerInfo?.sellerEmail || '',
                               sellerName: sellerInfo?.sellerName || '',
+                              paymentMethod: sellerInfo?.paymentMethod || 'Efectivo',
+                              creditDays: sellerInfo?.creditDays || 30,
                               isPreFacturaSale: false
                             })
                           }
