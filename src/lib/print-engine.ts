@@ -1,4 +1,8 @@
 import { supabase } from '@/supabase/client';
+import {
+  renderVisualTemplateHtml,
+  type VisualTemplateConfig,
+} from './print-visual-templates';
 
 export type PaperSize = 'letter' | 'a4' | '80mm' | '58mm';
 
@@ -18,6 +22,7 @@ export interface PrintBranding {
   accentColor: string;
   termsConditions: string;
   showSignatureFields: boolean;
+  visualTemplate?: VisualTemplateConfig | null;
 }
 
 const DEFAULT_BRANDING: PrintBranding = {
@@ -75,7 +80,10 @@ export async function loadPrintBranding(area: 'quotations' | 'billing' | 'purcha
       showLogo: Boolean(pArea.showLogo && pArea.logoUrl),
       accentColor: pArea.accentColor || DEFAULT_BRANDING.accentColor,
       termsConditions: pArea.termsConditions || DEFAULT_BRANDING.termsConditions,
-      showSignatureFields: pArea.showSignatureFields !== false
+      showSignatureFields: pArea.showSignatureFields !== false,
+      visualTemplate: (pAll.visualTemplates && pAll.visualTemplates[area]?.enabled)
+        ? (pAll.visualTemplates[area] as VisualTemplateConfig)
+        : null
     };
   } catch {
     return DEFAULT_BRANDING;
@@ -226,6 +234,42 @@ export function buildQuotationDocumentHtml(params: {
 }): string {
   const { branding } = params;
   const dateStr = new Date().toLocaleDateString('es-SV', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const ivaLabel = params.taxMode === 'con-iva' ? 'incluyen IVA (13%)' : 'no incluyen IVA';
+  const terms = (branding.termsConditions || '').replace('{iva_detail}', ivaLabel);
+
+  if (branding.visualTemplate?.enabled) {
+    const pmLower = (params.paymentMethod || '').toLowerCase();
+    const isCredit = pmLower.includes('cred');
+    return renderVisualTemplateHtml(
+      branding.visualTemplate,
+      {
+        docTitle: 'COTIZACIÓN',
+        docNumber: params.quoteNumber,
+        dateStr,
+        customerName: params.customerName || 'Cliente General',
+        customerNit: params.customerNit,
+        customerNrc: params.customerNrc,
+        paymentMethod: isCredit
+          ? `Crédito (${params.creditDays || 30} días)`
+          : params.paymentMethod || 'Contado',
+        isCredit,
+        isCcf: Boolean(params.customerNrc),
+        observations: terms,
+        items: params.items.map(it => ({
+          qty: Number(it.quantity || 0),
+          description: it.name,
+          sku: it.sku,
+          unitPrice: Number(it.price || 0),
+          total: Number(it.price || 0) * Number(it.quantity || 0),
+        })),
+        subtotal: params.subtotal,
+        iva: params.iva,
+        total: params.total,
+      },
+      branding
+    );
+  }
+
   const rows = params.items
     .map(
       (it, i) => `
@@ -239,9 +283,6 @@ export function buildQuotationDocumentHtml(params: {
       </tr>`
     )
     .join('');
-
-  const ivaLabel = params.taxMode === 'con-iva' ? 'incluyen IVA (13%)' : 'no incluyen IVA';
-  const terms = (branding.termsConditions || '').replace('{iva_detail}', ivaLabel);
 
   return `<!DOCTYPE html>
   <html lang="es">
@@ -350,6 +391,48 @@ export function buildInvoiceDocumentHtml(params: {
   const isCreditSale = pmLower.includes('cred') || (Number(params.creditAmount || 0) > 0);
   const creditAmountVal = isCreditSale ? (Number(params.creditAmount || 0) > 0 ? Number(params.creditAmount) : netPayable) : 0;
   const creditDaysLabel = params.creditDays ? `${params.creditDays} días` : '30 días';
+
+  if (branding.visualTemplate?.enabled) {
+    const templateWithPaper: VisualTemplateConfig = {
+      ...branding.visualTemplate,
+      paperSize: paperSize || branding.visualTemplate.paperSize,
+    };
+    return renderVisualTemplateHtml(
+      templateWithPaper,
+      {
+        docTitle,
+        docNumber: params.correlative,
+        dateStr,
+        customerName: params.customerName || 'Consumidor Final',
+        customerNit: params.customerNit,
+        customerNrc: params.customerNrc,
+        customerAddress: params.customerAddress,
+        paymentMethod: isCreditSale
+          ? `CRÉDITO (${creditDaysLabel}) — $${creditAmountVal.toFixed(2)}`
+          : params.paymentMethod || 'Contado',
+        isCredit: isCreditSale,
+        isCcf,
+        creditDueDate: isCreditSale ? creditDaysLabel : undefined,
+        creditAuthLabel: params.creditAuthorizedBy
+          ? `Autorización Sobregiro: ${params.creditAuthorizedBy}${params.creditAuthReason ? ` (${params.creditAuthReason})` : ''}`
+          : undefined,
+        observations: branding.termsConditions,
+        items: params.items.map(it => ({
+          qty: Number(it.quantity || 0),
+          description: it.name,
+          sku: it.sku,
+          unitPrice: Number(it.price || 0),
+          total: Number(it.price || 0) * Number(it.quantity || 0),
+        })),
+        subtotal: subtotalGravado,
+        iva: ivaAmount,
+        retention,
+        total: netPayable,
+        qrData: `https://admin.factura.gob.sv/consultaPublica?doc=${encodeURIComponent(params.correlative)}`,
+      },
+      branding
+    );
+  }
 
   // FORMATO TICKET TÉRMICO (80mm / 58mm)
   if (paperSize === '80mm' || paperSize === '58mm') {
@@ -555,6 +638,34 @@ export function buildPurchaseOrderDocumentHtml(params: {
 }): string {
   const { branding } = params;
   const dateStr = new Date().toLocaleDateString('es-SV');
+
+  if (branding.visualTemplate?.enabled) {
+    const subtotal = params.total / 1.13;
+    const iva = params.total - subtotal;
+    return renderVisualTemplateHtml(
+      branding.visualTemplate,
+      {
+        docTitle: 'ORDEN DE COMPRA',
+        docNumber: params.orderNumber,
+        dateStr,
+        customerName: params.supplierName,
+        customerNit: params.supplierNit,
+        paymentMethod: params.warehouseName ? `Bodega: ${params.warehouseName}` : 'Orden de Abastecimiento',
+        observations: params.notes || branding.termsConditions,
+        items: params.items.map(it => ({
+          qty: Number(it.quantity || 0),
+          description: it.name,
+          sku: it.sku,
+          unitPrice: Number(it.unitCost || 0),
+          total: Number(it.unitCost || 0) * Number(it.quantity || 0),
+        })),
+        subtotal,
+        iva,
+        total: params.total,
+      },
+      branding
+    );
+  }
   const rows = params.items
     .map(
       (it, i) => `
