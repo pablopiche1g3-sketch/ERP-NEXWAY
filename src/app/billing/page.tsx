@@ -107,6 +107,13 @@ import {
   loadHaciendaSandboxConfig,
   transmitDteViaSandbox,
 } from '@/lib/hacienda-sandbox';
+import {
+  CreditOverrideAuthorization,
+  evaluateCustomerCreditStatus,
+  loadManagerCreditPin,
+  logCreditOverrideAudit,
+  saveManagerCreditPin,
+} from '@/lib/credit-authorization';
 import { Textarea } from '@/components/ui/textarea';
 import { useStation } from './components/use-station';
 import { useTabs } from '@/hooks/use-tabs';
@@ -804,6 +811,14 @@ export default function BillingPage() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentReference, setPaymentReference] = useState('');
   const [posCreditDays, setPosCreditDays] = useState<string>('30');
+  const [creditOverrideAuth, setCreditOverrideAuth] = useState<CreditOverrideAuthorization | null>(null);
+  const [isCreditAuthModalOpen, setIsCreditAuthModalOpen] = useState(false);
+  const [authManagerEmail, setAuthManagerEmail] = useState('');
+  const [authManagerPin, setAuthManagerPin] = useState('');
+  const [authReason, setAuthReason] = useState('');
+  const [authorizingCredit, setAuthorizingCredit] = useState(false);
+  const [showChangePin, setShowChangePin] = useState(false);
+  const [newManagerPinInput, setNewManagerPinInput] = useState('');
   const [cashReceived, setCashReceived] = useState<string>('');
   const [completedSaleData, setCompletedSaleData] = useState<{
     correlative: string;
@@ -814,6 +829,8 @@ export default function BillingPage() {
     paymentMethod?: string;
     creditDays?: number;
     creditAmount?: number;
+    creditAuthorizedBy?: string;
+    creditAuthReason?: string;
     customerName: string;
     customerEmail?: string;
     customerNit?: string;
@@ -1731,54 +1748,120 @@ export default function BillingPage() {
     return { pendingCreditInvoices: invoices, outstandingDebt: debt };
   }, [selectedCustomer, salesAll, journalPayments]);
 
+  // Limpiar autorización excepcional de crédito si cambia de cliente
+  useEffect(() => {
+    setCreditOverrideAuth(null);
+  }, [selectedCustomer?.id]);
+
+  const creditStatusDetail = useMemo(() => {
+    return evaluateCustomerCreditStatus({
+      customer: selectedCustomer,
+      outstandingDebt,
+      pendingInvoicesCount: pendingCreditInvoices.length,
+      saleAmount: totalCart,
+    });
+  }, [selectedCustomer, pendingCreditInvoices, outstandingDebt, totalCart]);
+
   const creditValidation = useMemo(() => {
     if (!selectedCustomer) {
       return {
         disabled: true,
-        reason: 'Registre o seleccione un cliente de la cartera para evaluar la viabilidad del crédito.'
+        needsOverride: false,
+        reason: creditStatusDetail.message,
       };
     }
 
-    if (!selectedCustomer.is_authorized_credit) {
+    if (creditStatusDetail.needsManagerOverride && !creditOverrideAuth) {
       return {
         disabled: true,
-        reason: `Bloqueado por Gerencia: El cliente "${selectedCustomer.name}" no está autorizado para realizar compras al crédito.`
+        needsOverride: true,
+        reason: creditStatusDetail.message,
       };
     }
 
-    if (pendingCreditInvoices.length > 0) {
+    if (creditOverrideAuth) {
       return {
-        disabled: true,
-        reason: `Bloqueado por Mora: El cliente posee ${pendingCreditInvoices.length} factura(s) al crédito pendiente(s) de pago.`
-      };
-    }
-
-    const limit = parseFloat(selectedCustomer.credit_limit) || 0;
-    const nextTotalDebt = outstandingDebt + totalCart;
-    if (nextTotalDebt > limit) {
-      return {
-        disabled: true,
-        reason: `Bloqueado por Límite: Deuda actual ($${outstandingDebt.toFixed(2)}) + compra actual ($${totalCart.toFixed(2)}) superan el límite de $${limit.toFixed(2)}.`
+        disabled: false,
+        needsOverride: false,
+        reason: `Exceso autorizado por ${creditOverrideAuth.authorizedByName} (${creditOverrideAuth.reason}).`,
       };
     }
 
     return {
       disabled: false,
-      reason: `Crédito Autorizado: Límite de $${limit.toFixed(2)} disponible. Deuda pendiente actual: $${outstandingDebt.toFixed(2)}.`
+      needsOverride: false,
+      reason: creditStatusDetail.message,
     };
-  }, [selectedCustomer, pendingCreditInvoices, outstandingDebt, totalCart]);
+  }, [selectedCustomer, creditStatusDetail, creditOverrideAuth]);
 
-  // Revertir forma de pago a Efectivo si el crédito queda invalidado dinámicamente
-  useEffect(() => {
-    if (paymentMethod === 'Credito' && creditValidation.disabled) {
-      setPaymentMethod('Efectivo');
+  const handleConfirmCreditOverride = async () => {
+    if (!selectedCustomer) return;
+    if (!authReason.trim()) {
       toast({
-        variant: "destructive",
-        title: "Pago Revertido a Efectivo",
-        description: "El crédito del cliente seleccionado no cumple con las reglas vigentes en este momento."
+        variant: 'destructive',
+        title: 'Motivo requerido',
+        description: 'Ingrese el motivo de la autorización excepcional de crédito.',
       });
+      return;
     }
-  }, [creditValidation.disabled, paymentMethod, toast]);
+
+    setAuthorizingCredit(true);
+    try {
+      let approverName = '';
+      let approverEmail = '';
+
+      if (isUserAdmin) {
+        const me = appUsersList.find((u) => u.email?.toLowerCase() === user?.email?.toLowerCase());
+        approverName = me?.full_name || user?.email || 'Administrador';
+        approverEmail = user?.email || 'admin@nexway.sv';
+      } else {
+        const expectedPin = await loadManagerCreditPin();
+        if (authManagerPin.trim() !== expectedPin) {
+          toast({
+            variant: 'destructive',
+            title: 'PIN de Gerencia Incorrecto',
+            description: 'Solicite el PIN correcto al Encargado o Administrador.',
+          });
+          setAuthorizingCredit(false);
+          return;
+        }
+        const selectedMgr = appUsersList.find((u) => u.email === authManagerEmail);
+        approverName = selectedMgr?.full_name || authManagerEmail || 'Encargado / Gerencia';
+        approverEmail = selectedMgr?.email || authManagerEmail || 'gerencia@nexway.sv';
+      }
+
+      const authRecord: CreditOverrideAuthorization = {
+        authorizedByName: approverName,
+        authorizedByEmail: approverEmail,
+        reason: authReason.trim(),
+        authorizedAt: new Date().toISOString(),
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name,
+        exceededAmount: creditStatusDetail.exceededAmount,
+        limitAmount: creditStatusDetail.limit,
+        debtBefore: creditStatusDetail.outstandingDebt,
+        newSaleAmount: totalCart,
+      };
+
+      setCreditOverrideAuth(authRecord);
+      setPaymentMethod('Credito');
+      setIsCreditAuthModalOpen(false);
+      setAuthManagerPin('');
+      toast({
+        title: 'Despacho al Crédito Autorizado ✓',
+        description: `Autorizado por ${approverName}. Ya puede emitir la factura al crédito.`,
+      });
+    } finally {
+      setAuthorizingCredit(false);
+    }
+  };
+
+  // Revertir forma de pago a Efectivo si el crédito queda invalidado y no hay autorización de encargado
+  useEffect(() => {
+    if (paymentMethod === 'Credito' && creditValidation.disabled && !creditValidation.needsOverride) {
+      setPaymentMethod('Efectivo');
+    }
+  }, [creditValidation.disabled, creditValidation.needsOverride, paymentMethod]);
 
   const systemCardSales = useMemo(() => 
     activeShiftSales?.filter(s => s.status !== 'CANCELADA' && s.status !== 'PENDIENTE DE IMPRESION' && s.status !== 'PENDIENTE')
@@ -2781,6 +2864,15 @@ export default function BillingPage() {
         console.warn('Error en transmisión Sandbox MH (venta guardada correctamente):', mhErr);
       }
 
+      // Registrar auditoría si hubo autorización excepcional de exceso de crédito
+      if (creditOverrideAuth && (paymentMethod === 'Credito' || splitCreditVal > 0)) {
+        logCreditOverrideAudit({
+          ...creditOverrideAuth,
+          id: `ov-${Date.now()}`,
+          correlative,
+        }).catch(() => {});
+      }
+
       // Desplegar Modal de Venta Completada
       setCompletedSaleData({
         correlative,
@@ -2791,6 +2883,8 @@ export default function BillingPage() {
         paymentMethod,
         creditDays: paymentMethod === 'Credito' || splitCreditVal > 0 ? (parseInt(posCreditDays) || 30) : undefined,
         creditAmount: paymentMethod === 'Credito' ? totalCart : (paymentMethod === 'Mixto' ? splitCreditVal : 0),
+        creditAuthorizedBy: creditOverrideAuth?.authorizedByName,
+        creditAuthReason: creditOverrideAuth?.reason,
         customerName: customerName || (docType === 'CF' ? 'Consumidor Final' : 'Cliente CCF'),
         customerEmail: customerEmail || selectedCustomer?.email || cashConfig?.catchAllEmail || '',
         customerNit: selectedCustomer?.nit,
@@ -2806,6 +2900,7 @@ export default function BillingPage() {
       setCustomerName('');
       setCustomerEmail('');
       setSelectedCustomer(null);
+      setCreditOverrideAuth(null);
       setSelectedPendingSaleId(null);
       setCashReceived('');
       setSplitAmounts({
@@ -3354,19 +3449,63 @@ export default function BillingPage() {
                       </button>
                     ))}
                     <button 
-                      onClick={() => setPaymentMethod('Credito')}
-                      disabled={creditValidation.disabled}
+                      onClick={() => {
+                        if (creditValidation.needsOverride) {
+                          setIsCreditAuthModalOpen(true);
+                          return;
+                        }
+                        if (!creditValidation.disabled) {
+                          setPaymentMethod('Credito');
+                        }
+                      }}
+                      disabled={!selectedCustomer}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium transition-colors border ${
                         paymentMethod === 'Credito'
-                          ? 'bg-blue-500/10 dark:bg-[#5b5ef4]/25 border-blue-500/30 dark:border-[#5b5ef4]/50 text-blue-700 dark:text-[#7c7fff]' 
+                          ? 'bg-amber-500/20 border-amber-500/50 text-amber-700 dark:text-amber-300 font-bold' 
+                          : creditValidation.needsOverride
+                          ? 'bg-amber-500/10 border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20'
                           : 'bg-white/50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white/80'
-                      } ${creditValidation.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${!selectedCustomer ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      <Receipt size={13} /> Crédito
+                      <Receipt size={13} /> Crédito {creditValidation.needsOverride ? '🔒' : ''}
                     </button>
                   </div>
-                  <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-white/30 mt-2">
-                    <AlertCircle size={13} className="text-slate-400 dark:text-white/20" /> Registre o seleccione un cliente para evaluar la viabilidad del crédito.
+
+                  {/* SEMÁFORO DE CRÉDITO + BOTÓN DE AUTORIZACIÓN DE ENCARGADO */}
+                  <div
+                    className={`mt-2 p-2.5 rounded-xl border text-[11px] flex flex-wrap items-center justify-between gap-2 ${
+                      !selectedCustomer
+                        ? 'bg-muted/30 border-border text-muted-foreground'
+                        : creditOverrideAuth
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                        : creditValidation.needsOverride
+                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-200'
+                        : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-1.5 flex-1 min-w-[200px]">
+                      <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                      <span className="leading-snug">{creditValidation.reason}</span>
+                    </div>
+                    {creditValidation.needsOverride && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setIsCreditAuthModalOpen(true)}
+                        className="h-7 px-2.5 text-[10px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg shrink-0"
+                      >
+                        🔐 Autorizar Exceso
+                      </Button>
+                    )}
+                    {creditOverrideAuth && (
+                      <button
+                        type="button"
+                        onClick={() => setCreditOverrideAuth(null)}
+                        className="text-[10px] font-bold underline opacity-80 hover:opacity-100"
+                      >
+                        Revocar
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -5620,6 +5759,128 @@ export default function BillingPage() {
         </DialogContent>
       </Dialog>
 
+      {/* MODAL DE AUTORIZACIÓN EXCEPCIONAL DE LÍMITE DE CRÉDITO */}
+      <Dialog open={isCreditAuthModalOpen} onOpenChange={setIsCreditAuthModalOpen}>
+        <DialogContent className="rounded-2xl max-w-md p-6 bg-card border shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-amber-600 dark:text-amber-400 flex items-center gap-2">
+              🔐 Autorización de Despacho al Crédito
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              El cliente supera su límite autorizado o tiene saldo pendiente. Se requiere aprobación de Encargado o Administrador.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-1.5">
+              <div className="flex justify-between"><span>Cliente:</span><strong className="text-foreground">{selectedCustomer?.name || 'N/A'}</strong></div>
+              <div className="flex justify-between"><span>Límite Autorizado:</span><span className="font-mono font-bold">${creditStatusDetail.limit.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Deuda Pendiente Actual:</span><span className="font-mono font-bold text-amber-600 dark:text-amber-400">${creditStatusDetail.outstandingDebt.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Nueva Factura:</span><span className="font-mono font-bold">${totalCart.toFixed(2)}</span></div>
+              <div className="flex justify-between border-t border-amber-500/30 pt-1.5 text-rose-600 dark:text-rose-400 font-black">
+                <span>Monto Excedido:</span>
+                <span className="font-mono">${creditStatusDetail.exceededAmount.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {!isUserAdmin && (
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Encargado / Administrador que Autoriza</Label>
+                  <Select value={authManagerEmail} onValueChange={setAuthManagerEmail}>
+                    <SelectTrigger className="h-9 text-xs font-bold">
+                      <SelectValue placeholder="Seleccione encargado..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {appUsersList.map((u) => (
+                        <SelectItem key={u.id} value={u.email} className="text-xs">
+                          {u.full_name} ({u.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">PIN de Autorización (Gerencia)</Label>
+                  <Input
+                    type="password"
+                    placeholder="Ingrese PIN de encargado..."
+                    value={authManagerPin}
+                    onChange={(e) => setAuthManagerPin(e.target.value)}
+                    className="h-10 text-sm font-mono tracking-widest"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Motivo / Observación de Autorización *</Label>
+              <Input
+                placeholder="Ej. Cliente habitual, cancela el viernes con cheque..."
+                value={authReason}
+                onChange={(e) => setAuthReason(e.target.value)}
+                className="h-10 text-xs"
+              />
+            </div>
+
+            {isUserAdmin && (
+              <div className="pt-1 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePin(!showChangePin)}
+                  className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  {showChangePin ? 'Ocultar configuración de PIN' : 'Configurar PIN de autorización para cajeros'}
+                </button>
+                {showChangePin && (
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      type="password"
+                      placeholder="Nuevo PIN (mín. 4 dígitos)"
+                      value={newManagerPinInput}
+                      onChange={(e) => setNewManagerPinInput(e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs font-bold"
+                      onClick={async () => {
+                        try {
+                          await saveManagerCreditPin(newManagerPinInput);
+                          setNewManagerPinInput('');
+                          setShowChangePin(false);
+                          toast({ title: 'PIN de Gerencia Actualizado ✓' });
+                        } catch (e: any) {
+                          toast({ variant: 'destructive', title: 'Error', description: e?.message });
+                        }
+                      }}
+                    >
+                      Guardar PIN
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setIsCreditAuthModalOpen(false)} className="text-xs font-bold">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmCreditOverride}
+              disabled={authorizingCredit}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl"
+            >
+              {authorizingCredit ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+              ✓ Autorizar Despacho al Crédito
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* MODAL DE VENTA COMPLETADA E IMPRESIÓN DE DTE */}
       <Dialog open={completedSaleData !== null} onOpenChange={(open) => !open && setCompletedSaleData(null)}>
         {completedSaleData && (
@@ -5731,6 +5992,8 @@ export default function BillingPage() {
                       paymentMethod: completedSaleData.paymentMethod || paymentMethod,
                       creditDays: completedSaleData.creditDays,
                       creditAmount: completedSaleData.creditAmount,
+                      creditAuthorizedBy: completedSaleData.creditAuthorizedBy,
+                      creditAuthReason: completedSaleData.creditAuthReason,
                       items: completedSaleData.items,
                       total: completedSaleData.total,
                       ivaRetention1,
@@ -5761,6 +6024,8 @@ export default function BillingPage() {
                       paymentMethod: completedSaleData.paymentMethod || paymentMethod,
                       creditDays: completedSaleData.creditDays,
                       creditAmount: completedSaleData.creditAmount,
+                      creditAuthorizedBy: completedSaleData.creditAuthorizedBy,
+                      creditAuthReason: completedSaleData.creditAuthReason,
                       items: completedSaleData.items,
                       total: completedSaleData.total,
                       ivaRetention1,

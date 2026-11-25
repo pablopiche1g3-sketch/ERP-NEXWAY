@@ -330,6 +330,8 @@ export function buildInvoiceDocumentHtml(params: {
   paymentMethod?: string;
   creditDays?: number | string;
   creditAmount?: number;
+  creditAuthorizedBy?: string;
+  creditAuthReason?: string;
   items: Array<{ sku?: string; name: string; quantity: number; price: number }>;
   total: number;
   ivaRetention1?: number;
@@ -417,6 +419,8 @@ export function buildInvoiceDocumentHtml(params: {
                  <div style="font-weight:900;font-size:12px;">*** VENTA AL CRÉDITO ***</div>
                  <div style="font-size:10px;font-weight:700;">CUENTA POR COBRAR: $${creditAmountVal.toFixed(2)}</div>
                  <div style="font-size:10px;">Plazo autorizado: ${esc(creditDaysLabel)}</div>
+                 ${params.creditAuthorizedBy ? `<div style="font-size:9.5px;margin-top:2px;font-weight:700;">Exceso autorizado por: ${esc(params.creditAuthorizedBy)}</div>` : ''}
+                 ${params.creditAuthReason ? `<div style="font-size:9px;">Motivo: ${esc(params.creditAuthReason)}</div>` : ''}
                  <div style="font-size:9.5px;margin-top:2px;">CAJERO: CONSERVAR COPIA FIRMADA</div>
                </div>
                <div style="margin-top:10px;font-size:9.5px;line-height:1.35;">
@@ -485,7 +489,11 @@ export function buildInvoiceDocumentHtml(params: {
       ${
         isCreditSale
           ? `<div style="border:2px solid #b45309;background:#fffbeb;color:#78350f;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:11px;">
-               <strong>VENTA AL CRÉDITO (CUENTA POR COBRAR):</strong> Documento emitido al crédito por <strong>$${creditAmountVal.toFixed(2)}</strong> a plazo de <strong>${esc(creditDaysLabel)}</strong>. <strong>AVISO CAJA:</strong> Solicitar firma y sello de recepción del cliente y archivar copia en Cuentas por Cobrar.
+               <strong>VENTA AL CRÉDITO (CUENTA POR COBRAR):</strong> Documento emitido al crédito por <strong>$${creditAmountVal.toFixed(2)}</strong> a plazo de <strong>${esc(creditDaysLabel)}</strong>. <strong>AVISO CAJA:</strong> Solicitar firma y sello de recepción del cliente y archivar copia en Cuentas por Cobrar.${
+                 params.creditAuthorizedBy
+                   ? `<br/><strong>AUTORIZACIÓN DE SOBREGIRO:</strong> Aprobado por <strong>${esc(params.creditAuthorizedBy)}</strong>${params.creditAuthReason ? ` · Motivo: ${esc(params.creditAuthReason)}` : ''}.`
+                   : ''
+               }
              </div>`
           : ''
       }

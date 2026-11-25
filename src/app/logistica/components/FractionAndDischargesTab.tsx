@@ -58,6 +58,7 @@ import {
   loadPackagingPresets,
   savePackagingPresets,
 } from '@/lib/product-fraction-rules';
+import VisualProductionMixer from './VisualProductionMixer';
 
 export interface SpecialDischargeRecord {
   id: string;
@@ -206,6 +207,7 @@ export default function FractionAndDischargesTab() {
   // Formulario Fraccionamiento
 
   const [fractionFlow, setFractionFlow] = useState<'VENTA' | 'PRODUCCION'>('VENTA');
+  const [productionUiMode, setProductionUiMode] = useState<'visual' | 'clasico'>('visual');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
   const [sourceSku, setSourceSku] = useState<string>('');
   const [sourceUnit, setSourceUnit] = useState<string>('Galón');
@@ -1491,13 +1493,10 @@ export default function FractionAndDischargesTab() {
 
       {/* 1. SUB-TAB: FRACCIONAMIENTO */}
       {activeSubTab === 'fraccionar' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* Panel Izquierdo: Configuración del Fraccionamiento */}
-          <div className="lg:col-span-7 space-y-5">
-            
-            {/* Selector de Flujo y Modo */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-4">
+          {/* Selector de Flujo Superior (Venta vs Producción) */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 max-w-2xl">
               <div 
                 onClick={() => setFractionFlow('VENTA')}
                 className={`cursor-pointer rounded-xl p-3.5 border transition-all ${
@@ -1531,11 +1530,90 @@ export default function FractionAndDischargesTab() {
                   </div>
                   <div>
                     <div className="text-xs font-bold text-foreground uppercase tracking-wider">Consumo en Producción</div>
-                    <div className="text-[11px] text-muted-foreground">Descargo directo a orden o fórmula</div>
+                    <div className="text-[11px] text-muted-foreground">Mezclador visual 4 pasos o descargo directo</div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {fractionFlow === 'PRODUCCION' && (
+              <div className="inline-flex items-center bg-muted/60 border border-border p-1 rounded-xl self-start lg:self-center">
+                <button
+                  type="button"
+                  onClick={() => setProductionUiMode('visual')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    productionUiMode === 'visual'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  🧪 Mezclador Visual (4 Pasos)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProductionUiMode('clasico')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    productionUiMode === 'clasico'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  📋 Formulario Clásico / Presets
+                </button>
+              </div>
+            )}
+          </div>
+
+          {fractionFlow === 'PRODUCCION' && productionUiMode === 'visual' ? (
+            <VisualProductionMixer
+              warehouses={warehouses}
+              selectedWarehouseId={selectedWarehouseId}
+              onWarehouseChange={setSelectedWarehouseId}
+              inventory={products}
+              stockMap={Object.fromEntries(
+                products.map((p) => [p.sku, Number(stockMap[`${p.sku}:${selectedWarehouseId}`] || 0)])
+              )}
+              packagingPresets={packagingPresets}
+              operatorName={operatorName || user?.email || 'Operador'}
+              onCompleted={async (summary) => {
+                const whObj = warehouses.find((w) => w.id === selectedWarehouseId);
+                const newRecord: SpecialDischargeRecord = {
+                  id: `MIX-${Date.now().toString().slice(-6)}`,
+                  type: 'CONSUMO_PRODUCCION',
+                  sku: summary.sourceSku,
+                  name: summary.sourceName,
+                  quantity: summary.sourceQty,
+                  resultingSku: summary.targetSku || summary.batchCode,
+                  resultingName: summary.targetName || `Consumo Producción (${summary.actionType})`,
+                  resultingQuantity: summary.targetQty || 0,
+                  warehouseId: selectedWarehouseId,
+                  warehouseName: whObj?.name || 'Bodega',
+                  flowType: 'PRODUCCION',
+                  unitCostResulting: summary.totalCost,
+                  batchNumber: summary.batchCode,
+                  reason: summary.notes,
+                  responsibleEmail: operatorName || user?.email || 'Operador',
+                  created_at: new Date().toISOString(),
+                };
+                const updatedHistory = [newRecord, ...history];
+                setHistory(updatedHistory);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('special_discharges_history', JSON.stringify(updatedHistory));
+                }
+                try {
+                  await supabase.from('system_config').upsert(
+                    { key: 'special_discharges_history', value: updatedHistory },
+                    { onConflict: 'key' }
+                  );
+                } catch {}
+                loadData();
+              }}
+            />
+          ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* Panel Izquierdo: Configuración del Fraccionamiento */}
+          <div className="lg:col-span-7 space-y-5">
 
             {/* Formulario Principal de Fraccionamiento */}
             <Card className="border-border/60 shadow-sm rounded-2xl overflow-hidden">
@@ -2373,6 +2451,8 @@ export default function FractionAndDischargesTab() {
             </Card>
           </div>
 
+        </div>
+          )}
         </div>
       )}
 

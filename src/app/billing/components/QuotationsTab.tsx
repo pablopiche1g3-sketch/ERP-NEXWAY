@@ -36,6 +36,11 @@ import {
   loadPrintBranding,
   printHtmlDocument
 } from '@/lib/print-engine';
+import {
+  evaluateCustomerCreditStatus,
+  fetchCustomerCurrentDebt,
+  CustomerCreditCheckResult
+} from '@/lib/credit-authorization';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -74,6 +79,11 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
   // Cliente Receptor (mismo patrón que Facturación)
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedQuoteCustomer, setSelectedQuoteCustomer] = useState<any | null>(null);
+  const [quoteCustomerDebt, setQuoteCustomerDebt] = useState<{ outstandingDebt: number; pendingInvoicesCount: number }>({
+    outstandingDebt: 0,
+    pendingInvoicesCount: 0,
+  });
   const [customerName, setCustomerName] = useState('');
   const [customerNit, setCustomerNit] = useState('');
   const [customerNrc, setCustomerNrc] = useState('');
@@ -309,6 +319,42 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
   const total = quoteItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const subtotal = taxMode === 'con-iva' ? total / 1.13 : total;
   const iva = taxMode === 'con-iva' ? total - subtotal : 0;
+
+  // Evaluar deuda/límite de crédito en tiempo real cuando eligen Crédito en Cotización
+  useEffect(() => {
+    if (quotePaymentMethod !== 'Credito') return;
+    const matched =
+      selectedQuoteCustomer ||
+      customers.find(
+        (c) =>
+          customerName.trim() &&
+          (c.name || '').trim().toLowerCase() === customerName.trim().toLowerCase()
+      ) ||
+      null;
+    if (!matched) {
+      setQuoteCustomerDebt({ outstandingDebt: 0, pendingInvoicesCount: 0 });
+      return;
+    }
+    fetchCustomerCurrentDebt(matched.id, matched.name).then(setQuoteCustomerDebt);
+  }, [quotePaymentMethod, selectedQuoteCustomer, customerName, customers]);
+
+  const quoteCreditStatus: CustomerCreditCheckResult | null = useMemo(() => {
+    if (quotePaymentMethod !== 'Credito') return null;
+    const matched =
+      selectedQuoteCustomer ||
+      customers.find(
+        (c) =>
+          customerName.trim() &&
+          (c.name || '').trim().toLowerCase() === customerName.trim().toLowerCase()
+      ) ||
+      null;
+    return evaluateCustomerCreditStatus({
+      customer: matched,
+      outstandingDebt: quoteCustomerDebt.outstandingDebt,
+      pendingInvoicesCount: quoteCustomerDebt.pendingInvoicesCount,
+      saleAmount: total,
+    });
+  }, [quotePaymentMethod, selectedQuoteCustomer, customerName, customers, quoteCustomerDebt, total]);
 
   const handleSavePreInvoice = async (shouldPrint: boolean) => {
     if (quoteItems.length === 0) {
@@ -626,6 +672,7 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
                             <div
                               key={c.id}
                               onClick={() => {
+                                setSelectedQuoteCustomer(c);
                                 setCustomerName(c.name || '');
                                 setCustomerNit(c.nit || '');
                                 setCustomerNrc(c.nrc || '');
@@ -719,6 +766,35 @@ export default function QuotationsTab({ onQuotationSaved, onLoadQuoteToCart }: Q
                 </div>
               )}
             </div>
+
+            {/* SEMÁFORO DE LÍMITE DE CRÉDITO EN COTIZACIÓN */}
+            {quoteCreditStatus && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                  quoteCreditStatus.statusLevel === 'ok'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                    : quoteCreditStatus.statusLevel === 'warning'
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-200'
+                    : 'bg-rose-500/15 border-rose-500/40 text-rose-700 dark:text-rose-200'
+                }`}
+              >
+                <div className="space-y-0.5">
+                  <div className="font-black uppercase text-[11px]">
+                    {quoteCreditStatus.statusLevel === 'ok'
+                      ? '✓ Línea de Crédito Dentro del Límite'
+                      : quoteCreditStatus.isExceeded
+                      ? `⚠️ LÍMITE DE CRÉDITO EXCEDIDO POR $${quoteCreditStatus.exceededAmount.toFixed(2)}`
+                      : '⚠️ CRÉDITO REQUIERE AUTORIZACIÓN DE ENCARGADO / ADMIN'}
+                  </div>
+                  <p className="text-[11px] opacity-90">{quoteCreditStatus.message}</p>
+                </div>
+                {quoteCreditStatus.needsManagerOverride && (
+                  <Badge className="bg-amber-600 text-white border-0 text-[10px] font-black shrink-0 self-start sm:self-center">
+                    Requiere Autorización en Caja
+                  </Badge>
+                )}
+              </div>
+            )}
 
             {/* Producto Especial / Sin Existencia (Colapsable para no saturar) */}
             {showCustomProductForm && (
