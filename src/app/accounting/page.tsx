@@ -41,6 +41,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/supabase/client';
 import HaciendaSandboxPanel from './components/HaciendaSandboxPanel';
+import { AccountingAiAssistant, type AccountingLiveContext } from './components/AccountingAiAssistant';
 import { useModuleConfig } from '@/supabase/use-module-config';
 import { useTabs } from '@/hooks/use-tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -839,6 +840,79 @@ export default function AccountingPage() {
     });
   }, [journal, totalSales, totalManualIncome, totalExpensesSimplificado, libComprasIVA, libVcIVA, libVcfIVA]);
 
+  // Contexto en vivo para el Asistente Contable IA (Nivel 1 y Nivel 2)
+  const aiLiveContext: AccountingLiveContext = useMemo(() => {
+    const trialTotalDebit = trialBalanceAccounts.reduce((s, a) => s + (a.debit || 0), 0);
+    const trialTotalCredit = trialBalanceAccounts.reduce((s, a) => s + (a.credit || 0), 0);
+    const trialBalanced = Math.abs(trialTotalDebit - trialTotalCredit) < 0.05;
+    return {
+      activeTab,
+      filterMonth,
+      filterYear,
+      activeIncome,
+      activeExpenses,
+      grossProfit,
+      totalDebitFiscal,
+      totalCreditFiscal,
+      f07TaxBalance,
+      f14PagoCuenta,
+      f14Total,
+      trialTotalDebit,
+      trialTotalCredit,
+      trialBalanced,
+      journalCount: journal?.length || 0,
+      pettyCashCount: expenses?.length || 0,
+      ivaRate: settings.ivaRate,
+      pagoCuentaRate: settings.pagoCuentaRate,
+      recentEntries: (journal || []).slice(0, 5).map((j: any) => ({
+        description: j.description || 'Asiento',
+        amount: Number(j.amount || 0),
+        type: j.type,
+        date: j.created_at || j.timestamp,
+      })),
+    };
+  }, [
+    activeTab,
+    filterMonth,
+    filterYear,
+    activeIncome,
+    activeExpenses,
+    grossProfit,
+    totalDebitFiscal,
+    totalCreditFiscal,
+    f07TaxBalance,
+    f14PagoCuenta,
+    f14Total,
+    trialBalanceAccounts,
+    journal,
+    expenses,
+    settings.ivaRate,
+    settings.pagoCuentaRate,
+  ]);
+
+  // Guía contextual de 1 línea para el Auxiliar Contable según el paso activo
+  const activeStepGuide = useMemo(() => {
+    if (activeTab === 'diario') {
+      return { badge: 'Paso 1 · Diario', text: 'Verifica las partidas automáticas de ventas/compras del día y registra asientos manuales (o pídele un borrador al Asistente Contable IA).' };
+    }
+    if (activeTab === 'caja-chica') {
+      return { badge: 'Paso 2 · Diario', text: 'Registra gastos menores con recibo o factura (gasolina, papelería, agua) y controla el saldo disponible de caja chica.' };
+    }
+    if (activeTab === 'auditoria') {
+      return { badge: 'Paso 3 · Semanal / Cierre', text: 'Revisa el detalle manual y verifica que cada partida tenga respaldo documental antes del cierre fiscal.' };
+    }
+    if (['libros_iva', 'mh_forms', 'tributario', 'sandbox_mh'].includes(activeTab)) {
+      return { badge: 'Paso 4 · Mensual (MH)', text: 'Exporta los 3 Libros de IVA (CSV), valida tu declaración F-07 / F-14 y verifica los sellos DTE antes de los primeros 10 días hábiles.' };
+    }
+    if (activeTab === 'balance-comprobacion') {
+      return { badge: 'Paso 5 · Cierre de Mes', text: 'Confirma que el total del Debe sea igual al total del Haber antes de emitir los reportes financieros.' };
+    }
+    if (['pnl', 'rentabilidad'].includes(activeTab)) {
+      return { badge: 'Paso 6 · Gerencia', text: 'Consulta el Estado de Resultados (P&L) y la Rentabilidad por producto/canal para presentar el cierre a gerencia.' };
+    }
+    return { badge: 'Administración', text: 'Configura el perfil fiscal (IVA 13%, Pago a Cuenta 1.75%) y el nivel de contabilidad del ERP.' };
+  }, [activeTab]);
+
   // Exportar anexo CSV
   const handleExportCSV = (type: 'vcf' | 'vc' | 'compras') => {
     let headers: string[] = [];
@@ -927,8 +1001,13 @@ export default function AccountingPage() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <ModeToggle />
+          <AccountingAiAssistant
+            context={aiLiveContext}
+            branchId={branches[0]?.id || null}
+            onJournalPosted={loadAccountingData}
+          />
           {settings.accountingLevel === 'Avanzado' ? (
             <Button className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs h-10 font-bold shadow-md shadow-blue-200" onClick={() => setIsAdvancedModalOpen(true)}>
               <Plus size={14} className="mr-1 md:mr-2" /> Nueva Partida Diario
@@ -1022,27 +1101,22 @@ export default function AccountingPage() {
           </Card>
         </div>
 
-        {/* MÓDULO PRINCIPAL CON PESTAÑAS */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card border-border shadow-sm p-1 rounded-2xl flex-wrap h-auto w-full justify-start overflow-x-auto no-scrollbar">
+        {/* MÓDULO PRINCIPAL CON PESTAÑAS (ORDEN CRONOLÓGICO DE 6 PASOS PARA AUXILIAR CONTABLE) */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="bg-card border-border shadow-sm p-1.5 rounded-2xl flex-wrap h-auto w-full justify-start gap-1 overflow-x-auto no-scrollbar">
             {config?.['accounting_diario'] !== false && (
-              <TabsTrigger value="diario" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <FileText size={14} className="mr-2"/> Libro Diario
+              <TabsTrigger value="diario" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <FileText size={14} className="mr-1.5"/> 1. Libro Diario
+              </TabsTrigger>
+            )}
+            {config?.['accounting_caja-chica'] !== false && (
+              <TabsTrigger value="caja-chica" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <Briefcase size={14} className="mr-1.5"/> 2. Caja Chica
               </TabsTrigger>
             )}
             {config?.['accounting_auditoria'] !== false && (
-              <TabsTrigger value="auditoria" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <FileSearch size={14} className="mr-2"/> Auditoría & Detalle Manual
-              </TabsTrigger>
-            )}
-            {config?.['accounting_balance-comprobacion'] !== false && (
-              <TabsTrigger value="balance-comprobacion" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <Scale size={14} className="mr-2"/> Balance Comprobación
-              </TabsTrigger>
-            )}
-            {config?.['accounting_rentabilidad'] !== false && (
-              <TabsTrigger value="rentabilidad" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <PieChart size={14} className="mr-2"/> Rentabilidad & Márgenes
+              <TabsTrigger value="auditoria" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <FileSearch size={14} className="mr-1.5"/> 3. Auditoría
               </TabsTrigger>
             )}
             {(config?.['accounting_libros_iva'] !== false ||
@@ -1051,35 +1125,87 @@ export default function AccountingPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!['libros_iva', 'mh_forms', 'tributario'].includes(activeTab)) {
+                  if (!['libros_iva', 'mh_forms', 'tributario', 'sandbox_mh'].includes(activeTab)) {
                     setActiveTab('libros_iva');
                   }
                 }}
-                className={`inline-flex items-center justify-center whitespace-nowrap rounded-xl px-5 py-2 font-bold text-xs md:text-sm transition-all ${
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2 font-bold text-xs md:text-sm transition-all ${
                   ['libros_iva', 'mh_forms', 'tributario', 'sandbox_mh'].includes(activeTab)
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-foreground'
                 }`}
               >
-                <Percent size={14} className="mr-2" /> Hacienda e IVA (MH)
+                <Percent size={14} className="mr-1.5" /> 4. Hacienda e IVA (MH)
               </button>
             )}
-            {config?.['accounting_caja-chica'] !== false && (
-              <TabsTrigger value="caja-chica" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <Briefcase size={14} className="mr-2"/> Caja Chica
+            {config?.['accounting_balance-comprobacion'] !== false && (
+              <TabsTrigger value="balance-comprobacion" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <Scale size={14} className="mr-1.5"/> 5. Balance Comprobación
               </TabsTrigger>
             )}
-            {config?.['accounting_pnl'] !== false && (
-              <TabsTrigger value="pnl" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <BarChart3 size={14} className="mr-2"/> P&L Resultados
-              </TabsTrigger>
+            {(config?.['accounting_pnl'] !== false || config?.['accounting_rentabilidad'] !== false) && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!['pnl', 'rentabilidad'].includes(activeTab)) {
+                    setActiveTab('pnl');
+                  }
+                }}
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2 font-bold text-xs md:text-sm transition-all ${
+                  ['pnl', 'rentabilidad'].includes(activeTab)
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-foreground'
+                }`}
+              >
+                <BarChart3 size={14} className="mr-1.5" /> 6. Resultados y Rentabilidad
+              </button>
             )}
             {config?.['accounting_settings'] !== false && (
-              <TabsTrigger value="settings" className="rounded-xl px-5 py-2 font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:text-white text-xs md:text-sm text-slate-600 dark:text-slate-400">
-                <Settings size={14} className="mr-2"/> Ajustes ERP
+              <TabsTrigger value="settings" className="ml-auto rounded-xl px-3.5 py-2 font-bold data-[state=active]:bg-slate-800 data-[state=active]:text-white dark:data-[state=active]:bg-slate-700 text-xs text-slate-500 dark:text-slate-400">
+                <Settings size={14} className="mr-1.5"/> Ajustes ERP
               </TabsTrigger>
             )}
           </TabsList>
+
+          {/* Barra guía compacta de 1 línea para el Auxiliar Contable */}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-900/50 border border-border/70 text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-bold text-[10px] shrink-0">
+                {activeStepGuide.badge}
+              </Badge>
+              <span className="text-slate-600 dark:text-slate-300 truncate sm:whitespace-normal">
+                {activeStepGuide.text}
+              </span>
+            </div>
+          </div>
+
+          {/* Sub-barra unificada para 6. Resultados y Rentabilidad */}
+          {['pnl', 'rentabilidad'].includes(activeTab) && (
+            <div className="flex flex-wrap items-center gap-2 bg-card border border-border p-1.5 rounded-2xl w-fit shadow-sm">
+              {config?.['accounting_pnl'] !== false && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={activeTab === 'pnl' ? 'default' : 'ghost'}
+                  onClick={() => setActiveTab('pnl')}
+                  className="rounded-xl h-8 text-xs font-bold gap-1.5"
+                >
+                  <BarChart3 size={13} /> 1. Estado de Resultados (P&L)
+                </Button>
+              )}
+              {config?.['accounting_rentabilidad'] !== false && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={activeTab === 'rentabilidad' ? 'default' : 'ghost'}
+                  onClick={() => setActiveTab('rentabilidad')}
+                  className="rounded-xl h-8 text-xs font-bold gap-1.5"
+                >
+                  <PieChart size={13} /> 2. Rentabilidad & Márgenes
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Sub-barra unificada para Hacienda e IVA (MH) */}
           {['libros_iva', 'mh_forms', 'tributario', 'sandbox_mh'].includes(activeTab) && (
