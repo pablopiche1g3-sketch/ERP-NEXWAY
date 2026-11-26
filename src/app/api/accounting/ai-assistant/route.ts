@@ -16,6 +16,14 @@ export interface AccountingJournalProposal {
   notes?: string;
 }
 
+export interface AccountingNcAlertProposal {
+  type: 'COMPRA_PROVEEDOR' | 'VENTA_CLIENTE';
+  entityName: string;
+  invoiceRef?: string;
+  itemsSummary: string;
+  estimatedAmount?: number;
+}
+
 interface AccountingContextPayload {
   activeTab?: string;
   filterMonth?: string;
@@ -36,6 +44,7 @@ interface AccountingContextPayload {
   ivaRate?: number;
   pagoCuentaRate?: number;
   recentEntries?: Array<{ description: string; amount: number; type?: string; date?: string }>;
+  pendingNcAlerts?: Array<{ entityName: string; invoiceRef?: string; itemsSummary: string; estimatedAmount?: number; status: string }>;
 }
 
 const CATALOG_REFERENCE = [
@@ -99,12 +108,67 @@ function validateProposal(raw: any): AccountingJournalProposal | null {
   };
 }
 
+function validateNcAlertProposal(raw: any): AccountingNcAlertProposal | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const entityName = String(raw.entityName || '').trim();
+  const itemsSummary = String(raw.itemsSummary || '').trim();
+  if (!entityName || !itemsSummary) return null;
+  return {
+    type: raw.type === 'VENTA_CLIENTE' ? 'VENTA_CLIENTE' : 'COMPRA_PROVEEDOR',
+    entityName,
+    invoiceRef: raw.invoiceRef ? String(raw.invoiceRef).trim() : undefined,
+    itemsSummary,
+    estimatedAmount: raw.estimatedAmount ? round2(Number(raw.estimatedAmount)) : undefined,
+  };
+}
+
 function buildDeterministicFallback(
   message: string,
   ctx: AccountingContextPayload
-): { reply: string; proposal: AccountingJournalProposal | null } {
+): { reply: string; proposal: AccountingJournalProposal | null; ncAlertProposal?: AccountingNcAlertProposal | null } {
   const lower = message.toLowerCase();
   const fmt = (n: number | undefined) => `$${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  // Detectar consulta de Notas de Crédito pendientes en BMS
+  if (/(qu[eé] notas de cr[eé]dito|pendientes.*nota|devoluciones pendientes|avisos.*nc)/i.test(lower)) {
+    const pend = (ctx.pendingNcAlerts || []).filter(a => a.status === 'PENDIENTE');
+    if (pend.length === 0) {
+      return {
+        reply: '✅ Actualmente **no tienes avisos de Notas de Crédito pendientes** en el BMS.',
+        proposal: null,
+        ncAlertProposal: null,
+      };
+    }
+    return {
+      reply: [
+        `🔔 **Tienes ${pend.length} Nota(s) de Crédito pendiente(s) de recibir en el BMS:**`,
+        ...pend.map(p => `- **${p.entityName}**${p.invoiceRef ? ` (Fact. ${p.invoiceRef})` : ''}: ${p.itemsSummary}${p.estimatedAmount ? ` · Est. ${fmt(p.estimatedAmount)}` : ''}`),
+      ].join('\n'),
+      proposal: null,
+      ncAlertProposal: null,
+    };
+  }
+
+  // Detectar intención de crear un Aviso / Recordatorio de Devolución / Nota de Crédito al BMS
+  if (/(avisa|recordatorio|recu[eé]rdame|regresar|devolver|devoluci[oó]n|pendiente.*nota de cr[eé]dito|esperando nota de cr[eé]dito)/i.test(lower)) {
+    const isClient = /(cliente|venta|nos devuelven)/i.test(lower);
+    const invMatch = message.match(/(?:factura|ccf|doc|documento|ref|#)\s*[:#]?\s*([A-Za-z0-9\-]+)/i);
+    const amtMatch = message.match(/\$\s*(\d+(?:[.,]\d{1,2})?)/);
+    const provMatch = message.match(/(?:a|de|proveedor|cliente)\s+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9 .&-]{2,35})/i);
+    const entityName = (provMatch?.[1] || (isClient ? 'Cliente' : 'Proveedor')).trim();
+    const ncAlertProposal: AccountingNcAlertProposal = {
+      type: isClient ? 'VENTA_CLIENTE' : 'COMPRA_PROVEEDOR',
+      entityName,
+      invoiceRef: invMatch?.[1],
+      itemsSummary: message.trim().slice(0, 120),
+      estimatedAmount: amtMatch ? round2(parseFloat(amtMatch[1].replace(',', '.'))) : undefined,
+    };
+    return {
+      reply: `Preparé el **aviso de devolución y Nota de Crédito pendiente** para el BMS (**${entityName}**). Revísalo abajo y pulsa **Guardar Aviso en BMS** para que el sistema te notifique cuando caiga la NC.`,
+      proposal: null,
+      ncAlertProposal,
+    };
+  }
 
   // Detectar intención de Nivel 2: preparar / registrar partida o gasto con monto
   const amountMatch = message.match(/\$?\s*(\d+(?:[.,]\d{1,2})?)/);
@@ -270,8 +334,9 @@ Trabajas EXCLUSIVAMENTE en el módulo de Contabilidad ayudando al Auxiliar Conta
 REGLAS ESTRICTAS:
 1. Nivel 1 (Consulta y Guía): Responde con claridad y brevedad usando los datos reales del período proporcionados en el contexto (IVA 13%, F-07, F-14 Pago a Cuenta 1.75%, Balance de Comprobación, Caja Chica, Libro Diario).
 2. Nivel 2 (Propuesta de Partida Doble): Si el usuario te pide registrar, preparar, contabilizar o crear un gasto, recibo, pago o asiento contable con un monto, genera un objeto "proposal" con partida doble CUADRADA (suma de debit === suma de credit) usando EXCLUSIVAMENTE códigos del catálogo salvadoreño proporcionado.
-3. NUNCA asumas que ya se guardó: dile siempre al usuario que revise el borrador y presione "Confirmar y Contabilizar".
-4. Responde SIEMPRE en JSON válido con esta estructura exacta (sin markdown alrededor):
+3. Nivel 2B (Aviso de Devolución / Nota de Crédito al BMS): Si el usuario te pide avisar al BMS, recordar o dejar pendiente una devolución de producto o una Nota de Crédito esperada de un proveedor o cliente, genera "ncAlertProposal" (y deja "proposal": null).
+4. NUNCA asumas que ya se guardó: dile siempre al usuario que revise el borrador y presione el botón de confirmar.
+5. Responde SIEMPRE en JSON válido con esta estructura exacta (sin markdown alrededor):
 {
   "reply": "Texto breve en español (puedes usar **negritas** y listas cortas).",
   "proposal": null | {
@@ -283,6 +348,13 @@ REGLAS ESTRICTAS:
       { "account_code": "1102", "account_name": "Bancos e Instituciones Financieras", "debit": 0, "credit": 120.00 }
     ],
     "notes": "Nota breve opcional de verificación"
+  },
+  "ncAlertProposal": null | {
+    "type": "COMPRA_PROVEEDOR" | "VENTA_CLIENTE",
+    "entityName": "Nombre del proveedor o cliente",
+    "invoiceRef": "Número de factura o CCF si se mencionó",
+    "itemsSummary": "Detalle breve de productos a regresar",
+    "estimatedAmount": 120.00
   }
 }
 
@@ -330,10 +402,12 @@ ${Array.isArray(context.recentEntries) && context.recentEntries.length > 0 ? `- 
     const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned);
     const validatedProposal = validateProposal(parsed?.proposal);
+    const validatedNcAlert = validateNcAlertProposal(parsed?.ncAlertProposal);
 
     return NextResponse.json({
       reply: String(parsed?.reply || 'Listo. ¿En qué más te ayudo con la contabilidad?'),
       proposal: validatedProposal,
+      ncAlertProposal: validatedNcAlert,
       source: 'gemini',
     });
   } catch (err: any) {

@@ -61,6 +61,7 @@ import {
   computeSuppliesCost,
 } from '@/lib/product-fraction-rules';
 import { postDoubleEntryJournal } from '@/lib/accounting-journal';
+import { resolveMatchingCreditNoteAlerts } from '@/lib/credit-note-alerts';
 import {
   validateContribuyenteMH,
   calculateIvaRetention1Percent
@@ -3015,9 +3016,128 @@ export default function BillingPage() {
         if (rpcErr) throw rpcErr;
       }
 
+      // 2. Vincular directamente con la factura original del cliente (CXC) y generar partida doble contable
+      const { data: matchedSale } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('correlative', adjustmentForm.refDoc)
+        .maybeSingle();
+      const docCode = `${type === 'CREDITO' ? 'NC' : 'ND'}-${insertedAdjustment.id.split('-')[0].toUpperCase()}`;
+      const netAdj = Number((totalAdjustment / 1.13).toFixed(2));
+      const ivaAdj = Number((totalAdjustment - netAdj).toFixed(2));
+      const isCreditOrigin = Boolean(
+        matchedSale &&
+          String(matchedSale.payment_method || matchedSale.type || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .includes('credito')
+      );
+
+      if (type === 'CREDITO') {
+        // Rebajar saldo CXC si la factura vinculada era al crédito
+        if (matchedSale) {
+          try {
+            const { data: cxcCfg } = await supabase
+              .from('system_config')
+              .select('value')
+              .eq('key', 'cxc_payments_registry')
+              .maybeSingle();
+            const currPays: any[] = Array.isArray(cxcCfg?.value) ? cxcCfg.value : [];
+            const ncAbono = {
+              id: `${docCode}-CXC`,
+              sale_id: matchedSale.id,
+              amount: totalAdjustment,
+              method: 'Nota de Crédito Cliente',
+              reference: docCode,
+              notes: `Devolución / NC ${docCode} sobre factura ${adjustmentForm.refDoc} (${adjustmentForm.reason})`,
+              created_at: new Date().toISOString(),
+            };
+            await supabase.from('system_config').upsert({
+              key: 'cxc_payments_registry',
+              value: [...currPays, ncAbono],
+            });
+          } catch (cxcErr) {
+            console.warn('Error aplicando Nota de Crédito a CXC:', cxcErr);
+          }
+        }
+
+        // Partida Doble Nota de Crédito a Cliente (Reversión Venta + IVA Débito vs Clientes/Caja)
+        await postDoubleEntryJournal({
+          description: `Nota de Crédito Cliente [${docCode}] Ref: ${adjustmentForm.refDoc} - ${adjustmentForm.customerName || 'Cliente'}`,
+          amount: totalAdjustment,
+          type: 'Avanzado',
+          lines: [
+            { account_code: '4101', account_name: 'Ventas de Mercadería Gravadas', debit: netAdj, credit: 0 },
+            { account_code: '2102', account_name: 'IVA Débito Fiscal (13%)', debit: ivaAdj, credit: 0 },
+            {
+              account_code: isCreditOrigin ? '1103' : '1101',
+              account_name: isCreditOrigin ? 'Cuentas por Cobrar Clientes' : 'Efectivo y Equivalentes de Efectivo',
+              debit: 0,
+              credit: totalAdjustment,
+            },
+          ],
+        });
+      } else {
+        // Nota de Débito a Cliente (Cargo adicional a CXC + Partida Doble)
+        if (matchedSale) {
+          try {
+            const { data: manCfg } = await supabase
+              .from('system_config')
+              .select('value')
+              .eq('key', 'cxc_manual_records')
+              .maybeSingle();
+            const currMan: any[] = Array.isArray(manCfg?.value) ? manCfg.value : [];
+            const ndCharge = {
+              id: `ND-${insertedAdjustment.id}`,
+              correlative: docCode,
+              doc_type: 'ND',
+              customer_id: matchedSale.customer_id || adjustmentForm.customerId || null,
+              customer_name: adjustmentForm.customerName || matchedSale.customer_name || 'Cliente',
+              total: totalAdjustment,
+              payment_method: 'Crédito',
+              status: 'PENDIENTE',
+              credit_days: 30,
+              notes: `Nota de Débito sobre factura ${adjustmentForm.refDoc}: ${adjustmentForm.reason}`,
+              created_at: new Date().toISOString(),
+            };
+            await supabase.from('system_config').upsert({
+              key: 'cxc_manual_records',
+              value: [ndCharge, ...currMan],
+            });
+          } catch (ndErr) {
+            console.warn('Error registrando cargo de Nota de Débito en CXC:', ndErr);
+          }
+        }
+
+        await postDoubleEntryJournal({
+          description: `Nota de Débito Cliente [${docCode}] Ref: ${adjustmentForm.refDoc} - ${adjustmentForm.customerName || 'Cliente'}`,
+          amount: totalAdjustment,
+          type: 'Avanzado',
+          lines: [
+            { account_code: '1103', account_name: 'Cuentas por Cobrar Clientes', debit: totalAdjustment, credit: 0 },
+            { account_code: '4101', account_name: 'Ventas de Mercadería Gravadas', debit: 0, credit: netAdj },
+            { account_code: '2102', account_name: 'IVA Débito Fiscal (13%)', debit: 0, credit: ivaAdj },
+          ],
+        });
+      }
+
+      // 3. Resolver aviso pendiente en BMS si aplicaba
+      const resolvedClientAlerts =
+        type === 'CREDITO'
+          ? await resolveMatchingCreditNoteAlerts({
+              type: 'VENTA_CLIENTE',
+              entityName: adjustmentForm.customerName || '',
+              invoiceRef: adjustmentForm.refDoc,
+              resolvedDocNumber: docCode,
+            })
+          : [];
+
       toast({ 
-        title: `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida`, 
-        description: `Se procesó el ajuste por $${totalAdjustment.toFixed(2)}.` 
+        title: resolvedClientAlerts.length > 0
+          ? `🔔 Nota de Crédito Emitida y Aviso BMS Resuelto (${docCode})`
+          : `Nota de ${type === 'CREDITO' ? 'Crédito' : 'Débito'} Emitida (${docCode})`, 
+        description: `Se vinculó a factura ${adjustmentForm.refDoc}, se actualizó CXC/Stock y se contabilizó por $${totalAdjustment.toFixed(2)}.` 
       });
       setAdjustmentForm({ refDoc: '', customerId: null, customerName: '', reason: '', items: [], total: 0 });
       await loadBillingData();

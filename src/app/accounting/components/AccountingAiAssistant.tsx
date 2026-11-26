@@ -25,7 +25,14 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { postDoubleEntryJournal } from '@/lib/accounting-journal';
-import type { AccountingJournalProposal } from '@/app/api/accounting/ai-assistant/route';
+import {
+  addPendingCreditNoteAlert,
+  loadPendingCreditNoteAlerts,
+} from '@/lib/credit-note-alerts';
+import type {
+  AccountingJournalProposal,
+  AccountingNcAlertProposal,
+} from '@/app/api/accounting/ai-assistant/route';
 
 export interface AccountingLiveContext {
   activeTab: string;
@@ -55,6 +62,8 @@ interface ChatMessage {
   text: string;
   proposal?: AccountingJournalProposal | null;
   proposalStatus?: 'pending' | 'posted' | 'discarded';
+  ncAlertProposal?: AccountingNcAlertProposal | null;
+  ncAlertStatus?: 'pending' | 'saved' | 'discarded';
 }
 
 interface AccountingAiAssistantProps {
@@ -66,9 +75,9 @@ interface AccountingAiAssistantProps {
 const QUICK_PROMPTS = [
   { label: '¿Qué reviso hoy?', prompt: '¿Qué debo revisar hoy paso a paso como auxiliar contable?' },
   { label: 'Resumen F-07 / F-14', prompt: 'Resúmeme F-07 (IVA) y F-14 de este mes.' },
-  { label: '¿Cuadra el Balance?', prompt: '¿Está cuadrado el Balance de Comprobación?' },
+  { label: '¿NC pendientes?', prompt: '¿Qué notas de crédito tenemos pendientes en el BMS?' },
+  { label: 'Avisar devolución al BMS', prompt: 'Avisa al BMS que vamos a regresar 5 galones a Proveedor de la factura 001-234 por $120 y queda pendiente la nota de crédito.' },
   { label: 'Partida Luz $120', prompt: 'Prepara partida de recibo de luz $120 por transferencia bancaria.' },
-  { label: 'Gasolina $25 Caja', prompt: 'Prepara gasto de gasolina $25 pagado de caja chica.' },
 ];
 
 function renderFormattedText(text: string) {
@@ -137,13 +146,18 @@ export function AccountingAiAssistant({
         .slice(-6)
         .map(m => ({ role: m.role, text: m.text }));
 
+      const liveNcAlerts = await loadPendingCreditNoteAlerts().catch(() => []);
+
       const res = await fetch('/api/accounting/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: trimmed,
           history: historyPayload,
-          context,
+          context: {
+            ...context,
+            pendingNcAlerts: liveNcAlerts,
+          },
         }),
       });
 
@@ -154,6 +168,8 @@ export function AccountingAiAssistant({
         text: data?.reply || 'Listo. ¿En qué más puedo apoyarte en Contabilidad?',
         proposal: data?.proposal || null,
         proposalStatus: data?.proposal ? 'pending' : undefined,
+        ncAlertProposal: data?.ncAlertProposal || null,
+        ncAlertStatus: data?.ncAlertProposal ? 'pending' : undefined,
       };
       setMessages(prev => [...prev, assistantMsg]);
     } catch (err) {
@@ -209,6 +225,39 @@ export function AccountingAiAssistant({
   const handleDiscardProposal = (msgId: string) => {
     setMessages(prev =>
       prev.map(m => (m.id === msgId ? { ...m, proposalStatus: 'discarded' } : m))
+    );
+  };
+
+  const handleConfirmNcAlert = async (msgId: string, alertProp: AccountingNcAlertProposal) => {
+    setPostingId(msgId);
+    try {
+      const res = await addPendingCreditNoteAlert({
+        type: alertProp.type,
+        entityName: alertProp.entityName,
+        invoiceRef: alertProp.invoiceRef,
+        itemsSummary: alertProp.itemsSummary,
+        estimatedAmount: alertProp.estimatedAmount,
+        createdBy: 'Asistente IA',
+      });
+      if (!res.success) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar el aviso en el BMS.' });
+        return;
+      }
+      setMessages(prev =>
+        prev.map(m => (m.id === msgId ? { ...m, ncAlertStatus: 'saved' } : m))
+      );
+      toast({
+        title: '🔔 Aviso Guardado en BMS ✓',
+        description: `El BMS vigilará la Nota de Crédito de ${alertProp.entityName} y te avisará cuando caiga.`,
+      });
+    } finally {
+      setPostingId(null);
+    }
+  };
+
+  const handleDiscardNcAlert = (msgId: string) => {
+    setMessages(prev =>
+      prev.map(m => (m.id === msgId ? { ...m, ncAlertStatus: 'discarded' } : m))
     );
   };
 
@@ -397,6 +446,72 @@ export function AccountingAiAssistant({
                       {msg.proposalStatus === 'discarded' && (
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                           <XCircle size={14} /> Borrador descartado (no se guardó)
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tarjeta Nivel 2B: Aviso de Devolución / Nota de Crédito al BMS */}
+                  {msg.ncAlertProposal && (
+                    <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/25 p-3.5 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                            🔔 Aviso de Devolución / NC Pendiente (BMS)
+                          </div>
+                          <p className="text-xs font-bold text-foreground mt-0.5">
+                            {msg.ncAlertProposal.entityName}
+                            {msg.ncAlertProposal.invoiceRef ? ` · Fact. ${msg.ncAlertProposal.invoiceRef}` : ''}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {msg.ncAlertProposal.itemsSummary}
+                          </p>
+                        </div>
+                        {msg.ncAlertProposal.estimatedAmount ? (
+                          <Badge className="bg-amber-600 text-white text-[10px] font-bold shrink-0">
+                            Est. ${msg.ncAlertProposal.estimatedAmount.toFixed(2)}
+                          </Badge>
+                        ) : null}
+                      </div>
+
+                      {msg.ncAlertStatus === 'pending' && (
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={postingId === msg.id}
+                            onClick={() => handleDiscardNcAlert(msg.id)}
+                            className="h-8 text-xs rounded-lg gap-1"
+                          >
+                            <XCircle size={13} /> Descartar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={postingId === msg.id}
+                            onClick={() => handleConfirmNcAlert(msg.id, msg.ncAlertProposal!)}
+                            className="h-8 text-xs rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1"
+                          >
+                            {postingId === msg.id ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <CheckCircle2 size={13} />
+                            )}
+                            Guardar Aviso en BMS
+                          </Button>
+                        </div>
+                      )}
+
+                      {msg.ncAlertStatus === 'saved' && (
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 size={14} /> Aviso activo en BMS y Compras ✓
+                        </div>
+                      )}
+
+                      {msg.ncAlertStatus === 'discarded' && (
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                          <XCircle size={14} /> Aviso descartado
                         </div>
                       )}
                     </div>

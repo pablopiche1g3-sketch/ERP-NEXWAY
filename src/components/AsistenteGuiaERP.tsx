@@ -34,6 +34,10 @@ import {
   Send
 } from 'lucide-react';
 import { executeRestockOrderAndReceiveDte } from '@/lib/hacienda-sandbox';
+import {
+  loadPendingCreditNoteAlerts,
+  type PendingCreditNoteAlert,
+} from '@/lib/credit-note-alerts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -688,6 +692,21 @@ export function AsistenteGuiaERP() {
 
   const criticalCount = stats.zeroStockProductsCount || 0;
   const stagnantCount = stats.stagnantProductsCount || 0;
+  const [ncAlerts, setNcAlerts] = useState<PendingCreditNoteAlert[]>([]);
+
+  useEffect(() => {
+    loadPendingCreditNoteAlerts().then(setNcAlerts).catch(() => {});
+  }, [isOpen]);
+
+  const pendingNcAlerts = useMemo(() => ncAlerts.filter(a => a.status === 'PENDIENTE'), [ncAlerts]);
+  const recentResolvedNcAlerts = useMemo(
+    () =>
+      ncAlerts
+        .filter(a => a.status === 'RECIBIDA' && a.resolvedAt)
+        .filter(a => Date.now() - new Date(a.resolvedAt!).getTime() < 7 * 24 * 3600 * 1000)
+        .slice(0, 3),
+    [ncAlerts]
+  );
 
   return (
     <>
@@ -763,6 +782,25 @@ export function AsistenteGuiaERP() {
               <span className="font-mono font-black">{stagnantCount}</span>
             </button>
 
+            {(pendingNcAlerts.length > 0 || recentResolvedNcAlerts.length > 0) && (
+              <button
+                type="button"
+                onClick={() => setIsOpen(true)}
+                className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all inline-flex items-center gap-1.5 ${
+                  pendingNcAlerts.length > 0
+                    ? 'bg-amber-500/15 border-amber-500/40 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300'
+                    : 'bg-emerald-500/15 border-emerald-500/40 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300'
+                }`}
+                title="Avisos de devoluciones y Notas de Crédito"
+              >
+                <AlertCircle size={12} />
+                <span>{pendingNcAlerts.length > 0 ? 'NC Pendientes:' : 'NC Recibida:'}</span>
+                <span className="font-mono font-black">
+                  {pendingNcAlerts.length > 0 ? pendingNcAlerts.length : recentResolvedNcAlerts.length}
+                </span>
+              </button>
+            )}
+
             <Button
               type="button"
               variant="outline"
@@ -778,6 +816,61 @@ export function AsistenteGuiaERP() {
 
         {isOpen && (
           <CardContent className="p-4 border-t border-border bg-background/50 space-y-4">
+            {(pendingNcAlerts.length > 0 || recentResolvedNcAlerts.length > 0) && (
+              <div className="rounded-xl border border-amber-300/60 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-black text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                    <AlertCircle size={14} /> Seguimiento de Devoluciones y Notas de Crédito
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push('/compras?tab=registro')}
+                    className="h-7 text-[11px] font-bold rounded-lg gap-1"
+                  >
+                    Ir a Compras / Notas de Crédito <ArrowUpRight size={12} />
+                  </Button>
+                </div>
+                <div className="space-y-1.5">
+                  {pendingNcAlerts.map(al => (
+                    <div
+                      key={al.id}
+                      className="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-card border border-border/70 text-[11px]"
+                    >
+                      <div className="min-w-0">
+                        <Badge className="bg-amber-500 text-white border-0 text-[9px] h-4 px-1.5 mr-1.5">
+                          Esperando NC
+                        </Badge>
+                        <strong className="text-foreground">{al.entityName}</strong>
+                        {al.invoiceRef && <span className="ml-1 font-mono text-[10px] text-indigo-600">({al.invoiceRef})</span>}
+                        <span className="text-muted-foreground ml-1.5">— {al.itemsSummary}</span>
+                        {al.estimatedAmount ? (
+                          <span className="font-mono font-bold text-foreground ml-1.5">(${Number(al.estimatedAmount).toFixed(2)})</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                  {recentResolvedNcAlerts.map(al => (
+                    <div
+                      key={al.id}
+                      className="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200 dark:border-emerald-900 text-[11px]"
+                    >
+                      <div className="min-w-0">
+                        <Badge className="bg-emerald-600 text-white border-0 text-[9px] h-4 px-1.5 mr-1.5">
+                          ✓ NC Recibida
+                        </Badge>
+                        <strong className="text-foreground">{al.entityName}</strong>
+                        <span className="text-muted-foreground ml-1.5">
+                          ({al.resolvedDocNumber || 'NC aplicada'}) — {al.itemsSummary}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* SUB-BARRA COMPACTA: RESUMEN OPERATIVO VS AGENDA TÁCTICA (Evita mostrar todo apilado) */}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="inline-flex items-center bg-muted/60 border border-border p-0.5 rounded-xl">

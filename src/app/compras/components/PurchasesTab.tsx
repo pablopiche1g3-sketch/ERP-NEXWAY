@@ -47,6 +47,13 @@ import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { fetchSystemAppUsers, SystemUserOption } from '@/lib/session-operator';
 import { postDoubleEntryJournal } from '@/lib/accounting-journal';
+import {
+  loadPendingCreditNoteAlerts,
+  addPendingCreditNoteAlert,
+  resolveMatchingCreditNoteAlerts,
+  deletePendingCreditNoteAlert,
+  type PendingCreditNoteAlert,
+} from '@/lib/credit-note-alerts';
 import { useBms } from '@/contexts/BmsContext';
 import type { PurchaseOrderRecord } from './OrdersTab';
 
@@ -142,6 +149,19 @@ export default function PurchasesTab({
   const [selectedCreditNoteType, setSelectedCreditNoteType] = useState<'DEVOLUCION' | 'AJUSTE_PRECIO'>('DEVOLUCION');
   const [creditNoteSearch, setCreditNoteSearch] = useState('');
   const creditNoteFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Avisos de devoluciones esperando Nota de Crédito (BMS + IA)
+  const [pendingNcAlerts, setPendingNcAlerts] = useState<PendingCreditNoteAlert[]>([]);
+  const [showNewAlertForm, setShowNewAlertForm] = useState(false);
+  const [newAlertSupplier, setNewAlertSupplier] = useState('');
+  const [newAlertInvoice, setNewAlertInvoice] = useState('');
+  const [newAlertItems, setNewAlertItems] = useState('');
+  const [newAlertAmount, setNewAlertAmount] = useState('');
+
+  // Modal / Modo rápido de NC Manual ligada a una Factura de Compra
+  const [manualNcPurchaseId, setManualNcPurchaseId] = useState('');
+  const [manualNcDocNumber, setManualNcDocNumber] = useState('');
+  const [manualNcAmount, setManualNcAmount] = useState('');
 
   // Historial de compras
   const [purchasesHistory, setPurchasesHistory] = useState<any[]>([]);
@@ -285,6 +305,8 @@ export default function PurchasesTab({
       if (error) throw error;
       setCreditNotes(data || []);
       setCreditNotesLoaded(true);
+      const alerts = await loadPendingCreditNoteAlerts();
+      setPendingNcAlerts(alerts.filter(a => a.type === 'COMPRA_PROVEEDOR'));
     } catch (e: any) {
       console.error('Error al cargar notas de crédito:', e);
     } finally {
@@ -929,11 +951,11 @@ export default function PurchasesTab({
 
       // 2. Registrar Partida Contable Automática en Journal (Partida Doble)
       const journalLines = [
-        { account_code: '2101', account_name: 'Cuentas por Pagar Proveedores Locales', debit: totalNc, credit: 0 },
-        { account_code: '1106', account_name: 'IVA Crédito Fiscal (Reversión 13%)', debit: 0, credit: iva13 },
+        { account_code: '2101', account_name: 'Proveedores Locales C/P', debit: totalNc, credit: 0 },
+        { account_code: '1104', account_name: 'IVA Crédito Fiscal (13%)', debit: 0, credit: iva13 },
         { 
-          account_code: parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' ? '1105' : '4102', 
-          account_name: parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' ? 'Inventario de Mercaderías' : 'Compras Gravadas (Descuentos y Rebajas)', 
+          account_code: parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' ? '1105' : '5101', 
+          account_name: parsedCreditNote.applicationMode === 'PRODUCTO_ESPECIFICO' ? 'Inventarios de Mercadería' : 'Descuentos / Rebajas sobre Compras', 
           debit: 0, 
           credit: gravada 
         }
@@ -951,6 +973,41 @@ export default function PurchasesTab({
         console.warn('Error al registrar partida de NC en journal:', jErr);
       }
 
+      // 2.5 Vincular directamente a CXP de la factura de compra seleccionada (rebajar saldo pendiente)
+      if (parsedCreditNote.matchedPurchaseId && parsedCreditNote.matchedPurchaseId !== 'manual') {
+        try {
+          const { data: cxpCfg } = await supabase
+            .from('system_config')
+            .select('value')
+            .eq('key', 'cxp_payments_registry')
+            .maybeSingle();
+          const currentPays: any[] = Array.isArray(cxpCfg?.value) ? cxpCfg.value : [];
+          const ncPay = {
+            id: `NC-COMPRA-${Date.now().toString().slice(-6)}`,
+            purchase_id: parsedCreditNote.matchedPurchaseId,
+            amount: totalNc,
+            method: 'Nota de Crédito Compra',
+            reference: parsedCreditNote.documentNumber,
+            notes: `Aplicación de NC ${parsedCreditNote.documentNumber} (${parsedCreditNote.supplierName})`,
+            created_at: new Date().toISOString(),
+          };
+          const nextPays = [...currentPays, ncPay];
+          await supabase.from('system_config').upsert({ key: 'cxp_payments_registry', value: nextPays });
+
+          const matchedPurch = purchasesHistory.find((p: any) => p.id === parsedCreditNote.matchedPurchaseId);
+          if (matchedPurch) {
+            const totalPaidNow = nextPays
+              .filter(p => p.purchase_id === matchedPurch.id)
+              .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+            if (Number(matchedPurch.total || 0) - totalPaidNow <= 0.02) {
+              await supabase.from('purchases').update({ payment_status: 'PAGADO' }).eq('id', matchedPurch.id);
+            }
+          }
+        } catch (cxpErr) {
+          console.warn('Error aplicando rebaja de NC en CXP:', cxpErr);
+        }
+      }
+
       // 3. Insertar registro en public.supplier_credit_notes
       const { error } = await supabase
         .from('supplier_credit_notes')
@@ -965,9 +1022,21 @@ export default function PurchasesTab({
 
       if (error) throw error;
 
+      // 4. Verificar si había un aviso pendiente en el BMS esperando esta Nota de Crédito
+      const resolvedAlerts = await resolveMatchingCreditNoteAlerts({
+        type: 'COMPRA_PROVEEDOR',
+        entityName: parsedCreditNote.supplierName || '',
+        invoiceRef: parsedCreditNote.matchedPurchaseDoc || parsedCreditNote.relatedDocNumber || '',
+        resolvedDocNumber: parsedCreditNote.documentNumber,
+      });
+
       toast({ 
-        title: "¡Nota de Crédito Aplicada con Éxito! 🧾", 
-        description: `Se aplicó la NC ${parsedCreditNote.documentNumber} y se generó el asiento contable y ajuste en Kardex.` 
+        title: resolvedAlerts.length > 0
+          ? `🔔 ¡Cayó Nota de Crédito Esperada! (${parsedCreditNote.documentNumber})`
+          : '¡Nota de Crédito Aplicada con Éxito! 🧾', 
+        description: resolvedAlerts.length > 0
+          ? `Se vinculó a la factura, se rebajó CXP por $${totalNc.toFixed(2)} y se cerró automáticamente el aviso pendiente del BMS (${resolvedAlerts[0].itemsSummary}).`
+          : `Se aplicó la NC ${parsedCreditNote.documentNumber}, se rebajó el saldo en CXP y se generó el asiento contable.`
       });
 
       setParsedCreditNote(null);
@@ -2568,6 +2637,199 @@ export default function PurchasesTab({
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 space-y-4 text-foreground dark:text-white">
+              {/* AVISOS DE DEVOLUCIÓN ESPERANDO NOTA DE CRÉDITO (BMS + IA) */}
+              <div className="p-3.5 rounded-2xl border border-amber-300/60 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/20 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-amber-500 text-white border-0 text-[10px] font-black">
+                      {pendingNcAlerts.filter(a => a.status === 'PENDIENTE').length} Pendientes
+                    </Badge>
+                    <span className="text-xs font-bold text-foreground">
+                      Avisos de Devolución esperando Nota de Crédito
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowNewAlertForm(prev => !prev)}
+                    className="h-7 text-[11px] font-bold rounded-lg"
+                  >
+                    {showNewAlertForm ? 'Cerrar' : '+ Avisar Devolución al BMS'}
+                  </Button>
+                </div>
+
+                {showNewAlertForm && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <Input
+                      value={newAlertSupplier}
+                      onChange={e => setNewAlertSupplier(e.target.value)}
+                      placeholder="Proveedor (ej. Sherwin / Distribuidora)"
+                      className="h-8 text-xs rounded-lg"
+                    />
+                    <Input
+                      value={newAlertInvoice}
+                      onChange={e => setNewAlertInvoice(e.target.value)}
+                      placeholder="No. Factura / CCF original"
+                      className="h-8 text-xs rounded-lg"
+                    />
+                    <Input
+                      value={newAlertItems}
+                      onChange={e => setNewAlertItems(e.target.value)}
+                      placeholder="Productos a regresar (ej. 5 galones blancos)"
+                      className="h-8 text-xs rounded-lg"
+                    />
+                    <div className="flex gap-1.5">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newAlertAmount}
+                        onChange={e => setNewAlertAmount(e.target.value)}
+                        placeholder="Monto est. ($)"
+                        className="h-8 text-xs rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={async () => {
+                          if (!newAlertSupplier.trim() || !newAlertItems.trim()) {
+                            toast({ variant: 'destructive', title: 'Faltan datos', description: 'Indica proveedor y producto a devolver.' });
+                            return;
+                          }
+                          await addPendingCreditNoteAlert({
+                            type: 'COMPRA_PROVEEDOR',
+                            entityName: newAlertSupplier.trim(),
+                            invoiceRef: newAlertInvoice.trim() || undefined,
+                            itemsSummary: newAlertItems.trim(),
+                            estimatedAmount: parseFloat(newAlertAmount) || undefined,
+                            createdBy: 'Compras',
+                          });
+                          setNewAlertSupplier('');
+                          setNewAlertInvoice('');
+                          setNewAlertItems('');
+                          setNewAlertAmount('');
+                          setShowNewAlertForm(false);
+                          const refreshed = await loadPendingCreditNoteAlerts();
+                          setPendingNcAlerts(refreshed.filter(a => a.type === 'COMPRA_PROVEEDOR'));
+                          toast({ title: 'Aviso registrado en BMS ✓', description: 'El sistema te avisará cuando caiga esta Nota de Crédito.' });
+                        }}
+                        className="h-8 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0"
+                      >
+                        Guardar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {pendingNcAlerts.filter(a => a.status === 'PENDIENTE').length > 0 && (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                    {pendingNcAlerts
+                      .filter(a => a.status === 'PENDIENTE')
+                      .map(al => (
+                        <div
+                          key={al.id}
+                          className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-card border border-border/70 text-[11px]"
+                        >
+                          <div className="min-w-0">
+                            <span className="font-bold text-foreground">{al.entityName}</span>
+                            {al.invoiceRef && <span className="ml-1.5 font-mono text-[10px] text-indigo-600">({al.invoiceRef})</span>}
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              Devolución: {al.itemsSummary}
+                              {al.estimatedAmount ? ` · Est. $${Number(al.estimatedAmount).toFixed(2)}` : ''}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              await deletePendingCreditNoteAlert(al.id);
+                              setPendingNcAlerts(prev => prev.filter(x => x.id !== al.id));
+                            }}
+                            className="h-6 px-2 text-[10px] text-rose-600"
+                          >
+                            Quitar
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* OPCIÓN RÁPIDA: NC MANUAL LIGADA DIRECTO A UNA FACTURA DE COMPRA */}
+              <div className="p-3.5 rounded-2xl border border-border bg-muted/20 space-y-2.5">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider block">
+                  O registrar Nota de Crédito Manual ligada a Factura de Compra
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-5">
+                    <Select value={manualNcPurchaseId} onValueChange={setManualNcPurchaseId}>
+                      <SelectTrigger className="h-8 text-xs rounded-lg">
+                        <SelectValue placeholder="Seleccionar factura de compra..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {purchasesHistory.slice(0, 40).map((p: any) => (
+                          <SelectItem key={p.id} value={p.id} className="text-xs">
+                            {p.document_number || p.order_id} · {p.suppliers?.name || p.supplier_name || 'Proveedor'} (${Number(p.total || 0).toFixed(2)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-3">
+                    <Input
+                      value={manualNcDocNumber}
+                      onChange={e => setManualNcDocNumber(e.target.value)}
+                      placeholder="No. NC (ej. NC-001)"
+                      className="h-8 text-xs rounded-lg"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={manualNcAmount}
+                      onChange={e => setManualNcAmount(e.target.value)}
+                      placeholder="Monto $"
+                      className="h-8 text-xs rounded-lg font-mono"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        const purch = purchasesHistory.find((p: any) => p.id === manualNcPurchaseId);
+                        const amt = parseFloat(manualNcAmount) || 0;
+                        if (!purch || !manualNcDocNumber.trim() || amt <= 0) {
+                          toast({ variant: 'destructive', title: 'Completa los campos', description: 'Elige la factura, número de NC y monto.' });
+                          return;
+                        }
+                        const supObj = suppliers.find(s => s.id === purch.supplier_id);
+                        setParsedCreditNote({
+                          documentNumber: manualNcDocNumber.trim(),
+                          supplierId: purch.supplier_id || supObj?.id || null,
+                          supplierName: purch.suppliers?.name || purch.supplier_name || supObj?.name || 'Proveedor',
+                          supplierNit: supObj?.nit || '',
+                          total: amt,
+                          matchedPurchaseId: purch.id,
+                          matchedPurchaseDoc: purch.document_number || purch.order_id,
+                          relatedDocNumber: purch.document_number || purch.order_id,
+                          applicationMode: 'AUTOMATICO_FINANCIERO',
+                          targetWarehouseId: warehouses[0]?.id || '',
+                          items: [],
+                        });
+                        setManualNcDocNumber('');
+                        setManualNcAmount('');
+                      }}
+                      className="w-full h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
+                    >
+                      Preparar NC
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               {/* ZONA DE ARRASTRE DRAG & DROP */}
               <div 
                 className="space-y-2"
