@@ -1,78 +1,136 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Calculator, 
-  TrendingUp, 
-  FileSpreadsheet, 
-  Search, 
-  ShieldCheck,
+import {
+  FileSpreadsheet,
+  Search,
+  Layers,
+  Loader2,
   RefreshCw,
-  PackageCheck
+  Pencil,
+  Save,
 } from 'lucide-react';
+
+interface ValuedRow {
+  sku: string;
+  description: string;
+  category: string;
+  quantity: number;
+  avg_cost: number;
+  last_purchase_cost: number | null;
+  purchase_count: number;
+  sale_price: number;
+  warehouse: string;
+}
 
 export default function KardexValuedTab() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [stockValued, setStockValued] = useState<any[]>([]);
+  const [stockValued, setStockValued] = useState<ValuedRow[]>([]);
+
+  // Modal de Edición Rápida de Producto directo desde Kardex
+  const [editingProd, setEditingProd] = useState<ValuedRow | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadValuedKardex = async () => {
     setLoading(true);
     try {
-      // Obtener productos reales de la tabla inventory en Supabase
-      const { data: invData, error } = await supabase
-        .from('inventory')
-        .select('*')
-        .order('sku', { ascending: true });
+      const [invRes, stockRes, purchItemsRes] = await Promise.all([
+        supabase.from('inventory').select('*').order('sku', { ascending: true }),
+        supabase.from('inventory_stock').select('sku, quantity, warehouses(name)'),
+        supabase
+          .from('purchase_items')
+          .select('sku, quantity, cost, subtotal, purchases(created_at)')
+          .order('id', { ascending: false })
+          .limit(3000),
+      ]);
 
-      if (invData && invData.length > 0) {
-        const formatted = invData.map((item: any) => {
-          const qty = Number(item.quantity ?? item.stock ?? 0);
-          const price = Number(item.price ?? 0);
-          const cost = Number(item.cost ?? (price > 0 ? price * 0.7 : 0));
-          return {
-            sku: item.sku,
-            description: item.name || item.description || item.sku,
-            quantity: qty,
-            avg_cost: cost,
-            sale_price: price,
-            warehouse: item.location || item.warehouse || 'Bodega Central'
-          };
-        });
-        setStockValued(formatted);
-      } else {
-        // Fallback a localStorage si aplica
-        const local = localStorage.getItem('nexway_inventory');
-        if (local) {
-          const parsed = JSON.parse(local);
-          const formatted = parsed.map((item: any) => {
-            const qty = Number(item.quantity ?? item.stock ?? 0);
-            const price = Number(item.price ?? 0);
-            const cost = Number(item.cost ?? (price > 0 ? price * 0.7 : 0));
-            return {
-              sku: item.sku,
-              description: item.name || item.description || item.sku,
-              quantity: qty,
-              avg_cost: cost,
-              sale_price: price,
-              warehouse: item.location || 'Bodega Central'
-            };
-          });
-          setStockValued(formatted);
-        } else {
-          setStockValued([]);
+      const invData = invRes.data || [];
+      const stockRows = stockRes.data || [];
+      const purchRows = purchItemsRes.data || [];
+
+      // 1. Agrupar existencias reales por SKU y bodegas
+      const stockBySku: Record<string, { totalQty: number; warehouses: Set<string> }> = {};
+      stockRows.forEach((sr: any) => {
+        const sku = String(sr.sku || '');
+        if (!sku) return;
+        const qty = Number(sr.quantity || 0);
+        if (!stockBySku[sku]) stockBySku[sku] = { totalQty: 0, warehouses: new Set() };
+        stockBySku[sku].totalQty += qty;
+        const whName = sr.warehouses?.name;
+        if (whName && qty > 0) stockBySku[sku].warehouses.add(whName);
+      });
+
+      // 2. Calcular costo promedio ponderado real + último costo de compra desde purchase_items
+      const costBySku: Record<
+        string,
+        { weightedSum: number; qtySum: number; lastCost: number | null; lastTime: number; count: number }
+      > = {};
+
+      purchRows.forEach((pi: any) => {
+        const sku = String(pi.sku || '');
+        const qty = Number(pi.quantity || 0);
+        const unitCost = Number(pi.cost || 0) || (qty > 0 ? Number(pi.subtotal || 0) / qty : 0);
+        if (!sku || unitCost <= 0) return;
+
+        if (!costBySku[sku]) {
+          costBySku[sku] = { weightedSum: 0, qtySum: 0, lastCost: null, lastTime: 0, count: 0 };
         }
-      }
+        costBySku[sku].weightedSum += unitCost * (qty > 0 ? qty : 1);
+        costBySku[sku].qtySum += qty > 0 ? qty : 1;
+        costBySku[sku].count += 1;
+
+        const ts = pi.purchases?.created_at ? new Date(pi.purchases.created_at).getTime() : Date.now();
+        if (costBySku[sku].lastCost === null || ts >= costBySku[sku].lastTime) {
+          costBySku[sku].lastCost = unitCost;
+          costBySku[sku].lastTime = ts;
+        }
+      });
+
+      const formatted: ValuedRow[] = invData.map((item: any) => {
+        const stInfo = stockBySku[item.sku];
+        const qty = stInfo ? Number(stInfo.totalQty.toFixed(2)) : Number(item.quantity ?? item.stock ?? 0);
+        const price = Number(item.price ?? 0);
+        const cInfo = costBySku[item.sku];
+        const avgCost =
+          cInfo && cInfo.qtySum > 0
+            ? Number((cInfo.weightedSum / cInfo.qtySum).toFixed(4))
+            : Number(item.cost ?? 0);
+
+        const whLabel =
+          stInfo && stInfo.warehouses.size > 0
+            ? Array.from(stInfo.warehouses).join(', ')
+            : item.location || 'Sin stock asignado';
+
+        return {
+          sku: item.sku,
+          description: item.name || item.description || item.sku,
+          category: item.category || 'General',
+          quantity: qty,
+          avg_cost: avgCost,
+          last_purchase_cost: cInfo?.lastCost ?? null,
+          purchase_count: cInfo?.count ?? 0,
+          sale_price: price,
+          warehouse: whLabel,
+        };
+      });
+
+      setStockValued(formatted);
     } catch (e) {
       console.error('Error al obtener datos de Kardex Valorizado:', e);
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar el Kardex valorizado.' });
     } finally {
       setLoading(false);
     }
@@ -82,171 +140,271 @@ export default function KardexValuedTab() {
     loadValuedKardex();
   }, []);
 
-  const handleExportExcel = () => {
-    if (stockValued.length === 0) {
-      toast({ variant: 'destructive', title: 'Sin Datos', description: 'No hay productos para exportar.' });
-      return;
+  const handleOpenQuickEdit = (row: ValuedRow) => {
+    setEditingProd(row);
+    setEditName(row.description);
+    setEditPrice(String(row.sale_price || 0));
+    setEditCategory(row.category || 'General');
+  };
+
+  const handleSaveQuickEdit = async () => {
+    if (!editingProd) return;
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('inventory')
+        .update({
+          name: editName.trim() || editingProd.description,
+          price: parseFloat(editPrice) || 0,
+          category: editCategory.trim() || 'General',
+        })
+        .eq('sku', editingProd.sku);
+      if (error) throw error;
+      toast({
+        title: 'Producto Actualizado ✓',
+        description: `${editingProd.sku} actualizado en catálogo.`,
+      });
+      setEditingProd(null);
+      await loadValuedKardex();
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err?.message || 'No se pudo actualizar el producto.' });
+    } finally {
+      setSavingEdit(false);
     }
+  };
 
-    const headers = ['SKU', 'Producto / Descripción', 'Bodega', 'Stock Físico', 'Costo Prom. Unit ($)', 'Valor Inventario Total ($)', 'P. Venta ($)', 'Margen (%)'];
-    const csvRows = [headers.join(',')];
+  const filteredStock = useMemo(
+    () =>
+      stockValued.filter(
+        s =>
+          s.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          s.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          s.warehouse.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [stockValued, searchTerm]
+  );
 
-    stockValued.forEach(i => {
-      const itemTotalVal = (i.quantity * i.avg_cost).toFixed(2);
-      const margin = i.sale_price > 0 ? (((i.sale_price - i.avg_cost) / i.sale_price) * 100).toFixed(1) : '0';
-      const cleanDesc = `"${(i.description || '').replace(/"/g, '""')}"`;
-      csvRows.push([i.sku, cleanDesc, `"${i.warehouse}"`, i.quantity, i.avg_cost.toFixed(2), itemTotalVal, i.sale_price.toFixed(2), `${margin}%`].join(','));
+  const handleExportExcel = () => {
+    const headers = ['SKU', 'Producto', 'Bodega', 'Existencia', 'Último Costo Compra ($)', 'Costo Promedio FIFO ($)', 'Valor Inventario ($)', 'PVP ($)', 'Margen %'];
+    const rows = filteredStock.map(s => {
+      const val = s.quantity * s.avg_cost;
+      const margin = s.sale_price > 0 && s.avg_cost > 0 ? ((s.sale_price - s.avg_cost) / s.sale_price) * 100 : 0;
+      return [
+        s.sku,
+        s.description,
+        s.warehouse,
+        s.quantity.toFixed(2),
+        s.last_purchase_cost !== null ? s.last_purchase_cost.toFixed(2) : '0.00',
+        s.avg_cost.toFixed(2),
+        val.toFixed(2),
+        s.sale_price.toFixed(2),
+        `${margin.toFixed(1)}%`,
+      ];
     });
-
-    const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Kardex_Valorizado_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
+    link.download = `Kardex_Valorizado_FIFO_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
-    document.body.removeChild(link);
-
-    toast({ title: 'Kardex Exportado 📊', description: `Se exportaron ${stockValued.length} productos a Excel.` });
+    URL.revokeObjectURL(url);
+    toast({ title: 'Kardex Exportado 📊', description: `Se exportaron ${filteredStock.length} productos con costos de compra.` });
   };
 
-  const filtered = stockValued.filter(item => 
-    (item.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (item.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.warehouse || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const totalInventoryValue = stockValued.reduce((sum, i) => sum + (i.quantity * i.avg_cost), 0);
-  const totalSalesProjection = stockValued.reduce((sum, i) => sum + (i.quantity * i.sale_price), 0);
-  const totalProjectedProfit = totalSalesProjection - totalInventoryValue;
+  const totalInventoryValue = filteredStock.reduce((sum, s) => sum + s.quantity * s.avg_cost, 0);
+  const totalUnits = filteredStock.reduce((sum, s) => sum + s.quantity, 0);
+  const totalSaleValue = filteredStock.reduce((sum, s) => sum + s.quantity * s.sale_price, 0);
+  const withPurchaseCostCount = filteredStock.filter(s => s.purchase_count > 0).length;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card p-6 rounded-2xl border shadow-sm">
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
-            <Calculator className="text-indigo-500" size={22} />
-            Kardex Valorizado FIFO / Costo Promedio Ponderado
+          <h3 className="text-base font-black text-foreground flex items-center gap-2">
+            <Layers size={18} className="text-indigo-500" />
+            Kardex Valorizado FIFO (Sincronizado con Compras)
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Valoración contable del inventario real en bodega, costo de ventas (COGS) y proyección de margen bruto.
+          <p className="text-xs text-muted-foreground">
+            Costos calculados directamente desde facturas de compra (`purchase_items`) y existencias por bodega (`inventory_stock`).
           </p>
         </div>
-
         <div className="flex items-center gap-2">
-          <Button
-            onClick={loadValuedKardex}
-            variant="outline"
-            className="font-bold text-xs h-9 rounded-xl flex items-center gap-1 border-slate-200"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Actualizar
+          <Button variant="outline" size="sm" onClick={loadValuedKardex} disabled={loading} className="h-9 rounded-xl text-xs font-bold gap-1.5">
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Actualizar
           </Button>
-
-          <Button
-            onClick={handleExportExcel}
-            className="bg-emerald-600 hover:bg-emerald-700 font-bold text-xs h-9 rounded-xl text-white flex items-center gap-1.5"
-          >
-            <FileSpreadsheet size={15} /> Exportar Kardex a Excel
+          <Button size="sm" onClick={handleExportExcel} className="h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5">
+            <FileSpreadsheet size={14} /> Exportar CSV
           </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border shadow-sm p-5 rounded-2xl bg-card">
-          <span className="text-[10px] font-black uppercase text-slate-400">Valor Total de Inventario (Costo)</span>
-          <h4 className="text-2xl font-black text-slate-800 dark:text-white mt-1">${totalInventoryValue.toFixed(2)}</h4>
-          <p className="text-[11px] text-emerald-500 font-bold mt-2 flex items-center gap-1">
-            <ShieldCheck size={14} /> Auditado por Costo Promedio Ponderado
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-card border-border rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-black uppercase text-muted-foreground">Valor Inventario (Costo Compra)</p>
+          <p className="text-2xl font-black font-mono text-foreground mt-1">
+            ${totalInventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </Card>
-
-        <Card className="border shadow-sm p-5 rounded-2xl bg-card">
-          <span className="text-[10px] font-black uppercase text-slate-400">Proyección de Venta Bruta</span>
-          <h4 className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">${totalSalesProjection.toFixed(2)}</h4>
-          <p className="text-[11px] text-slate-400 mt-2">Valor al precio de lista publicado</p>
+        <Card className="bg-card border-border rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-black uppercase text-muted-foreground">Valor Potencial Venta (PVP)</p>
+          <p className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+            ${totalSaleValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
         </Card>
-
-        <Card className="border shadow-sm p-5 rounded-2xl bg-card">
-          <span className="text-[10px] font-black uppercase text-slate-400">Margen Bruto Proyectado</span>
-          <h4 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${totalProjectedProfit.toFixed(2)}</h4>
-          <p className="text-[11px] text-emerald-500 font-bold mt-2 flex items-center gap-1">
-            <TrendingUp size={14} /> Margen Promedio: {totalSalesProjection > 0 ? ((totalProjectedProfit / totalSalesProjection) * 100).toFixed(1) : 0}%
+        <Card className="bg-card border-border rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-black uppercase text-muted-foreground">Unidades en Bodegas</p>
+          <p className="text-2xl font-black font-mono text-indigo-600 dark:text-indigo-400 mt-1">
+            {totalUnits.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          </p>
+        </Card>
+        <Card className="bg-card border-border rounded-2xl p-4 shadow-sm">
+          <p className="text-[10px] font-black uppercase text-muted-foreground">SKUs con Costo de Compra</p>
+          <p className="text-2xl font-black font-mono text-foreground mt-1">
+            {withPurchaseCostCount} <span className="text-xs font-normal text-muted-foreground">/ {filteredStock.length}</span>
           </p>
         </Card>
       </div>
 
-      {/* Buscador y Tabla */}
-      <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+      <Card className="bg-card border-border rounded-2xl shadow-sm overflow-hidden">
+        <CardHeader className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="Buscar por SKU, producto o bodega en Kardex..."
-              className="pl-10 text-xs h-9 rounded-xl"
+              className="pl-9 h-9 text-xs rounded-xl"
             />
           </div>
-          <Badge variant="outline" className="text-xs font-bold font-mono">
-            {filtered.length} Productos Existentes
-          </Badge>
-        </div>
-
-        <Table>
-          <TableHeader className="bg-muted/40">
-            <TableRow>
-              <TableHead className="text-xs font-bold">SKU</TableHead>
-              <TableHead className="text-xs font-bold">Producto / Descripción</TableHead>
-              <TableHead className="text-xs font-bold">Bodega</TableHead>
-              <TableHead className="text-xs font-bold text-center">Stock Físico</TableHead>
-              <TableHead className="text-xs font-bold text-right">Costo Prom. Unit ($)</TableHead>
-              <TableHead className="text-xs font-bold text-right">Valor Inventario Total ($)</TableHead>
-              <TableHead className="text-xs font-bold text-right">P. Venta ($)</TableHead>
-              <TableHead className="text-xs font-bold text-right">Margen (%)</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-xs text-slate-400">
-                  Cargando productos del inventario real...
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-xs text-slate-400">
-                  No se encontraron productos registrados en el inventario.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map(item => {
-                const itemTotalVal = item.quantity * item.avg_cost;
-                const profitMargin = item.sale_price > 0 ? ((item.sale_price - item.avg_cost) / item.sale_price) * 100 : 0;
-
-                return (
-                  <TableRow key={item.sku} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">{item.sku}</TableCell>
-                    <TableCell className="text-xs font-bold text-slate-800 dark:text-white">{item.description}</TableCell>
-                    <TableCell className="text-xs text-slate-500">{item.warehouse}</TableCell>
-                    <TableCell className="text-xs font-black text-center">{item.quantity} unidades</TableCell>
-                    <TableCell className="text-xs font-mono text-right font-bold">${item.avg_cost.toFixed(2)}</TableCell>
-                    <TableCell className="text-xs font-mono text-right font-black text-slate-900 dark:text-white">${itemTotalVal.toFixed(2)}</TableCell>
-                    <TableCell className="text-xs font-mono text-right text-blue-600 dark:text-blue-400 font-bold">${item.sale_price.toFixed(2)}</TableCell>
-                    <TableCell className="text-xs font-mono text-right">
-                      <Badge className={`border-0 font-black text-[10px] ${
-                        profitMargin >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600'
-                      }`}>
-                        {profitMargin >= 0 ? '+' : ''}{profitMargin.toFixed(1)}%
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+          <span className="text-[11px] text-muted-foreground">
+            Usa el botón <strong>Editar</strong> en cualquier fila para actualizar nombre, categoría o PVP.
+          </span>
+        </CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-xs text-muted-foreground gap-2">
+              <Loader2 size={16} className="animate-spin text-indigo-600" /> Calculando costos desde Compras...
+            </div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/40 border-b border-border text-[10px] font-black uppercase text-muted-foreground">
+                  <th className="text-left px-4 py-3">SKU / Producto</th>
+                  <th className="text-left px-3 py-3">Bodega</th>
+                  <th className="text-right px-3 py-3">Stock</th>
+                  <th className="text-right px-3 py-3">Últ. Compra</th>
+                  <th className="text-right px-3 py-3">Costo FIFO</th>
+                  <th className="text-right px-3 py-3">Valor Inv.</th>
+                  <th className="text-right px-3 py-3">PVP</th>
+                  <th className="text-right px-3 py-3">Margen</th>
+                  <th className="text-right px-4 py-3">Editar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStock.map(row => {
+                  const invVal = row.quantity * row.avg_cost;
+                  const margin = row.sale_price > 0 && row.avg_cost > 0 ? ((row.sale_price - row.avg_cost) / row.sale_price) * 100 : 0;
+                  return (
+                    <tr key={row.sku} className="border-b border-border/50 hover:bg-muted/30">
+                      <td className="px-4 py-2.5">
+                        <div className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{row.sku}</div>
+                        <div className="font-semibold text-foreground truncate max-w-[240px]">{row.description}</div>
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{row.warehouse}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold">{row.quantity.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono">
+                        {row.last_purchase_cost !== null ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">${row.last_purchase_cost.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Sin compra</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold">${row.avg_cost.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-black">${invVal.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold">${row.sale_price.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-mono ${
+                            margin >= 25
+                              ? 'text-emerald-600 border-emerald-300'
+                              : margin > 0
+                              ? 'text-amber-600 border-amber-300'
+                              : 'text-muted-foreground'
+                          }`}
+                        >
+                          {margin > 0 ? `${margin.toFixed(1)}%` : '—'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenQuickEdit(row)}
+                          className="h-7 px-2 text-[11px] rounded-lg gap-1"
+                        >
+                          <Pencil size={11} /> Editar
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
       </Card>
+
+      {/* Modal Edición Rápida de Producto */}
+      <Dialog open={!!editingProd} onOpenChange={open => !open && setEditingProd(null)}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black">Editar Producto · {editingProd?.sku}</DialogTitle>
+            <DialogDescription className="text-xs">
+              Modifica el nombre, categoría o precio de venta (PVP) directamente en el catálogo maestro.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-[11px] font-bold">Nombre del Producto</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-9 text-xs mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[11px] font-bold">Categoría</Label>
+                <Input value={editCategory} onChange={e => setEditCategory(e.target.value)} className="h-9 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-[11px] font-bold">Precio de Venta PVP ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editPrice}
+                  onChange={e => setEditPrice(e.target.value)}
+                  className="h-9 text-xs font-mono font-bold mt-1"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditingProd(null)} className="h-9 rounded-xl text-xs">
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={savingEdit}
+              onClick={handleSaveQuickEdit}
+              className="h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold gap-1.5"
+            >
+              {savingEdit ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              Guardar Cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

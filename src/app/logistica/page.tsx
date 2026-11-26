@@ -3,19 +3,22 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import InventoryTab from './components/InventoryTab';
+import ProductCombosTab from './components/ProductCombosTab';
 import WarehousesAndRegistersTab from './components/WarehousesAndRegistersTab';
 import TransfersTab from './components/TransfersTab';
 import KardexValuedTab from './components/KardexValuedTab';
 import ProductionTab from './components/ProductionTab';
 import FractionAndDischargesTab from './components/FractionAndDischargesTab';
-import { Package, Factory, Scissors, ArrowLeftRight, BarChart3, Warehouse } from 'lucide-react';
+import { Package, Factory, Scissors, ArrowLeftRight, BarChart3, Warehouse, Gift } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 
 function LogisticaContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams?.get('tab') || 'inventario';
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [invSubView, setInvSubView] = useState<'catalogo' | 'combos'>('catalogo');
 
   useEffect(() => {
     const paramTab = searchParams?.get('tab');
@@ -81,8 +84,28 @@ function LogisticaContent() {
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="inventario" className="outline-none">
-          <InventoryTab />
+        <TabsContent value="inventario" className="space-y-4 outline-none">
+          <div className="flex flex-wrap items-center gap-2 bg-card border border-border/70 p-1.5 rounded-2xl w-fit shadow-sm">
+            <Button
+              type="button"
+              size="sm"
+              variant={invSubView === 'catalogo' ? 'default' : 'ghost'}
+              onClick={() => setInvSubView('catalogo')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <Package size={14} /> Inventario y Catálogo
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={invSubView === 'combos' ? 'default' : 'ghost'}
+              onClick={() => setInvSubView('combos')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <Gift size={14} /> Combos de Productos
+            </Button>
+          </div>
+          {invSubView === 'catalogo' ? <InventoryTab /> : <ProductCombosTab />}
         </TabsContent>
         <TabsContent value="bodegas" className="outline-none">
           <WarehousesAndRegistersTab />

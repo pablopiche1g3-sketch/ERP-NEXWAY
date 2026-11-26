@@ -62,6 +62,7 @@ import {
 } from '@/lib/product-fraction-rules';
 import { postDoubleEntryJournal } from '@/lib/accounting-journal';
 import { resolveMatchingCreditNoteAlerts } from '@/lib/credit-note-alerts';
+import { loadProductCombos, type ProductCombo } from '@/lib/product-combos';
 import {
   validateContribuyenteMH,
   calculateIvaRetention1Percent
@@ -659,6 +660,54 @@ export default function BillingPage() {
 
   // Arqueo States (Flujo simplificado en 4 pasos: 1. Fondo Base, 2. Tarjetas/Otros, 3. Entrega Efectivo, 4. Validar y Cerrar)
   const [creditSearchTerm, setCreditSearchTerm] = useState('');
+  const [productCombos, setProductCombos] = useState<ProductCombo[]>([]);
+  const [isComboModalOpen, setIsComboModalOpen] = useState(false);
+  const [selectedComboId, setSelectedComboId] = useState<string>('');
+  const [comboCheckedSkus, setComboCheckedSkus] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    loadProductCombos()
+      .then(list => setProductCombos(list.filter(c => c.active)))
+      .catch(() => {});
+  }, []);
+
+  const selectedComboObj = useMemo(
+    () => productCombos.find(c => c.id === selectedComboId) || productCombos[0] || null,
+    [productCombos, selectedComboId]
+  );
+
+  useEffect(() => {
+    if (selectedComboObj) {
+      const initial: Record<string, boolean> = {};
+      selectedComboObj.items.forEach(it => {
+        initial[it.sku] = true;
+      });
+      setComboCheckedSkus(initial);
+    }
+  }, [selectedComboObj?.id]);
+
+  const handleAddSelectedComboToCart = () => {
+    if (!selectedComboObj) return;
+    const chosen = selectedComboObj.items.filter(it => comboCheckedSkus[it.sku] !== false);
+    if (chosen.length === 0) {
+      toast({ variant: 'destructive', title: 'Selecciona al menos 1 ítem', description: 'Marca los productos del combo que vas a facturar.' });
+      return;
+    }
+    const nowId = Date.now();
+    const newCartItems = chosen.map((it, idx) => ({
+      id: `combo_${nowId}_${idx}_${it.sku}`,
+      sku: it.sku,
+      name: `${it.name} [${selectedComboObj.code}]`,
+      price: Number(it.unitPrice || 0),
+      quantity: Number(it.quantity || 1),
+    }));
+    setCart(prev => [...prev, ...newCartItems]);
+    setIsComboModalOpen(false);
+    toast({
+      title: `Combo "${selectedComboObj.name}" agregado ✓`,
+      description: `Se desglosaron ${chosen.length} de ${selectedComboObj.items.length} ítems en el carrito.`,
+    });
+  };
   const [pastClosings, setPastClosings] = useState<any[]>([]);
   const [closingSearchDate, setClosingSearchDate] = useState('');
   const [loadingPastClosings, setLoadingPastClosings] = useState(false);
@@ -3627,9 +3676,23 @@ export default function BillingPage() {
             {/* Columna Izquierda: POS Carrito (Ancho: 5/12) */}
             <div className="lg:col-span-5 space-y-3.5">
               <div className="bg-white/40 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 rounded-[13px] p-5 flex flex-col gap-3 shadow-sm dark:shadow-none">
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-center gap-2">
                   <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-white/30">Resumen de venta</span>
-                  <span className="bg-blue-500/10 dark:bg-[#5b5ef4]/20 text-blue-700 dark:text-[#7c7fff] border border-blue-200 dark:border-[#5b5ef4]/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">{docType}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        loadProductCombos().then(list => setProductCombos(list.filter(c => c.active))).catch(() => {});
+                        setIsComboModalOpen(true);
+                      }}
+                      className="h-6 px-2.5 rounded-full text-[10px] font-bold border-indigo-400/50 text-indigo-600 dark:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20"
+                    >
+                      🎁 Combos ({productCombos.length})
+                    </Button>
+                    <span className="bg-blue-500/10 dark:bg-[#5b5ef4]/20 text-blue-700 dark:text-[#7c7fff] border border-blue-200 dark:border-[#5b5ef4]/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">{docType}</span>
+                  </div>
                 </div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight"><span className="text-lg text-slate-400 dark:text-white/50">$</span>{totalCart.toFixed(2)}</div>
                 
@@ -3671,6 +3734,107 @@ export default function BillingPage() {
                 </ScrollArea>
 
                 <div className="h-[1px] bg-slate-200 dark:bg-white/10 my-1" />
+
+                {/* MODAL COMBOS DE PRODUCTOS CON DESGLOSE PARCIAL */}
+                <Dialog open={isComboModalOpen} onOpenChange={setIsComboModalOpen}>
+                  <DialogContent className="sm:max-w-lg rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-sm font-black flex items-center gap-2">
+                        🎁 Agregar Combo de Productos (Desglose / Parcial)
+                      </DialogTitle>
+                      <DialogDescription className="text-xs">
+                        Elige un combo y marca o desmarca los componentes para facturarlo completo o parcial.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    {productCombos.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-muted-foreground">
+                        No hay combos activos todavía. Créalos en <strong>Logística → 1. Inventario & Catálogo → Combos de Productos</strong>.
+                      </div>
+                    ) : (
+                      <div className="space-y-3 py-1">
+                        <div className="flex flex-wrap gap-1.5">
+                          {productCombos.map(c => (
+                            <Button
+                              key={c.id}
+                              type="button"
+                              size="sm"
+                              variant={selectedComboObj?.id === c.id ? 'default' : 'outline'}
+                              onClick={() => setSelectedComboId(c.id)}
+                              className="h-8 text-xs font-bold rounded-xl"
+                            >
+                              {c.name} (${c.comboPrice.toFixed(2)})
+                            </Button>
+                          ))}
+                        </div>
+
+                        {selectedComboObj && (
+                          <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold border-b border-border pb-2">
+                              <span>{selectedComboObj.name}</span>
+                              <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                                Total seleccionado: $
+                                {selectedComboObj.items
+                                  .filter(it => comboCheckedSkus[it.sku] !== false)
+                                  .reduce((s, it) => s + it.quantity * it.unitPrice, 0)
+                                  .toFixed(2)}
+                              </span>
+                            </div>
+
+                            {selectedComboObj.items.map(it => {
+                              const checked = comboCheckedSkus[it.sku] !== false;
+                              return (
+                                <label
+                                  key={it.sku}
+                                  className={`flex items-center justify-between gap-2 p-2 rounded-lg border cursor-pointer text-xs transition-all ${
+                                    checked
+                                      ? 'bg-card border-indigo-500/40'
+                                      : 'bg-muted/30 border-border/50 opacity-55 line-through'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={e =>
+                                        setComboCheckedSkus(prev => ({ ...prev, [it.sku]: e.target.checked }))
+                                      }
+                                      className="rounded"
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="font-bold truncate">{it.name}</div>
+                                      <div className="text-[10px] font-mono text-muted-foreground">
+                                        {it.sku} · {it.quantity}x ${it.unitPrice.toFixed(2)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span className="font-mono font-bold shrink-0">
+                                    ${(it.quantity * it.unitPrice).toFixed(2)}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsComboModalOpen(false)} className="h-9 rounded-xl text-xs">
+                        Cerrar
+                      </Button>
+                      {selectedComboObj && (
+                        <Button
+                          type="button"
+                          onClick={handleAddSelectedComboToCart}
+                          className="h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
+                        >
+                          Agregar Desglosado al Carrito
+                        </Button>
+                      )}
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 {/* Métodos de Pago */}
                 <div>
