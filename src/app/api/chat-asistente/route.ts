@@ -83,6 +83,12 @@ function buildBmsDirectResponse(userText: string, bmsData: any): {
     itemsSummary: string;
     estimatedAmount?: number;
   } | null;
+  orderProposal?: {
+    supplierName: string;
+    supplierNit?: string;
+    items: Array<{ sku: string; name: string; quantity: number; cost: number }>;
+    notes: string;
+  } | null;
 } | null {
   const lower = userText.toLowerCase();
   const stats = bmsData?.stats || {};
@@ -90,6 +96,63 @@ function buildBmsDirectResponse(userText: string, bmsData: any): {
   const pendingNc = ncAlerts.filter(a => a.status === 'PENDIENTE');
   const clientDue: any[] = Array.isArray(bmsData?.creditDueAlerts?.clientAlerts) ? bmsData.creditDueAlerts.clientAlerts : [];
   const supplierDue: any[] = Array.isArray(bmsData?.creditDueAlerts?.supplierAlerts) ? bmsData.creditDueAlerts.supplierAlerts : [];
+  const catalog: Array<{ sku: string; name: string; price?: number; cost?: number }> = Array.isArray(bmsData?.catalog) ? bmsData.catalog : [];
+  const suppliersList: Array<{ name: string; nit?: string }> = Array.isArray(bmsData?.suppliers) ? bmsData.suppliers : [];
+
+  // 0. Crear Pedido / Orden de Compra de emergencia a un Proveedor (Sandbox MH)
+  const wantsOrder = /(pide|pedir|pidan|ordena|ordenar|solicita|solicitar|abastece|reabastece|compra.*emergencia|pedido.*proveedor|necesito que se pidan)/i.test(lower);
+  const qtyMatch = userText.match(/\b(\d+(?:[.,]\d{1,2})?)\b/);
+  if (wantsOrder && qtyMatch && !/(qu[eé] pedidos|cu[aá]ntos pedidos|estado)/i.test(lower)) {
+    const qty = Math.max(1, Math.round(parseFloat(qtyMatch[1].replace(',', '.')) || 1));
+
+    // Buscar proveedor mencionado (coincidencia con directorio o texto tras "a ")
+    let matchedSupplier = suppliersList.find(s =>
+      s.name && lower.includes(s.name.toLowerCase())
+    );
+    if (!matchedSupplier) {
+      const supAfterA = userText.match(/(?:a proveedor|al proveedor|proveedor|a)\s+([A-ZÁÉÍÓÚÑa-záéíóúñ0-9 .&-]{3,35})/i);
+      const rawSup = supAfterA?.[1]?.trim();
+      if (rawSup) {
+        matchedSupplier = suppliersList.find(s => s.name?.toLowerCase().includes(rawSup.toLowerCase())) || { name: rawSup };
+      }
+    }
+    const supplierName = matchedSupplier?.name || suppliersList[0]?.name || 'Proveedor Sandbox MH';
+    const supplierNit = matchedSupplier?.nit || '';
+
+    // Buscar mejor producto coincidente en el catálogo por palabras clave
+    const cleanWords = lower
+      .replace(/[^a-záéíóúñ0-9\s-]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 3 && !['pide', 'pedir', 'pidan', 'ordena', 'ordenar', 'necesito', 'que', 'para', 'con', 'del', 'las', 'los', 'una', 'unos', 'proveedor', 'emergencia', 'sandbox', 'unidades', 'uds', 'por', 'favor'].includes(w));
+
+    let bestProd: { sku: string; name: string; price?: number; cost?: number } | null = null;
+    let bestScore = 0;
+    for (const prod of catalog) {
+      const hay = `${prod.sku} ${prod.name}`.toLowerCase();
+      let score = 0;
+      for (const w of cleanWords) {
+        if (hay.includes(w)) score += w.length;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestProd = prod;
+      }
+    }
+
+    const itemSku = bestProd?.sku || 'INSUMO-EMG';
+    const itemName = bestProd?.name || userText.replace(/.*?\b\d+\b\s*/i, '').replace(/\s+a\s+.*$/i, '').trim().slice(0, 60) || 'Producto de Emergencia';
+    const unitCost = Number(bestProd?.cost || (bestProd?.price ? Number(bestProd.price) * 0.65 : 10));
+
+    return {
+      response: `Preparé el **borrador de pedido** de **${qty}x ${itemName}** (${itemSku}) para **${supplierName}** vía Sandbox MH. Revísalo abajo y pulsa **Confirmar y Enviar Pedido** para generar la orden y recibir el DTE en Compras.`,
+      orderProposal: {
+        supplierName,
+        supplierNit,
+        items: [{ sku: itemSku, name: itemName, quantity: qty, cost: Number(unitCost.toFixed(2)) }],
+        notes: `Pedido de emergencia solicitado vía NexBot: "${userText.trim().slice(0, 100)}"`,
+      },
+    };
+  }
 
   // 1. Crear aviso de devolución / Nota de Crédito pendiente en el BMS
   if (/(avisa|recordatorio|recu[eé]rdame|regresar|devolver|devoluci[oó]n|esperando nota de cr[eé]dito|pendiente.*nota de cr[eé]dito)/i.test(lower) && !/(qu[eé] notas|cu[aá]les|tengo pendientes)/i.test(lower)) {

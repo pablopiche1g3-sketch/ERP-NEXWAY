@@ -22,6 +22,7 @@ import {
   loadPendingCreditNoteAlerts,
 } from '@/lib/credit-note-alerts';
 import { loadBmsCreditDueAlerts } from '@/lib/supplier-credit';
+import { executeRestockOrderAndReceiveDte } from '@/lib/hacienda-sandbox';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,11 +36,21 @@ interface NcAlertDraft {
   estimatedAmount?: number;
 }
 
+interface OrderProposalDraft {
+  supplierName: string;
+  supplierNit?: string;
+  items: Array<{ sku: string; name: string; quantity: number; cost: number }>;
+  notes: string;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   ncAlertProposal?: NcAlertDraft | null;
   ncAlertStatus?: 'pending' | 'saved' | 'discarded';
+  orderProposal?: OrderProposalDraft | null;
+  orderStatus?: 'pending' | 'sent' | 'discarded';
+  orderControlNum?: string;
 }
 
 const MODULE_NAMES: Record<string, string> = {
@@ -82,7 +93,7 @@ export function NexBotFlotante() {
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number }>({ startX: 0, startY: 0, initialX: 0, initialY: 0 });
 
   // Consumimos el BMS completo (tareas + estadísticas en vivo)
-  const { tasks: bmsTasks, stats: bmsStats, isGuideActive, guideMessage, startGuide, stopGuide } = useBms();
+  const { tasks: bmsTasks, stats: bmsStats, auditSystem, isGuideActive, guideMessage, startGuide, stopGuide } = useBms();
 
   const currentModule = MODULE_NAMES[pathname] || 'Módulo Desconocido';
 
@@ -204,9 +215,11 @@ export function NexBotFlotante() {
         }
       }
 
-      const [pendingNcAlerts, creditDueAlerts] = await Promise.all([
+      const [pendingNcAlerts, creditDueAlerts, invRes, supRes] = await Promise.all([
         loadPendingCreditNoteAlerts().catch(() => []),
         loadBmsCreditDueAlerts().catch(() => ({ clientAlerts: [], supplierAlerts: [] })),
+        supabase.from('inventory').select('sku, name, price, cost').limit(300).then(r => r.data || [], () => []),
+        supabase.from('suppliers').select('name, nit').limit(100).then(r => r.data || [], () => []),
       ]);
 
       const response = await fetch('/api/chat-asistente', {
@@ -221,6 +234,8 @@ export function NexBotFlotante() {
             recent_events: recentEvents,
             pendingNcAlerts,
             creditDueAlerts,
+            catalog: invRes,
+            suppliers: supRes,
           }
         })
       });
@@ -232,6 +247,7 @@ export function NexBotFlotante() {
 
       const responseText = data.response || 'No obtuve respuesta.';
       const ncAlertProposal: NcAlertDraft | null = data.ncAlertProposal || null;
+      const orderProposal: OrderProposalDraft | null = data.orderProposal || null;
       
       // Interceptar comandos de TOUR
       const tourMatch = responseText.match(/\[TOUR:\s*([^|\]]+)(?:\|\s*([^\]]+))?\]/);
@@ -249,6 +265,8 @@ export function NexBotFlotante() {
               content: cleanResponse,
               ncAlertProposal,
               ncAlertStatus: ncAlertProposal ? 'pending' : undefined,
+              orderProposal,
+              orderStatus: orderProposal ? 'pending' : undefined,
             },
           ]);
         }
@@ -260,6 +278,8 @@ export function NexBotFlotante() {
             content: responseText,
             ncAlertProposal,
             ncAlertStatus: ncAlertProposal ? 'pending' : undefined,
+            orderProposal,
+            orderStatus: orderProposal ? 'pending' : undefined,
           },
         ]);
       }
@@ -458,6 +478,117 @@ export function NexBotFlotante() {
                           )}
                         </div>
                       )}
+
+                      {msg.orderProposal && (
+                        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5 space-y-2 text-[11px]">
+                          <div className="font-black text-emerald-300 uppercase text-[10px]">
+                            📦 Borrador de Pedido a Proveedor (Sandbox MH)
+                          </div>
+                          <div className="text-white font-bold">
+                            Proveedor: {msg.orderProposal.supplierName}
+                          </div>
+                          <div className="space-y-1 bg-black/25 rounded-lg p-2">
+                            {msg.orderProposal.items.map((it, i) => (
+                              <div key={i} className="flex justify-between gap-2 text-[10px]">
+                                <span className="text-slate-200 truncate">
+                                  <strong>{it.quantity}x</strong> {it.name} <span className="font-mono text-indigo-300">({it.sku})</span>
+                                </span>
+                                <span className="font-mono font-bold text-emerald-300 shrink-0">
+                                  ${(it.quantity * it.cost).toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {msg.orderStatus === 'pending' && (
+                            <div className="flex justify-end gap-1.5 pt-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setMessages(prev =>
+                                    prev.map((m, i) => (i === idx ? { ...m, orderStatus: 'discarded' } : m))
+                                  )
+                                }
+                                className="h-7 px-2 text-[10px] text-slate-300 hover:text-white"
+                              >
+                                <XCircle size={12} className="mr-1" /> Descartar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={savingAlertIdx === idx}
+                                onClick={async () => {
+                                  setSavingAlertIdx(idx);
+                                  try {
+                                    const prop = msg.orderProposal!;
+                                    const orderCode = `NEXBOT-${Date.now().toString().slice(-6)}`;
+                                    const totalEst = prop.items.reduce((s, it) => s + it.quantity * it.cost, 0);
+
+                                    // 1. Registrar Orden en supplier_orders
+                                    await supabase.from('supplier_orders').insert({
+                                      order_number: orderCode,
+                                      supplier_name: prop.supplierName,
+                                      items: prop.items,
+                                      total_estimated: Number(totalEst.toFixed(2)),
+                                      status: 'PENDIENTE',
+                                      notes: prop.notes,
+                                    });
+
+                                    // 2. Enviar pedido al Sandbox MH para recibir DTE en Compras
+                                    const res = await executeRestockOrderAndReceiveDte({
+                                      orderCode,
+                                      supplierName: prop.supplierName,
+                                      supplierNit: prop.supplierNit,
+                                      items: prop.items,
+                                    });
+
+                                    setMessages(prev =>
+                                      prev.map((m, i) =>
+                                        i === idx
+                                          ? {
+                                              ...m,
+                                              orderStatus: 'sent',
+                                              orderControlNum: res.numeroControl || orderCode,
+                                            }
+                                          : m
+                                      )
+                                    );
+                                    auditSystem?.();
+                                    window.dispatchEvent(new CustomEvent('nexway:bms-refresh'));
+                                    toast({
+                                      title: res.ok ? '📦 Pedido Enviado y DTE Recibido ✓' : '📦 Orden de Compra Creada ✓',
+                                      description: res.ok
+                                        ? `Orden ${orderCode} procesada vía Sandbox (${res.numeroControl || 'DTE listo en Compras'}).`
+                                        : `Se creó la orden ${orderCode} en Compras → Órdenes de Compra.`,
+                                    });
+                                  } finally {
+                                    setSavingAlertIdx(null);
+                                  }
+                                }}
+                                className="h-7 px-2.5 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                              >
+                                {savingAlertIdx === idx ? (
+                                  <Loader2 size={11} className="animate-spin mr-1" />
+                                ) : (
+                                  <CheckCircle2 size={12} className="mr-1" />
+                                )}
+                                Confirmar y Enviar Pedido
+                              </Button>
+                            </div>
+                          )}
+
+                          {msg.orderStatus === 'sent' && (
+                            <div className="text-emerald-400 font-bold text-[10px] flex items-center gap-1">
+                              <CheckCircle2 size={12} /> Pedido enviado · Ref: {msg.orderControlNum || 'OK'} (listo en Compras) ✓
+                            </div>
+                          )}
+                          {msg.orderStatus === 'discarded' && (
+                            <div className="text-slate-400 text-[10px]">Pedido descartado</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -477,6 +608,12 @@ export function NexBotFlotante() {
 
             {/* Sugerencias Rápidas */}
             <div className="p-2.5 border-t border-white/5 bg-black/30 flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
+              <button 
+                onClick={() => suggestQuestion('Pide 10 unidades de ACEITE 1 al proveedor')} 
+                className="text-[10px] bg-emerald-500/15 border border-emerald-500/30 hover:border-emerald-400/60 text-emerald-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm"
+              >
+                📦 Pedir a Proveedor
+              </button>
               <button 
                 onClick={() => suggestQuestion('¿Qué alertas tiene el BMS hoy?')} 
                 className="text-[10px] bg-indigo-500/15 border border-indigo-500/30 hover:border-indigo-400/60 text-indigo-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm flex items-center gap-1"
