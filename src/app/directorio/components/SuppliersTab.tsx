@@ -36,6 +36,11 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import {
+  loadSupplierCreditProfiles,
+  saveSupplierCreditProfile,
+  loadSupplierCxpBalances,
+} from '@/lib/supplier-credit';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
@@ -86,6 +91,8 @@ export interface SupplierRecord {
   bank_account?: string;
   bank_account_type?: string;
   credit_days?: number;
+  is_authorized_credit?: boolean;
+  credit_limit?: number;
   payment_terms?: string;
   apply_retention: boolean;
   apply_perception: boolean;
@@ -120,6 +127,8 @@ export default function SuppliersTab() {
     bank_name: 'Banco Agrícola',
     bank_account: '',
     bank_account_type: 'Corriente',
+    is_authorized_credit: false,
+    credit_limit: '0.00',
     credit_days: '30',
     apply_retention: false,
     apply_perception: false,
@@ -148,6 +157,8 @@ export default function SuppliersTab() {
     bank_name: 'Banco Agrícola',
     bank_account: '',
     bank_account_type: 'Corriente',
+    is_authorized_credit: false,
+    credit_limit: '0.00',
     credit_days: '30',
     apply_retention: false,
     apply_perception: false,
@@ -162,16 +173,20 @@ export default function SuppliersTab() {
 
   // Estados de datos
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
+  const [supplierBalances, setSupplierBalances] = useState<Record<string, number>>({});
   const [loadingData, setLoadingData] = useState(true);
 
   // Cargar proveedores desde Supabase
   const loadSuppliersData = async () => {
     try {
       setLoadingData(true);
-      const [{ data, error }, { data: metaRow }] = await Promise.all([
+      const [{ data, error }, { data: metaRow }, creditProfiles, cxpBalances] = await Promise.all([
         supabase.from('suppliers').select('*').order('name'),
-        supabase.from('system_config').select('value').eq('key', 'suppliers_extended_metadata').maybeSingle()
+        supabase.from('system_config').select('value').eq('key', 'suppliers_extended_metadata').maybeSingle(),
+        loadSupplierCreditProfiles(),
+        loadSupplierCxpBalances(),
       ]);
+      setSupplierBalances(cxpBalances);
       
       if (error) throw error;
 
@@ -187,10 +202,17 @@ export default function SuppliersTab() {
       const remoteMeta: Record<string, any> = (metaRow?.value && typeof metaRow.value === 'object') ? metaRow.value : {};
       const combinedMeta = { ...localMeta, ...remoteMeta };
 
-      const enriched = (data || []).map((s: any) => ({
-        ...s,
-        ...(combinedMeta[s.id] || {})
-      }));
+      const enriched = (data || []).map((s: any) => {
+        const ext = combinedMeta[s.id] || {};
+        const cp = creditProfiles[s.id];
+        return {
+          ...s,
+          ...ext,
+          is_authorized_credit: cp ? cp.is_authorized_credit : Boolean(ext.is_authorized_credit),
+          credit_limit: cp ? cp.credit_limit : Number(ext.credit_limit || 0),
+          credit_days: cp ? cp.credit_days : Number(ext.credit_days || s.credit_days || 30),
+        };
+      });
       setSuppliers(enriched);
     } catch (err: any) {
       console.error('Error al cargar proveedores:', err);
@@ -312,8 +334,15 @@ export default function SuppliersTab() {
           bank_account: form.bank_account.trim() || null,
           bank_account_type: form.bank_account_type || 'Corriente',
           credit_days: parseInt(form.credit_days) || 30,
+          is_authorized_credit: form.is_authorized_credit,
+          credit_limit: parseFloat(form.credit_limit) || 0,
           is_gran_contribuyente: form.is_gran_contribuyente,
           notes: form.notes.trim() || null
+        });
+        await saveSupplierCreditProfile(insertedSup.id, {
+          is_authorized_credit: form.is_authorized_credit,
+          credit_limit: parseFloat(form.credit_limit) || 0,
+          credit_days: parseInt(form.credit_days) || 30,
         });
       }
 
@@ -338,6 +367,8 @@ export default function SuppliersTab() {
         bank_name: 'Banco Agrícola',
         bank_account: '',
         bank_account_type: 'Corriente',
+        is_authorized_credit: false,
+        credit_limit: '0.00',
         credit_days: '30',
         apply_retention: false,
         apply_perception: false,
@@ -391,8 +422,15 @@ export default function SuppliersTab() {
         bank_account: editForm.bank_account.trim() || null,
         bank_account_type: editForm.bank_account_type,
         credit_days: parseInt(editForm.credit_days) || 30,
+        is_authorized_credit: editForm.is_authorized_credit,
+        credit_limit: parseFloat(editForm.credit_limit) || 0,
         is_gran_contribuyente: editForm.is_gran_contribuyente,
         notes: editForm.notes.trim() || null
+      });
+      await saveSupplierCreditProfile(editForm.id, {
+        is_authorized_credit: editForm.is_authorized_credit,
+        credit_limit: parseFloat(editForm.credit_limit) || 0,
+        credit_days: parseInt(editForm.credit_days) || 30,
       });
 
       toast({ title: "Proveedor Actualizado", description: `${editForm.name} fue modificado con éxito.` });
@@ -737,6 +775,42 @@ export default function SuppliersTab() {
                         className="h-8 text-xs font-bold text-emerald-600 dark:text-emerald-400"
                       />
                     </div>
+
+                    {/* Crédito Autorizado con Proveedor */}
+                    <div className="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-900/50 space-y-2">
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span className="text-[11px] font-bold text-foreground">Crédito Autorizado con Proveedor</span>
+                        <Switch
+                          checked={form.is_authorized_credit}
+                          onCheckedChange={val => setForm({ ...form, is_authorized_credit: val })}
+                        />
+                      </label>
+                      {form.is_authorized_credit && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Límite Crédito ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={form.credit_limit}
+                              onChange={e => setForm({ ...form, credit_limit: e.target.value })}
+                              className="h-8 text-xs font-mono font-bold"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Plazo (Días)</Label>
+                            <Input
+                              type="number"
+                              placeholder="30"
+                              value={form.credit_days}
+                              onChange={e => setForm({ ...form, credit_days: e.target.value })}
+                              className="h-8 text-xs font-mono font-bold"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -931,9 +1005,31 @@ export default function SuppliersTab() {
                             {supplier.bank_account && (
                               <div className="text-muted-foreground">Cta: {supplier.bank_account}</div>
                             )}
-                            <div className="text-emerald-600 dark:text-emerald-400 font-bold font-sans">
-                              Crédito: {supplier.credit_days || 30} días
-                            </div>
+                            {supplier.is_authorized_credit ? (() => {
+                              const lim = Number(supplier.credit_limit || 0);
+                              const used = Number(supplierBalances[supplier.id] || 0);
+                              const avail = Math.max(0, lim - used);
+                              const over = lim > 0 && used > lim;
+                              return (
+                                <div className="space-y-0.5 pt-0.5 font-sans">
+                                  <div className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">
+                                    ✓ Crédito Autorizado · {supplier.credit_days || 30}d
+                                  </div>
+                                  <div className="text-[10px] font-mono text-muted-foreground">
+                                    Lím: ${lim.toFixed(2)} · Saldo: <span className={over ? 'text-rose-600 font-black' : 'text-foreground font-bold'}>${used.toFixed(2)}</span>
+                                  </div>
+                                  {lim > 0 && (
+                                    <div className={`text-[9px] font-mono font-bold ${over ? 'text-rose-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                      {over ? `Sobregiro: $${(used - lim).toFixed(2)}` : `Disp: $${avail.toFixed(2)}`}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })() : (
+                              <div className="text-muted-foreground font-sans text-[10px]">
+                                Contado {supplier.credit_days ? `(${supplier.credit_days}d ref.)` : ''}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
 
@@ -980,6 +1076,8 @@ export default function SuppliersTab() {
                                   bank_name: supplier.bank_name || 'Banco Agrícola',
                                   bank_account: supplier.bank_account || '',
                                   bank_account_type: supplier.bank_account_type || 'Corriente',
+                                  is_authorized_credit: Boolean(supplier.is_authorized_credit),
+                                  credit_limit: (Number(supplier.credit_limit || 0)).toFixed(2),
                                   credit_days: (supplier.credit_days || 30).toString(),
                                   apply_retention: supplier.apply_retention,
                                   apply_perception: supplier.apply_perception,
@@ -1228,6 +1326,39 @@ export default function SuppliersTab() {
                   className="h-8 text-xs font-mono font-semibold" 
                 />
               </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-900/50 space-y-2">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold text-foreground">Crédito Autorizado con Proveedor</span>
+                <Switch
+                  checked={editForm.is_authorized_credit}
+                  onCheckedChange={val => setEditForm({ ...editForm, is_authorized_credit: val })}
+                />
+              </label>
+              {editForm.is_authorized_credit && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Límite Crédito ($)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editForm.credit_limit}
+                      onChange={e => setEditForm({ ...editForm, credit_limit: e.target.value })}
+                      className="h-8 text-xs font-mono font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Plazo de Pago (Días)</Label>
+                    <Input
+                      type="number"
+                      value={editForm.credit_days}
+                      onChange={e => setEditForm({ ...editForm, credit_days: e.target.value })}
+                      className="h-8 text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-3 rounded-xl bg-muted/20 border border-border/60 space-y-2">

@@ -54,6 +54,11 @@ import {
   deletePendingCreditNoteAlert,
   type PendingCreditNoteAlert,
 } from '@/lib/credit-note-alerts';
+import {
+  loadSupplierCreditProfiles,
+  loadSupplierCxpBalances,
+  type SupplierCreditProfile,
+} from '@/lib/supplier-credit';
 import { useBms } from '@/contexts/BmsContext';
 import type { PurchaseOrderRecord } from './OrdersTab';
 
@@ -112,6 +117,17 @@ export default function PurchasesTab({
   // Proveedor seleccionado
   const [supplierName, setSupplierName] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
+  const [supplierCreditMap, setSupplierCreditMap] = useState<Record<string, SupplierCreditProfile>>({});
+  const [supplierBalancesMap, setSupplierBalancesMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    Promise.all([loadSupplierCreditProfiles(), loadSupplierCxpBalances()])
+      .then(([profiles, balances]) => {
+        setSupplierCreditMap(profiles);
+        setSupplierBalancesMap(balances);
+      })
+      .catch(() => {});
+  }, []);
 
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [skuSearch, setSkuSearch] = useState('');
@@ -1999,7 +2015,16 @@ export default function PurchasesTab({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('Credito')}
+                      onClick={() => {
+                        setPaymentMethod('Credito');
+                        const matchedSup = suppliers.find(
+                          (s: any) => String(s.name || '').toLowerCase() === supplierName.trim().toLowerCase()
+                        );
+                        const cp = matchedSup ? supplierCreditMap[matchedSup.id] : null;
+                        if (cp?.credit_days && !creditDays) {
+                          setCreditDays(cp.credit_days);
+                        }
+                      }}
                       className={`flex items-center justify-center gap-1 py-2 px-2 rounded-lg text-xs font-bold transition-all ${
                         paymentMethod === 'Credito'
                           ? 'bg-indigo-600 text-white shadow-sm'
@@ -2009,6 +2034,38 @@ export default function PurchasesTab({
                       <CreditCard size={12} /> Crédito
                     </button>
                   </div>
+
+                  {/* NOTIFICACIÓN EN VIVO DE CRÉDITO AUTORIZADO DEL PROVEEDOR */}
+                  {supplierName.trim() && (() => {
+                    const matchedSup = suppliers.find(
+                      (s: any) => String(s.name || '').toLowerCase() === supplierName.trim().toLowerCase()
+                    );
+                    if (!matchedSup) return null;
+                    const cp = supplierCreditMap[matchedSup.id];
+                    const isAuth = Boolean(cp?.is_authorized_credit);
+                    const lim = Number(cp?.credit_limit || 0);
+                    const used = Number(supplierBalancesMap[matchedSup.id] || 0);
+                    const avail = Math.max(0, lim - used);
+                    const days = Number(cp?.credit_days || matchedSup.credit_days || 30);
+
+                    if (!isAuth) {
+                      return (
+                        <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-700 dark:text-amber-300 font-semibold">
+                          ℹ️ {matchedSup.name} sin crédito autorizado en Directorio (Contado).
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="mt-2 px-2.5 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[10px] space-y-0.5">
+                        <div className="font-bold text-emerald-700 dark:text-emerald-300">
+                          ✓ Crédito Autorizado · Plazo {days} días
+                        </div>
+                        <div className="font-mono text-foreground/85">
+                          Límite: <strong>${lim.toFixed(2)}</strong> · Saldo CxP: <strong>${used.toFixed(2)}</strong> · Disp.: <strong className="text-emerald-600 dark:text-emerald-400">${avail.toFixed(2)}</strong>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {paymentMethod === 'Credito' && (
                     <div className="mt-2 p-2 rounded-lg bg-background dark:bg-white/5 border border-border dark:border-white/10 flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase text-indigo-500">Plazo de Crédito:</span>

@@ -38,6 +38,10 @@ import {
   loadPendingCreditNoteAlerts,
   type PendingCreditNoteAlert,
 } from '@/lib/credit-note-alerts';
+import {
+  loadBmsCreditDueAlerts,
+  type CreditDueAlert,
+} from '@/lib/supplier-credit';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -693,10 +697,17 @@ export function AsistenteGuiaERP() {
   const criticalCount = stats.zeroStockProductsCount || 0;
   const stagnantCount = stats.stagnantProductsCount || 0;
   const [ncAlerts, setNcAlerts] = useState<PendingCreditNoteAlert[]>([]);
+  const [creditDueAlerts, setCreditDueAlerts] = useState<{
+    clientAlerts: CreditDueAlert[];
+    supplierAlerts: CreditDueAlert[];
+  }>({ clientAlerts: [], supplierAlerts: [] });
 
   useEffect(() => {
     loadPendingCreditNoteAlerts().then(setNcAlerts).catch(() => {});
+    loadBmsCreditDueAlerts().then(setCreditDueAlerts).catch(() => {});
   }, [isOpen]);
+
+  const totalCreditDueCount = creditDueAlerts.clientAlerts.length + creditDueAlerts.supplierAlerts.length;
 
   const pendingNcAlerts = useMemo(() => ncAlerts.filter(a => a.status === 'PENDIENTE'), [ncAlerts]);
   const recentResolvedNcAlerts = useMemo(
@@ -801,6 +812,19 @@ export function AsistenteGuiaERP() {
               </button>
             )}
 
+            {totalCreditDueCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsOpen(true)}
+                className="px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all inline-flex items-center gap-1.5 bg-rose-500/10 border-rose-500/35 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400"
+                title="Facturas al crédito vencidas o por vencer (Clientes y Proveedores)"
+              >
+                <DollarSign size={12} />
+                <span>Créditos:</span>
+                <span className="font-mono font-black">{totalCreditDueCount}</span>
+              </button>
+            )}
+
             <Button
               type="button"
               variant="outline"
@@ -865,6 +889,65 @@ export function AsistenteGuiaERP() {
                           ({al.resolvedDocNumber || 'NC aplicada'}) — {al.itemsSummary}
                         </span>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {totalCreditDueCount > 0 && (
+              <div className="rounded-xl border border-rose-300/60 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/15 p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-black text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+                    <DollarSign size={14} /> Créditos Vencidos o Por Vencer (≤ 5 días)
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {creditDueAlerts.clientAlerts.length > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => router.push('/finanzas?tab=cxc')}
+                        className="h-7 text-[11px] font-bold rounded-lg gap-1"
+                      >
+                        Ir a CXC ({creditDueAlerts.clientAlerts.length}) <ArrowUpRight size={12} />
+                      </Button>
+                    )}
+                    {creditDueAlerts.supplierAlerts.length > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => router.push('/finanzas?tab=cxp')}
+                        className="h-7 text-[11px] font-bold rounded-lg gap-1"
+                      >
+                        Ir a CXP ({creditDueAlerts.supplierAlerts.length}) <ArrowUpRight size={12} />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {[...creditDueAlerts.clientAlerts.slice(0, 3), ...creditDueAlerts.supplierAlerts.slice(0, 3)].map(al => (
+                    <div
+                      key={`${al.side}_${al.id}`}
+                      className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-card border border-border/70 text-[11px]"
+                    >
+                      <div className="min-w-0">
+                        <Badge
+                          className={`border-0 text-[9px] h-4 px-1.5 mr-1.5 text-white ${
+                            al.side === 'CLIENTE' ? 'bg-indigo-600' : 'bg-rose-600'
+                          }`}
+                        >
+                          {al.side === 'CLIENTE' ? 'CxC Cliente' : 'CxP Prov.'}
+                        </Badge>
+                        <strong className="text-foreground truncate">{al.entityName}</strong>
+                        <span className="text-[10px] text-muted-foreground ml-1">
+                          ({al.isOverdue ? `Vencida ${Math.abs(al.daysDiff)}d` : `Vence en ${al.daysDiff}d`})
+                        </span>
+                      </div>
+                      <span className="font-mono font-black text-rose-600 dark:text-rose-400 shrink-0">
+                        ${al.balance.toFixed(2)}
+                      </span>
                     </div>
                   ))}
                 </div>
