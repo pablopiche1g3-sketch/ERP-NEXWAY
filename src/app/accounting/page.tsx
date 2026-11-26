@@ -1560,9 +1560,6 @@ export default function AccountingPage() {
                 <Button variant={activeSubTab === 'mayor' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold text-blue-600 dark:text-blue-400" onClick={() => setActiveSubTab('mayor')}>
                   <BookOpen size={12} className="mr-1.5" /> Libro Mayor por Cuenta
                 </Button>
-                <Button variant={activeSubTab === 'auditoria' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold text-indigo-600 dark:text-indigo-400" onClick={() => setActiveSubTab('auditoria')}>
-                  <FileSearch size={12} className="mr-1.5" /> Auditoría & Detalle Manual
-                </Button>
                 <Button variant={activeSubTab === 'catalogo' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveSubTab('catalogo')}>
                   Catálogo de Cuentas Standard
                 </Button>

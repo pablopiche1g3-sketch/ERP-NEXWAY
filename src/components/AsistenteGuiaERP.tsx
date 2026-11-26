@@ -703,8 +703,13 @@ export function AsistenteGuiaERP() {
   }>({ clientAlerts: [], supplierAlerts: [] });
 
   useEffect(() => {
-    loadPendingCreditNoteAlerts().then(setNcAlerts).catch(() => {});
-    loadBmsCreditDueAlerts().then(setCreditDueAlerts).catch(() => {});
+    const refreshAlerts = () => {
+      loadPendingCreditNoteAlerts().then(setNcAlerts).catch(() => {});
+      loadBmsCreditDueAlerts().then(setCreditDueAlerts).catch(() => {});
+    };
+    refreshAlerts();
+    window.addEventListener('nexway:bms-refresh', refreshAlerts);
+    return () => window.removeEventListener('nexway:bms-refresh', refreshAlerts);
   }, [isOpen]);
 
   const totalCreditDueCount = creditDueAlerts.clientAlerts.length + creditDueAlerts.supplierAlerts.length;
@@ -824,6 +829,16 @@ export function AsistenteGuiaERP() {
                 <span className="font-mono font-black">{totalCreditDueCount}</span>
               </button>
             )}
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => window.dispatchEvent(new CustomEvent('nexway:open-nexbot'))}
+              className="h-7 px-2.5 text-[11px] font-bold rounded-lg gap-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+              title="Hablar con NexBot IA sobre las alertas del BMS"
+            >
+              <Sparkles size={12} /> NexBot
+            </Button>
 
             <Button
               type="button"

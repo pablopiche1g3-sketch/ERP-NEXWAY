@@ -4,7 +4,6 @@ import { SupabaseAuthProvider } from '@/supabase/use-user';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ClientAuthGate } from '@/components/ClientAuthGate';
-import { NexBotTutorWidget } from '@/components/NexBotTutorWidget';
 import { FeedbackCaptureWidget } from '@/components/FeedbackCaptureWidget';
 import { GlobalCommandPalette } from '@/components/GlobalCommandPalette';
 
@@ -43,7 +42,6 @@ export default function RootLayout({
               {children}
             </ClientAuthGate>
             <GlobalCommandPalette />
-            <NexBotTutorWidget />
             <FeedbackCaptureWidget />
             <Toaster />
           </ThemeProvider>

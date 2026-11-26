@@ -11,17 +11,35 @@ import {
   Bot,
   GripHorizontal,
   Minimize2,
-  BookOpen
+  BookOpen,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { supabase } from '@/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import {
+  addPendingCreditNoteAlert,
+  loadPendingCreditNoteAlerts,
+} from '@/lib/credit-note-alerts';
+import { loadBmsCreditDueAlerts } from '@/lib/supplier-credit';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+interface NcAlertDraft {
+  type: 'COMPRA_PROVEEDOR' | 'VENTA_CLIENTE';
+  entityName: string;
+  invoiceRef?: string;
+  itemsSummary: string;
+  estimatedAmount?: number;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  ncAlertProposal?: NcAlertDraft | null;
+  ncAlertStatus?: 'pending' | 'saved' | 'discarded';
 }
 
 const MODULE_NAMES: Record<string, string> = {
@@ -45,15 +63,17 @@ const MODULE_NAMES: Record<string, string> = {
 
 export function NexBotFlotante() {
   const pathname = usePathname();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'assistant', 
-      content: '¡Hola! Soy **NexBot**, tu asistente y capacitador operativo. 🤖✨\n\nPuedo enseñarte a usar cualquier módulo de NexWay ERP, explicarte paso a paso las operaciones o guiarte por la pantalla.\n\n¿Qué deseas aprender o consultar hoy?' 
+      content: '¡Hola! Soy **NexBot**, conectado en vivo con tu **BMS**.\n\nPuedes preguntarme por alertas del día, créditos vencidos, Notas de Crédito pendientes o decirme **"Avisa al BMS que vamos a devolver..."** para registrar un recordatorio.' 
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const [savingAlertIdx, setSavingAlertIdx] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   
   // Posicionamiento arrastrable de la ventana
@@ -61,8 +81,8 @@ export function NexBotFlotante() {
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number }>({ startX: 0, startY: 0, initialX: 0, initialY: 0 });
 
-  // Consumimos el BMS
-  const { tasks: bmsTasks, isGuideActive, guideMessage, startGuide, stopGuide } = useBms();
+  // Consumimos el BMS completo (tareas + estadísticas en vivo)
+  const { tasks: bmsTasks, stats: bmsStats, isGuideActive, guideMessage, startGuide, stopGuide } = useBms();
 
   const currentModule = MODULE_NAMES[pathname] || 'Módulo Desconocido';
 
@@ -184,6 +204,11 @@ export function NexBotFlotante() {
         }
       }
 
+      const [pendingNcAlerts, creditDueAlerts] = await Promise.all([
+        loadPendingCreditNoteAlerts().catch(() => []),
+        loadBmsCreditDueAlerts().catch(() => ({ clientAlerts: [], supplierAlerts: [] })),
+      ]);
+
       const response = await fetch('/api/chat-asistente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -191,8 +216,11 @@ export function NexBotFlotante() {
           messages: updatedMessages,
           currentModule: currentModule,
           bmsData: {
+            stats: bmsStats,
             tasks: bmsTasks,
-            recent_events: recentEvents
+            recent_events: recentEvents,
+            pendingNcAlerts,
+            creditDueAlerts,
           }
         })
       });
@@ -203,6 +231,7 @@ export function NexBotFlotante() {
       }
 
       const responseText = data.response || 'No obtuve respuesta.';
+      const ncAlertProposal: NcAlertDraft | null = data.ncAlertProposal || null;
       
       // Interceptar comandos de TOUR
       const tourMatch = responseText.match(/\[TOUR:\s*([^|\]]+)(?:\|\s*([^\]]+))?\]/);
@@ -213,10 +242,26 @@ export function NexBotFlotante() {
         
         const cleanResponse = responseText.replace(/\[TOUR:[^\]]+\]/, '').trim();
         if (cleanResponse) {
-          setMessages(prev => [...prev, { role: 'assistant', content: cleanResponse }]);
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: cleanResponse,
+              ncAlertProposal,
+              ncAlertStatus: ncAlertProposal ? 'pending' : undefined,
+            },
+          ]);
         }
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: responseText }]);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: responseText,
+            ncAlertProposal,
+            ncAlertStatus: ncAlertProposal ? 'pending' : undefined,
+          },
+        ]);
       }
     } catch (err: any) {
       console.error(err);
@@ -324,14 +369,95 @@ export function NexBotFlotante() {
                         🤖
                       </div>
                     )}
-                    <div
-                      className={`rounded-2xl p-3 text-xs leading-relaxed whitespace-pre-line shadow-sm ${
-                        msg.role === 'user'
-                          ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-600/20 font-medium'
-                          : 'bg-white/5 border border-white/10 text-slate-200 rounded-tl-none'
-                      }`}
-                    >
-                      {msg.content}
+                    <div className="space-y-2">
+                      <div
+                        className={`rounded-2xl p-3 text-xs leading-relaxed whitespace-pre-line shadow-sm ${
+                          msg.role === 'user'
+                            ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-600/20 font-medium'
+                            : 'bg-white/5 border border-white/10 text-slate-200 rounded-tl-none'
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+
+                      {msg.ncAlertProposal && (
+                        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 space-y-2 text-[11px]">
+                          <div className="font-black text-amber-300 uppercase text-[10px]">
+                            🔔 Aviso al BMS · Nota de Crédito Pendiente
+                          </div>
+                          <div className="text-white font-bold">
+                            {msg.ncAlertProposal.entityName}
+                            {msg.ncAlertProposal.invoiceRef ? ` · Fact. ${msg.ncAlertProposal.invoiceRef}` : ''}
+                            {msg.ncAlertProposal.estimatedAmount ? ` · $${msg.ncAlertProposal.estimatedAmount.toFixed(2)}` : ''}
+                          </div>
+                          <div className="text-slate-300 text-[10px]">{msg.ncAlertProposal.itemsSummary}</div>
+
+                          {msg.ncAlertStatus === 'pending' && (
+                            <div className="flex justify-end gap-1.5 pt-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setMessages(prev =>
+                                    prev.map((m, i) => (i === idx ? { ...m, ncAlertStatus: 'discarded' } : m))
+                                  )
+                                }
+                                className="h-7 px-2 text-[10px] text-slate-300 hover:text-white"
+                              >
+                                <XCircle size={12} className="mr-1" /> Descartar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={savingAlertIdx === idx}
+                                onClick={async () => {
+                                  setSavingAlertIdx(idx);
+                                  try {
+                                    const res = await addPendingCreditNoteAlert({
+                                      type: msg.ncAlertProposal!.type,
+                                      entityName: msg.ncAlertProposal!.entityName,
+                                      invoiceRef: msg.ncAlertProposal!.invoiceRef,
+                                      itemsSummary: msg.ncAlertProposal!.itemsSummary,
+                                      estimatedAmount: msg.ncAlertProposal!.estimatedAmount,
+                                      createdBy: 'NexBot IA',
+                                    });
+                                    if (res.success) {
+                                      setMessages(prev =>
+                                        prev.map((m, i) => (i === idx ? { ...m, ncAlertStatus: 'saved' } : m))
+                                      );
+                                      window.dispatchEvent(new CustomEvent('nexway:bms-refresh'));
+                                      toast({
+                                        title: '🔔 Aviso Guardado en BMS ✓',
+                                        description: `El BMS vigilará la Nota de Crédito de ${msg.ncAlertProposal!.entityName}.`,
+                                      });
+                                    }
+                                  } finally {
+                                    setSavingAlertIdx(null);
+                                  }
+                                }}
+                                className="h-7 px-2.5 text-[10px] bg-amber-600 hover:bg-amber-700 text-white font-bold"
+                              >
+                                {savingAlertIdx === idx ? (
+                                  <Loader2 size={11} className="animate-spin mr-1" />
+                                ) : (
+                                  <CheckCircle2 size={12} className="mr-1" />
+                                )}
+                                Guardar Aviso en BMS
+                              </Button>
+                            </div>
+                          )}
+
+                          {msg.ncAlertStatus === 'saved' && (
+                            <div className="text-emerald-400 font-bold text-[10px] flex items-center gap-1">
+                              <CheckCircle2 size={12} /> Guardado en BMS y Compras ✓
+                            </div>
+                          )}
+                          {msg.ncAlertStatus === 'discarded' && (
+                            <div className="text-slate-400 text-[10px]">Descartado</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -352,22 +478,28 @@ export function NexBotFlotante() {
             {/* Sugerencias Rápidas */}
             <div className="p-2.5 border-t border-white/5 bg-black/30 flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
               <button 
+                onClick={() => suggestQuestion('¿Qué alertas tiene el BMS hoy?')} 
+                className="text-[10px] bg-indigo-500/15 border border-indigo-500/30 hover:border-indigo-400/60 text-indigo-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm flex items-center gap-1"
+              >
+                ⚡ Alertas BMS hoy
+              </button>
+              <button 
+                onClick={() => suggestQuestion('¿Qué notas de crédito tenemos pendientes?')} 
+                className="text-[10px] bg-amber-500/15 border border-amber-500/30 hover:border-amber-400/60 text-amber-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm"
+              >
+                🔔 NC Pendientes
+              </button>
+              <button 
+                onClick={() => suggestQuestion('Avisa al BMS que vamos a devolver 5 unidades a Proveedor de la factura 001-123 por $100 y queda pendiente la nota de crédito')} 
+                className="text-[10px] bg-white/5 border border-white/10 hover:border-indigo-400/40 text-slate-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm"
+              >
+                📦 Avisar Devolución
+              </button>
+              <button 
                 onClick={() => suggestQuestion('¿Cómo se usa este módulo paso a paso?')} 
-                className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 hover:border-indigo-400/50 text-indigo-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm flex items-center gap-1"
+                className="text-[10px] bg-white/5 border border-white/10 hover:border-indigo-400/40 text-slate-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm flex items-center gap-1"
               >
-                <BookOpen size={10} /> Capacitarme en este módulo
-              </button>
-              <button 
-                onClick={() => suggestQuestion('¿Cómo registro una venta o factura al crédito?')} 
-                className="text-[10px] bg-white/5 border border-white/10 hover:border-indigo-400/40 text-slate-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm"
-              >
-                💳 Facturas Crédito
-              </button>
-              <button 
-                onClick={() => suggestQuestion('¿Cómo controlo préstamos y nómina de empleados?')} 
-                className="text-[10px] bg-white/5 border border-white/10 hover:border-indigo-400/40 text-slate-300 hover:text-white px-2.5 py-1 rounded-full whitespace-nowrap transition-all shadow-sm"
-              >
-                👥 Nómina y Préstamos
+                <BookOpen size={10} /> Guía módulo
               </button>
             </div>
 

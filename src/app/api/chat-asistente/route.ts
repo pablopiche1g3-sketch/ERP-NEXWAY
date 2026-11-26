@@ -74,15 +74,90 @@ const MODULE_BLUEPRINTS: Record<string, string> = {
   'Centro Documental': 'Creación y edición de documentos internos.'
 };
 
+function buildBmsDirectResponse(userText: string, bmsData: any): {
+  response: string;
+  ncAlertProposal?: {
+    type: 'COMPRA_PROVEEDOR' | 'VENTA_CLIENTE';
+    entityName: string;
+    invoiceRef?: string;
+    itemsSummary: string;
+    estimatedAmount?: number;
+  } | null;
+} | null {
+  const lower = userText.toLowerCase();
+  const stats = bmsData?.stats || {};
+  const ncAlerts: any[] = Array.isArray(bmsData?.pendingNcAlerts) ? bmsData.pendingNcAlerts : [];
+  const pendingNc = ncAlerts.filter(a => a.status === 'PENDIENTE');
+  const clientDue: any[] = Array.isArray(bmsData?.creditDueAlerts?.clientAlerts) ? bmsData.creditDueAlerts.clientAlerts : [];
+  const supplierDue: any[] = Array.isArray(bmsData?.creditDueAlerts?.supplierAlerts) ? bmsData.creditDueAlerts.supplierAlerts : [];
+
+  // 1. Crear aviso de devolución / Nota de Crédito pendiente en el BMS
+  if (/(avisa|recordatorio|recu[eé]rdame|regresar|devolver|devoluci[oó]n|esperando nota de cr[eé]dito|pendiente.*nota de cr[eé]dito)/i.test(lower) && !/(qu[eé] notas|cu[aá]les|tengo pendientes)/i.test(lower)) {
+    const isClient = /(cliente|venta|nos devuelven)/i.test(lower);
+    const invMatch = userText.match(/(?:factura|ccf|doc|documento|ref|#)\s*[:#]?\s*([A-Za-z0-9\-]+)/i);
+    const amtMatch = userText.match(/\$\s*(\d+(?:[.,]\d{1,2})?)/);
+    const provMatch = userText.match(/(?:a|de|proveedor|cliente)\s+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9 .&-]{2,35})/i);
+    const entityName = (provMatch?.[1] || (isClient ? 'Cliente' : 'Proveedor')).trim();
+
+    return {
+      response: `Preparé el **aviso de devolución y Nota de Crédito pendiente** para el BMS (**${entityName}**). Revisa la tarjeta abajo y pulsa **Guardar Aviso en BMS** para que el sistema vigile cuando caiga la NC.`,
+      ncAlertProposal: {
+        type: isClient ? 'VENTA_CLIENTE' : 'COMPRA_PROVEEDOR',
+        entityName,
+        invoiceRef: invMatch?.[1],
+        itemsSummary: userText.trim().slice(0, 130),
+        estimatedAmount: amtMatch ? Math.round(parseFloat(amtMatch[1].replace(',', '.')) * 100) / 100 : undefined,
+      },
+    };
+  }
+
+  // 2. Consultar Notas de Crédito pendientes
+  if (/(qu[eé] notas de cr[eé]dito|nc pendientes|notas de cr[eé]dito pendientes|devoluciones pendientes)/i.test(lower)) {
+    if (pendingNc.length === 0) {
+      return { response: '✅ No tienes Notas de Crédito pendientes en el BMS en este momento.' };
+    }
+    return {
+      response: [
+        `🔔 **Notas de Crédito pendientes en el BMS (${pendingNc.length}):**`,
+        ...pendingNc.map(
+          n => `• **${n.entityName}**${n.invoiceRef ? ` (Fact. ${n.invoiceRef})` : ''}: ${n.itemsSummary}${n.estimatedAmount ? ` · Est. $${Number(n.estimatedAmount).toFixed(2)}` : ''}`
+        ),
+        `\nCuando apliques la NC en **Compras → Notas de Crédito**, el BMS cerrará el aviso automáticamente.`,
+      ].join('\n'),
+    };
+  }
+
+  // 3. Resumen en vivo del BMS y créditos vencidos/por vencer
+  if (/(alertas.*bms|resumen.*bms|qu[eé] tiene el bms|cr[eé]ditos vencidos|por vencer|estado hoy|qu[eé] hay pendiente)/i.test(lower)) {
+    const lines = [
+      `⚡ **Estado en vivo del BMS:**`,
+      `• **Productos por pedir (stock crítico):** ${stats.zeroStockProductsCount ?? 0} SKU(s)`,
+      `• **Pedidos a proveedor pendientes:** ${stats.pendingOrdersCount ?? 0}`,
+      `• **Stock estancado (>30 días):** ${stats.stagnantProductsCount ?? 0} SKU(s)`,
+      `• **Notas de Crédito pendientes de recibir:** ${pendingNc.length}`,
+      `• **Créditos vencidos / por vencer (≤5 días):** ${clientDue.length} Cliente(s) CxC · ${supplierDue.length} Proveedor(es) CxP`,
+    ];
+
+    if (clientDue.length > 0) {
+      lines.push(`\n**Clientes CxC urgentes:**`);
+      clientDue.slice(0, 3).forEach(c => {
+        lines.push(`- ${c.entityName} ($${Number(c.balance).toFixed(2)}) — ${c.isOverdue ? `Vencida ${Math.abs(c.daysDiff)}d` : `Vence en ${c.daysDiff}d`}`);
+      });
+    }
+    if (supplierDue.length > 0) {
+      lines.push(`\n**Proveedores CxP urgentes:**`);
+      supplierDue.slice(0, 3).forEach(s => {
+        lines.push(`- ${s.entityName} ($${Number(s.balance).toFixed(2)}) — ${s.isOverdue ? `Vencida ${Math.abs(s.daysDiff)}d` : `Vence en ${s.daysDiff}d`}`);
+      });
+    }
+    return { response: lines.join('\n') };
+  }
+
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    if (!genAI) {
-      return NextResponse.json(
-        { error: 'La API Key de Gemini no está configurada en el servidor.' },
-        { status: 500 }
-      );
-    }
-
     const { messages, currentModule, bmsData } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
@@ -90,6 +165,21 @@ export async function POST(req: NextRequest) {
         { error: 'El historial de mensajes es requerido y debe ser un arreglo.' },
         { status: 400 }
       );
+    }
+
+    const lastUserMessage = [...messages].reverse().find((m: any) => m.role === 'user')?.content || '';
+
+    // Atajo inteligente BMS + IA (funciona al instante con datos reales en vivo)
+    const directBms = buildBmsDirectResponse(String(lastUserMessage), bmsData);
+    if (directBms) {
+      return NextResponse.json(directBms);
+    }
+
+    if (!genAI) {
+      return NextResponse.json({
+        response:
+          'Estoy conectado al BMS en modo local. Puedes preguntarme **"¿Qué alertas tiene el BMS hoy?"**, **"¿Qué NC están pendientes?"** o decirme **"Avisa al BMS que vamos a devolver 5 galones a Proveedor..."**.',
+      });
     }
 
     const model = genAI.getGenerativeModel({
