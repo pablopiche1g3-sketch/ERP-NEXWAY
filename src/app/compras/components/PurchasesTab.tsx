@@ -119,6 +119,22 @@ export default function PurchasesTab({
   const [supplierSearch, setSupplierSearch] = useState('');
   const [supplierCreditMap, setSupplierCreditMap] = useState<Record<string, SupplierCreditProfile>>({});
   const [supplierBalancesMap, setSupplierBalancesMap] = useState<Record<string, number>>({});
+  const [showPendingInvoicesList, setShowPendingInvoicesList] = useState(false);
+  const [pendingPurchasesList, setPendingPurchasesList] = useState<any[]>([]);
+
+  const loadPendingInvoicesQuick = async () => {
+    try {
+      const { data } = await supabase
+        .from('purchases')
+        .select('id, order_id, document_number, supplier_name, total, payment_method, payment_status, credit_days, created_at, suppliers(name)')
+        .or('payment_status.eq.PENDIENTE,status.eq.PENDIENTE')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      setPendingPurchasesList((data || []).filter((p: any) => p.payment_status !== 'PAGADO'));
+    } catch {
+      setPendingPurchasesList([]);
+    }
+  };
 
   useEffect(() => {
     Promise.all([loadSupplierCreditProfiles(), loadSupplierCxpBalances()])
@@ -127,6 +143,7 @@ export default function PurchasesTab({
         setSupplierBalancesMap(balances);
       })
       .catch(() => {});
+    loadPendingInvoicesQuick();
   }, []);
 
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
@@ -1760,7 +1777,81 @@ export default function PurchasesTab({
           )}
         </div>
 
-        <TabsContent value="registro" className="m-0 outline-none w-full">
+        <TabsContent value="registro" className="m-0 outline-none w-full space-y-3">
+          {/* BARRA RÁPIDA DE FACTURAS PENDIENTES EN INGRESO DE COMPRA */}
+          <div className="rounded-xl bg-card border border-border/70 px-3.5 py-2 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs">
+                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-bold text-[10px]">
+                  {pendingPurchasesList.length} Factura(s) Pendientes
+                </Badge>
+                <span className="text-[11px] text-muted-foreground">
+                  Listado rápido de facturas al crédito o pendientes de liquidar.
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    loadPendingInvoicesQuick();
+                    setShowPendingInvoicesList(prev => !prev);
+                  }}
+                  className="h-7 px-2.5 text-[11px] font-bold rounded-lg"
+                >
+                  {showPendingInvoicesList ? 'Ocultar Listado' : 'Ver Facturas Pendientes'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => router.push('/finanzas?tab=cxp')}
+                  className="h-7 px-2.5 text-[11px] font-bold rounded-lg text-indigo-600 dark:text-indigo-400"
+                >
+                  Ir a CXP →
+                </Button>
+              </div>
+            </div>
+
+            {showPendingInvoicesList && (
+              <div className="mt-2.5 pt-2.5 border-t border-border/60 overflow-x-auto max-h-52">
+                {pendingPurchasesList.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-3 text-center">
+                    No hay facturas pendientes de pago en este momento.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase">Documento</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Proveedor</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Fecha</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase">Plazo</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase">Total ($)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pendingPurchasesList.map((p: any) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-mono text-xs font-bold">{p.document_number || p.order_id || 'S/N'}</TableCell>
+                          <TableCell className="text-xs font-semibold">{p.suppliers?.name || p.supplier_name || 'Proveedor'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {p.created_at ? new Date(p.created_at).toLocaleDateString('es-SV') : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs">{p.credit_days ? `${p.credit_days} días` : p.payment_method || 'Pendiente'}</TableCell>
+                          <TableCell className="text-right font-mono text-xs font-black text-rose-600 dark:text-rose-400">
+                            ${Number(p.total || 0).toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             {/* COLUMNA IZQUIERDA (4 cols): PASO 1 — DATOS DEL DOCUMENTO Y PROVEEDOR */}
             <div className="lg:col-span-4 rounded-2xl bg-card dark:bg-white/[0.04] border border-border dark:border-white/10 overflow-hidden shadow-sm">

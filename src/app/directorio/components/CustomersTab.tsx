@@ -508,6 +508,89 @@ export default function CustomersTab() {
     toast({ title: "Exportación Completada", description: `Se descargaron ${customers.length} registros en Excel.` });
   };
 
+  const [priceReportMonth, setPriceReportMonth] = useState<string>(
+    (new Date().getMonth() + 1).toString().padStart(2, '0')
+  );
+  const [priceReportYear, setPriceReportYear] = useState<string>(
+    new Date().getFullYear().toString()
+  );
+  const [exportingPriceReport, setExportingPriceReport] = useState(false);
+
+  const handleExportMonthlyPriceListReport = async () => {
+    setExportingPriceReport(true);
+    try {
+      const startIso = `${priceReportYear}-${priceReportMonth}-01T00:00:00.000Z`;
+      const nextMonthNum = parseInt(priceReportMonth, 10) === 12 ? 1 : parseInt(priceReportMonth, 10) + 1;
+      const nextYearNum = parseInt(priceReportMonth, 10) === 12 ? parseInt(priceReportYear, 10) + 1 : parseInt(priceReportYear, 10);
+      const endIso = `${nextYearNum}-${String(nextMonthNum).padStart(2, '0')}-01T00:00:00.000Z`;
+
+      const [{ data: salesData }, { data: invData }] = await Promise.all([
+        supabase
+          .from('sales')
+          .select('id, correlative, customer_id, customer_name, total, created_at, sales_items(sku, quantity, price, subtotal)')
+          .gte('created_at', startIso)
+          .lt('created_at', endIso)
+          .neq('status', 'CANCELADA'),
+        supabase.from('inventory').select('sku, name, price'),
+      ]);
+
+      const invMap: Record<string, { name: string; price: number }> = {};
+      (invData || []).forEach((it: any) => {
+        invMap[it.sku] = { name: it.name || it.sku, price: Number(it.price || 0) };
+      });
+
+      const custById: Record<string, any> = {};
+      customers.forEach(c => {
+        if (c.price_list_id) custById[c.id] = c;
+      });
+
+      const rows: any[] = [];
+      (salesData || []).forEach((s: any) => {
+        const cust = s.customer_id ? custById[s.customer_id] : null;
+        if (!cust) return;
+        const listName = priceLists.find(pl => pl.id === cust.price_list_id)?.name || 'Lista Personalizada';
+        (s.sales_items || []).forEach((it: any) => {
+          const normalPrice = invMap[it.sku]?.price || Number(it.price || 0);
+          const appliedPrice = Number(it.price || 0);
+          const qty = Number(it.quantity || 0);
+          const diffUnit = normalPrice - appliedPrice;
+          rows.push({
+            Fecha: s.created_at ? new Date(s.created_at).toLocaleDateString('es-SV') : '',
+            Factura: s.correlative || s.id?.slice(0, 8),
+            Cliente: cust.name,
+            'Lista de Precios': listName,
+            SKU: it.sku,
+            Producto: invMap[it.sku]?.name || it.sku,
+            Cantidad: qty,
+            'Precio Normal ($)': Number(normalPrice.toFixed(2)),
+            'Precio Aplicado ($)': Number(appliedPrice.toFixed(2)),
+            'Descuento Otorgado ($)': Number((diffUnit * qty).toFixed(2)),
+            'Subtotal Facturado ($)': Number((appliedPrice * qty).toFixed(2)),
+          });
+        });
+      });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(
+          rows.length > 0 ? rows : [{ Nota: `Sin ventas con lista personalizada en ${priceReportMonth}/${priceReportYear}` }]
+        ),
+        'Precios_Personalizados'
+      );
+      const fileName = `Reporte_Precios_Personalizados_${priceReportMonth}_${priceReportYear}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      toast({
+        title: 'Reporte Mensual Exportado ✓',
+        description: `Se descargó ${fileName} (${rows.length} línea(s) facturadas con lista especial).`,
+      });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err?.message || 'No se pudo generar el reporte.' });
+    } finally {
+      setExportingPriceReport(false);
+    }
+  };
+
   // Métricas Calculadas
   const stats = useMemo(() => {
     const total = customers.length;
@@ -1198,7 +1281,52 @@ export default function CustomersTab() {
         </TabsContent>
 
         {/* TAB 2: GESTOR DE LISTAS DE PRECIOS */}
-        <TabsContent value="precios" className="outline-none">
+        <TabsContent value="precios" className="outline-none space-y-4">
+          <Card className="bg-card border-border/70 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
+                Reporte Mensual de Precios Personalizados
+              </h4>
+              <p className="text-[11px] text-muted-foreground">
+                Descarga el detalle mensual de clientes facturados con lista especial (precio normal vs precio aplicado y descuento otorgado).
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={priceReportMonth} onValueChange={setPriceReportMonth}>
+                <SelectTrigger className="h-8 w-28 text-xs rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1).padStart(2, '0')} className="text-xs">
+                      {new Date(2026, i, 1).toLocaleString('es', { month: 'long' }).toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={priceReportYear} onValueChange={setPriceReportYear}>
+                <SelectTrigger className="h-8 w-20 text-xs rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2025" className="text-xs">2025</SelectItem>
+                  <SelectItem value="2026" className="text-xs">2026</SelectItem>
+                  <SelectItem value="2027" className="text-xs">2027</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                disabled={exportingPriceReport}
+                onClick={handleExportMonthlyPriceListReport}
+                className="h-8 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5"
+              >
+                {exportingPriceReport ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                Descargar Reporte (.xlsx)
+              </Button>
+            </div>
+          </Card>
+
           <PriceListManager />
         </TabsContent>
       </Tabs>

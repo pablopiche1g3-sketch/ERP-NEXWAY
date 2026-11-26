@@ -815,3 +815,128 @@ export function buildCashClosingDocumentHtml(params: {
   </body>
   </html>`;
 }
+
+/* ============================================================================
+ * 5. ESTADO DE CUENTA DE CLIENTE (GLOBAL O DESGLOSADO CON ABONOS Y FECHAS)
+ * ============================================================================ */
+export function buildAccountStatementHtml(params: {
+  branding: PrintBranding;
+  mode: 'GLOBAL' | 'DESGLOSADO';
+  customerName: string;
+  customerNit?: string;
+  customerPhone?: string;
+  generatedDateStr?: string;
+  invoices: Array<{
+    correlative: string;
+    dateStr: string;
+    dueDateStr?: string;
+    total: number;
+    paid: number;
+    balance: number;
+    status: string;
+    payments?: Array<{
+      dateStr: string;
+      method: string;
+      reference?: string;
+      amount: number;
+      notes?: string;
+    }>;
+  }>;
+}): string {
+  const { branding, mode, invoices } = params;
+  const dateStr = params.generatedDateStr || new Date().toLocaleDateString('es-SV');
+  const totalBilled = invoices.reduce((s, inv) => s + Number(inv.total || 0), 0);
+  const totalPaid = invoices.reduce((s, inv) => s + Number(inv.paid || 0), 0);
+  const totalBalance = invoices.reduce((s, inv) => s + Number(inv.balance || 0), 0);
+
+  const rowsHtml = invoices
+    .map(inv => {
+      const mainRow = `
+        <tr>
+          <td class="mono"><strong>${esc(inv.correlative)}</strong></td>
+          <td>${esc(inv.dateStr)}</td>
+          <td>${esc(inv.dueDateStr || '—')}</td>
+          <td class="num">$${Number(inv.total || 0).toFixed(2)}</td>
+          <td class="num" style="color:#15803d;">$${Number(inv.paid || 0).toFixed(2)}</td>
+          <td class="num"><strong>$${Number(inv.balance || 0).toFixed(2)}</strong></td>
+          <td class="ctr">${esc(inv.status)}</td>
+        </tr>`;
+
+      if (mode !== 'DESGLOSADO' || !inv.payments || inv.payments.length === 0) {
+        return mainRow;
+      }
+
+      const subRows = inv.payments
+        .map(
+          p => `
+          <tr style="background:#f8fafc;font-size:10px;color:#475569;">
+            <td colspan="2" style="padding-left:20px;">↳ Abono (${esc(p.dateStr)})</td>
+            <td colspan="2">${esc(p.method)}${p.reference ? ` · Ref: ${esc(p.reference)}` : ''}${p.notes ? ` — ${esc(p.notes)}` : ''}</td>
+            <td class="num" style="color:#15803d;font-weight:700;">+$${Number(p.amount || 0).toFixed(2)}</td>
+            <td colspan="2"></td>
+          </tr>`
+        )
+        .join('');
+
+      return mainRow + subRows;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Estado de Cuenta - ${esc(params.customerName)}</title>
+    <style>${baseLetterStyles(branding.accentColor, 'letter')}</style>
+  </head>
+  <body>
+    <div class="doc">
+      ${renderLetterHeader(
+        branding,
+        mode === 'DESGLOSADO' ? 'ESTADO DE CUENTA DESGLOSADO' : 'ESTADO DE CUENTA GLOBAL',
+        params.customerName,
+        dateStr
+      )}
+
+      <div class="grid-2">
+        <div class="info-card">
+          <h4>Datos del Cliente</h4>
+          <div class="info-row"><strong>Cliente:</strong> ${esc(params.customerName)}</div>
+          ${params.customerNit ? `<div class="info-row"><strong>NIT:</strong> <span class="mono">${esc(params.customerNit)}</span></div>` : ''}
+          ${params.customerPhone ? `<div class="info-row"><strong>Teléfono:</strong> ${esc(params.customerPhone)}</div>` : ''}
+        </div>
+        <div class="info-card">
+          <h4>Resumen de Saldo</h4>
+          <div class="info-row"><strong>Total Facturado:</strong> <span class="mono">$${totalBilled.toFixed(2)}</span></div>
+          <div class="info-row"><strong>Total Abonado:</strong> <span class="mono" style="color:#15803d;">$${totalPaid.toFixed(2)}</span></div>
+          <div class="info-row"><strong>Saldo Pendiente:</strong> <strong class="mono" style="color:${totalBalance > 0 ? '#b91c1c' : '#15803d'};">$${totalBalance.toFixed(2)}</strong></div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Fecha</th>
+            <th>Vencimiento</th>
+            <th class="num">Total</th>
+            <th class="num">Abonado</th>
+            <th class="num">Saldo</th>
+            <th class="ctr">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="7" class="ctr" style="padding:16px;color:#94a3b8;">No hay documentos de crédito registrados.</td></tr>'}
+        </tbody>
+      </table>
+
+      <div class="signatures">
+        <div class="sig-line"><strong>Emitido por Administración / Créditos</strong><br/>${esc(branding.companyName)}</div>
+        <div class="sig-line"><strong>Recibido Conforme (Cliente)</strong><br/>Firma y Fecha</div>
+      </div>
+
+      <div class="footer">${esc(branding.companyName)} — Estado de Cuenta (${mode === 'DESGLOSADO' ? 'Desglosado por abonos' : 'Resumen global'}) generado el ${esc(dateStr)}.</div>
+    </div>
+  </body>
+  </html>`;
+}

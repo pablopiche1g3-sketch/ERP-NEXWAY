@@ -67,6 +67,7 @@ import {
   calculateIvaRetention1Percent
 } from '@/lib/hacienda-sv-catalogs';
 import {
+  buildAccountStatementHtml,
   buildCashClosingDocumentHtml,
   buildInvoiceDocumentHtml,
   loadPrintBranding,
@@ -657,6 +658,131 @@ export default function BillingPage() {
   };
 
   // Arqueo States (Flujo simplificado en 4 pasos: 1. Fondo Base, 2. Tarjetas/Otros, 3. Entrega Efectivo, 4. Validar y Cerrar)
+  const [creditSearchTerm, setCreditSearchTerm] = useState('');
+  const [pastClosings, setPastClosings] = useState<any[]>([]);
+  const [closingSearchDate, setClosingSearchDate] = useState('');
+  const [loadingPastClosings, setLoadingPastClosings] = useState(false);
+
+  const loadPastClosings = async () => {
+    setLoadingPastClosings(true);
+    try {
+      const { data } = await supabase
+        .from('cash_closings')
+        .select('*')
+        .order('date', { ascending: false })
+        .limit(60);
+      setPastClosings(data || []);
+    } catch {
+      setPastClosings([]);
+    } finally {
+      setLoadingPastClosings(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'arqueo') {
+      loadPastClosings();
+    }
+  }, [activeTab]);
+
+  const handlePrintPastClosing = async (closing: any) => {
+    try {
+      const branding = await loadPrintBranding('billing');
+      const salesCash = Number(closing.system_cash_sales || 0);
+      const salesCard = Number(closing.system_card_sales || 0);
+      const salesTransfer = Number(closing.system_transfer_sales || 0);
+      const salesCredit = Number(closing.system_credit_sales || 0);
+      const salesCheck = Number(closing.system_check_sales || 0);
+      const totalSalesVal = salesCash + salesCard + salesTransfer + salesCredit + salesCheck;
+      const html = buildCashClosingDocumentHtml({
+        branding,
+        stationName: closing.station_name || 'Caja Principal',
+        dateStr: closing.date || new Date().toLocaleDateString('es-SV'),
+        outgoingCashier: closing.closed_by || 'Cajero',
+        salesCash,
+        salesCard,
+        salesTransfer,
+        salesCredit,
+        salesCheck,
+        totalSales: totalSalesVal,
+        baseFloat: Number(closing.initial_float || 0),
+        physicalCash: Number(closing.physical_cash_found || 0),
+        expensesTotal: Number(closing.expenses_total || 0),
+        difference: Number(closing.cash_difference || 0),
+        notes: closing.notes || '',
+      });
+      printHtmlDocument(html, `Cierre_Caja_${closing.date || 'reporte'}`);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al imprimir', description: err?.message || 'No se pudo generar el reporte.' });
+    }
+  };
+
+  const handlePrintCreditStatement = async (
+    mode: 'GLOBAL' | 'DESGLOSADO',
+    customerFilterName?: string
+  ) => {
+    try {
+      const branding = await loadPrintBranding('billing');
+      const allCreditSales = (salesAll || []).filter(s => {
+        const pm = String(s.paymentMethod || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (!pm.includes('credito')) return false;
+        if (customerFilterName) {
+          return String(s.customer || '').toLowerCase() === customerFilterName.toLowerCase();
+        }
+        if (creditSearchTerm.trim()) {
+          const q = creditSearchTerm.trim().toLowerCase();
+          return (
+            String(s.customer || '').toLowerCase().includes(q) ||
+            String(s.correlative || '').toLowerCase().includes(q)
+          );
+        }
+        return true;
+      });
+
+      const onlyAbonos = (journalPayments || []).filter(j => {
+        const d = String(j.description || '').toUpperCase();
+        return !d.includes('CIERRE DIARIO DE CAJA') && !d.includes('ARQUEO');
+      });
+
+      const invoices = allCreditSales.map(s => {
+        const matchingPays = onlyAbonos.filter(j =>
+          String(j.description || '').includes(`[${s.correlative}]`)
+        );
+        const paid = matchingPays.reduce((sum, j) => sum + (parseFloat(j.amount) || 0), 0);
+        const total = Number(s.total || 0);
+        const balance = Math.max(0, Number((total - paid).toFixed(2)));
+        const saleDate = s.timestamp ? new Date(s.timestamp) : new Date();
+        const dueDate = new Date(saleDate);
+        dueDate.setDate(dueDate.getDate() + 30);
+
+        return {
+          correlative: s.correlative || s.id?.slice(0, 8) || 'S/N',
+          dateStr: saleDate.toLocaleDateString('es-SV'),
+          dueDateStr: dueDate.toLocaleDateString('es-SV'),
+          total,
+          paid,
+          balance,
+          status: balance <= 0.01 ? 'PAGADO' : dueDate < new Date() ? 'VENCIDO' : 'PENDIENTE',
+          payments: matchingPays.map(p => ({
+            dateStr: p.created_at ? new Date(p.created_at).toLocaleDateString('es-SV') : '—',
+            method: 'Abono en Caja',
+            amount: parseFloat(p.amount) || 0,
+            notes: p.description,
+          })),
+        };
+      });
+
+      const html = buildAccountStatementHtml({
+        branding,
+        mode,
+        customerName: customerFilterName || (creditSearchTerm.trim() ? `Filtro: ${creditSearchTerm.trim()}` : 'Cartera General de Clientes'),
+        invoices,
+      });
+      printHtmlDocument(html, `Estado_Cuenta_${mode}_${customerFilterName || 'General'}`);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al generar PDF', description: err?.message || 'No se pudo generar el estado de cuenta.' });
+    }
+  };
   const [cashierVistoBueno, setCashierVistoBueno] = useState(false);
   const [baseFloatDenominations, setBaseFloatDenominations] = useState<Record<string, number>>({
     '100.00': 0, '50.00': 0, '20.00': 0, '10.00': 0, '5.00': 0, '1.00': 0,
@@ -5271,10 +5397,10 @@ export default function BillingPage() {
                       />
                     </div>
 
-                    {/* Botón Único de Cierre del Día */}
+                    {/* Botón Único de Cierre del Día (abre confirmación irreversible) */}
                     <Button
                       type="button"
-                      onClick={handleDayClosing}
+                      onClick={() => setIsDayClosingConfirmOpen(true)}
                       disabled={isProcessing}
                       className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-black text-sm shadow-lg shadow-emerald-600/20 gap-2"
                     >
@@ -5287,6 +5413,111 @@ export default function BillingPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* HISTORIAL DE CIERRES DE DÍAS ANTERIORES (IMPRIMIR REPORTES ESTRUCTURADOS) */}
+                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                        <History size={14} className="text-indigo-500" /> Historial de Cortes Anteriores (Imprimir Reportes)
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        Consulta y reimprime el reporte estructurado de cualquier jornada cerrada.
+                      </p>
+                    </div>
+                    <Input
+                      type="date"
+                      value={closingSearchDate}
+                      onChange={e => setClosingSearchDate(e.target.value)}
+                      className="h-8 w-40 text-xs rounded-xl"
+                    />
+                  </div>
+                  <div className="overflow-x-auto max-h-64">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px] font-black uppercase">Fecha</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase">Cerrado por</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase">Fondo Base</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase">Efectivo Físico</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase">Diferencia</TableHead>
+                          <TableHead className="text-right text-[10px] font-black uppercase">Reporte</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loadingPastClosings ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-6 text-xs text-muted-foreground">
+                              Cargando historial de cierres...
+                            </TableCell>
+                          </TableRow>
+                        ) : pastClosings.filter(c => !closingSearchDate || String(c.date || '').includes(closingSearchDate)).length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-6 text-xs text-muted-foreground italic">
+                              No hay cierres anteriores para mostrar.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          pastClosings
+                            .filter(c => !closingSearchDate || String(c.date || '').includes(closingSearchDate))
+                            .map(c => (
+                              <TableRow key={c.id || c.date}>
+                                <TableCell className="font-mono text-xs font-bold">{c.date}</TableCell>
+                                <TableCell className="text-xs">{c.closed_by || 'Cajero'}</TableCell>
+                                <TableCell className="text-right font-mono text-xs">${Number(c.initial_float || 0).toFixed(2)}</TableCell>
+                                <TableCell className="text-right font-mono text-xs font-bold">${Number(c.physical_cash_found || 0).toFixed(2)}</TableCell>
+                                <TableCell className={`text-right font-mono text-xs font-black ${Math.abs(Number(c.cash_difference || 0)) < 0.01 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                  {Number(c.cash_difference || 0) >= 0 ? '+' : ''}${Number(c.cash_difference || 0).toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handlePrintPastClosing(c)}
+                                    className="h-7 px-2.5 text-[11px] font-bold rounded-lg gap-1"
+                                  >
+                                    <Printer size={12} /> Imprimir
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* MODAL ALERTA IRREVERSIBLE ANTES DE CERRAR EL DÍA */}
+                <Dialog open={isDayClosingConfirmOpen} onOpenChange={setIsDayClosingConfirmOpen}>
+                  <DialogContent className="sm:max-w-md rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-base font-black text-rose-600 flex items-center gap-2">
+                        <AlertTriangle size={18} /> Confirmar Cierre Definitivo del Día
+                      </DialogTitle>
+                      <DialogDescription className="text-xs leading-relaxed pt-1">
+                        ¿Estás seguro de cerrar la jornada de hoy? <strong>Una vez cerrado el día no se podrán realizar cambios</strong> en el conteo de caja y los contadores se reiniciarán para el siguiente turno.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 pt-2">
+                      <Button type="button" variant="outline" onClick={() => setIsDayClosingConfirmOpen(false)} className="rounded-xl text-xs">
+                        Cancelar y Revisar
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={async () => {
+                          await handleDayClosing();
+                          await loadPastClosings();
+                        }}
+                        className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black"
+                      >
+                        {isProcessing ? <Loader2 size={14} className="animate-spin mr-1.5" /> : null}
+                        Sí, Cerrar el Día Definitivamente
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </TabsContent>
@@ -5298,18 +5529,51 @@ export default function BillingPage() {
               {/* Cuentas por Cobrar / Ventas al Crédito */}
               <div className="lg:col-span-8 space-y-4">
                 <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
-                  <div className="bg-card text-foreground p-5 flex flex-row items-center justify-between border-b border-border">
-                    <div>
-                      <h3 className="text-sm font-bold flex items-center gap-2">
-                        <Wallet size={18} className="text-indigo-400" /> Cuentas por Cobrar (Créditos Activos)
-                      </h3>
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Consulte las ventas otorgadas al crédito y registre los abonos parciales de sus clientes.
-                      </p>
+                  <div className="bg-card text-foreground p-5 flex flex-col gap-3 border-b border-border">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-bold flex items-center gap-2">
+                          <Wallet size={18} className="text-indigo-400" /> Cuentas por Cobrar (Créditos Activos)
+                        </h3>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Busca clientes con crédito activo, registra abonos y genera su Estado de Cuenta en PDF.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handlePrintCreditStatement('GLOBAL')}
+                          className="h-8 rounded-xl text-[11px] font-bold gap-1"
+                        >
+                          <Printer size={12} /> PDF Global
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handlePrintCreditStatement('DESGLOSADO')}
+                          className="h-8 rounded-xl text-[11px] font-bold gap-1 border-indigo-300 text-indigo-600 dark:text-indigo-400"
+                        >
+                          <FileText size={12} /> PDF Desglosado
+                        </Button>
+                        <Badge variant="outline" className="border-indigo-500/30 text-indigo-400 bg-indigo-500/10 font-bold text-xs px-3 py-1">
+                          Pendientes: {salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE').length || 0}
+                        </Badge>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="border-indigo-500/30 text-indigo-400 bg-indigo-500/10 font-bold text-xs px-3 py-1">
-                      Pendientes: {salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE').length || 0}
-                    </Badge>
+
+                    {/* Buscador rápido de clientes en Créditos y Abonos */}
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={creditSearchTerm}
+                        onChange={e => setCreditSearchTerm(e.target.value)}
+                        placeholder="Buscar cliente o número de factura al crédito..."
+                        className="pl-9 h-9 text-xs rounded-xl bg-background"
+                      />
+                    </div>
                   </div>
                   <div className="p-0">
                     <div className="overflow-x-auto">
@@ -5322,58 +5586,91 @@ export default function BillingPage() {
                             <TableHead className="text-right text-[10px] uppercase font-black py-3 text-muted-foreground">Total Venta</TableHead>
                             <TableHead className="text-right text-[10px] uppercase font-black py-3 text-muted-foreground">Total Abonado</TableHead>
                             <TableHead className="text-right text-[10px] uppercase font-black py-3 text-muted-foreground">Saldo Pendiente</TableHead>
-                            <TableHead className="w-24 py-3 px-6"></TableHead>
+                            <TableHead className="w-40 py-3 px-6 text-right text-[10px] uppercase font-black text-muted-foreground">Acciones</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE').length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={7} className="text-center py-16 text-muted-foreground italic text-xs">
-                                🎉 No hay créditos pendientes de pago. ¡Todas las cuentas están al día!
-                              </TableCell>
-                            </TableRow>
-                          ) : salesAll?.filter(s => s.paymentMethod === 'Credito' && s.status === 'PENDIENTE').map(s => {
-                            const totalAbonado = journalPayments
-                              ?.filter(j => j.description.includes(`[${s.correlative}]`))
-                              .reduce((sum, j) => sum + (parseFloat(j.amount) || 0), 0) || 0;
-                            
-                            const saldoPendiente = s.total - totalAbonado;
+                          {(() => {
+                            const filteredCredits = (salesAll || []).filter(s => {
+                              if (s.paymentMethod !== 'Credito' || s.status !== 'PENDIENTE') return false;
+                              if (!creditSearchTerm.trim()) return true;
+                              const q = creditSearchTerm.trim().toLowerCase();
+                              return (
+                                String(s.customer || '').toLowerCase().includes(q) ||
+                                String(s.correlative || '').toLowerCase().includes(q)
+                              );
+                            });
 
-                            return (
-                              <TableRow key={s.id} className="hover:bg-accent border-b border-border">
-                                <TableCell className="font-mono font-bold text-xs px-6 py-4 text-foreground">
-                                  {s.correlative}
-                                </TableCell>
-                                <TableCell className="font-bold text-xs text-foreground">
-                                  {s.customer}
-                                </TableCell>
-                                <TableCell className="text-xs text-muted-foreground">
-                                  {new Date(s.timestamp).toLocaleDateString()}
-                                </TableCell>
-                                <TableCell className="text-right font-bold text-xs text-foreground">
-                                  ${s.total.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-right font-black text-xs text-emerald-600 dark:text-emerald-400">
-                                  ${totalAbonado.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-right font-black text-xs text-rose-600 dark:text-rose-400">
-                                  ${saldoPendiente.toFixed(2)}
-                                </TableCell>
-                                <TableCell className="px-6 text-right py-3">
-                                  <Button 
-                                    onClick={() => {
-                                      setSelectedSaleForAbono(s);
-                                      setAbonoAmount('');
-                                    }} 
-                                    className="h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3 flex items-center gap-1 active:scale-95 transition-all shadow-sm shadow-indigo-500/10 border-none"
-                                  >
-                                    <Coins size={12} />
-                                    Abonar
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
+                            if (filteredCredits.length === 0) {
+                              return (
+                                <TableRow>
+                                  <TableCell colSpan={7} className="text-center py-16 text-muted-foreground italic text-xs">
+                                    {creditSearchTerm.trim()
+                                      ? `No se encontraron créditos para "${creditSearchTerm}".`
+                                      : '🎉 No hay créditos pendientes de pago. ¡Todas las cuentas están al día!'}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            }
+
+                            return filteredCredits.map(s => {
+                              const totalAbonado = (journalPayments || [])
+                                .filter(j => {
+                                  const d = String(j.description || '');
+                                  return !d.toUpperCase().includes('CIERRE DIARIO DE CAJA') && d.includes(`[${s.correlative}]`);
+                                })
+                                .reduce((sum, j) => sum + (parseFloat(j.amount) || 0), 0);
+
+                              const saldoPendiente = s.total - totalAbonado;
+
+                              return (
+                                <TableRow key={s.id} className="hover:bg-accent border-b border-border">
+                                  <TableCell className="font-mono font-bold text-xs px-6 py-4 text-foreground">
+                                    {s.correlative}
+                                  </TableCell>
+                                  <TableCell className="font-bold text-xs text-foreground">
+                                    {s.customer}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground">
+                                    {new Date(s.timestamp).toLocaleDateString()}
+                                  </TableCell>
+                                  <TableCell className="text-right font-bold text-xs text-foreground">
+                                    ${s.total.toFixed(2)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-black text-xs text-emerald-600 dark:text-emerald-400">
+                                    ${totalAbonado.toFixed(2)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-black text-xs text-rose-600 dark:text-rose-400">
+                                    ${saldoPendiente.toFixed(2)}
+                                  </TableCell>
+                                  <TableCell className="px-6 text-right py-3">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="outline"
+                                        title={`Estado de Cuenta Desglosado de ${s.customer}`}
+                                        onClick={() => handlePrintCreditStatement('DESGLOSADO', s.customer)}
+                                        className="h-8 w-8 rounded-lg"
+                                      >
+                                        <Printer size={12} />
+                                      </Button>
+                                      <Button 
+                                        onClick={() => {
+                                          setSelectedSaleForAbono(s);
+                                          setAbonoAmount('');
+                                        }} 
+                                        className="h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3 flex items-center gap-1 active:scale-95 transition-all shadow-sm shadow-indigo-500/10 border-none"
+                                      >
+                                        <Coins size={12} />
+                                        Abonar
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            });
+                          })()}
                         </TableBody>
                       </Table>
                     </div>
@@ -5381,37 +5678,54 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {/* Historial de Abonos Recientes */}
+              {/* Historial de Abonos Recientes (Filtrado: oculta cierres de caja al cajero) */}
               <div className="lg:col-span-4 space-y-4">
                 <div className="bg-white/40 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-[13px] overflow-hidden shadow-sm dark:shadow-none">
                   <div className="bg-card text-foreground p-4 border-b border-border flex flex-row items-center justify-between">
                     <div>
                       <h3 className="text-sm font-bold flex items-center gap-2">
-                        <History size={16} className="text-emerald-400" /> Abonos Recientes
+                        <History size={16} className="text-emerald-400" /> Abonos Recientes de Clientes
                       </h3>
-                      <p className="text-[10px] text-muted-foreground mt-1">Historial de abonos registrados el día de hoy.</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Solo abonos aplicados a créditos (excluye cierres de caja).</p>
                     </div>
                   </div>
                   <div className="p-0">
                     <ScrollArea className="h-[400px]">
-                      {journalPayments.length === 0 ? (
-                        <div className="text-center py-20 text-xs text-muted-foreground italic">No hay abonos registrados recientemente.</div>
-                      ) : journalPayments.map(j => (
-                        <div key={j.id} className="p-4 border-b border-border last:border-0 hover:bg-accent transition-all flex flex-col gap-1.5">
-                          <div className="flex justify-between items-start">
-                            <span className="text-[10px] font-black text-foreground line-clamp-2 pr-2">
-                              {j.description}
-                            </span>
-                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                              +${parseFloat(j.amount).toFixed(2)}
-                            </span>
+                      {(() => {
+                        const onlyClientAbonos = (journalPayments || []).filter(j => {
+                          const d = String(j.description || '').toUpperCase();
+                          if (d.includes('CIERRE DIARIO DE CAJA') || d.includes('ARQUEO')) return false;
+                          if (creditSearchTerm.trim()) {
+                            return d.includes(creditSearchTerm.trim().toUpperCase());
+                          }
+                          return d.includes('ABONO') || d.includes('CREDITO') || d.includes('CRÉDITO');
+                        });
+
+                        if (onlyClientAbonos.length === 0) {
+                          return (
+                            <div className="text-center py-20 text-xs text-muted-foreground italic">
+                              No hay abonos de clientes registrados recientemente.
+                            </div>
+                          );
+                        }
+
+                        return onlyClientAbonos.map(j => (
+                          <div key={j.id} className="p-4 border-b border-border last:border-0 hover:bg-accent transition-all flex flex-col gap-1.5">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[10px] font-black text-foreground line-clamp-2 pr-2">
+                                {j.description}
+                              </span>
+                              <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                                +${parseFloat(j.amount).toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-[9px] text-slate-400 dark:text-muted-foreground">
+                              <span>{new Date(j.created_at).toLocaleDateString()} a las {new Date(j.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              <Badge variant="outline" className="text-[8px] h-4 py-0 font-bold bg-background border-input text-slate-500">Abono Cliente</Badge>
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center text-[9px] text-slate-400 dark:text-muted-foreground">
-                            <span>{new Date(j.created_at).toLocaleDateString()} a las {new Date(j.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                            <Badge variant="outline" className="text-[8px] h-4 py-0 font-bold bg-background border-input text-slate-500">Ingreso Caja</Badge>
-                          </div>
-                        </div>
-                      ))}
+                        ));
+                      })()}
                     </ScrollArea>
                   </div>
                 </div>
