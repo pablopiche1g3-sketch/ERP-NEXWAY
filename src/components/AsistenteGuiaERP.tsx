@@ -692,10 +692,6 @@ export function AsistenteGuiaERP() {
     );
   };
 
-  if (loading) return null;
-
-  const criticalCount = stats.zeroStockProductsCount || 0;
-  const stagnantCount = stats.stagnantProductsCount || 0;
   const [ncAlerts, setNcAlerts] = useState<PendingCreditNoteAlert[]>([]);
   const [creditDueAlerts, setCreditDueAlerts] = useState<{
     clientAlerts: CreditDueAlert[];
@@ -712,8 +708,6 @@ export function AsistenteGuiaERP() {
     return () => window.removeEventListener('nexway:bms-refresh', refreshAlerts);
   }, [isOpen]);
 
-  const totalCreditDueCount = creditDueAlerts.clientAlerts.length + creditDueAlerts.supplierAlerts.length;
-
   const pendingNcAlerts = useMemo(() => ncAlerts.filter(a => a.status === 'PENDIENTE'), [ncAlerts]);
   const recentResolvedNcAlerts = useMemo(
     () =>
@@ -723,6 +717,12 @@ export function AsistenteGuiaERP() {
         .slice(0, 3),
     [ncAlerts]
   );
+
+  if (loading) return null;
+
+  const criticalCount = stats.zeroStockProductsCount || 0;
+  const stagnantCount = stats.stagnantProductsCount || 0;
+  const totalCreditDueCount = creditDueAlerts.clientAlerts.length + creditDueAlerts.supplierAlerts.length;
 
   return (
     <>

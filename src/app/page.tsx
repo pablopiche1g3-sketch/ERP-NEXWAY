@@ -312,18 +312,6 @@ description: 'Movimiento entre bodegas',
 
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => window.dispatchEvent(new CustomEvent('nexway:open-tutor'))}
-              title="Abrir Auditor & Tutor IA"
-              className="h-9 px-3 bg-card/80 border-indigo-500/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/10 font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5"
-            >
-              <BrainCircuit size={14} className="text-amber-500 dark:text-amber-300" />
-              <span className="hidden sm:inline">Auditor & Tutor IA</span>
-            </Button>
-
-            <Button
-              type="button"
               size="sm"
               onClick={() => window.dispatchEvent(new CustomEvent('nexway:open-nexbot'))}
               title="Abrir asistente NexBot"

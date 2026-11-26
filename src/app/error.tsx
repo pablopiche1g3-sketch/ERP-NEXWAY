@@ -40,6 +40,11 @@ export default function AppErrorBoundary({
           <p className="text-xs text-muted-foreground leading-relaxed">
             Ocurrió un error temporal al cargar una versión reciente de ERP NEXWAY. Recarga la página para continuar normalmente.
           </p>
+          {error?.message && (
+            <p className="text-[10px] font-mono text-muted-foreground/70 bg-muted/40 rounded-lg px-2 py-1 mt-2 break-words">
+              {error.message}
+            </p>
+          )}
         </div>
         <div className="flex items-center justify-center gap-2 pt-1">
           <Button
