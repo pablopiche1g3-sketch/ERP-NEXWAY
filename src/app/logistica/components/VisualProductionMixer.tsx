@@ -812,10 +812,10 @@ export default function VisualProductionMixer({
         <Card className="border-border/70 bg-card rounded-2xl shadow-sm flex flex-col overflow-hidden">
           <CardHeader className="p-3.5 border-b border-border/60 bg-emerald-500/5">
             <CardTitle className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-              Paso 4 · Acción de Salida
+              Paso 4 · Ingreso a Producir / Salida
             </CardTitle>
             <CardDescription className="text-[11px]">
-              Elige cómo actualizar el inventario al procesar la mezcla.
+              Elige si es ingreso a producir (nuevo o existente) o salida de consumo interno.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-3 flex-1 flex flex-col justify-between gap-3">
@@ -831,8 +831,8 @@ export default function VisualProductionMixer({
               >
                 <PackagePlus size={16} className="text-indigo-500 shrink-0" />
                 <div>
-                  <div className="text-xs font-black text-foreground">A) Crear Nuevo SKU</div>
-                  <div className="text-[10px] text-muted-foreground">Crea e ingresa el producto mezclado</div>
+                  <div className="text-xs font-black text-foreground">A) Ingreso a Producir (Código Nuevo)</div>
+                  <div className="text-[10px] text-muted-foreground">Ingresa el código nuevo que se va a producir</div>
                 </div>
               </button>
 
@@ -847,8 +847,8 @@ export default function VisualProductionMixer({
               >
                 <RefreshCw size={16} className="text-blue-500 shrink-0" />
                 <div>
-                  <div className="text-xs font-black text-foreground">B) Rellenado (Refill)</div>
-                  <div className="text-[10px] text-muted-foreground">Suma stock a un SKU existente</div>
+                  <div className="text-xs font-black text-foreground">B) Ingreso a Producir (Código Existente)</div>
+                  <div className="text-[10px] text-muted-foreground">Suma unidades al código que ya existe</div>
                 </div>
               </button>
 
@@ -863,8 +863,8 @@ export default function VisualProductionMixer({
               >
                 <Factory size={16} className="text-amber-500 shrink-0" />
                 <div>
-                  <div className="text-xs font-black text-foreground">C) Consumo Interno</div>
-                  <div className="text-[10px] text-muted-foreground">Descarga insumos para orden interna</div>
+                  <div className="text-xs font-black text-foreground">C) Salida / Consumo Interno</div>
+                  <div className="text-[10px] text-muted-foreground">Solo descarga insumos (sin ingreso de código)</div>
                 </div>
               </button>
 
@@ -874,13 +874,13 @@ export default function VisualProductionMixer({
                   <Input
                     value={newSkuCode}
                     onChange={(e) => setNewSkuCode(e.target.value.toUpperCase())}
-                    placeholder="Nuevo SKU (Ej. MEZ-AZUL-01)"
+                    placeholder="Ingresa el código a ingresar (Ej. MEZ-AZUL-01)"
                     className="h-8 text-xs font-mono font-bold"
                   />
                   <Input
                     value={newSkuName}
                     onChange={(e) => setNewSkuName(e.target.value)}
-                    placeholder="Nombre del producto final..."
+                    placeholder="Nombre del producto a producir..."
                     className="h-8 text-xs"
                   />
                   <Input
@@ -899,12 +899,12 @@ export default function VisualProductionMixer({
                   <Input
                     value={refillSearch}
                     onChange={(e) => setRefillSearch(e.target.value)}
-                    placeholder="Filtrar SKU destino..."
+                    placeholder="Buscar código que se va a ingresar..."
                     className="h-7 text-xs"
                   />
                   <Select value={refillTargetSku} onValueChange={setRefillTargetSku}>
                     <SelectTrigger className="h-8 text-xs font-bold">
-                      <SelectValue placeholder="Seleccionar SKU a rellenar..." />
+                      <SelectValue placeholder="Elegir código a ingresar..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-56">
                       {inventory
@@ -940,7 +940,7 @@ export default function VisualProductionMixer({
               className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs gap-1.5 shadow-md shadow-emerald-600/20"
             >
               {processing ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-              Procesar y Actualizar Inventario
+              {outputAction === 'INTERNAL' ? 'Procesar Salida de Insumos' : 'Procesar Ingreso a Producir'}
             </Button>
           </CardContent>
         </Card>
