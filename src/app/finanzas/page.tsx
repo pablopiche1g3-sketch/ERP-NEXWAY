@@ -12,6 +12,8 @@ import CashFlowTab from './components/CashFlowTab';
 import BankingTab from './components/BankingTab';
 import CreditScoringTab from './components/CreditScoringTab';
 import BulkPaymentsTab from './components/BulkPaymentsTab';
+import InvoiceCrossTab from './components/InvoiceCrossTab';
+import BankReconciliationTab from './components/BankReconciliationTab';
 import {
   CalendarClock,
   TrendingUp,
@@ -21,7 +23,9 @@ import {
   Users,
   DollarSign,
   Receipt,
-  Loader2
+  Loader2,
+  ArrowLeftRight,
+  Scale,
 } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 
@@ -30,7 +34,8 @@ function FinanzasContent() {
   const queryTab = searchParams?.get('tab');
   const [activeTab, setActiveTab] = useState(queryTab || 'cxc');
   const [cxcSubView, setCxcSubView] = useState<'cartera' | 'scoring'>('cartera');
-  const [bankingSubView, setBankingSubView] = useState<'cuentas' | 'txt'>('cuentas');
+  const [cxpSubView, setCxpSubView] = useState<'facturas' | 'autorizar' | 'cruce'>('facturas');
+  const [bankingSubView, setBankingSubView] = useState<'cuentas' | 'conciliacion' | 'txt'>('cuentas');
 
   useEffect(() => {
     const paramTab = searchParams?.get('tab');
@@ -127,8 +132,40 @@ function FinanzasContent() {
           {cxcSubView === 'cartera' ? <CxcTab /> : <CreditScoringTab />}
         </TabsContent>
 
-        <TabsContent value="cxp" className="outline-none">
-          <CxpTab />
+        <TabsContent value="cxp" className="space-y-4 outline-none">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-card border border-border/70 p-1.5 rounded-2xl w-fit shadow-sm">
+            <Button
+              size="sm"
+              variant={cxpSubView === 'facturas' ? 'default' : 'ghost'}
+              onClick={() => setCxpSubView('facturas')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <Receipt size={14} /> Facturas por Pagar
+            </Button>
+            <Button
+              size="sm"
+              variant={cxpSubView === 'autorizar' ? 'default' : 'ghost'}
+              onClick={() => setCxpSubView('autorizar')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <ShieldCheck size={14} /> Autorizar Pagos y Disponibilidad
+            </Button>
+            <Button
+              size="sm"
+              variant={cxpSubView === 'cruce' ? 'default' : 'ghost'}
+              onClick={() => setCxpSubView('cruce')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <ArrowLeftRight size={14} /> Cruce Cliente ↔ Proveedor
+            </Button>
+          </div>
+          {cxpSubView === 'facturas' ? (
+            <CxpTab />
+          ) : cxpSubView === 'autorizar' ? (
+            <InvoiceCrossTab mode="autorizar" />
+          ) : (
+            <InvoiceCrossTab mode="cruce" />
+          )}
         </TabsContent>
 
         <TabsContent value="quedan" className="outline-none">
@@ -143,7 +180,15 @@ function FinanzasContent() {
               onClick={() => setBankingSubView('cuentas')}
               className="rounded-xl text-xs h-8 font-bold gap-1.5"
             >
-              <Building2 size={14} /> Cuentas Bancarias y Conciliación
+              <Building2 size={14} /> Cuentas Bancarias
+            </Button>
+            <Button
+              size="sm"
+              variant={bankingSubView === 'conciliacion' ? 'default' : 'ghost'}
+              onClick={() => setBankingSubView('conciliacion')}
+              className="rounded-xl text-xs h-8 font-bold gap-1.5"
+            >
+              <Scale size={14} /> Conciliación Bancaria (1102)
             </Button>
             <Button
               size="sm"
@@ -154,7 +199,13 @@ function FinanzasContent() {
               <FileText size={14} /> Pagos Masivos TXT (Planilla / Proveedores)
             </Button>
           </div>
-          {bankingSubView === 'cuentas' ? <BankingTab /> : <BulkPaymentsTab />}
+          {bankingSubView === 'cuentas' ? (
+            <BankingTab />
+          ) : bankingSubView === 'conciliacion' ? (
+            <BankReconciliationTab />
+          ) : (
+            <BulkPaymentsTab />
+          )}
         </TabsContent>
 
         <TabsContent value="cashflow" className="outline-none">

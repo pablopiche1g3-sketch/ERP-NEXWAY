@@ -31,7 +31,9 @@ import {
   Printer,
   FileSearch,
   CheckCircle2,
-  ShieldCheck
+  ShieldCheck,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/supabase/client';
 import HaciendaSandboxPanel from './components/HaciendaSandboxPanel';
 import { AccountingAiAssistant, type AccountingLiveContext } from './components/AccountingAiAssistant';
+import AccountLedgerPanel from './components/AccountLedgerPanel';
 import { useModuleConfig } from '@/supabase/use-module-config';
 import { useTabs } from '@/hooks/use-tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -268,7 +271,10 @@ export default function AccountingPage() {
     pagoCuentaRate: 1.75
   });
 
-  const [activeSubTab, setActiveSubTab] = useState<'movimientos' | 'auditoria' | 'catalogo'>('movimientos');
+  const [activeSubTab, setActiveSubTab] = useState<'movimientos' | 'mayor' | 'auditoria' | 'catalogo'>('movimientos');
+  const [selectedLedgerAccount, setSelectedLedgerAccount] = useState<string>('1101');
+  const [closedPeriods, setClosedPeriods] = useState<Record<string, { closedAt: string; totalDebe: number; totalHaber: number }>>({});
+  const [togglingClose, setTogglingClose] = useState(false);
   const [journalSearch, setJournalSearch] = useState('');
   const [activeTaxTab, setActiveTaxTab] = useState<'vcf' | 'vc' | 'compras'>('vcf');
   const [activeFormTab, setActiveFormTab] = useState<'f07' | 'f14'>('f07');
@@ -293,6 +299,16 @@ export default function AccountingPage() {
         console.error("Error cargando configuraciones contables", e);
       }
     }
+    supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', 'accounting_closed_periods')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value && typeof data.value === 'object') {
+          setClosedPeriods(data.value as any);
+        }
+      });
   }, []);
 
   const handleSaveSettings = (newSettings: typeof settings) => {
@@ -948,6 +964,108 @@ export default function AccountingPage() {
 
   const [exportingPackage, setExportingPackage] = useState(false);
 
+  const currentPeriodKey = `${filterYear}-${filterMonth}`;
+  const isCurrentPeriodClosed = Boolean(closedPeriods[currentPeriodKey]);
+
+  const handleTogglePeriodClose = async () => {
+    setTogglingClose(true);
+    try {
+      const next = { ...closedPeriods };
+      if (isCurrentPeriodClosed) {
+        delete next[currentPeriodKey];
+      } else {
+        const totalDebe = trialBalanceAccounts.reduce((s, a) => s + (a.debit || 0), 0);
+        const totalHaber = trialBalanceAccounts.reduce((s, a) => s + (a.credit || 0), 0);
+        next[currentPeriodKey] = {
+          closedAt: new Date().toISOString(),
+          totalDebe: Number(totalDebe.toFixed(2)),
+          totalHaber: Number(totalHaber.toFixed(2)),
+        };
+      }
+      const { error } = await supabase
+        .from('system_config')
+        .upsert({ key: 'accounting_closed_periods', value: next });
+      if (error) throw error;
+      setClosedPeriods(next);
+      toast({
+        title: isCurrentPeriodClosed ? `Período ${filterMonth}/${filterYear} Reabierto` : `Período ${filterMonth}/${filterYear} Cerrado 🔒`,
+        description: isCurrentPeriodClosed
+          ? 'El período contable vuelve a estar abierto para ajustes.'
+          : 'El período quedó marcado como cerrado y cuadrado para auditoría.',
+      });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err?.message || 'No se pudo actualizar el cierre.' });
+    } finally {
+      setTogglingClose(false);
+    }
+  };
+
+  // Exportar Anexo F-987 (Informe Semestral de Proveedores y Clientes MH El Salvador)
+  const handleExportF987 = () => {
+    const monthNum = parseInt(filterMonth, 10) || 1;
+    const isFirstHalf = monthNum <= 6;
+    const semLabel = isFirstHalf ? 'S1_Ene-Jun' : 'S2_Jul-Dic';
+    const inSemester = (ts: any) => {
+      if (!ts) return false;
+      const d = new Date(ts);
+      if (d.getFullYear().toString() !== filterYear) return false;
+      const m = d.getMonth() + 1;
+      return isFirstHalf ? m >= 1 && m <= 6 : m >= 7 && m <= 12;
+    };
+
+    const grouped: Record<string, { tipo: string; nombre: string; doc: string; docs: number; neto: number; iva: number; total: number }> = {};
+
+    (purchases || []).filter(p => inSemester(p.timestamp || p.date)).forEach((p: any) => {
+      const name = p.supplier || p.provider || 'Proveedor Varios';
+      const key = `PROV_${name.toUpperCase()}`;
+      const tot = Number(p.total || 0);
+      const net = tot / (1 + settings.ivaRate / 100);
+      const iva = tot - net;
+      if (!grouped[key]) grouped[key] = { tipo: 'PROVEEDOR', nombre: name, doc: p.nrc || p.nit || 'N/A', docs: 0, neto: 0, iva: 0, total: 0 };
+      grouped[key].docs += 1;
+      grouped[key].neto += net;
+      grouped[key].iva += iva;
+      grouped[key].total += tot;
+    });
+
+    (sales || []).filter(s => s.docType === 'CCF' && inSemester(s.timestamp)).forEach((s: any) => {
+      const name = s.customer || 'Cliente Contribuyente';
+      const key = `CLI_${name.toUpperCase()}`;
+      const tot = Number(s.total || 0);
+      const net = tot / (1 + settings.ivaRate / 100);
+      const iva = tot - net;
+      if (!grouped[key]) grouped[key] = { tipo: 'CLIENTE_CCF', nombre: name, doc: s.nrc || s.nit || 'N/A', docs: 0, neto: 0, iva: 0, total: 0 };
+      grouped[key].docs += 1;
+      grouped[key].neto += net;
+      grouped[key].iva += iva;
+      grouped[key].total += tot;
+    });
+
+    const headers = ['Tipo (Proveedor/Cliente)', 'Nombre / Razón Social', 'NIT / NRC', 'Cant. Documentos', 'Monto Neto ($)', 'IVA 13% ($)', 'Total Semestre ($)'];
+    const rows = Object.values(grouped).map(g => [
+      g.tipo,
+      g.nombre,
+      g.doc,
+      String(g.docs),
+      g.neto.toFixed(2),
+      g.iva.toFixed(2),
+      g.total.toFixed(2),
+    ]);
+
+    const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Anexo_F987_${semLabel}_${filterYear}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({
+      title: 'Anexo F-987 Exportado ✓',
+      description: `Se generó Anexo_F987_${semLabel}_${filterYear}.csv con ${rows.length} registros consolidados.`,
+    });
+  };
+
   // Exportar Paquete Completo del Contador en 1 solo archivo Excel (.xlsx) con 6 hojas
   const handleExportAccountantPackage = async () => {
     setExportingPackage(true);
@@ -1435,9 +1553,12 @@ export default function AccountingPage() {
 
           <TabsContent value="diario" className="space-y-4 outline-none">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="flex gap-2 bg-card border-border shadow-sm p-1 rounded-xl">
+              <div className="flex flex-wrap gap-2 bg-card border-border shadow-sm p-1 rounded-xl">
                 <Button variant={activeSubTab === 'movimientos' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold" onClick={() => setActiveSubTab('movimientos')}>
                   Movimientos Contables
+                </Button>
+                <Button variant={activeSubTab === 'mayor' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold text-blue-600 dark:text-blue-400" onClick={() => setActiveSubTab('mayor')}>
+                  <BookOpen size={12} className="mr-1.5" /> Libro Mayor por Cuenta
                 </Button>
                 <Button variant={activeSubTab === 'auditoria' ? 'default' : 'ghost'} size="sm" className="rounded-lg text-xs h-8 font-bold text-indigo-600 dark:text-indigo-400" onClick={() => setActiveSubTab('auditoria')}>
                   <FileSearch size={12} className="mr-1.5" /> Auditoría & Detalle Manual
@@ -1547,6 +1668,12 @@ export default function AccountingPage() {
                   </Table>
                 </div>
               </Card>
+            ) : activeSubTab === 'mayor' ? (
+              <AccountLedgerPanel
+                journal={journal}
+                catalog={DEFAULT_CATALOG}
+                initialAccountCode={selectedLedgerAccount}
+              />
             ) : (
               // CATÁLOGO DE CUENTAS
               <Card className="bg-card border-border shadow-sm rounded-2xl p-6">
@@ -1783,9 +1910,14 @@ export default function AccountingPage() {
                 </div>
               </div>
 
-              <Button onClick={() => handleExportCSV(activeTaxTab)} className="w-full md:w-auto bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl h-10 text-xs font-bold flex gap-2">
-                <FileSpreadsheet size={14} /> Exportar Libro a CSV
-              </Button>
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <Button onClick={handleExportF987} variant="outline" className="flex-1 md:flex-none rounded-xl h-10 text-xs font-bold flex gap-2 border-indigo-200 dark:border-indigo-900 text-indigo-700 dark:text-indigo-300">
+                  <Download size={14} /> Anexo F-987 (Semestral)
+                </Button>
+                <Button onClick={() => handleExportCSV(activeTaxTab)} className="flex-1 md:flex-none bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl h-10 text-xs font-bold flex gap-2">
+                  <FileSpreadsheet size={14} /> Exportar Libro a CSV
+                </Button>
+              </div>
             </Card>
 
             <div className="space-y-4">
@@ -2212,12 +2344,40 @@ export default function AccountingPage() {
           {/* TAB BALANCE DE COMPROBACION */}
           <TabsContent value="balance-comprobacion" className="space-y-6 outline-none animate-in fade-in duration-300">
             <Card className="bg-card border-border shadow-sm rounded-2xl border-slate-100 dark:border-border">
-              <CardHeader className="p-6 border-b border-slate-100 dark:border-border">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
-                  <Scale className="text-blue-600" size={18} />
-                  Balance de Comprobación General
-                </CardTitle>
-                <CardDescription className="text-xs">Consolidación de saldos del debe y haber por cada cuenta contable del catálogo oficial de El Salvador.</CardDescription>
+              <CardHeader className="p-6 border-b border-slate-100 dark:border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
+                      <Scale className="text-blue-600" size={18} />
+                      Balance de Comprobación General
+                    </CardTitle>
+                    <Badge
+                      className={
+                        isCurrentPeriodClosed
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-0 text-[10px] font-bold'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-0 text-[10px] font-bold'
+                      }
+                    >
+                      {isCurrentPeriodClosed ? `🔒 Mes ${filterMonth}/${filterYear} Cerrado` : `🔓 Mes ${filterMonth}/${filterYear} Abierto`}
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-xs mt-1">
+                    Haz clic en cualquier cuenta para abrir su Libro Mayor. Cuando el mes esté cuadrado, ciérralo con el candado.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={togglingClose}
+                  variant={isCurrentPeriodClosed ? 'outline' : 'default'}
+                  onClick={handleTogglePeriodClose}
+                  className={`rounded-xl h-9 text-xs font-bold gap-1.5 ${
+                    !isCurrentPeriodClosed ? 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-blue-600 dark:hover:bg-blue-700' : ''
+                  }`}
+                >
+                  {isCurrentPeriodClosed ? <Unlock size={14} /> : <Lock size={14} />}
+                  {isCurrentPeriodClosed ? `Reabrir ${filterMonth}/${filterYear}` : `Cerrar Mes ${filterMonth}/${filterYear}`}
+                </Button>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -2234,7 +2394,16 @@ export default function AccountingPage() {
                   <TableBody>
                     {trialBalanceAccounts.map((account) => {
                       return (
-                        <TableRow key={account.code} className="hover:bg-white/10 border-b border-white/5">
+                        <TableRow
+                          key={account.code}
+                          onClick={() => {
+                            setSelectedLedgerAccount(account.code);
+                            setActiveTab('diario');
+                            setActiveSubTab('mayor');
+                          }}
+                          title="Clic para ver Libro Mayor de esta cuenta"
+                          className="hover:bg-blue-50/50 dark:hover:bg-white/10 border-b border-white/5 cursor-pointer"
+                        >
                           <TableCell className="px-6 font-mono font-bold text-xs text-slate-600 dark:text-slate-400">{account.code}</TableCell>
                           <TableCell className="font-bold text-xs text-foreground">{account.name}</TableCell>
                           <TableCell>
