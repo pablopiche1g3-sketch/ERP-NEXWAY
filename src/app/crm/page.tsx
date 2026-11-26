@@ -56,6 +56,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import DailySalesAgendaTab from './components/DailySalesAgendaTab';
 import { CrmMap, SellerRouteStop, calculateDistanceKm } from '@/components/CrmMap';
 import { useBms } from '@/contexts/BmsContext';
 import { fetchSystemAppUsers } from '@/lib/session-operator';
@@ -732,21 +733,28 @@ export default function CRMPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="kanban" className="w-full mt-6">
+        <Tabs defaultValue="agenda" className="w-full mt-6">
           <TabsList className="bg-transparent p-0 h-auto flex flex-wrap w-full justify-start border-b border-slate-200 dark:border-white/10 gap-2 sm:gap-4 mb-5">
+            <TabsTrigger value="agenda" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
+              <Calendar size={15} /> 1. Agenda Diaria (Vendedores)
+            </TabsTrigger>
             <TabsTrigger data-tour-id="tab-kanban" value="kanban" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
-              <SlidersHorizontal size={15} /> 1. Embudo Comercial (Kanban)
+              <SlidersHorizontal size={15} /> 2. Embudo Comercial (Kanban)
             </TabsTrigger>
             <TabsTrigger data-tour-id="tab-foco" value="foco" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
-              <Package size={15} /> 2. Foco de Venta — Stock Estancado ({stagnantProducts.length})
+              <Package size={15} /> 3. Foco de Venta — Stock Estancado ({stagnantProducts.length})
             </TabsTrigger>
             <TabsTrigger data-tour-id="tab-retention" value="retention" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-orange-600 dark:data-[state=active]:text-orange-400 data-[state=active]:border-b-2 data-[state=active]:border-orange-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
-              <AlertTriangle size={15} /> 3. Retención de Clientes
+              <AlertTriangle size={15} /> 4. Retención de Clientes
             </TabsTrigger>
             <TabsTrigger data-tour-id="tab-mapa" value="mapa" className="rounded-none px-4 py-3 font-bold text-xs sm:text-sm text-slate-500 dark:text-white/50 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent transition-colors flex items-center gap-1.5">
-              <Navigation size={15} /> 4. Mapa de Rutas (Vendedores)
+              <Navigation size={15} /> 5. Mapa de Rutas (Vendedores)
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="agenda" className="mt-0 outline-none">
+            <DailySalesAgendaTab />
+          </TabsContent>
 
           <TabsContent value="foco" className="mt-0 outline-none">
             <Card className="border shadow-sm rounded-2xl bg-card overflow-hidden">

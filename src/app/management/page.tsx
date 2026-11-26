@@ -53,6 +53,7 @@ import {
   findMunicipalityList
 } from '@/lib/hacienda-sv-catalogs';
 import PrintDesignerTab from './components/PrintDesignerTab';
+import ExecutiveQuickMetrics from './components/ExecutiveQuickMetrics';
 import PerformanceThemesTab from './components/PerformanceThemesTab';
 import UserAccessManagementTab from './components/UserAccessManagementTab';
 import GmailClient from '@/components/shared/GmailClient';
@@ -1041,7 +1042,7 @@ export default function ManagementPage() {
 
   const [activeGroup, setActiveGroup] = useState('bi');
   const [activeBiTab, setActiveBiTab] = useState('metrics');
-  const [activeConfigTab, setActiveConfigTab] = useState('operativos');
+  const [activeConfigTab, setActiveConfigTab] = useState('company');
   const [activeUsersTab, setActiveUsersTab] = useState('permissions');
 
   const currentTab = activeGroup === 'bi' ? activeBiTab : activeGroup === 'config' ? activeConfigTab : activeUsersTab;
@@ -1565,11 +1566,9 @@ export default function ManagementPage() {
               )}
               {activeGroup === 'config' && (
                 <>
-                  <TabsTrigger value="operativos" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Ajustes Operativos</TabsTrigger>
                   <TabsTrigger value="company" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Perfil de Empresa & Nube</TabsTrigger>
                   <TabsTrigger value="branches" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Sucursales, Bodegas y Cajas</TabsTrigger>
                   <TabsTrigger value="print-designer" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Diseñador Impresión</TabsTrigger>
-                  <TabsTrigger value="performance-themes" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-indigo-600 text-xs">Rendimiento y Temas</TabsTrigger>
                   <TabsTrigger value="documental" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-blue-600 text-xs">Bóveda Documental</TabsTrigger>
                   <TabsTrigger value="gmail" className="rounded-xl px-4 font-bold data-[state=active]:bg-background data-[state=active]:text-red-500 text-xs">Auditoría Gmail</TabsTrigger>
                 </>
@@ -2279,6 +2278,7 @@ export default function ManagementPage() {
               </Card>
 
             </div>
+            <ExecutiveQuickMetrics />
           </TabsContent>
 
           {/* ═══════════ pestaña 5: ANÁLISIS DE VENTAS ═══════════════ */}
@@ -2752,6 +2752,38 @@ export default function ManagementPage() {
 
           {/* ═══════════ pestaña 6: SUCURSALES, BODEGAS Y CAJAS (UNIFICADO) ═══════════════ */}
           <TabsContent value="branches" className="outline-none space-y-6">
+            <Card className="border border-border rounded-2xl bg-card p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <Coins size={14} className="text-blue-500" /> Fondo Base de Caja ($)
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  Monto base configurado para el arqueo y cierre diario de las cajas POS.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative w-36">
+                  <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={cashFloat}
+                    onChange={(e) => setCashFloat(e.target.value)}
+                    className="h-9 pl-7 text-sm font-mono font-black rounded-xl"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveSystemConfig}
+                  disabled={isSaving}
+                  className="h-9 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold gap-1.5"
+                >
+                  {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                  Guardar Fondo
+                </Button>
+              </div>
+            </Card>
             <WarehousesAndRegistersTab />
           </TabsContent>
 
