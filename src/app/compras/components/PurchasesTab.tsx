@@ -122,6 +122,55 @@ export default function PurchasesTab({
   const [showPendingInvoicesList, setShowPendingInvoicesList] = useState(false);
   const [pendingPurchasesList, setPendingPurchasesList] = useState<any[]>([]);
 
+  // Autorización para crear automáticamente proveedor faltante desde JSON DTE
+  const [pendingJsonSupplier, setPendingJsonSupplier] = useState<{
+    name: string;
+    nit: string;
+    nrc: string;
+    giro: string;
+    address: string;
+    email: string;
+    phone: string;
+  } | null>(null);
+  const [creatingJsonSupplier, setCreatingJsonSupplier] = useState(false);
+
+  const handleAuthorizeCreateJsonSupplier = async () => {
+    if (!pendingJsonSupplier) return;
+    setCreatingJsonSupplier(true);
+    try {
+      const { data: created, error } = await supabase
+        .from('suppliers')
+        .insert({
+          name: pendingJsonSupplier.name,
+          nit: pendingJsonSupplier.nit || null,
+          nrc: pendingJsonSupplier.nrc || null,
+          giro: pendingJsonSupplier.giro || null,
+          address: pendingJsonSupplier.address || null,
+          email: pendingJsonSupplier.email || null,
+          phone: pendingJsonSupplier.phone || null,
+          apply_retention: false,
+          apply_perception: false,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      if (created) {
+        setSuppliers(prev => [created, ...prev]);
+        setSupplierName(created.name);
+      }
+      toast({
+        title: 'Proveedor Registrado con Autorización ✓',
+        description: `${pendingJsonSupplier.name} fue creado en el Directorio y vinculado a esta compra.`,
+      });
+      setPendingJsonSupplier(null);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error creando proveedor', description: err?.message || 'No se pudo registrar el proveedor.' });
+    } finally {
+      setCreatingJsonSupplier(false);
+    }
+  };
+
   const loadPendingInvoicesQuick = async () => {
     try {
       const { data } = await supabase
@@ -1634,7 +1683,34 @@ export default function PurchasesTab({
 
         // 3. Procesar los ítems
         if (json.identificacion && json.emisor && json.cuerpoDocumento) {
-          setSupplierName(json.emisor.nombre || '');
+          const emisorNombre = String(json.emisor.nombre || json.emisor.nombreComercial || '').trim();
+          const emisorNitClean = String(json.emisor.nit || '').replace(/-/g, '').trim();
+          const existingSup = suppliers.find(
+            (s: any) =>
+              (emisorNitClean && String(s.nit || '').replace(/-/g, '').trim() === emisorNitClean) ||
+              (emisorNombre && String(s.name || '').trim().toLowerCase() === emisorNombre.toLowerCase())
+          );
+          if (existingSup) {
+            setSupplierName(existingSup.name);
+          } else {
+            setSupplierName(emisorNombre);
+            if (emisorNombre) {
+              const dirObj = json.emisor.direccion;
+              const addrStr =
+                typeof dirObj === 'string'
+                  ? dirObj
+                  : dirObj?.complemento || '';
+              setPendingJsonSupplier({
+                name: emisorNombre,
+                nit: String(json.emisor.nit || ''),
+                nrc: String(json.emisor.nrc || ''),
+                giro: String(json.emisor.descActividad || ''),
+                address: String(addrStr || ''),
+                email: String(json.emisor.correo || ''),
+                phone: String(json.emisor.telefono || ''),
+              });
+            }
+          }
           const dteGen = json.identificacion.codigoGeneracion || '';
           const dteCtrl = json.identificacion.numeroControl || '';
           setDocNumber(dteCtrl);
@@ -1778,6 +1854,46 @@ export default function PurchasesTab({
         </div>
 
         <TabsContent value="registro" className="m-0 outline-none w-full space-y-3">
+          {/* AVISO DE AUTORIZACIÓN PARA CREAR PROVEEDOR NUEVO DESDE JSON DTE */}
+          {pendingJsonSupplier && (
+            <div className="rounded-2xl border-2 border-amber-500/50 bg-amber-50/70 dark:bg-amber-950/30 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="space-y-0.5 text-xs">
+                <div className="font-black text-amber-800 dark:text-amber-300 uppercase text-[11px]">
+                  ⚠️ Proveedor Nuevo Detectado en JSON DTE — Requiere tu Autorización
+                </div>
+                <p className="text-foreground font-bold">
+                  {pendingJsonSupplier.name}
+                  {pendingJsonSupplier.nit ? ` · NIT: ${pendingJsonSupplier.nit}` : ''}
+                  {pendingJsonSupplier.nrc ? ` · NRC: ${pendingJsonSupplier.nrc}` : ''}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  No existe en tu Directorio de Proveedores. ¿Autorizas registrarlo automáticamente con los datos del JSON?
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPendingJsonSupplier(null)}
+                  className="h-8 rounded-xl text-xs"
+                >
+                  Omitir
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={creatingJsonSupplier}
+                  onClick={handleAuthorizeCreateJsonSupplier}
+                  className="h-8 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5"
+                >
+                  {creatingJsonSupplier ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                  Autorizar y Crear Proveedor
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* BARRA RÁPIDA DE FACTURAS PENDIENTES EN INGRESO DE COMPRA */}
           <div className="rounded-xl bg-card border border-border/70 px-3.5 py-2 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1852,9 +1968,9 @@ export default function PurchasesTab({
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-            {/* COLUMNA IZQUIERDA (4 cols): PASO 1 — DATOS DEL DOCUMENTO Y PROVEEDOR */}
-            <div className="lg:col-span-4 rounded-2xl bg-card dark:bg-white/[0.04] border border-border dark:border-white/10 overflow-hidden shadow-sm">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+            {/* COLUMNA IZQUIERDA (4 cols en desktop, 100% en tablet): PASO 1 — DATOS DEL DOCUMENTO Y PROVEEDOR */}
+            <div className="xl:col-span-4 rounded-2xl bg-card dark:bg-white/[0.04] border border-border dark:border-white/10 overflow-hidden shadow-sm">
               <div className="px-4 py-2.5 bg-indigo-500/15 border-b border-indigo-500/25 flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wide text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
                   <ClipboardList size={14} /> Paso 1 · Datos de Factura

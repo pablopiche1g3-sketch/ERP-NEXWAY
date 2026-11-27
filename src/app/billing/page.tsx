@@ -664,6 +664,61 @@ export default function BillingPage() {
   const [isComboModalOpen, setIsComboModalOpen] = useState(false);
   const [selectedComboId, setSelectedComboId] = useState<string>('');
   const [comboCheckedSkus, setComboCheckedSkus] = useState<Record<string, boolean>>({});
+  const [showCreditDetails, setShowCreditDetails] = useState(false);
+
+  // Solicitud rápida de traslado desde Facturación POS
+  const [isQuickTransferOpen, setIsQuickTransferOpen] = useState(false);
+  const [qtOriginWh, setQtOriginWh] = useState('');
+  const [qtDestWh, setQtDestWh] = useState('');
+  const [qtSku, setQtSku] = useState('');
+  const [qtQty, setQtQty] = useState('1');
+  const [qtNotes, setQtNotes] = useState('');
+  const [sendingQuickTransfer, setSendingQuickTransfer] = useState(false);
+
+  const handleSubmitQuickTransfer = async () => {
+    const qtyNum = parseFloat(qtQty) || 0;
+    if (!qtOriginWh || !qtDestWh || qtOriginWh === qtDestWh || !qtSku || qtyNum <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Datos incompletos',
+        description: 'Elige bodega origen y destino distintas, el producto y la cantidad.',
+      });
+      return;
+    }
+    setSendingQuickTransfer(true);
+    try {
+      const prodObj = inventory.find(p => p.sku === qtSku);
+      const transferCode = `TR-POS-${Date.now().toString().slice(-5)}`;
+      const { error } = await supabase.from('inventory_transfers').insert({
+        transfer_code: transferCode,
+        origin_warehouse_id: qtOriginWh,
+        destination_warehouse_id: qtDestWh,
+        status: 'PENDIENTE',
+        items: [
+          {
+            sku: qtSku,
+            name: prodObj?.name || qtSku,
+            quantity: qtyNum,
+            cost: Number(prodObj?.cost || 0),
+          },
+        ],
+        notes: qtNotes.trim() || 'Solicitud urgente desde Facturación POS',
+      });
+      if (error) throw error;
+      toast({
+        title: `🚚 Solicitud de Traslado Enviada (${transferCode})`,
+        description: `Bodega ya puede despachar ${qtyNum}x ${prodObj?.name || qtSku} desde Logística → Traslados.`,
+      });
+      setIsQuickTransferOpen(false);
+      setQtSku('');
+      setQtQty('1');
+      setQtNotes('');
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err?.message || 'No se pudo enviar la solicitud de traslado.' });
+    } finally {
+      setSendingQuickTransfer(false);
+    }
+  };
 
   useEffect(() => {
     loadProductCombos()
@@ -3671,14 +3726,29 @@ export default function BillingPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB VENTA */}
-          <TabsContent value="facturacion" className="grid grid-cols-1 lg:grid-cols-12 gap-8 outline-none animate-in fade-in duration-300">
-            {/* Columna Izquierda: POS Carrito (Ancho: 5/12) */}
-            <div className="lg:col-span-5 space-y-3.5">
+          {/* TAB VENTA (Responsive optimizado para Tablet y Desktop) */}
+          <TabsContent value="facturacion" className="grid grid-cols-1 xl:grid-cols-12 gap-6 outline-none animate-in fade-in duration-300">
+            {/* Columna Izquierda: POS Carrito (Ancho: 5/12 en desktop, 100% en tablet) */}
+            <div className="xl:col-span-5 space-y-3.5">
               <div className="bg-white/40 dark:bg-white/5 backdrop-blur-xl border border-white/50 dark:border-white/10 rounded-[13px] p-5 flex flex-col gap-3 shadow-sm dark:shadow-none">
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-white/30">Resumen de venta</span>
                   <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (warehouses.length > 0 && !qtDestWh) setQtDestWh(warehouses[0].id);
+                        if (warehouses.length > 1 && !qtOriginWh) setQtOriginWh(warehouses[1].id);
+                        if (cart.length > 0 && !qtSku) setQtSku(cart[cart.length - 1].sku);
+                        setIsQuickTransferOpen(true);
+                      }}
+                      className="h-6 px-2.5 rounded-full text-[10px] font-bold border-emerald-400/50 text-emerald-600 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20"
+                      title="Solicitar traslado de producto desde otra bodega"
+                    >
+                      🚚 Traslado
+                    </Button>
                     <Button
                       type="button"
                       size="sm"
@@ -3881,42 +3951,179 @@ export default function BillingPage() {
                     </button>
                   </div>
 
-                  {/* SEMÁFORO DE CRÉDITO + BOTÓN DE AUTORIZACIÓN DE ENCARGADO */}
-                  <div
-                    className={`mt-2 p-2.5 rounded-xl border text-[11px] flex flex-wrap items-center justify-between gap-2 ${
-                      !selectedCustomer
-                        ? 'bg-muted/30 border-border text-muted-foreground'
-                        : creditOverrideAuth
-                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
-                        : creditValidation.needsOverride
-                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-200'
-                        : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-1.5 flex-1 min-w-[200px]">
-                      <AlertCircle size={13} className="shrink-0 mt-0.5" />
-                      <span className="leading-snug">{creditValidation.reason}</span>
-                    </div>
-                    {creditValidation.needsOverride && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => setIsCreditAuthModalOpen(true)}
-                        className="h-7 px-2.5 text-[10px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg shrink-0"
-                      >
-                        🔐 Autorizar Exceso
-                      </Button>
-                    )}
-                    {creditOverrideAuth && (
-                      <button
-                        type="button"
-                        onClick={() => setCreditOverrideAuth(null)}
-                        className="text-[10px] font-bold underline opacity-80 hover:opacity-100"
-                      >
-                        Revocar
-                      </button>
-                    )}
-                  </div>
+                  {/* SEMÁFORO COMPACTO DE CRÉDITO (Verde sano / Amarillo revisar al clic / Rojo debe) */}
+                  {selectedCustomer && (() => {
+                    const isGreen = Boolean(creditOverrideAuth) || (!creditValidation.needsOverride && !creditValidation.disabled);
+                    const isRed = !creditOverrideAuth && (
+                      creditValidation.disabled ||
+                      String(creditValidation.reason || '').toLowerCase().includes('exced') ||
+                      String(creditValidation.reason || '').toLowerCase().includes('vencid') ||
+                      String(creditValidation.reason || '').toLowerCase().includes('sobregiro')
+                    );
+
+                    return (
+                      <div className="mt-2 space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!isGreen && creditValidation.needsOverride) {
+                                setShowCreditDetails(prev => !prev);
+                              } else {
+                                setShowCreditDetails(prev => !prev);
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-bold transition-all ${
+                              isGreen
+                                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                : isRed
+                                ? 'bg-rose-500/15 border-rose-500/40 text-rose-700 dark:text-rose-300 hover:bg-rose-500/25'
+                                : 'bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-200 hover:bg-amber-500/25'
+                            }`}
+                            title="Haz clic para ver detalle de crédito o autorizar"
+                          >
+                            <span>{isGreen ? '🟢' : isRed ? '🔴' : '🟡'}</span>
+                            <span>
+                              {creditOverrideAuth
+                                ? 'Crédito Autorizado ✓'
+                                : isGreen
+                                ? 'Crédito Sano'
+                                : isRed
+                                ? 'Debe / Límite Excedido (Ver)'
+                                : 'Revisar Crédito (Ver)'}
+                            </span>
+                          </button>
+
+                          {creditOverrideAuth && (
+                            <button
+                              type="button"
+                              onClick={() => setCreditOverrideAuth(null)}
+                              className="text-[10px] font-bold text-muted-foreground underline hover:text-foreground"
+                            >
+                              Revocar autorización
+                            </button>
+                          )}
+                        </div>
+
+                        {showCreditDetails && (
+                          <div
+                            className={`p-2.5 rounded-xl border text-[11px] flex flex-wrap items-center justify-between gap-2 animate-in fade-in duration-150 ${
+                              isGreen
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                                : isRed
+                                ? 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300'
+                                : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-200'
+                            }`}
+                          >
+                            <div className="flex items-start gap-1.5 flex-1 min-w-[180px]">
+                              <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                              <span className="leading-snug">{creditValidation.reason}</span>
+                            </div>
+                            {creditValidation.needsOverride && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => setIsCreditAuthModalOpen(true)}
+                                className={`h-7 px-2.5 text-[10px] font-black text-white rounded-lg shrink-0 ${
+                                  isRed ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
+                                }`}
+                              >
+                                🔐 Autorizar
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* MODAL SOLICITUD RÁPIDA DE TRASLADO DESDE POS */}
+                  <Dialog open={isQuickTransferOpen} onOpenChange={setIsQuickTransferOpen}>
+                    <DialogContent className="sm:max-w-md rounded-2xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-sm font-black flex items-center gap-2">
+                          🚚 Solicitar Traslado Rápido a Bodega
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                          Envía una solicitud inmediata a Logística → Traslados sin salir de Facturación.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-3 py-1">
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div>
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bodega Origen</Label>
+                            <Select value={qtOriginWh} onValueChange={setQtOriginWh}>
+                              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Origen..." /></SelectTrigger>
+                              <SelectContent>
+                                {warehouses.map(w => (
+                                  <SelectItem key={w.id} value={w.id} className="text-xs">{w.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bodega Destino</Label>
+                            <Select value={qtDestWh} onValueChange={setQtDestWh}>
+                              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Destino..." /></SelectTrigger>
+                              <SelectContent>
+                                {warehouses.map(w => (
+                                  <SelectItem key={w.id} value={w.id} className="text-xs">{w.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2.5">
+                          <div className="col-span-2">
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Producto (SKU)</Label>
+                            <Select value={qtSku} onValueChange={setQtSku}>
+                              <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Elegir producto..." /></SelectTrigger>
+                              <SelectContent className="max-h-56">
+                                {inventory.slice(0, 80).map(p => (
+                                  <SelectItem key={p.sku} value={p.sku} className="text-xs">
+                                    {p.sku} — {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cantidad</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={qtQty}
+                              onChange={e => setQtQty(e.target.value)}
+                              className="h-8 text-xs font-mono font-bold mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nota para Bodega (opc.)</Label>
+                          <Input
+                            value={qtNotes}
+                            onChange={e => setQtNotes(e.target.value)}
+                            placeholder="Ej. Cliente esperando en mostrador..."
+                            className="h-8 text-xs mt-1"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsQuickTransferOpen(false)} className="h-8 rounded-xl text-xs">
+                          Cancelar
+                        </Button>
+                        <Button
+                          type="button"
+                          disabled={sendingQuickTransfer}
+                          onClick={handleSubmitQuickTransfer}
+                          className="h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1"
+                        >
+                          {sendingQuickTransfer ? <Loader2 size={12} className="animate-spin" /> : null}
+                          Enviar Solicitud
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
 
@@ -3931,8 +4138,8 @@ export default function BillingPage() {
               </div>
             </div>
 
-            {/* Columna Derecha: Catálogo POS (Ancho: 7/12) */}
-            <div className="lg:col-span-7 space-y-6">
+            {/* Columna Derecha: Catálogo POS (Ancho: 7/12 en desktop, 100% en tablet) */}
+            <div className="xl:col-span-7 space-y-6">
               
               <div className="flex justify-between items-center flex-wrap gap-2">
                  <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Facturación Rápida (Caja)</h2>

@@ -67,6 +67,19 @@ const FRACTION_OPTIONS = [
   { label: '1/16', value: 0.0625, desc: '0.0625 (6.25%)' },
   { label: '1/32', value: 0.03125, desc: '0.03125 (3.1%)' },
   { label: '1/64', value: 0.015625, desc: '0.0156 (1.56%)' },
+  { label: '1/128', value: 0.0078125, desc: '0.0078 (0.78%)' },
+  { label: '1/256', value: 0.00390625, desc: '0.0039 (0.39%)' },
+];
+
+const TARGET_MEASURE_PRESETS = [
+  { label: '1 Gal', value: '1' },
+  { label: '1/2', value: '0.5' },
+  { label: '1/4', value: '0.25' },
+  { label: '1/8', value: '0.125' },
+  { label: '1/16', value: '0.0625' },
+  { label: '1/32', value: '0.03125' },
+  { label: '1/64', value: '0.015625' },
+  { label: '1/128', value: '0.0078125' },
 ];
 
 const LAYER_COLORS = [
@@ -426,19 +439,43 @@ export default function VisualProductionMixer({
         </div>
       </div>
 
-      {/* PIPELINE VISUAL DE 4 PASOS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
-        {/* PASO 1: SELECCIONAR INSUMO O LOTE ORIGEN */}
+      {/* PIPELINE VISUAL DE 4 PASOS (Responsive optimizado para Tablet 2x2 y Desktop 4 cols) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-4 items-stretch">
+        {/* PASO 1: MEDIDA A PRODUCIR + SELECCIONAR INSUMO O LOTE ORIGEN */}
         <Card className="border-border/70 bg-card rounded-2xl shadow-sm flex flex-col overflow-hidden">
           <CardHeader className="p-3.5 border-b border-border/60 bg-indigo-500/5">
             <CardTitle className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-              Paso 1 · Insumo o Lote Origen
+              Paso 1 · Medida e Insumo Origen
             </CardTitle>
             <CardDescription className="text-[11px]">
-              Elige los insumos base, aditivos o tintes a combinar.
+              Elige primero la medida a producir (ej. 1/16, 1/4, 1 Gal) y luego los insumos a combinar.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-3 flex-1 flex flex-col gap-2.5">
+            {/* Selector de Medida a Producir */}
+            <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/25 space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-300">
+                <span>Medida a producir</span>
+                <span className="font-mono">{targetBatchSize} ud/gal</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                {TARGET_MEASURE_PRESETS.map(m => (
+                  <button
+                    key={m.label}
+                    type="button"
+                    onClick={() => setTargetBatchSize(m.value)}
+                    className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all border ${
+                      Number(targetBatchSize) === Number(m.value)
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-background/80 border-border text-foreground hover:border-indigo-400'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
