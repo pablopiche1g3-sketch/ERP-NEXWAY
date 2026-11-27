@@ -64,6 +64,12 @@ import { postDoubleEntryJournal } from '@/lib/accounting-journal';
 import { resolveMatchingCreditNoteAlerts } from '@/lib/credit-note-alerts';
 import { loadProductCombos, type ProductCombo } from '@/lib/product-combos';
 import {
+  loadCrmPromotions,
+  evaluateCartPromotions,
+  type CrmPromotion,
+  type MatchedPromotion,
+} from '@/lib/crm-promotions';
+import {
   validateContribuyenteMH,
   calculateIvaRetention1Percent
 } from '@/lib/hacienda-sv-catalogs';
@@ -661,6 +667,9 @@ export default function BillingPage() {
   // Arqueo States (Flujo simplificado en 4 pasos: 1. Fondo Base, 2. Tarjetas/Otros, 3. Entrega Efectivo, 4. Validar y Cerrar)
   const [creditSearchTerm, setCreditSearchTerm] = useState('');
   const [productCombos, setProductCombos] = useState<ProductCombo[]>([]);
+  const [crmPromotions, setCrmPromotions] = useState<CrmPromotion[]>([]);
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
+  const [appliedPromoIds, setAppliedPromoIds] = useState<string[]>([]);
   const [isComboModalOpen, setIsComboModalOpen] = useState(false);
   const [selectedComboId, setSelectedComboId] = useState<string>('');
   const [comboCheckedSkus, setComboCheckedSkus] = useState<Record<string, boolean>>({});
@@ -724,7 +733,83 @@ export default function BillingPage() {
     loadProductCombos()
       .then(list => setProductCombos(list.filter(c => c.active)))
       .catch(() => {});
+    loadCrmPromotions()
+      .then(list => setCrmPromotions(list.filter(p => p.active)))
+      .catch(() => {});
   }, []);
+
+  const matchedPromotions = useMemo(() => {
+    const cartSum = cart.reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 0), 0);
+    return evaluateCartPromotions(cart, cartSum, crmPromotions);
+  }, [cart, crmPromotions]);
+
+  useEffect(() => {
+    if (cart.length === 0 && appliedPromoIds.length > 0) {
+      setAppliedPromoIds([]);
+    }
+  }, [cart.length, appliedPromoIds.length]);
+
+  const handleApplyPromotionToCart = (match: MatchedPromotion) => {
+    const promo = match.promotion;
+    if (appliedPromoIds.includes(promo.id)) {
+      toast({ title: 'Promoción ya aplicada', description: `"${promo.title}" ya fue aplicada a esta venta.` });
+      return;
+    }
+
+    if (promo.benefitType === 'PERCENT_DISCOUNT' && promo.discountPercent) {
+      const factor = Math.max(0, 1 - Number(promo.discountPercent) / 100);
+      setCart(prev =>
+        prev.map(it =>
+          match.matchedItemIds.includes(it.id)
+            ? {
+                ...it,
+                price: Number((it.price * factor).toFixed(2)),
+                name: it.name.includes('[PROMO') ? it.name : `${it.name} [PROMO -${promo.discountPercent}%]`,
+              }
+            : it
+        )
+      );
+    } else if (promo.benefitType === 'FIXED_DISCOUNT' && match.estimatedSavings > 0) {
+      const targetItems = cart.filter(it => match.matchedItemIds.includes(it.id));
+      const baseSum = targetItems.reduce((s, it) => s + it.price * it.quantity, 0);
+      if (baseSum > 0) {
+        const discountRatio = Math.min(0.99, match.estimatedSavings / baseSum);
+        setCart(prev =>
+          prev.map(it =>
+            match.matchedItemIds.includes(it.id)
+              ? {
+                  ...it,
+                  price: Number((it.price * (1 - discountRatio)).toFixed(2)),
+                  name: it.name.includes('[PROMO') ? it.name : `${it.name} [PROMO]`,
+                }
+              : it
+          )
+        );
+      }
+    } else {
+      // Regalo / Bonificación ($0.00)
+      setCart(prev => [
+        ...prev,
+        {
+          id: `promo_gift_${Date.now()}`,
+          sku: 'PROMO-BONIF',
+          name: `🎁 Bonificación: ${promo.giftDescription || promo.title}`,
+          price: 0,
+          quantity: 1,
+        },
+      ]);
+    }
+
+    setAppliedPromoIds(prev => [...prev, promo.id]);
+    setIsPromoModalOpen(false);
+    toast({
+      title: `🏷️ Promoción Aplicada: ${promo.title}`,
+      description:
+        match.estimatedSavings > 0
+          ? `Ahorro aplicado de $${match.estimatedSavings.toFixed(2)} en el carrito.`
+          : 'Se agregó el beneficio / bonificación al carrito.',
+    });
+  };
 
   const selectedComboObj = useMemo(
     () => productCombos.find(c => c.id === selectedComboId) || productCombos[0] || null,
@@ -3758,8 +3843,26 @@ export default function BillingPage() {
                         setIsComboModalOpen(true);
                       }}
                       className="h-6 px-2.5 rounded-full text-[10px] font-bold border-indigo-400/50 text-indigo-600 dark:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20"
+                      title="Agregar productos con complementos (desglose parcial)"
                     >
-                      🎁 Combos ({productCombos.length})
+                      🧩 Complementos ({productCombos.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        loadCrmPromotions().then(list => setCrmPromotions(list.filter(p => p.active))).catch(() => {});
+                        setIsPromoModalOpen(true);
+                      }}
+                      className={`h-6 px-2.5 rounded-full text-[10px] font-bold transition-all ${
+                        matchedPromotions.length > 0
+                          ? 'border-pink-500 text-white bg-pink-600 hover:bg-pink-700 animate-pulse'
+                          : 'border-pink-400/50 text-pink-600 dark:text-pink-300 bg-pink-500/10 hover:bg-pink-500/20'
+                      }`}
+                      title="Ver promociones CRM disponibles para esta venta"
+                    >
+                      🏷️ Promoción{matchedPromotions.length > 0 ? ` (${matchedPromotions.length} disp.)` : ''}
                     </Button>
                     <span className="bg-blue-500/10 dark:bg-[#5b5ef4]/20 text-blue-700 dark:text-[#7c7fff] border border-blue-200 dark:border-[#5b5ef4]/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">{docType}</span>
                   </div>
@@ -3804,6 +3907,82 @@ export default function BillingPage() {
                 </ScrollArea>
 
                 <div className="h-[1px] bg-slate-200 dark:bg-white/10 my-1" />
+
+                {/* MODAL PROMOCIONES DISPONIBLES (INTERPRETADAS POR IA EN CRM) */}
+                <Dialog open={isPromoModalOpen} onOpenChange={setIsPromoModalOpen}>
+                  <DialogContent className="sm:max-w-lg rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-sm font-black flex items-center gap-2">
+                        🏷️ Promociones Disponibles para Esta Venta (CRM IA)
+                      </DialogTitle>
+                      <DialogDescription className="text-xs">
+                        Detectamos automáticamente las promociones activas de CRM que califican para el carrito actual.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 py-1 max-h-[60vh] overflow-y-auto">
+                      {matchedPromotions.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">
+                            ✨ Califican para esta venta ({matchedPromotions.length})
+                          </div>
+                          {matchedPromotions.map(m => {
+                            const already = appliedPromoIds.includes(m.promotion.id);
+                            return (
+                              <div key={m.promotion.id} className="p-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 space-y-1.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <div className="text-xs font-black text-foreground">{m.promotion.title}</div>
+                                    <div className="text-[11px] text-muted-foreground">{m.promotion.description}</div>
+                                    <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
+                                      ✓ {m.matchReason}
+                                      {m.estimatedSavings > 0 ? ` · Ahorro: $${m.estimatedSavings.toFixed(2)}` : ''}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={already}
+                                    onClick={() => handleApplyPromotionToCart(m)}
+                                    className="h-8 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shrink-0"
+                                  >
+                                    {already ? 'Aplicada ✓' : 'Aplicar'}
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-xl border border-border bg-muted/20 text-center text-xs text-muted-foreground">
+                          {cart.length === 0
+                            ? 'Agrega productos al carrito para verificar si califican a una promoción.'
+                            : 'Esta venta aún no cumple condiciones de las promociones activas.'}
+                        </div>
+                      )}
+
+                      {crmPromotions.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-border">
+                          <div className="text-[10px] font-black uppercase text-muted-foreground">
+                            Todas las Promociones Vigentes en CRM ({crmPromotions.length})
+                          </div>
+                          {crmPromotions.map(p => (
+                            <div key={p.id} className="p-2.5 rounded-lg border border-border/60 bg-background/60 text-[11px]">
+                              <div className="font-bold text-foreground">{p.title}</div>
+                              <div className="text-muted-foreground">{p.description}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsPromoModalOpen(false)} className="h-9 rounded-xl text-xs">
+                        Cerrar
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 {/* MODAL COMBOS DE PRODUCTOS CON DESGLOSE PARCIAL */}
                 <Dialog open={isComboModalOpen} onOpenChange={setIsComboModalOpen}>

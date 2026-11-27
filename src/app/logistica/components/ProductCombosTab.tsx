@@ -176,10 +176,10 @@ export default function ProductCombosTab() {
         <CardHeader className="p-5 border-b border-border">
           <CardTitle className="text-sm font-black flex items-center gap-2">
             <Gift size={16} className="text-indigo-600" />
-            {editingId ? 'Editar Combo de Productos' : 'Crear Combo / Kit de Productos'}
+            {editingId ? 'Editar Kit de Complementos' : 'Crear Kit / Producto con Complementos'}
           </CardTitle>
           <CardDescription className="text-xs">
-            Agrupa productos con precio especial de combo. En Facturación POS se desglosan automáticamente y puedes quitar componentes para facturarlo parcial.
+            Agrupa productos que llevan complementos (ej. pintura + catalizador/diluyente). En Facturación POS se desglosan automáticamente y puedes quitar ítems para facturarlo parcial.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-5 space-y-4">

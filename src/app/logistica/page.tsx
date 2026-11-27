@@ -102,7 +102,7 @@ function LogisticaContent() {
               onClick={() => setInvSubView('combos')}
               className="rounded-xl text-xs h-8 font-bold gap-1.5"
             >
-              <Gift size={14} /> Combos de Productos
+              <Gift size={14} /> Complementos / Kits
             </Button>
           </div>
           {invSubView === 'catalogo' ? <InventoryTab /> : <ProductCombosTab />}
